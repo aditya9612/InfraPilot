@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
@@ -43,7 +43,8 @@ const QCInspectionPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // UI States
-    const [activeTab] = useState<"Inspection" | "Test Reports">("Inspection");
+    const location = useLocation();
+    const activeTab = location.pathname.includes("reports") ? "Test Reports" : "Inspection";
     const [filterStatus, setFilterStatus] = useState("All");
     const [filterType, setFilterType] = useState("All");
     const [searchTerm, setSearchTerm] = useState("");
@@ -60,6 +61,7 @@ const QCInspectionPage = () => {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [viewLoadingId, setViewLoadingId] = useState<number | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     // Selection States
     const [selectedQc, setSelectedQc] = useState<QcItem | null>(null);
@@ -265,6 +267,7 @@ const QCInspectionPage = () => {
     };
 
     const resetForm = () => {
+        setSelectedFile(null);
         setFormData({
             project_id: projectId || 92,
             task_id: null,
@@ -347,6 +350,24 @@ const QCInspectionPage = () => {
             }
         });
     }, [qcList, searchTerm, filterType, filterStatus, activeStatFilter, sortOrder]);
+
+    const breakdown = useMemo(() => {
+        const groups: Record<string, { total: number; passed: number; failed: number }> = {};
+        filteredList.forEach(q => {
+            if (!groups[q.test_type]) {
+                groups[q.test_type] = { total: 0, passed: 0, failed: 0 };
+            }
+            groups[q.test_type].total++;
+            if (q.status === "Pass") groups[q.test_type].passed++;
+            else groups[q.test_type].failed++;
+        });
+
+        return Object.entries(groups).map(([type, data]) => ({
+            type,
+            ...data,
+            passRate: Math.round((data.passed / data.total) * 100) + "%"
+        }));
+    }, [filteredList]);
 
     const paginatedList = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -447,6 +468,7 @@ const QCInspectionPage = () => {
                     </button>
                 </div>
 
+                {activeTab === "Inspection" && (
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -680,6 +702,56 @@ const QCInspectionPage = () => {
                         </div>
                     )}
                 </div>
+                )}
+
+                {activeTab === "Test Reports" && (
+                    <div className="space-y-10 font-inter">
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                            <div className="p-4 border-b border-slate-50 bg-white">
+                                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Test Protocol Breakdown</h3>
+                            </div>
+                            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+                                <table className="w-full text-left font-inter">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                            <th className="px-6 py-4">Test Protocol</th>
+                                            <th className="px-6 py-4 text-center">Sample Count</th>
+                                            <th className="px-6 py-4 text-center">Compliant</th>
+                                            <th className="px-6 py-4 text-center">Non-Compliant</th>
+                                            <th className="px-6 py-4 text-right">Velocity</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {breakdown.map((row, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                                <td className="px-6 py-4">
+                                                    <span className="text-sm font-bold text-slate-800">{row.type}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center text-sm font-medium text-slate-600">{row.total}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.passed}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.failed}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className="text-sm font-bold text-primary">{row.passRate}</span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {breakdown.length === 0 && (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                                    No test reports available
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </PageTransition>
 
             <Modal
@@ -723,6 +795,7 @@ const QCInspectionPage = () => {
                                         const file = e.target.files?.[0];
                                         if (file) {
                                             toast.success(`Selected: ${file.name}`);
+                                            setSelectedFile(file);
                                             setFormData({ ...formData, report_file: file.name });
                                         }
                                     }}
@@ -748,7 +821,10 @@ const QCInspectionPage = () => {
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => setFormData({ ...formData, report_file: "" })}
+                                        onClick={() => {
+                                            setSelectedFile(null);
+                                            setFormData({ ...formData, report_file: "" });
+                                        }}
                                         className="p-2 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600 font-inter"
                                     >
                                         <Trash2 className="w-4 h-4" />

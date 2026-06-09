@@ -266,7 +266,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         { label: "Material Receipt", path: "/engineer/material/receipt", icon: "package" },
         { label: "Material Consumption", path: "/engineer/material/consumption", icon: "tool" },
         { label: "Stock Summary", path: "/engineer/material/stock", icon: "database" },
-        { label: "Material History", path: "/engineer/material/history", icon: "history" },
       ],
     },
     { label: "Machinery & Equipment", path: "/engineer/machinery", icon: "tool" },

@@ -1,551 +1,335 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import Modal from "../../../components/common/Modal";
-import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import {
-  Activity,
-  Search,
-  RotateCcw
-  ,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  ChevronDown
+    Search, RotateCcw, ChevronLeft, ChevronRight,
+    ArrowRightLeft
 } from "lucide-react";
-import { materialService, type InventoryItem, type IssueType } from "../../../services/materialService";
+import { materialService, type InventoryItem, type TransferItem, type MaterialLog, type IssueType, type TransferStatus } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
 
-const ISSUE_TYPES = [
-  "SYSTEM",
-  "SITE",
-  "DAMAGE",
-  "LOSS",
-  "VENDOR",
-  "TRANSFER",
-  "ADJUSTMENT",
-  "PURCHASE"
-];
+type TabType = "Usage" | "Transfers" | "Transactions";
+const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"];
+const TRANSFER_STATUSES: TransferStatus[] = ["PENDING", "IN_TRANSIT", "DELIVERED", "CANCELLED"];
 
 const MaterialConsumptionPage = () => {
-  const formatINR = (amount: number | string | undefined | null) => {
-    if (amount === undefined || amount === null || isNaN(Number(amount))) return "₹0";
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(Number(amount));
-  };
+    const formatINR = (amount: number | string | undefined | null) => {
+        if (amount === undefined || amount === null || isNaN(Number(amount))) return "₹0";
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(Number(amount));
+    };
 
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [projectId, setProjectId] = useState<number | null>(null);
-  const [projectsList, setProjectsList] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
-  const [currentPageInv, setCurrentPageInv] = useState(1);
-  const [itemsPerPageInv, setItemsPerPageInv] = useState(10);
+    const [activeTab, setActiveTab] = useState<TabType>("Usage");
+    const [projectId, setProjectId] = useState<number>(1);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Interactive StatCard Filter
-  const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Stock" | "Value">("All");
+    // Data
+    const [inventory, setInventory] = useState<InventoryItem[]>([]);
+    const [transfers, setTransfers] = useState<TransferItem[]>([]);
+    const [transactions, setTransactions] = useState<MaterialLog[]>([]);
+    const [projectsList, setProjectsList] = useState<any[]>([]);
 
-  const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
-  const [materialsList, setMaterialsList] = useState<any[]>([]);
+    // Pagination & Filtering
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [searchTerm, setSearchTerm] = useState("");
 
-  const [usageData, setUsageData] = useState<{ quantity: number | string; project_id: number; issue_type: string }>({
-    quantity: "",
-    project_id: projectId || 1,
-    issue_type: "SITE"
-  });
+    // Modal States
+    const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+    const [isUpdateTransferOpen, setIsUpdateTransferOpen] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    if (!projectId) return;
-    setIsLoading(true);
-    try {
-      const [invList, realList] = await Promise.all([
-        materialService.getInventory(projectId),
-        materialService.listMaterials(projectId)
-      ]);
+    // Forms & Selected Items
+    const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
 
-      const realIds = new Set((realList || []).map(m => m.id));
-      const realNames = new Set((realList || []).map(m => m.material_name.toLowerCase()));
-
-      const filteredInv = (invList || []).filter(item =>
-        realNames.has(item.material_name.toLowerCase()) ||
-        realIds.has(item.material_id) ||
-        realIds.has(item.id)
-      );
-
-      setInventory(filteredInv);
-      setMaterialsList(realList || []);
-    } catch (error) {
-      toast.error("Failed to load consumption data");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    const userStr = localStorage.getItem("infrapilot_user");
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        const pId = user?.project_id || user?.user?.project_id;
-        if (pId) {
-          const finalPId = Number(pId);
-          setProjectId(finalPId);
-          setUsageData((prev) => ({ ...prev, project_id: finalPId }));
-        } else {
-          setProjectId(92);
-          setUsageData((prev) => ({ ...prev, project_id: 92 }));
+    useEffect(() => {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                const pId = user?.project_id || user?.user?.project_id;
+                if (pId) setProjectId(Number(pId));
+            } catch (e) { console.error(e); }
         }
-      } catch (e) {
-        console.error("Failed to resolve project ID", e);
-        setProjectId(92);
-      }
-    }
-  }, []);
+    }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await projectService.getProjects(100, 0);
-        const list = Array.isArray(res) ? res : (res.items || res.data || []);
-        setProjectsList(list);
-      } catch (err) {
-        console.error("Failed to fetch projects", err);
-      }
+    const handleProjectChange = (newProjectId: number) => {
+        setProjectId(newProjectId);
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                if (user.user) {
+                    user.user.project_id = newProjectId;
+                } else {
+                    user.project_id = newProjectId;
+                }
+                localStorage.setItem("infrapilot_user", JSON.stringify(user));
+            } catch (e) { }
+        }
     };
-    fetchProjects();
-  }, []);
+    const [selectedTransfer, setSelectedTransfer] = useState<TransferItem | null>(null);
 
-  const handleUsageSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedInventory) return;
-    setIsSubmitting(true);
-    try {
-      const targetMatId = selectedInventory.id ?? selectedInventory.material_id;
-      await materialService.recordUsage(targetMatId, {
-        quantity: Number(usageData.quantity),
-        project_id: Number(usageData.project_id),
-        issue_type: usageData.issue_type as IssueType
-      });
-      toast.success("Material usage recorded!");
-      setIsUsageModalOpen(false);
-      fetchData();
-    } catch (error) {
-      toast.error("Failed to record usage");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    const [usageForm, setUsageForm] = useState({ quantity: 0, project_id: projectId, issue_type: "SITE" });
+    const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; status: string; remarks: string }>>({ from_project_id: projectId, status: "PENDING" });
+    const [updateTransferForm, setUpdateTransferForm] = useState({ status: "DELIVERED" as TransferStatus, remarks: "" });
 
-  const stats = useMemo(() => {
-    return {
-      totalMaterials: inventory.length,
-      totalRemaining: inventory.reduce((acc, curr) => acc + (curr.remaining_stock || 0), 0),
-      totalValue: inventory.reduce((acc, curr) => acc + (curr.total_value || 0), 0),
+    // Fetch methods
+    const fetchInventory = async () => {
+        setIsLoading(true);
+        try { const data = await materialService.getProjectInventory(projectId); setInventory(data); }
+        catch (e) { toast.error("Failed to load inventory"); }
+        finally { setIsLoading(false); }
     };
-  }, [inventory]);
 
-  const filteredInventory = useMemo(() => {
-    let data = [...inventory];
+    const fetchTransfers = async () => {
+        setIsLoading(true);
+        try { const data = await materialService.listTransfers(0, 500); setTransfers(data.data); }
+        catch (e) { toast.error("Failed to load transfers"); }
+        finally { setIsLoading(false); }
+    };
 
-    // Apply StatCard Filter
-    if (activeStatFilter === "Stock") {
-      data = data.filter(i => i.remaining_stock > 0);
-    }
+    const fetchTransactions = async () => {
+        setIsLoading(true);
+        try { const data = await materialService.getProjectTransactions(projectId); setTransactions(data); }
+        catch (e) { toast.error("Failed to load transactions"); }
+        finally { setIsLoading(false); }
+    };
 
-    data = data.filter(i =>
-      searchTerm === "" ||
-      i.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(i.material_id).includes(searchTerm)
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const res = await projectService.getProjects(100, 0);
+                setProjectsList(Array.isArray(res) ? res : (res.items || res.data || []));
+            } catch (err) {}
+        };
+        fetchProjects();
+    }, []);
+
+    useEffect(() => {
+        setCurrentPage(1);
+        if (activeTab === "Usage") fetchInventory();
+        else if (activeTab === "Transfers") fetchTransfers();
+        else if (activeTab === "Transactions") fetchTransactions();
+    }, [activeTab, projectId]);
+
+    // Derived Data
+    const filteredInventory = useMemo(() => inventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [inventory, searchTerm]);
+    const paginatedInventory = useMemo(() => filteredInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredInventory, currentPage, itemsPerPage]);
+
+    const filteredTransfers = useMemo(() => transfers.filter(t => t.material?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || String(t.id).includes(searchTerm)), [transfers, searchTerm]);
+    const paginatedTransfers = useMemo(() => filteredTransfers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransfers, currentPage, itemsPerPage]);
+
+    const filteredTransactions = useMemo(() => transactions.filter(t => t.type.toLowerCase().includes(searchTerm.toLowerCase()) || t.issue_type.toLowerCase().includes(searchTerm.toLowerCase())), [transactions, searchTerm]);
+    const paginatedTransactions = useMemo(() => filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredTransactions, currentPage, itemsPerPage]);
+
+    const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+    const inputClasses = "w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 focus:ring-primary/20 focus:border-primary";
+
+    // Handlers
+    const handleUsageSubmit = async (e: React.FormEvent) => {
+        e.preventDefault(); if (!selectedInventory) return; setIsSubmitting(true);
+        try {
+            await materialService.recordUsage(selectedInventory.material_id, { ...usageForm, issue_type: usageForm.issue_type as IssueType });
+            toast.success("Usage recorded!"); setIsUsageModalOpen(false); fetchInventory();
+        } catch (e) { toast.error("Failed to record usage"); }
+        finally { setIsSubmitting(false); }
+    };
+
+    const handleTransferSubmit = async (e: React.FormEvent) => {
+        e.preventDefault(); setIsSubmitting(true);
+        try {
+            await materialService.createTransfer({ ...transferForm, from_project_id: projectId } as any);
+            toast.success("Transfer initiated!"); setIsTransferModalOpen(false); fetchTransfers();
+        } catch (e) { toast.error("Failed to create transfer"); }
+        finally { setIsSubmitting(false); }
+    };
+
+    const handleUpdateTransfer = async (e: React.FormEvent) => {
+        e.preventDefault(); if (!selectedTransfer) return; setIsSubmitting(true);
+        try {
+            await materialService.updateTransferStatus(selectedTransfer.id, updateTransferForm.status);
+            toast.success("Transfer updated!"); setIsUpdateTransferOpen(false); fetchTransfers();
+        } catch (e) { toast.error("Failed to update transfer"); }
+        finally { setIsSubmitting(false); }
+    };
+
+    const renderPagination = (total: number) => (
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
+            <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
+                    <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+                </select>
+            </div>
+            <div className="text-[11px] font-medium text-slate-500">
+                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total}
+            </div>
+            <div className="flex items-center gap-1.5">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
+                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(total / itemsPerPage), p + 1))} disabled={currentPage === Math.max(1, Math.ceil(total / itemsPerPage)) || total === 0} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+        </div>
     );
 
-    data.sort((a, b) => {
-      if (sortOrder === "latest") {
-        return Number(b.material_id) - Number(a.material_id);
-      } else {
-        return Number(a.material_id) - Number(b.material_id);
-      }
-    });
-
-    return data;
-  }, [inventory, searchTerm, activeStatFilter, sortOrder]);
-
-  const paginatedInventory = useMemo(() => {
-    const startIndex = (currentPageInv - 1) * itemsPerPageInv;
-    return filteredInventory.slice(startIndex, startIndex + itemsPerPageInv);
-  }, [filteredInventory, currentPageInv]);
-
-
-
-  useEffect(() => {
-    setCurrentPageInv(1);
-  }, [searchTerm, activeStatFilter, sortOrder]);
-
-  return (
-    <>
-      <Navbar title="Material Consumption" breadcrumb={["Engineer", "Logistics", "Material Consumption"]} />
-      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
-          <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Material Consumption</h1>
-            <p className="text-slate-500 text-sm">Track and manage project material usage across site locations.</p>
-          </div>
-          <div className="flex items-center gap-3 font-inter">
-            <button
-              onClick={fetchData}
-              className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
-              title="Sync Ledger"
-            >
-              <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-            <button
-              onClick={() => {
-                if (inventory.length > 0) {
-                  setSelectedInventory(inventory[0]);
-                  setUsageData({ quantity: "", project_id: "" as any, issue_type: "SITE" });
-                  setIsUsageModalOpen(true);
-                } else {
-                  toast.error("No materials available for usage");
-                }
-              }}
-              className="flex items-center gap-2 px-6 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 font-inter"
-            >
-              <Activity className="w-4 h-4" />
-              Usage Material
-            </button>
-          </div>
-        </div>
-
-        {/* Stats with Interactive Filtering */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
-          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Total Materials"
-              value={stats.totalMaterials.toString()}
-              sub="Inventory scope"
-              accent="text-blue-500" />
-          </div>
-          <div onClick={() => setActiveStatFilter("Stock")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Stock" ? "ring-2 ring-orange-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Remaining Stock"
-              value={stats.totalRemaining.toLocaleString()}
-              sub="Available on site"
-              accent="text-orange-500" />
-          </div>
-          <div onClick={() => setActiveStatFilter("Value")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Value" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Inventory Value"
-              value={formatINR(stats.totalValue)}
-              sub="Current valuation"
-              accent="text-emerald-500" />
-          </div>
-        </div>
-
-        {/* Consumption Registry Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-          <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-            <div className="relative flex-1 max-w-md font-inter">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                <Search className="w-4 h-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="Search by material name or ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
-              />
-            </div>
-            {activeStatFilter !== "All" && (
-              <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                <RotateCcw className="w-4 h-4" />
-              </button>
-            )}
-
-            <div className="relative flex items-center font-inter">
-              <div className="absolute left-3 text-slate-400 pointer-events-none">
-                <Clock className="w-4 h-4" />
-              </div>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-              >
-                <option value="latest">Latest First</option>
-                <option value="oldest">Oldest First</option>
-              </select>
-              <div className="absolute right-3 text-slate-400 pointer-events-none">
-                <ChevronDown className="w-4 h-4" />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-            <table className="w-full text-left font-inter min-w-[1000px]">
-              <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                  <th className="px-6 py-4 font-inter">material_name</th>
-                  <th className="px-6 py-4 font-inter text-center text-emerald-600">remaining_stock</th>
-                  <th className="px-6 py-4 font-inter">unit</th>
-                  <th className="px-6 py-4 font-inter text-right">avg_rate</th>
-                  <th className="px-6 py-4 font-inter text-right">total_value</th>
-                  <th className="px-6 py-4 font-inter text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 font-inter">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center font-inter">
-                      <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin font-inter mb-4" />
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing inventory...</p>
-                    </td>
-                  </tr>
-                ) : paginatedInventory.length > 0 ? (
-                  paginatedInventory.map((inv) => (
-                    <tr key={inv.material_id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                      <td className="px-6 py-4 font-inter">
-                        <div className="flex flex-col font-inter">
-                          <span className="text-sm font-bold text-slate-800 font-inter">{inv.material_name}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center font-inter">
-                        <span className={`text-sm font-bold font-inter ${inv.remaining_stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                          {inv.remaining_stock.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-xs font-bold text-slate-500 font-inter uppercase tracking-widest">{inv.unit}</td>
-                      <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-xs font-bold text-slate-500 font-inter">{formatINR(inv.avg_rate)}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-inter">
-                        <span className="text-sm font-bold text-slate-800 font-inter">{formatINR(inv.total_value)}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-inter">
-                        <button
-                          onClick={() => {
-                            setSelectedInventory(inv);
-                            setUsageData({ quantity: "", project_id: "" as any, issue_type: "SITE" });
-                            setIsUsageModalOpen(true);
-                          }}
-                          className="px-4 py-2 bg-slate-50 text-slate-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-slate-200 hover:border-rose-500 font-inter active:scale-95"
-                        >
-                          Usage Material
+    return (
+        <>
+            <Navbar title="Material Consumption" breadcrumb={["Engineer", "Material Management", "Consumption"]} />
+            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] flex flex-col pb-8">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Consumption & Logistics</h1>
+                        <p className="text-slate-500 text-sm">Manage usage, inter-project transfers, and log history</p>
+                    </div>
+                    {activeTab === "Transfers" && (
+                        <button onClick={() => { setTransferForm({ from_project_id: projectId, status: "PENDING" }); setIsTransferModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all active:scale-95">
+                            <ArrowRightLeft className="w-4 h-4" /> Initiate Transfer
                         </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
-                      No matching materials found in the inventory vault.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    )}
+                </div>
 
-          {/* Inventory Pagination */}
-          {filteredInventory.length > 0 && (
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-              {/* Left: Items per page */}
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                <select
-                  value={itemsPerPageInv}
-                  onChange={(e) => { setItemsPerPageInv(Number(e.target.value)); setCurrentPageInv(1); }}
-                  className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-              </div>
+                {/* Tabs & Project Filter */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit">
+                        {(["Usage", "Transfers", "Transactions"] as TabType[]).map(tab => (
+                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
 
-              {/* Center: Showing info */}
-              <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                Showing {(currentPageInv - 1) * itemsPerPageInv + 1} - {Math.min(currentPageInv * itemsPerPageInv, filteredInventory.length)} of {filteredInventory.length} records
-              </div>
+                    {/* Project Filter */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-500">Project:</span>
+                        <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
+                        </select>
+                    </div>
+                </div>
 
-              {/* Right: Pagination */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPageInv(prev => Math.max(1, prev - 1))}
-                  disabled={currentPageInv === 1}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
+                {/* Main Content Area */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-slate-50 flex items-center gap-4">
+                        <div className="relative flex-1 max-w-md">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
+                            <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                        </div>
+                        <button onClick={activeTab === "Usage" ? fetchInventory : activeTab === "Transfers" ? fetchTransfers : fetchTransactions} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                    </div>
+                    <div className="flex-1 overflow-auto scrollbar-thin">
+                        <table className="w-full text-left whitespace-nowrap">
+                            <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0 z-10">
+                                {activeTab === "Usage" && (
+                                    <tr>
+                                        <th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th>
+                                        <th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th><th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                )}
+                                {activeTab === "Transfers" && (
+                                    <tr>
+                                        <th className="px-6 py-4">Material</th>
+                                        <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Transfer Date</th><th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                )}
+                                {activeTab === "Transactions" && (
+                                    <tr>
+                                        <th className="px-6 py-4">Date</th><th className="px-6 py-4">Type</th><th className="px-6 py-4">Material</th><th className="px-6 py-4 text-center">Qty</th>
+                                        <th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Amount</th><th className="px-6 py-4">Issue Type</th>
+                                    </tr>
+                                )}
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {isLoading ? <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading...</td></tr> :
+                                    activeTab === "Usage" ? paginatedInventory.map(i => (
+                                        <tr key={i.material_id} className="hover:bg-slate-50/50">
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.avg_rate)}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button onClick={() => { setSelectedInventory(i); setUsageForm({ quantity: 0, project_id: projectId, issue_type: "SITE" }); setIsUsageModalOpen(true); }} className="px-4 py-2 bg-rose-50 text-rose-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Record Usage</button>
+                                            </td>
+                                        </tr>
+                                    )) : activeTab === "Transfers" ? paginatedTransfers.map(t => (
+                                        <tr key={t.id} className="hover:bg-slate-50/50">
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material?.name}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{t.quantity}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${t.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : t.status === 'IN_TRANSIT' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{t.status}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at || Date.now()).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update Status</button>
+                                            </td>
+                                        </tr>
+                                    )) : paginatedTransactions.map((t, idx) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50">
+                                            <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at).toLocaleString()}</td>
+                                            <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-[9px] font-bold ${t.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{t.type}</span></td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material_name || `Mat-${t.material_id}`}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-center">{t.quantity}</td>
+                                            <td className="px-6 py-4 text-sm text-right">{formatINR(t.rate)}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-right">{formatINR(t.total_amount)}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">{t.issue_type}</td>
+                                        </tr>
+                                    ))
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    {renderPagination(activeTab === "Usage" ? filteredInventory.length : activeTab === "Transfers" ? filteredTransfers.length : filteredTransactions.length)}
+                </div>
+            </PageTransition>
 
-                {(() => {
-                  const totalItems = filteredInventory.length;
-                  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPageInv));
-                  const pages = [];
-                  if (totalPages <= 5) {
-                    for (let i = 1; i <= totalPages; i++) pages.push(i);
-                  } else {
-                    if (currentPageInv <= 3) {
-                      pages.push(1, 2, 3, 4, '...', totalPages);
-                    } else if (currentPageInv >= totalPages - 2) {
-                      pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                    } else {
-                      pages.push(1, '...', currentPageInv - 1, currentPageInv, currentPageInv + 1, '...', totalPages);
-                    }
-                  }
+            {/* Modals */}
+            {/* Usage Modal */}
+            <Modal isOpen={isUsageModalOpen} onClose={() => setIsUsageModalOpen(false)} title="Record Material Usage" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsUsageModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="usage-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-rose-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Syncing..." : "Add Usage"}</button></>}>
+                <form id="usage-form" onSubmit={handleUsageSubmit} className="space-y-6">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Usage Details</h3>
+                        <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 mb-4"><p className="text-sm font-bold text-rose-800">{selectedInventory?.material_name}</p><p className="text-xs text-rose-600">Available: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className={labelClasses}>Project *</label><select required value={usageForm.project_id} onChange={e => setUsageForm({ ...usageForm, project_id: Number(e.target.value) })} className={inputClasses}>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={usageForm.quantity || ""} onChange={e => setUsageForm({ ...usageForm, quantity: Number(e.target.value) })} className={inputClasses} max={selectedInventory?.remaining_stock} /></div>
+                            <div><label className={labelClasses}>Issue Type *</label><select required value={usageForm.issue_type} onChange={e => setUsageForm({ ...usageForm, issue_type: e.target.value })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                        </div>
+                    </div>
+                </form>
+            </Modal>
 
-                  return pages.map((page, index) => {
-                    if (page === '...') {
-                      return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                    }
-                    const pageNum = page as number;
-                    const isActive = currentPageInv === pageNum;
-                    return (
-                      <button
-                        key={`page-${pageNum}`}
-                        onClick={() => setCurrentPageInv(pageNum)}
-                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                          }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  });
-                })()}
+            {/* Create Transfer Modal */}
+            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Initiate Transfer" maxWidth="max-w-2xl" footer={<><button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Processing..." : "Create Transfer"}</button></>}>
+                <form id="transfer-form" onSubmit={handleTransferSubmit} className="space-y-6">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Transfer Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className={labelClasses}>Material ID *</label><input type="number" required value={transferForm.material_id || ""} onChange={e => setTransferForm({ ...transferForm, material_id: Number(e.target.value) })} className={inputClasses} placeholder="e.g. 1" /></div>
+                            <div><label className={labelClasses}>To Project *</label><select required value={transferForm.to_project_id || ""} onChange={e => setTransferForm({ ...transferForm, to_project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Destination</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={transferForm.quantity || ""} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Status *</label><select required value={transferForm.status} onChange={e => setTransferForm({ ...transferForm, status: e.target.value as TransferStatus })} className={inputClasses}>{TRANSFER_STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
+                            <div className="md:col-span-2"><label className={labelClasses}>Remarks</label><textarea value={transferForm.remarks || ""} onChange={e => setTransferForm({ ...transferForm, remarks: e.target.value })} className={inputClasses} rows={2} /></div>
+                        </div>
+                    </div>
+                </form>
+            </Modal>
 
-                <button
-                  onClick={() => setCurrentPageInv(prev => Math.min(Math.ceil(filteredInventory.length / itemsPerPageInv), prev + 1))}
-                  disabled={currentPageInv === Math.max(1, Math.ceil(filteredInventory.length / itemsPerPageInv)) || filteredInventory.length === 0}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-      </PageTransition>
-
-      {/* Record Usage Modal */}
-      <Modal
-        isOpen={isUsageModalOpen}
-        onClose={() => setIsUsageModalOpen(false)}
-        title="Material Usage"
-        maxWidth="max-w-md"
-        footer={
-          <div className="flex justify-end gap-3 px-6 pb-6 font-inter">
-            <button
-              onClick={() => setIsUsageModalOpen(false)}
-              className="px-6 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={isSubmitting}
-              onClick={handleUsageSubmit}
-              className="px-6 py-2.5 bg-rose-500 text-white rounded-xl font-bold uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
-            >
-              {isSubmitting ? "SYNCING..." : "ADD USAGE"}
-            </button>
-          </div>
-        }
-      >
-        <form id="usage-material-form" onSubmit={handleUsageSubmit} className="space-y-6">
-          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-              Disbursement Details
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="font-inter md:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Project <span className="text-rose-500">*</span></label>
-                <select
-                  required
-                  value={usageData.project_id}
-                  onChange={(e) => setUsageData({ ...usageData, project_id: Number(e.target.value) })}
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
-                >
-                  <option value="">Select Project</option>
-                  {projectsList.map(p => (
-                    <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="font-inter md:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Material <span className="text-rose-500">*</span></label>
-                <select
-                  required
-                  value={selectedInventory?.material_id || ""}
-                  onChange={(e) => {
-                    const targetId = Number(e.target.value);
-                    const matchedInv = inventory.find(inv => inv.material_id === targetId || inv.id === targetId);
-                    if (matchedInv) {
-                      setSelectedInventory(matchedInv);
-                    } else {
-                      const matchedMat = materialsList.find(m => m.id === targetId);
-                      setSelectedInventory({
-                        id: targetId,
-                        material_id: targetId,
-                        material_name: matchedMat?.material_name || "",
-                        remaining_stock: 0,
-                        unit: matchedMat?.unit || "Bags",
-                        avg_rate: matchedMat?.purchase_rate || 0,
-                        total_value: 0
-                      } as InventoryItem);
-                    }
-                  }}
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
-                >
-                  <option value="">Select Material</option>
-                  {materialsList.map(mat => (
-                    <option key={mat.id} value={mat.id}>
-                      {mat.material_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="font-inter">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Quantity <span className="text-rose-500">*</span></label>
-                <input
-                  required
-                  type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }}
-                  value={usageData.quantity}
-                  onChange={(e) => setUsageData({ ...usageData, quantity: e.target.value === "" ? "" : Number(e.target.value) })}
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
-                  placeholder="30"
-                />
-              </div>
-              <div className="font-inter">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter">Issue Type <span className="text-rose-500">*</span></label>
-                <select
-                  required
-                  value={usageData.issue_type}
-                  onChange={(e) => setUsageData({ ...usageData, issue_type: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:ring-primary/20 focus:border-primary font-inter"
-                >
-                  {ISSUE_TYPES.map(i => <option key={i} value={i}>{i}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-        </form>
-      </Modal>
-    </>
-  );
+            {/* Update Transfer Modal */}
+            <Modal isOpen={isUpdateTransferOpen} onClose={() => setIsUpdateTransferOpen(false)} title="Update Transfer Status" maxWidth="max-w-xl" footer={<><button type="button" onClick={() => setIsUpdateTransferOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">Cancel</button><button form="update-transfer-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">{isSubmitting ? "Updating..." : "Update"}</button></>}>
+                <form id="update-transfer-form" onSubmit={handleUpdateTransfer} className="space-y-6">
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Status Details</h3>
+                        <div className="space-y-4">
+                            <div><label className={labelClasses}>Status *</label><select required value={updateTransferForm.status} onChange={e => setUpdateTransferForm({ ...updateTransferForm, status: e.target.value as TransferStatus })} className={inputClasses}>{TRANSFER_STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
+                            <div><label className={labelClasses}>Remarks</label><textarea value={updateTransferForm.remarks} onChange={e => setUpdateTransferForm({ ...updateTransferForm, remarks: e.target.value })} className={inputClasses} rows={3} /></div>
+                        </div>
+                    </div>
+                </form>
+            </Modal>
+        </>
+    );
 };
 
 export default MaterialConsumptionPage;

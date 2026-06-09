@@ -1,85 +1,318 @@
 import api from './api';
-import type {
-  EquipmentItem,
-  EquipmentResponse,
-  CreateEquipmentRequest,
-  UpdateEquipmentRequest
-} from '../types/equipment';
+
+export interface EquipmentItem {
+    id: number;
+    project_id: number;
+    equipment_name: string;
+    equipment_code: string;
+    operator_name: string;
+    working_hours: number;
+    fuel_used: number;
+    condition: string;
+    rental_cost: number;
+    maintenance_date: string;
+    is_deleted: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface EquipmentResponse {
+    items: EquipmentItem[];
+    meta: { total: number; limit: number; offset: number };
+}
+
+export interface UsageItem {
+    id: number;
+    equipment_id: number;
+    working_hours: number;
+    fuel_used: number;
+    usage_date: string;
+    notes: string;
+    created_at: string;
+}
+
+export interface MaintenanceItem {
+    id: number;
+    equipment_id: number;
+    description: string;
+    maintenance_date: string;
+    cost: number;
+    next_maintenance_date: string;
+    created_at: string;
+    status: string;
+}
+
+export interface RentalItem {
+    id: number;
+    equipment_id: number;
+    start_date: string;
+    end_date: string;
+    rental_cost: number;
+    client_name: string;
+    notes: string;
+    status: string;
+    duration: number;
+    per_day_cost: number;
+    created_at: string;
+}
+
+export interface AllocationStatus {
+    equipment_id: number;
+    project_id: number | null;
+    allocated: boolean;
+}
+
+export interface MaintenanceAlert {
+    equipment_id: number;
+    equipment_code: string;
+    maintenance_date: string;
+    days_until: number;
+    status: string;
+}
+
+export interface EquipmentAlert {
+    equipment_id: number;
+    equipment_code: string;
+    equipment_name: string;
+    project_id: number | null;
+    issues: { type: string; severity: string; current_hours: number; limit: number }[];
+    recommendation: string;
+}
+
+export interface UsageReport {
+    equipment_id: number;
+    equipment_code: string;
+    total_hours: number;
+    total_fuel: number;
+    avg_hours: number;
+    usage_count: number;
+}
+
+export interface CostReport {
+    equipment_id: number;
+    equipment_code: string;
+    total_cost: number;
+    rental_count: number;
+    avg_cost: number;
+    total_days: number;
+    revenue_per_day: number;
+}
+
+export interface UtilizationReport {
+    equipment_id: number;
+    equipment_code: string;
+    total_hours: number;
+    utilization_rate: number;
+}
+
+export interface AvailabilityReport {
+    equipment_id: number;
+    equipment_code: string;
+    equipment_name: string;
+    is_available: boolean;
+    project_id: number | null;
+}
+
+export interface AuditLog {
+    id: number;
+    equipment_id: number;
+    action: string;
+    old_values: Record<string, any> | null;
+    new_values: Record<string, any> | null;
+    user_id: number | null;
+    ip_address: string | null;
+    created_at: string;
+}
+
+export interface AuditLogResponse {
+    items: AuditLog[];
+    meta: { total: number; limit: number; offset: number };
+}
+
+export interface CreateEquipmentRequest {
+    project_id?: number | null;
+    equipment_name: string;
+    equipment_code: string;
+    operator_name: string;
+    working_hours: number;
+    fuel_used: number;
+    condition: string;
+    rental_cost: number;
+    maintenance_date: string;
+}
 
 export const equipmentService = {
-  /**
-   * Get list of equipment
-   * GET /api/v1/equipment
-   */
-  async getEquipment(projectId?: number | string, limit: number = 100, offset: number = 0) {
-    const params: any = { limit, offset };
-    if (projectId && Number(projectId) > 0) {
-      params.project_id = Number(projectId);
+    // ==========================================
+    // 1. CRUD Equipment
+    // ==========================================
+    async listEquipment(params?: { limit?: number; project_id?: number }): Promise<EquipmentResponse> {
+        const response = await api.get<EquipmentResponse>('/equipment', { params });
+        return response.data;
+    },
+
+    async getEquipment(id: number): Promise<EquipmentItem> {
+        const response = await api.get<EquipmentItem>(`/equipment/${id}`);
+        return response.data;
+    },
+
+    async createEquipment(data: CreateEquipmentRequest): Promise<EquipmentItem> {
+        const response = await api.post<EquipmentItem>('/equipment', data);
+        return response.data;
+    },
+
+    async updateEquipment(id: number, data: Partial<CreateEquipmentRequest>): Promise<EquipmentItem> {
+        const response = await api.put<EquipmentItem>(`/equipment/${id}`, data);
+        return response.data;
+    },
+
+    async deleteEquipment(id: number): Promise<void> {
+        await api.delete(`/equipment/${id}`);
+    },
+
+    // ==========================================
+    // 2. Allocation
+    // ==========================================
+    async allocateEquipment(id: number, project_id: number, allocated: boolean = true): Promise<AllocationStatus> {
+        const response = await api.post<AllocationStatus>(`/equipment/${id}/allocate?project_id=${project_id}`, { 
+            equipment_id: id,
+            project_id: project_id,
+            allocated: allocated 
+        });
+        return response.data;
+    },
+
+    async getAllocation(id: number): Promise<AllocationStatus> {
+        const response = await api.get<AllocationStatus>(`/equipment/${id}/allocation`);
+        return response.data;
+    },
+
+    async deallocateEquipment(id: number): Promise<AllocationStatus> {
+        const response = await api.put<AllocationStatus>(`/equipment/${id}/deallocate`);
+        return response.data;
+    },
+
+    // ==========================================
+    // 3. Usage
+    // ==========================================
+    async createUsage(equipment_id: number, data: { working_hours: number, fuel_used: number, usage_date: string, notes?: string }): Promise<UsageItem> {
+        const payload = {
+            working_hours: data.working_hours,
+            fuel_used: data.fuel_used,
+            usage_date: data.usage_date,
+            notes: data.notes
+        };
+        const response = await api.post<UsageItem>(`/equipment/${equipment_id}/usage`, payload);
+        return response.data;
+    },
+
+    async listUsage(equipment_id: number): Promise<UsageItem[]> {
+        const response = await api.get<UsageItem[]>(`/equipment/${equipment_id}/usage`);
+        return response.data;
+    },
+
+    async getUsageReport(): Promise<UsageReport[]> {
+        const response = await api.get<UsageReport[]>('/equipment/usage/report');
+        return response.data;
+    },
+
+    // ==========================================
+    // 4. Maintenance
+    // ==========================================
+    async createMaintenance(equipment_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string }): Promise<MaintenanceItem> {
+        const payload = {
+            description: data.description,
+            maintenance_date: data.maintenance_date,
+            cost: data.cost,
+            next_maintenance_date: data.next_maintenance_date
+        };
+        const response = await api.post<MaintenanceItem>(`/equipment/${equipment_id}/maintenance`, payload);
+        return response.data;
+    },
+
+    async listMaintenance(equipment_id: number): Promise<MaintenanceItem[]> {
+        const response = await api.get<MaintenanceItem[]>(`/equipment/${equipment_id}/maintenance`);
+        return response.data;
+    },
+
+    // ==========================================
+    // 5. Rental
+    // ==========================================
+    async createRental(equipment_id: number, data: { start_date: string, end_date: string, rental_cost: number, client_name: string, notes?: string }): Promise<RentalItem> {
+        const payload = {
+            start_date: data.start_date,
+            end_date: data.end_date,
+            rental_cost: data.rental_cost,
+            client_name: data.client_name,
+            notes: data.notes
+        };
+        const response = await api.post<RentalItem>(`/equipment/${equipment_id}/rental`, payload);
+        return response.data;
+    },
+
+    async listRental(equipment_id: number): Promise<RentalItem[]> {
+        const response = await api.get<RentalItem[]>(`/equipment/${equipment_id}/rental`);
+        return response.data;
+    },
+
+    async getCostReport(): Promise<CostReport[]> {
+        const response = await api.get<CostReport[]>('/equipment/cost/report');
+        return response.data;
+    },
+
+    // ==========================================
+    // 6. Reports & Alerts
+    // ==========================================
+    async getUtilizationReport(): Promise<UtilizationReport[]> {
+        const response = await api.get<UtilizationReport[]>('/equipment/report/utilization');
+        return response.data;
+    },
+
+    async getAvailabilityReport(): Promise<AvailabilityReport[]> {
+        const response = await api.get<AvailabilityReport[]>('/equipment/eq/availability');
+        return response.data;
+    },
+
+    async getMaintenanceAlerts(): Promise<MaintenanceAlert[]> {
+        const response = await api.get<MaintenanceAlert[]>('/equipment/alerts/maintenance');
+        return response.data;
+    },
+
+    async getEquipmentAlerts(): Promise<EquipmentAlert[]> {
+        const response = await api.get<EquipmentAlert[]>('/equipment/alerts/equipment');
+        return response.data;
+    },
+
+    // ==========================================
+    // 7. Audit Logs & Exports
+    // ==========================================
+    async getAuditLogs(equipment_id: number): Promise<AuditLogResponse> {
+        const response = await api.get<AuditLogResponse>(`/equipment/${equipment_id}/logs`);
+        return response.data;
+    },
+
+    async exportPdf(): Promise<void> {
+        const response = await api.get('/equipment/reports/pdf', { responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([response.data as any]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'equipment_report.pdf');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    },
+
+    async exportExcel(): Promise<void> {
+        const response = await api.get('/equipment/reports/excel', { responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([response.data as any]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'equipment_report.xlsx');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
     }
-    const response = await api.get<EquipmentResponse>('/equipment', { params });
-    // In case the backend just returns an array, wrap it in the expected format:
-    if (Array.isArray(response.data)) {
-      return {
-        items: response.data,
-        meta: { total: response.data.length, limit, offset }
-      };
-    }
-    return response.data;
-  },
-
-  /**
-   * Create new equipment
-   * POST /api/v1/equipment
-   */
-  async createEquipment(data: CreateEquipmentRequest) {
-    const response = await api.post<EquipmentItem>('/equipment', data);
-    return response.data;
-  },
-
-  /**
-   * Get single equipment by ID
-   * GET /api/v1/equipment/{equipment_id}
-   */
-  async getEquipmentById(id: number) {
-    const response = await api.get<EquipmentItem>(`/equipment/${id}`);
-    return response.data;
-  },
-
-  /**
-   * Update an existing equipment
-   * PUT /api/v1/equipment/{equipment_id}
-   */
-  async updateEquipment(id: number, data: UpdateEquipmentRequest) {
-    const response = await api.put<EquipmentItem>(`/equipment/${id}`, data);
-    return response.data;
-  },
-
-  /**
-   * Delete an equipment
-   * DELETE /api/v1/equipment/{equipment_id}
-   */
-  async deleteEquipment(id: number) {
-    const response = await api.delete(`/equipment/${id}`);
-    return response.data;
-  },
-
-  /**
-   * Get maintenance alerts
-   * GET /api/v1/equipment/alerts/maintenance
-   */
-  async getMaintenanceAlerts() {
-    const response = await api.get('/equipment/alerts/maintenance');
-    return response.data;
-  },
-
-  /**
-   * Get equipment alerts (issues like overused)
-   * GET /api/v1/equipment/alerts/equipment
-   */
-  async getEquipmentAlerts() {
-    const response = await api.get('/equipment/alerts/equipment');
-    return response.data;
-  }
 };
 
 export default equipmentService;

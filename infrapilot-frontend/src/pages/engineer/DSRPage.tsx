@@ -22,12 +22,14 @@ import {
     FileDown,
     ChevronLeft,
     ChevronRight,
-    CheckCircle
+    CheckCircle,
+    Trash2
 } from "lucide-react";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
 import { dsrService } from "../../services/dsrService";
 import { sitePhotoService } from "../../services/sitePhotoService";
-import type { DsrItem, CreateDsrRequest, UpdateDsrRequest } from "../../types/dsr";
+import type { DsrItem, LabourTrend, ContractorAnalytics, IssueAnalytics } from "../../types/dsr";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const statusBadge: Record<string, string> = {
@@ -59,6 +61,14 @@ const DSRPage = () => {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [selectedDsr, setSelectedDsr] = useState<DsrItem | null>(null);
     const [loadingId, setLoadingId] = useState<number | null>(null);
+
+    // Layout State
+    const [activeTab, setActiveTab] = useState<"list" | "analytics">("list");
+
+    // Analytics State
+    const [labourTrend, setLabourTrend] = useState<LabourTrend[]>([]);
+    const [contractorAnalytics, setContractorAnalytics] = useState<ContractorAnalytics[]>([]);
+    const [issueAnalytics, setIssueAnalytics] = useState<IssueAnalytics | null>(null);
 
     const resolveProjectId = useCallback(() => {
         try {
@@ -134,6 +144,26 @@ const DSRPage = () => {
         fetchDsr();
     }, [fetchDsr]);
 
+    const fetchAnalytics = useCallback(async () => {
+        if (!projectId) return;
+        try {
+            const [labour, contractor, issues] = await Promise.all([
+                dsrService.getLabourTrend(projectId).catch(() => []),
+                dsrService.getContractorAnalytics(projectId).catch(() => []),
+                dsrService.getIssueAnalytics(projectId).catch(() => null)
+            ]);
+            setLabourTrend(labour);
+            setContractorAnalytics(contractor);
+            setIssueAnalytics(issues);
+        } catch (e) {
+            console.error("Failed to fetch analytics", e);
+        }
+    }, [projectId]);
+
+    useEffect(() => {
+        fetchAnalytics();
+    }, [fetchAnalytics]);
+
     const handleView = async (id: number) => {
         setLoadingId(id);
         try {
@@ -204,40 +234,23 @@ const DSRPage = () => {
         }
     };
 
-    const handleCreate = async (data: CreateDsrRequest) => {
-        try {
-            const payload = { ...data, project_id: projectId || 0 };
-            const created = await dsrService.createDsr(payload);
-            toast.success("DSR submitted successfully!");
-            setIsCreateOpen(false);
 
-            if (created) {
-                const normalizedCreated = {
-                    ...created,
-                    photos: created.photos || []
-                };
-                setDsrList(prev => [normalizedCreated, ...prev]);
+
+    const handleDeletePhoto = async (photoId: number) => {
+        if (!window.confirm("Are you sure you want to delete this photo?")) return;
+        const tid = toast.loading("Deleting photo...");
+        try {
+            await dsrService.deleteDsrPhoto(photoId);
+            toast.success("Photo deleted successfully", { id: tid });
+            
+            if (selectedDsr && selectedDsr.photos) {
+                const updatedPhotos = selectedDsr.photos.filter((p: any) => p.id !== photoId);
+                setSelectedDsr({ ...selectedDsr, photos: updatedPhotos });
             }
-
-            // Small delay to allow backend persistence if needed, though usually not necessary
-            setTimeout(() => {
-                fetchDsr();
-            }, 500);
-        } catch (error) {
-            console.error("DSR Creation Failed:", error);
-            toast.error("Failed to submit DSR. Please check all fields.");
-        }
-    };
-
-    const handleUpdate = async (id: number, data: UpdateDsrRequest) => {
-        try {
-            const updatedDsr = await dsrService.updateDsr(id, data);
-            toast.success("DSR updated successfully!");
-            setDsrList(prev => prev.map(item => item.id === id ? { ...item, ...updatedDsr } : item));
             fetchDsr();
-            setIsEditOpen(false);
         } catch (error) {
-            toast.error("Failed to update DSR");
+            console.error("Delete photo error", error);
+            toast.error("Failed to delete photo", { id: tid });
         }
     };
 
@@ -262,14 +275,14 @@ const DSRPage = () => {
         } else if (activeStatFilter === "Submitted") {
             data = data.filter(d => d.status === "Submitted");
         } else if (activeStatFilter === "Approved") {
-            data = data.filter(d => d.status === "Approved");
+            data = data.filter(d => d.status === "Approved" || d.status === "Verified");
         }
 
         return data.filter(dsr => {
             const matchesSearch = dsr.work_done.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (dsr.business_id && dsr.business_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 dsr.site_location.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = statusFilter === "All" || dsr.status === statusFilter;
+            const matchesStatus = statusFilter === "All" || dsr.status === statusFilter || (statusFilter === "Approved" && dsr.status === "Verified");
             return matchesSearch && matchesStatus;
         });
     }, [dsrList, searchTerm, statusFilter, activeStatFilter]);
@@ -278,7 +291,7 @@ const DSRPage = () => {
         const total = totalItems;
         const draftCount = dsrList.filter(d => d.status === "Draft").length;
         const submittedCount = dsrList.filter(d => d.status === "Submitted").length;
-        const approvedCount = dsrList.filter(d => d.status === "Approved").length;
+        const approvedCount = dsrList.filter(d => d.status === "Approved" || d.status === "Verified").length;
         const totalLabour = dsrList.reduce((sum, d) => sum + (d.total_labour || 0), 0);
 
         return {
@@ -328,7 +341,7 @@ const DSRPage = () => {
                                         }
                                     });
                             }}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95 font-inter"
                         >
                             <FileDown className="w-4 h-4" />
                             Export
@@ -375,7 +388,113 @@ const DSRPage = () => {
                     </div>
                 </div>
 
-                {/* ── Filter Bar & Registry Container ───────────────────────────────────────────── */}
+                {/* ── Tabs ───────────────────────────────────────────── */}
+                <div className="flex items-center gap-6 border-b border-slate-200 mb-6 px-2">
+                    <button
+                        onClick={() => setActiveTab("list")}
+                        className={`pb-3 text-sm font-bold transition-all relative ${
+                            activeTab === "list" 
+                            ? "text-primary border-b-2 border-primary" 
+                            : "text-slate-500 hover:text-slate-800"
+                        }`}
+                    >
+                        DSR Ledger
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("analytics")}
+                        className={`pb-3 text-sm font-bold transition-all relative ${
+                            activeTab === "analytics" 
+                            ? "text-primary border-b-2 border-primary" 
+                            : "text-slate-500 hover:text-slate-800"
+                        }`}
+                    >
+                        Analytics Dashboard
+                    </button>
+                </div>
+
+                {/* ── Tab Content ───────────────────────────────────────────── */}
+                
+                {activeTab === "analytics" && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    {/* Labour Trend Graph */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-primary" />
+                            Labour Trend
+                        </h3>
+                        {labourTrend.length > 0 ? (
+                            <div className="h-48 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={labourTrend}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                        <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                        <Line type="monotone" dataKey="labour" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 6 }} name="Labour Count" />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Labour Data</p>
+                        )}
+                    </div>
+
+                    {/* Contractor Analytics Graph */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <Briefcase className="w-4 h-4 text-emerald-500" />
+                            Contractor Performance
+                        </h3>
+                        {contractorAnalytics.length > 0 ? (
+                            <div className="h-48 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={contractorAnalytics} layout="vertical" margin={{ left: 20 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                                        <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                        <YAxis type="category" dataKey="contractor" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} width={80} />
+                                        <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                        <Bar dataKey="entries" fill="#10b981" radius={[0, 4, 4, 0]} name="Entries" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Contractor Data</p>
+                        )}
+                    </div>
+
+                    {/* Issue Analytics */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-rose-500" />
+                            Issue Analytics
+                        </h3>
+                        {issueAnalytics ? (
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 flex flex-col items-center justify-center text-center">
+                                    <span className="text-2xl font-black text-rose-600">{issueAnalytics.total_reports}</span>
+                                    <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mt-1">Total Reports</span>
+                                </div>
+                                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex flex-col items-center justify-center text-center">
+                                    <span className="text-2xl font-black text-amber-600">{issueAnalytics.reports_with_issues}</span>
+                                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">Reports with Issues</span>
+                                </div>
+                                <div className="col-span-2 bg-emerald-50 p-3 rounded-xl border border-emerald-100 flex justify-between items-center">
+                                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Issue Frequency</span>
+                                    <span className="text-sm font-black text-emerald-600">
+                                        {issueAnalytics.total_reports > 0 
+                                            ? Math.round((issueAnalytics.reports_with_issues / issueAnalytics.total_reports) * 100) 
+                                            : 0}%
+                                    </span>
+                                </div>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Issue Data</p>
+                        )}
+                    </div>
+                </div>
+                )}
+
+                {activeTab === "list" && (
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     {/* Integrated Filter Bar */}
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
@@ -616,6 +735,7 @@ const DSRPage = () => {
                         </div>
                     )}
                 </div>
+                )}
             </PageTransition>
 
             {/* ── Detail Modal ────────────────────────────────── */}
@@ -683,14 +803,30 @@ const DSRPage = () => {
                         {(selectedDsr.photos && selectedDsr.photos.length > 0) ? (
                             <div className="mb-8">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Site Documentation ({selectedDsr.photos.length})</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {selectedDsr.photos.map((photo) => (
-                                        <div key={photo.id} className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm aspect-[4/3] group relative">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {selectedDsr.photos.map((photo, idx) => (
+                                        <div key={idx} className="relative group rounded-xl overflow-hidden shadow-sm border border-slate-100 aspect-square">
                                             <img
                                                 src={sitePhotoService.resolveUrl(photo.url) || ""}
-                                                alt="Site Documentation"
-                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                alt={`Documentation ${idx + 1}`}
+                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
+                                            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <a
+                                                    href={sitePhotoService.resolveUrl(photo.url) || ""}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white hover:text-slate-900 transition-colors shadow-lg"
+                                                >
+                                                    <Eye className="w-5 h-5" />
+                                                </a>
+                                                <button
+                                                    onClick={() => handleDeletePhoto(photo.id)}
+                                                    className="w-10 h-10 ml-2 bg-rose-500/80 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-rose-600 transition-colors shadow-lg"
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -796,16 +932,21 @@ const DSRPage = () => {
             <NewDSREntryModal
                 isOpen={isCreateOpen}
                 onClose={() => setIsCreateOpen(false)}
-                onSubmit={handleCreate}
+                onSuccess={() => {
+                    setIsCreateOpen(false);
+                    fetchDsr();
+                }}
                 projectId={projectId || 36}
             />
 
             <EditDSRModal
                 isOpen={isEditOpen}
                 onClose={() => setIsEditOpen(false)}
-                onSubmit={handleUpdate}
+                onSuccess={() => {
+                    setIsEditOpen(false);
+                    fetchDsr();
+                }}
                 dsr={selectedDsr}
-                projectId={projectId || 36}
             />
         </>
     );
