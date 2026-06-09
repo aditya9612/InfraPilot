@@ -37,6 +37,7 @@ import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
 import ActivityDetailsModal from "../../components/dashboard/ActivityDetailsModal";
 import { BOQ_CATEGORIES } from "../../config/constants";
+import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
 
 // Removing INITIAL_ACTIVITIES_DATA as we fetch from API
 
@@ -614,7 +615,7 @@ const BOQPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Estimated Total"
-            value={`₹${(summaryData?.estimated || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0)).toLocaleString('en-IN')}`}
+            value={formatCompactCurrency(summaryData?.estimated || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0))}
             sub={
               summaryData
                 ? `${summaryData.total_items} items total`
@@ -625,14 +626,14 @@ const BOQPage = () => {
           />
           <StatCard
             title="Actual Total"
-            value={`₹${(summaryData?.actual || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0)).toLocaleString('en-IN')}`}
+            value={formatCompactCurrency(summaryData?.actual || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))}
             sub="Recorded real-world costs"
             accent="text-violet-500"
             icon={<TrendingUp className="w-5 h-5" />}
           />
           <StatCard
             title="Variance/Difference"
-            value={`₹${Math.abs(summaryData?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))).toLocaleString('en-IN')}`}
+            value={formatCompactCurrency(Math.abs(summaryData?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))))}
             sub="Budget gap analysis"
             accent={
               (summaryData?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))) < 0
@@ -644,7 +645,7 @@ const BOQPage = () => {
           <StatCard
             title="Pending Approval"
             value={filteredBoqData
-              .filter((i) => i.status?.toLowerCase().includes("review") || i.status?.toLowerCase().includes("draft"))
+              .filter((i) => i.status?.toLowerCase().includes("review") || i.status?.toLowerCase().includes("draft") || i.status?.toLowerCase().includes("pending"))
               .length.toString()}
             sub="Awaiting rate review"
             accent="text-amber-500"
@@ -862,22 +863,13 @@ const BOQPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-700">
-                          ₹
-                          {parseFloat(
-                            item.unit_cost?.toString() || "0",
-                          ).toLocaleString()}
+                          {formatCompactCurrency(item.unit_cost || 0)}
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-primary">
-                          ₹
-                          {parseFloat(
-                            item.total_cost?.toString() || "0",
-                          ).toLocaleString()}
+                          {formatCompactCurrency(item.total_cost || 0)}
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-rose-500">
-                          ₹
-                          {parseFloat(
-                            item.variance_cost?.toString() || "0",
-                          ).toLocaleString()}
+                          {formatCompactCurrency(item.variance_cost || 0)}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span

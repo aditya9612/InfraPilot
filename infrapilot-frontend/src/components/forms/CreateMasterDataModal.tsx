@@ -50,7 +50,6 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
     if (!formData.name.trim()) newErrors.name = "Entity name is required.";
     if (!formData.unique_code.trim()) newErrors.unique_code = "Unique code is required.";
     if (!formData.category.trim()) newErrors.category = "Category group is required.";
-    if (!formData.unit.trim()) newErrors.unit = "Unit is required.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -175,7 +174,7 @@ const CreateMasterDataModal: React.FC<CreateMasterDataModalProps> = ({
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Unit (Metric) <span className="text-rose-500">*</span>
+                Unit (Metric)
               </label>
               <input
                 type="text"

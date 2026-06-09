@@ -16,7 +16,7 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import { quotationService } from "../../services/quotationService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
-import { formatCurrency } from "../../utils/currencyUtils";
+import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
 import { exportToCSV } from "../../utils/csvExport";
 import { generateQuotationPDF } from "../../utils/quotationPDFGenerator";
 
@@ -151,19 +151,19 @@ const AllInvoicesPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
               title={stats.labelTotal}
-              value={formatCurrency(stats.total)}
+              value={formatCompactCurrency(stats.total)}
               sub={`${quotations.length} Active Estimates`}
               accent="text-indigo-600"
             />
             <StatCard
               title={stats.labelPending}
-              value={formatCurrency(stats.pending)}
+              value={formatCompactCurrency(stats.pending)}
               sub="Requires review"
               accent="text-amber-500"
             />
             <StatCard
               title={stats.labelPaid}
-              value={formatCurrency(stats.paid)}
+              value={formatCompactCurrency(stats.paid)}
               sub="Won projects"
               accent="text-emerald-500"
             />
@@ -241,7 +241,7 @@ const AllInvoicesPage = () => {
                           {q.created_at ? new Date(q.created_at).toLocaleDateString() : "-"}
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm font-black text-slate-800">₹{(q.grand_total || 0).toLocaleString()}</p>
+                          <p className="text-sm font-black text-slate-800">{formatCompactCurrency(q.grand_total || 0)}</p>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${q.status === 'approved' ? 'bg-emerald-100 text-emerald-600' :
