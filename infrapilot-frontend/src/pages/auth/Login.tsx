@@ -130,7 +130,7 @@ const Login = () => {
         name: profile.full_name || "User",
         mobile: mobile,
         role: normalizedRole,
-        profile_image: profile.profile_image || null,
+        profile_image: profile.profile_image,
         token: verifyData.token,
       };
 
@@ -153,6 +153,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
 
   const handleResend = async () => {
     if (resendTimer > 0) return;
