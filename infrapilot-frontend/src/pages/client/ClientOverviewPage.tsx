@@ -95,8 +95,8 @@ const ClientOverviewPage = () => {
 
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">{projectData?.project_name || "Project Overview"}</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{projectData?.description || "Detailed Specification"}</p>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Project Overview</h1>
+          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{(projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY"}</p>
         </div>
 
         {/* Main Grid: Core Specs (2 cols) + Project Team (1 col) */}
@@ -104,7 +104,7 @@ const ClientOverviewPage = () => {
           {/* Core Project Specifications - Expanded Layout */}
           <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] mb-10 border-b border-slate-50 pb-4">Core Project Specifications</h2>
-            
+
             {loading ? (
               <div className="flex items-center justify-center p-20">
                 <div className="w-8 h-8 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
@@ -116,8 +116,8 @@ const ClientOverviewPage = () => {
                   <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg shrink-0">🏢</div>
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Name</p>
-                    <p className="text-sm font-bold text-slate-800 leading-tight">{projectData?.project_name || "—"}</p>
-                    <p className="text-[9px] font-black text-blue-500 uppercase mt-1 tracking-tight">Ref: PRJ-{projectId}</p>
+                    <p className="text-sm font-bold text-slate-800 leading-tight">{(projectData?.project_name || "NEW SARA CITY").toUpperCase()}</p>
+
                   </div>
                 </div>
 
@@ -127,7 +127,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status & Type</p>
                     <p className="text-sm font-bold text-slate-800">
-                      {projectData?.status || "—"} 
+                      {projectData?.status || "—"}
                       <span className="text-slate-400 font-medium ml-1">
                         ({projectData?.type || "General Construction"})
                       </span>
@@ -141,22 +141,14 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Duration</p>
                     <p className="text-sm font-bold text-slate-800">
-                      {projectData?.start_date || "—"} 
+                      {projectData?.start_date || "—"}
                       <span className="mx-2 text-slate-300">→</span>
                       <span className="text-blue-600">{projectData?.end_date || "—"}</span>
                     </p>
                   </div>
                 </div>
 
-                {/* Total Budget */}
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-lg shrink-0">💰</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Budget</p>
-                    <p className="text-sm font-bold text-emerald-600">₹{(projectData?.budget_total || 700000).toLocaleString("en-IN")}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Project Valuation</p>
-                  </div>
-                </div>
+
 
                 {/* Site Address */}
                 <div className="flex items-start gap-4">
@@ -176,11 +168,7 @@ const ClientOverviewPage = () => {
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Location Details</p>
                     <p className="text-sm font-bold text-slate-800 leading-tight">
                       {[projectData?.city, projectData?.state, projectData?.country, projectData?.pincode].filter(Boolean).join(", ") || "Pune, Maharashtra, India, 444236"}
-                      {projectData?.location_type && (
-                        <span className="text-slate-400 font-medium ml-1">
-                          ({projectData.location_type})
-                        </span>
-                      )}
+
                     </p>
                   </div>
                 </div>
@@ -191,7 +179,7 @@ const ClientOverviewPage = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Description</p>
                     <p className="text-xs font-medium text-slate-500 leading-relaxed max-w-4xl">
-                      {projectData?.description || "A premium high-rise development focused on sustainable infrastructure and modern urban living standards."}
+                      {(projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY"}
                     </p>
                   </div>
                 </div>
@@ -207,7 +195,7 @@ const ClientOverviewPage = () => {
                 {team.length} Active Members
               </span>
             </div>
-            
+
             {loadingTeam ? (
               <div className="flex items-center gap-4 animate-pulse">
                 <div className="w-10 h-10 rounded-full bg-slate-100" />
@@ -250,7 +238,10 @@ const ClientOverviewPage = () => {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-slate-800">{milestone.title || milestone.name}</p>
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest">
+                      {milestone.description && (
+                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 max-w-sm">{milestone.description}</p>
+                      )}
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">
                         {milestone.start_date} – {milestone.end_date}
                       </p>
                     </div>

@@ -1532,7 +1532,7 @@ const CreateInvoicePage = () => {
                             className={`w-24 px-2 py-1 bg-slate-100 rounded-lg text-xs font-black text-slate-800 text-right outline-none focus:ring-2 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           />
                         </div>
-                        <p className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg inline-block">Rate: ₹ 10,000 / Brass</p>
+                        {/* Removed hardcoded rate badge */}
                       </div>
                     </div>
 
@@ -1583,7 +1583,7 @@ const CreateInvoicePage = () => {
                           <p className="text-sm font-black text-slate-800">{measurementData.plum.m3.toFixed(2)}</p>
                         </div>
                       </div>
-                      <p className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg inline-block">Rate: ₹ 7,000 / m³</p>
+                      {/* Removed hardcoded rate badge */}
                     </div>
 
                     <div className="space-y-6">
@@ -2139,7 +2139,7 @@ const CreateInvoicePage = () => {
                 <div className="p-1 bg-indigo-100 rounded text-indigo-600">
                   <Clock className="w-3 h-3" />
                 </div>
-                <p className="text-[10px] font-bold text-indigo-600">Note: 1 cu.ft = 0.0283168 m³</p>
+                {/* Removed hardcoded conversion note */}
               </div>
             </div>
 

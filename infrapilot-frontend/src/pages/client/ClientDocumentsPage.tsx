@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import { drawingService } from "../../services/drawingService";
+import { documentService } from "../../services/documentService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import toast from "react-hot-toast";
 
 interface DrawingDoc {
   id: number;
@@ -18,256 +18,184 @@ interface DrawingDoc {
   approval_id: number | null;
 }
 
-const tabs = ["All", "Agreement", "Drawing", "Invoice"];
+const tabs = ["All", "Document", "Drawing"];
 
-const generateDocumentHtml = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
-  const generated = new Date().toLocaleString("en-IN");
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <title>${doc.name}</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Inter',sans-serif; background:#fff; color:#1e293b; padding:48px; }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #2563EB; padding-bottom:24px; margin-bottom:32px; }
-    .logo h1  { font-size:22px; font-weight:900; color:#2563EB; letter-spacing:-0.5px; }
-    .logo p   { font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:2px; margin-top:4px; }
-    .meta     { text-align:right; }
-    .meta .badge { display:inline-block; background:#eff6ff; color:#2563EB; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:1.5px; padding:4px 12px; border-radius:20px; margin-bottom:6px; }
-    .meta p   { font-size:10px; color:#64748b; font-weight:600; margin-top:3px; }
-    .title-block { margin-bottom:32px; }
-    .title-block h2 { font-size:20px; font-weight:900; color:#0f172a; }
-    .title-block p  { font-size:11px; color:#64748b; font-weight:600; margin-top:6px; text-transform:uppercase; letter-spacing:1.5px; }
-    .doc-box { padding:40px; background:#f8fafc; border-radius:24px; border:1px solid #e2e8f0; margin-bottom:32px; }
-    .doc-row { display:flex; justify-content:space-between; margin-bottom:12px; font-size:11px; }
-    .doc-row span:first-child { font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; }
-    .doc-row span:last-child { font-weight:700; color:#1e293b; }
-    .content { font-size:11px; color:#475569; line-height:1.8; font-weight:500; }
-    .footer { margin-top:40px; padding-top:20px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; font-size:9px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:1px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="logo">
-      <h1>InfraPilot</h1>
-      <p>Project Transparency Portal</p>
-    </div>
-    <div class="meta">
-      <span class="badge">Official Project Document</span>
-      <p>Generated: ${generated}</p>
-    </div>
-  </div>
-  <div class="title-block">
-    <h2>${doc.name}</h2>
-    <p>Project repository archival record</p>
-  </div>
-  <div class="doc-box">
-    <div class="doc-row"><span>Document Type</span><span>${doc.type}</span></div>
-    <div class="doc-row"><span>Version Control</span><span>${doc.version}</span></div>
-    <div class="doc-row"><span>Upload Date</span><span>${doc.uploadDate}</span></div>
-    <div class="doc-row"><span>File Size</span><span>${doc.size}</span></div>
-    <div class="doc-row"><span>Security Hash</span><span>SHA-256: 8a4c...d9f2</span></div>
-  </div>
-  <div class="content">
-    <strong>Document Status:</strong> Verified & Approved. <br/><br/>
-    This document serves as an official record within the InfraPilot Transparency Portal. 
-    It is part of the Project Repository Ledger and has been authenticated for accuracy 
-    against the physical records submitted on ${doc.uploadDate}. 
-    Access to this document is logged and monitored for project transparency and compliance.
-  </div>
-  <div class="footer">
-    <span>InfraPilot © 2026 — Project Transparency Portal</span>
-    <span>SECURE ARCHIVE | Page 1 of 1</span>
-  </div>
-</body>
-</html>`;
-};
-
-const downloadDocument = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
-  const docPdf = new jsPDF();
-  const generated = new Date().toLocaleString("en-IN");
-  docPdf.setFont("helvetica", "bold");
-  docPdf.setFontSize(22);
-  docPdf.setTextColor(37, 99, 235);
-  docPdf.text("InfraPilot", 14, 22);
-  docPdf.setFontSize(10);
-  docPdf.setTextColor(148, 163, 184);
-  docPdf.text("Project Transparency Portal", 14, 28);
-  docPdf.setFontSize(9);
-  docPdf.setTextColor(37, 99, 235);
-  docPdf.text("OFFICIAL PROJECT DOCUMENT", 196, 22, { align: "right" });
-  docPdf.setFont("helvetica", "normal");
-  docPdf.setTextColor(100, 116, 139);
-  docPdf.text(`Generated: ${generated}`, 196, 28, { align: "right" });
-  docPdf.setDrawColor(37, 99, 235);
-  docPdf.setLineWidth(1);
-  docPdf.line(14, 32, 196, 32);
-  docPdf.setFont("helvetica", "bold");
-  docPdf.setFontSize(18);
-  docPdf.setTextColor(15, 23, 42);
-  docPdf.text(doc.name, 14, 46);
-  docPdf.setFontSize(10);
-  docPdf.setTextColor(100, 116, 139);
-  docPdf.text("PROJECT REPOSITORY ARCHIVAL RECORD", 14, 52);
-  autoTable(docPdf, {
-    startY: 60,
-    theme: "plain",
-    styles: { fontSize: 10, cellPadding: 4 },
-    columnStyles: {
-      0: { fontStyle: "bold", textColor: [148, 163, 184] },
-      1: { fontStyle: "bold", textColor: [30, 41, 59] }
-    },
-    body: [
-      ["Document Type", doc.type],
-      ["Version Control", doc.version],
-      ["Upload Date", doc.uploadDate],
-      ["File Size", doc.size],
-      ["Security Hash", "SHA-256: 8a4c...d9f2"]
-    ],
-    margin: { left: 14, right: 14 }
-  });
-  docPdf.save(`${doc.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
-};
-
-const viewDocument = (doc: { name: string; type: string; version: string; uploadDate: string; size: string }) => {
-  const html = generateDocumentHtml(doc);
-  const newWindow = window.open('', '_blank');
-  if (newWindow) {
-    newWindow.document.write(html);
-    newWindow.document.close();
+/**
+ * Intelligent Base URL resolver
+ * - Uses VITE_API_URL if it's an absolute URL
+ * - Fallback to window.location.origin for proxy-based environments
+ */
+const getBaseUrl = () => {
+  const apiURL = import.meta.env.VITE_API_URL || "";
+  if (apiURL.startsWith("http")) {
+    return apiURL.replace(/\/api\/v1\/?$/, "");
   }
+  return window.location.origin;
 };
 
 const ClientDocumentsPage = () => {
   const [activeTab, setActiveTab] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const [apiDrawings, setApiDrawings] = useState<DrawingDoc[]>([]);
   const [apiDocs, setApiDocs] = useState<any[]>([]);
-  const [latestDrawing, setLatestDrawing] = useState<DrawingDoc | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingLatest, setLoadingLatest] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const { projectId } = useClientProjectId();
-
-  const fetchDrawingHistory = async () => {
-    if (!projectId) return;
-    try {
-      setLoading(true);
-      const versions = await drawingService.getVersions(projectId);
-      setApiDrawings(versions);
-      
-      // Fetch other documents (Agreements, Invoices) via documentService
-      const { documentService } = await import("../../services/documentService");
-      const docsResult = await documentService.listDocuments({ project_id: projectId });
-      
-      // Robust extraction of document array
-      let docs: any[] = [];
-      if (Array.isArray(docsResult)) {
-        docs = docsResult;
-      } else if (docsResult && typeof docsResult === 'object') {
-        docs = (docsResult as any).items || (docsResult as any).data || (docsResult as any).documents || [];
-      }
-      
-      setApiDocs(docs);
-    } catch (err: any) {
-      console.error(">>> Failed to fetch document repository:", err?.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchLatestDrawing = async () => {
-    if (!projectId) return;
-    try {
-      setLoadingLatest(true);
-      const latestData = await drawingService.getLatest(projectId);
-      // Handle both single object and array responses
-      const latest = Array.isArray(latestData) ? latestData[0] : latestData;
-      
-      if (latest) {
-        setLatestDrawing({
-          id: latest.id,
-          project_id: latest.project_id,
-          drawing_name: latest.drawing_name,
-          version: latest.version || "—",
-          date: latest.date || latest.created_at || "",
-          remarks: latest.remarks || "",
-          file_url: latest.file_url || "",
-          approval_status: latest.approval_status || "Pending",
-          approval_id: latest.approval_id || null,
-        });
-      }
-    } catch (err: any) {
-      console.error(">>> Failed to fetch latest drawing:", err?.message);
-    } finally {
-      setLoadingLatest(false);
-    }
-  };
-
-  useEffect(() => {
-    if (projectId) {
-      fetchDrawingHistory();
-      fetchLatestDrawing();
-      setCurrentPage(1); // Reset page on project change
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    setCurrentPage(1); // Reset page on tab change
-  }, [activeTab]);
-
-
   const [selectedPreview, setSelectedPreview] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [fetchingDetail, setFetchingDetail] = useState(false);
 
-  const handleDownload = async (doc: any) => {
-    if (doc.id) {
-      try {
-        await drawingService.downloadDocument(doc.id, doc.name);
-      } catch (err) {
-        downloadDocument(doc);
-      }
+  const { projectId } = useClientProjectId();
+
+  const buildFileUrl = (file_url: string) => {
+    if (!file_url) return "";
+    const normalizedUrl = file_url.replace(/\\/g, '/');
+    if (normalizedUrl.startsWith('http')) return normalizedUrl;
+    const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
+
+    let baseUrl = import.meta.env.VITE_API_URL || '';
+    if (baseUrl.startsWith('http')) {
+      baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
     } else {
-      downloadDocument(doc);
+      baseUrl = window.location.origin;
+    }
+    return `${baseUrl}${path}`;
+  };
+
+  const handleDownload = async (doc: any) => {
+    const toastId = toast.loading(`Preparing ${doc.name || doc.title}...`);
+    try {
+      let file_url = doc.file_url;
+      if (!file_url && doc.id) {
+        try {
+          const detail = await documentService.getDocument(doc.id);
+          file_url = detail.file_url;
+        } catch (e) {
+          const data = await documentService.getDownloadUrl(doc.id);
+          file_url = typeof data === 'string' ? data : (data as any)?.file_url;
+        }
+      }
+
+      if (!file_url) throw new Error("Source path unavailable");
+
+      const fullUrl = buildFileUrl(file_url);
+      const userString = localStorage.getItem("infrapilot_user");
+      const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
+
+      const response = await fetch(fullUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = doc.name || doc.title || "document";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
+      toast.success("Download started", { id: toastId });
+    } catch (err: any) {
+      console.error("Download failed:", err);
+      toast.error(`Download failed: ${err.message}`, { id: toastId });
     }
   };
 
   const handleView = async (doc: any) => {
-    if (doc.id) {
-      setFetchingDetail(true);
-      setIsPreviewOpen(true);
-      try {
-        // Fetch drawing blob
-        const result = await drawingService.viewDocument(doc.id);
-        const blob = new Blob([result.data], { type: result.contentType as string });
-        const blobUrl = URL.createObjectURL(blob);
+    if (!doc.id && !doc.file_url) return;
+    setFetchingDetail(true);
+    setIsPreviewOpen(true);
+    try {
+      let file_url = doc.file_url;
+      let currentDoc = doc;
 
-        setSelectedPreview({
-          ...doc,
-          previewUrl: blobUrl,
-          previewType: result.contentType,
-        });
-      } catch (err: any) {
-        console.error("Preview fetch failed:", err);
-        // Fallback
-        if (doc.file_url) {
-          const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://127.0.0.1:8000';
-          const fullUrl = doc.file_url.startsWith('http') ? doc.file_url : `${baseUrl}/${doc.file_url.replace(/^\//, '')}`;
-          window.open(fullUrl, '_blank');
-          setIsPreviewOpen(false);
-        } else {
-          setSelectedPreview({ ...doc, previewUrl: null });
+      if (doc.id) {
+        try {
+          const detail = await documentService.getDocument(doc.id);
+          if (detail) {
+            currentDoc = detail;
+            file_url = detail.file_url;
+          }
+        } catch (e) {
+          console.warn("Failed to fetch fresh metadata, using list data");
         }
-      } finally {
-        setFetchingDetail(false);
       }
-    } else {
-      viewDocument(doc);
+
+      if (!file_url) throw new Error("No file path");
+
+      const fullUrl = buildFileUrl(file_url);
+      const userString = localStorage.getItem("infrapilot_user");
+      const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
+
+      const response = await fetch(fullUrl, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const contentType = response.headers.get("content-type") || 'application/pdf';
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      setSelectedPreview({
+        ...currentDoc,
+        name: currentDoc.title || currentDoc.name || "Preview",
+        previewUrl: blobUrl,
+        previewType: contentType,
+        fullUrl: fullUrl
+      });
+    } catch (err: any) {
+      console.error("View failed:", err);
+      const baseUrl = getBaseUrl();
+      const fallbackUrl = doc.file_url?.startsWith('http') ? doc.file_url : `${baseUrl}/${doc.file_url?.replace(/^\//, '')}`;
+      setSelectedPreview({ ...doc, previewUrl: fallbackUrl, previewType: null, fullUrl: fallbackUrl });
+    } finally {
+      setFetchingDetail(false);
     }
   };
+
+  const fetchDrawingHistory = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      setLoading(true);
+      const [versionsResult, latestResult, docsResult] = await Promise.allSettled([
+        drawingService.getVersions(projectId),
+        drawingService.getLatest(projectId),
+        documentService.listDocuments({ project_id: projectId })
+      ]);
+
+      if (versionsResult.status === 'fulfilled') {
+        const versions = Array.isArray(versionsResult.value) ? versionsResult.value : (versionsResult.value as any).items || [];
+        setApiDrawings(versions);
+      }
+
+      if (latestResult.status === 'fulfilled' && latestResult.value) {
+        // Latest result is fetched but currently unused in this view
+      }
+
+      if (docsResult.status === 'fulfilled') {
+        const docs = Array.isArray(docsResult.value) ? docsResult.value : (docsResult.value as any).items || (docsResult.value as any).data || (docsResult.value as any).documents || [];
+        setApiDocs(docs);
+      }
+    } catch (err: any) {
+      console.error(">>> Failed to fetch vault repo:", err?.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (projectId) {
+      fetchDrawingHistory();
+      setCurrentPage(1);
+    }
+  }, [projectId, fetchDrawingHistory]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   const drawingDocs = apiDrawings.map((d) => ({
     id: d.id,
@@ -281,36 +209,27 @@ const ClientDocumentsPage = () => {
     approval_id: d.approval_id,
   }));
 
-  const otherDocs = apiDocs.map((d) => {
-    // Sanitize type and name
-    const rawType = d.document_type || d.type || "Agreement";
-    const formattedType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+  const otherDocs = apiDocs
+    .filter(d => (d.document_type || d.type || "").toLowerCase() !== "invoice")
+    .map((d) => {
+      return {
+        id: d.id,
+        name: d.title || d.name || "Untitled Document",
+        type: "Document" as any,
+        uploadDate: d.created_at || d.uploaded_at ? new Date(d.created_at || d.uploaded_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+        version: d.version || "Original",
+        size: d.file_size ? `${(d.file_size / 1024).toFixed(0)} KB` : "—",
+        file_url: d.file_url || "",
+        approval_status: d.status || d.approval_status || "Archived",
+        approval_id: null,
+      };
+    });
 
-    return {
-      id: d.id,
-      name: d.title || d.name || "Untitled Document",
-      type: formattedType as any,
-      uploadDate: d.created_at || d.uploaded_at ? new Date(d.created_at || d.uploaded_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—",
-      version: d.version || "Original",
-      size: d.file_size ? `${(d.file_size / 1024).toFixed(0)} KB` : "—",
-      file_url: d.file_url || "",
-      approval_status: d.status || d.approval_status || "Archived",
-      approval_id: null,
-    };
-  });
-
-  const allVaultDocs = [...drawingDocs, ...otherDocs];
-
-  const filteredDocs = activeTab === "All"
-    ? allVaultDocs
-    : allVaultDocs.filter((d) => d.type.toLowerCase() === activeTab.toLowerCase());
-
-  // Pagination Logic
+  const allVaultDocs = [...drawingDocs, ...otherDocs].sort((a, b) => b.id - a.id);
+  const filteredDocs = (activeTab === "All" ? allVaultDocs : allVaultDocs.filter((d) => d.type.toLowerCase() === activeTab.toLowerCase()))
+    .filter(d => !searchQuery || d.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
-  const paginatedDocs = filteredDocs.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedDocs = filteredDocs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <>
@@ -320,30 +239,25 @@ const ClientDocumentsPage = () => {
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Document Vault</h1>
         </div>
 
-        {!loadingLatest && latestDrawing && (
-          <div className="mb-10 bg-white rounded-2xl p-8 shadow-sm border border-slate-100 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-50 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-110 transition-transform duration-1000" />
-            <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-blue-100">📐</div>
-                <div>
-                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-2 block">Latest Engineering Schematic</span>
-                  <h2 className="text-2xl font-black tracking-tight text-slate-800">{latestDrawing.drawing_name}</h2>
-                  <div className="flex items-center gap-4 mt-2">
-                    <span className="text-xs font-bold text-slate-400">Version {latestDrawing.version}</span>
-                    <span className="w-1 h-1 bg-slate-200 rounded-full" />
-                    <span className="text-xs font-bold text-slate-400">Released {latestDrawing.date ? new Date(latestDrawing.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
-          <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Repository Ledger</h2>
-            <div className="flex gap-2">
+          {/* Search + Tab Filter Bar */}
+          <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row items-center gap-4">
+            {/* Search Bar */}
+            <div className="relative flex-1 w-full md:max-w-md">
+              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by document name..."
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                className="w-full pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium text-slate-600 outline-none focus:bg-white focus:border-blue-400 transition-all placeholder:text-slate-400"
+              />
+            </div>
+            {/* Tab Filters */}
+            <div className="flex gap-2 ml-auto">
               {tabs.map((t) => (
                 <button key={t} onClick={() => setActiveTab(t)} className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-slate-900 text-white shadow-lg" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"}`}>{t}</button>
               ))}
@@ -353,7 +267,7 @@ const ClientDocumentsPage = () => {
           <div className="overflow-x-auto">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-                <div className="w-8 h-8 border-4 border-slate-200 border-t-primary rounded-full animate-spin mb-4"></div>
+                <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
                 <p className="text-sm font-black uppercase tracking-widest">Auditing Vault Contents...</p>
               </div>
             ) : paginatedDocs.length === 0 ? (
@@ -379,9 +293,7 @@ const ClientDocumentsPage = () => {
                       <td className="p-6 pl-10">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-primary text-lg shadow-inner">{doc.type === "Drawing" ? "📐" : "🧾"}</div>
-                          <div>
-                            <p className="text-sm font-black text-slate-800 leading-tight">{doc.name}</p>
-                          </div>
+                          <p className="text-sm font-black text-slate-800 leading-tight">{doc.name}</p>
                         </div>
                       </td>
                       <td className="p-6 text-center">
@@ -390,20 +302,19 @@ const ClientDocumentsPage = () => {
                       <td className="p-6 text-center whitespace-nowrap"><span className="text-xs font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">{doc.version}</span></td>
                       <td className="p-6 text-center whitespace-nowrap"><p className="text-xs font-bold text-slate-500">{doc.uploadDate}</p></td>
                       <td className="p-6 text-center">
-                        <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg whitespace-nowrap ${
-                          (doc.approval_status === 'Approved' || doc.approval_status === 'Active') 
-                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                            : (doc.approval_status === 'Pending' || doc.approval_status === 'Under Review' || doc.approval_status === 'UNDER_REVIEW')
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg whitespace-nowrap ${(doc.approval_status === 'Approved' || doc.approval_status === 'Active')
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                          : (doc.approval_status === 'Pending' || doc.approval_status === 'Under Review' || doc.approval_status === 'UNDER_REVIEW')
                             ? 'bg-amber-50 text-amber-600 border border-amber-100'
                             : 'bg-slate-50 text-slate-500 border border-slate-100'
-                        }`}>
+                          }`}>
                           {doc.approval_status?.replace(/_/g, ' ') || 'Archived'}
                         </span>
                       </td>
                       <td className="p-6 pr-10">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleView(doc)} className="p-2 text-slate-400 hover:text-primary transition-colors active:scale-95 transform" title="View Document"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
-                          <button onClick={() => handleDownload(doc)} className="p-2 text-slate-400 hover:text-primary transition-colors active:scale-95 transform" title="Download Document"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
+                          <button onClick={() => handleView(doc)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors transform active:scale-95" title="View Document"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
+                          <button onClick={() => handleDownload(doc)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors transform active:scale-95" title="Download Document"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
                         </div>
                       </td>
                     </tr>
@@ -418,7 +329,7 @@ const ClientDocumentsPage = () => {
               <div className="flex items-center gap-8">
                 <div className="flex items-center gap-3">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Records Per Page:</p>
-                  <select 
+                  <select
                     value={itemsPerPage}
                     onChange={(e) => {
                       setItemsPerPage(Number(e.target.value));
@@ -429,66 +340,26 @@ const ClientDocumentsPage = () => {
                     {[10, 20, 50].map(v => <option key={v} value={v}>{v}</option>)}
                   </select>
                 </div>
-                
+
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                  Showing <span className="text-slate-700">{(currentPage - 1) * itemsPerPage + 1} - {Math.min(filteredDocs.length, currentPage * itemsPerPage)}</span> Of <span className="text-slate-700">{filteredDocs.length}</span> Records
+                  Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(filteredDocs.length, currentPage * itemsPerPage)} Of {filteredDocs.length} Records
                 </p>
               </div>
-
               <div className="flex items-center gap-2">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(prev => prev - 1)}
-                  className="flex items-center gap-2 px-4 py-2 border border-slate-50 rounded-2xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-30 transition-all active:scale-95"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
-                  Prev
-                </button>
-                
-                <div className="flex items-center gap-1.5 px-2">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => {
-                    // Simple page numbers for now, can add dots logic if pages > 5
-                    if (totalPages > 5 && p > 2 && p < totalPages) {
-                      if (p === 3) return <span key={p} className="text-slate-300 px-1">...</span>;
-                      return null;
-                    }
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setCurrentPage(p)}
-                        className={`w-9 h-9 rounded-xl text-[10px] font-black transition-all active:scale-90 ${
-                          currentPage === p 
-                            ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 ring-4 ring-blue-600/10" 
-                            : "text-slate-400 hover:bg-slate-50 hover:text-slate-600 border border-transparent hover:border-slate-100"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(prev => prev + 1)}
-                  className="flex items-center gap-2 px-4 py-2 border border-slate-50 rounded-2xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-30 transition-all active:scale-95"
-                >
-                  Next
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                </button>
+                <button disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} className="px-3 py-1.5 border border-slate-50 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 disabled:opacity-30">Prev</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                  <button key={p} onClick={() => setCurrentPage(p)} className={`w-8 h-8 rounded-lg text-[10px] font-black ${currentPage === p ? "bg-blue-600 text-white shadow-lg" : "text-slate-400 hover:bg-slate-50"}`}>{p}</button>
+                ))}
+                <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => prev + 1)} className="px-3 py-1.5 border border-slate-50 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 disabled:opacity-30">Next</button>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Document Preview Theater */}
       <Modal
         isOpen={isPreviewOpen}
-        onClose={() => {
-          setIsPreviewOpen(false);
-          setSelectedPreview(null);
-        }}
+        onClose={() => { setIsPreviewOpen(false); setSelectedPreview(null); }}
         title={`Vault Record: ${selectedPreview?.name || 'Preview'}`}
         maxWidth="max-w-6xl"
       >
@@ -500,19 +371,21 @@ const ClientDocumentsPage = () => {
             </div>
           ) : selectedPreview?.previewUrl ? (
             selectedPreview.previewType?.startsWith('image/') ? (
-              <div className="flex items-center justify-center h-[75vh] bg-slate-900">
-                <img
-                  src={selectedPreview.previewUrl}
-                  alt={selectedPreview.name}
-                  className="max-h-full max-w-full object-contain rounded-2xl"
-                />
-              </div>
+              <div className="flex items-center justify-center h-[75vh] bg-slate-900"><img src={selectedPreview.previewUrl} alt={selectedPreview.name} className="max-h-full max-w-full object-contain rounded-2xl" /></div>
+            ) : selectedPreview.previewType ? (
+              <iframe src={selectedPreview.previewUrl} className="w-full h-[75vh]" title="Document Preview" />
             ) : (
-              <iframe
-                src={selectedPreview.previewUrl}
-                className="w-full h-[75vh]"
-                title="Document Preview"
-              />
+              <div className="flex flex-col items-center justify-center h-[60vh] bg-slate-800 text-slate-400 p-12 text-center">
+                <svg className="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                <h3 className="text-sm font-black uppercase tracking-widest mb-2 text-white">Stream Unavailable</h3>
+                <p className="text-xs font-bold max-w-xs mb-8">This file format or repository doesn't support direct in-browser streaming. Please use the button below to open it in a new window or download it locally.</p>
+                <button
+                  onClick={() => window.open(selectedPreview.fullUrl, '_blank')}
+                  className="px-8 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-xl active:scale-95 transition-all"
+                >
+                  Try Native Browser Preview
+                </button>
+              </div>
             )
           ) : (
             <div className="flex items-center justify-center h-[60vh] text-slate-500">
@@ -522,26 +395,12 @@ const ClientDocumentsPage = () => {
         </div>
         <div className="mt-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-              Version: {selectedPreview?.version}
-            </span>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-              Status: {selectedPreview?.approval_status || 'Archived'}
-            </span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">Version: {selectedPreview?.version}</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">Status: {selectedPreview?.approval_status || 'Archived'}</span>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={() => handleDownload(selectedPreview)}
-              className="px-6 py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all"
-            >
-              Download PDF
-            </button>
-            <button
-              onClick={() => setIsPreviewOpen(false)}
-              className="px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all"
-            >
-              Exit Theater
-            </button>
+            <button onClick={() => handleDownload(selectedPreview)} className="px-6 py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all font-inter">Download {selectedPreview?.file_url?.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/) ? 'Image' : 'PDF'}</button>
+            <button onClick={() => setIsPreviewOpen(false)} className="px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all font-inter">Exit Theater</button>
           </div>
         </div>
       </Modal>

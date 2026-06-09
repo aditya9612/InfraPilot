@@ -50,6 +50,7 @@ export const authService = {
     role: string;
     email?: string;
     mobile_number?: string;
+    profile_image?: string;
   }> {
     try {
       const userString = localStorage.getItem("infrapilot_user");
@@ -60,7 +61,8 @@ export const authService = {
             full_name: "Gopal Yadav",
             role: "Labour",
             email: "gopal.y@mock.com",
-            mobile_number: "8888888888"
+            mobile_number: "8888888888",
+            profile_image: ""
           };
         }
       }

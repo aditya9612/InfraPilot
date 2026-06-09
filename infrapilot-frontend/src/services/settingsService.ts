@@ -76,7 +76,7 @@ export const settingsService = {
 
         try {
             const response = await api.put("/settings", payload);
-            if (payload.default_project_id) {
+            if (payload.default_project_id !== null && payload.default_project_id !== undefined) {
                 localStorage.setItem("client_selected_project_id", payload.default_project_id.toString());
             }
             // Ensure we save the user's choice locally immediately with high priority
@@ -106,7 +106,7 @@ export const settingsService = {
             if (lastSavedAt && localProfile) {
                 const savedMs = parseInt(lastSavedAt, 10);
                 const ageSeconds = (Date.now() - savedMs) / 1000;
-                if (ageSeconds < 60) {
+                if (ageSeconds < 300) {
                     // Local save is fresh — prefer it and return early
                     console.log("getProfile: Using locally saved profile (saved", Math.round(ageSeconds), "s ago)");
                     return JSON.parse(localProfile);
@@ -133,7 +133,14 @@ export const settingsService = {
 
             if (data.profile_image instanceof File) {
                 formData.append("profile_image", data.profile_image);
+            } else if (data.profile_image === null) {
+                // Send multiple common removal signals to ensure backend picks up the intent
+                formData.append("profile_image", "");
+                formData.append("remove_profile_image", "1");
+                formData.append("delete_profile_image", "1");
+                console.log("PUT /api/v1/settings/profile - Requesting photo REMOVAL");
             }
+
             // Backend endpoint specifically expects multipart/form-data. It ignores JSON entirely.
             if (data.full_name !== undefined) formData.append("full_name", data.full_name);
             if (data.address !== undefined) formData.append("address", data.address);
@@ -141,16 +148,27 @@ export const settingsService = {
             if (data.aadhaar_number !== undefined) formData.append("aadhaar_number", data.aadhaar_number);
             if (data.designation !== undefined) formData.append("designation", data.designation);
             if (data.joining_date !== undefined) formData.append("joining_date", data.joining_date);
+            if (data.is_active !== undefined) formData.append("is_active", data.is_active ? "1" : "0");
 
-            console.log("PUT /api/v1/settings/profile - Using FormData");
+            console.log("PUT /api/v1/settings/profile - Final FormData contents:");
+            formData.forEach((value, key) => {
+                console.log(`  ${key}: ${value instanceof File ? `[File: ${value.name}]` : value}`);
+            });
 
             const response = await api.put("/settings/profile", formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
 
-            console.log("PUT /api/v1/settings/profile - SUCCESS:", response.data);
-            localStorage.setItem("mock_profile", JSON.stringify(response.data));
-            return response.data;
+            console.log("PUT /api/v1/settings/profile - SUCCESS response data:", response.data);
+            const finalProfile = { 
+                ...response.data, 
+                is_active: data.is_active, // Force preserve the requested status in local cache
+                // If we explicitly requested a removal, ensure local cache reflects it even if backend response is stale
+                profile_image: data.profile_image === null ? null : (response.data.profile_image || data.profile_image)
+            };
+            localStorage.setItem("mock_profile", JSON.stringify(finalProfile));
+            localStorage.setItem("mock_profile_saved_at", Date.now().toString());
+            return finalProfile;
         } catch (error: any) {
             console.error("Profile Update API Error:", error.response?.data || error.message);
             throw error;

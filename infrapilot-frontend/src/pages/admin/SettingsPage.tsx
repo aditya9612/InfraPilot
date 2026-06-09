@@ -474,6 +474,14 @@ const SettingsPage: React.FC = () => {
                                         <input type="text" name="designation" value={profile?.designation || ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
                                     </div>
                                     <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Email ID</label>
+                                        <input type="email" name="email" value={profile?.email || ""} disabled className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 cursor-not-allowed transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Phone Number</label>
+                                        <input type="tel" name="mobile_number" value={profile?.mobile_number || ""} disabled className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 cursor-not-allowed transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PAN Number</label>
                                         <input type="text" name="pan_number" value={profile?.pan_number || ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
                                     </div>

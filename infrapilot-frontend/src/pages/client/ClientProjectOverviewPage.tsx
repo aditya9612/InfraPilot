@@ -4,13 +4,13 @@ import { projectService } from "../../services/projectService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 import toast from "react-hot-toast";
 
-const milestones = [
-  { name: "Site Preparation & Excavation", status: "done", date: "Jan 2025" },
-  { name: "Foundation & Basement", status: "done", date: "Apr 2025" },
-  { name: "Structural Framework (G+4)", status: "done", date: "Sep 2025" },
-  { name: "Roof Slab Casting & Waterproofing", status: "active", date: "Mar 2026" },
-  { name: "Finishing & MEP Works", status: "upcoming", date: "Jun 2026" },
-  { name: "Final Inspection & Handover", status: "upcoming", date: "Oct 2026" },
+const milestones: any[] = [
+  { name: "Site Preparation & Excavation", status: "done", date: "Jan 2025", description: "Initial site clearing and earthwork completed." },
+  { name: "Foundation & Basement", status: "done", date: "Apr 2025", description: "Main building foundation and sub-structure casting." },
+  { name: "Structural Framework (G+4)", status: "done", date: "Sep 2025", description: "Reinforced concrete framework for all levels." },
+  { name: "Roof Slab Casting & Waterproofing", status: "active", date: "Mar 2026", description: "Casting of the final roof slab and applying protective layers." },
+  { name: "Finishing & MEP Works", status: "upcoming", date: "Jun 2026", description: "Internal plastering, electrical, and plumbing install." },
+  { name: "Final Inspection & Handover", status: "upcoming", date: "Oct 2026", description: "Quality checks and official project completion." },
 ];
 
 const team = [
@@ -82,8 +82,8 @@ const ClientProjectOverviewPage = () => {
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Project Overview"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <div className="mb-8">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">{projectData?.project_name || "Project Overview"}</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{projectData?.description || "Select a project to view details"}</p>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Overview</h1>
+          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{(projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY"}</p>
         </div>
 
         {/* Projects Grid */}
@@ -136,10 +136,10 @@ const ClientProjectOverviewPage = () => {
                 <h2 className="text-base font-black text-slate-800 uppercase tracking-widest text-[11px] mb-8">Core Project Details</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-y-8 gap-x-12">
                   {[
-                    { label: "Project Name", value: projectData?.project_name || "—", icon: "🏢" },
+                    { label: "Project Name", value: (projectData?.project_name || "NEW SARA CITY").toUpperCase(), icon: "🏢" },
                     { label: "Location", value: "Sector 45, Pune, MH", icon: "📍" },
                     { label: "Project Type", value: "High-Rise Residential", icon: "🏗️" },
-                    { label: "Description", value: projectData?.description || "—", icon: "📝" },
+                    { label: "Description", value: (projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY", icon: "📝" },
                     { label: "Start Date", value: formatDate(projectData?.start_date), icon: "📅" },
                     { label: "End Date (EST)", value: formatDate(projectData?.end_date), icon: "🏁" },
                     { label: "Project Status", value: projectData?.status || "—", icon: "🟢", status: projectData?.status },
@@ -171,8 +171,11 @@ const ClientProjectOverviewPage = () => {
                           {m.status === "done" ? "✓" : m.status === "active" ? "●" : "○"}
                         </div>
                         <div className="flex-1 pb-2">
-                          <p className={`text-sm font-bold ${m.status === "upcoming" ? "text-slate-400" : "text-slate-700"}`}>{m.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">{m.date}</p>
+                          <p className={`text-sm font-bold ${m.status === "upcoming" ? "text-slate-400" : "text-slate-700"}`}>{m.name || m.title}</p>
+                          {m.description && (
+                            <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 max-w-md">{m.description}</p>
+                          )}
+                          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{m.date || `${m.start_date} - ${m.end_date}`}</p>
                         </div>
                         <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${m.status === "done" ? "bg-emerald-50 text-emerald-600" :
                           m.status === "active" ? "bg-blue-50 text-blue-600" :

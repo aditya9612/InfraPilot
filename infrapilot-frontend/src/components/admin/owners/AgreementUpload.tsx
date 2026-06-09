@@ -125,7 +125,7 @@ export default function AgreementUpload({ onUploadSuccess }: AgreementUploadProp
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 h-full flex flex-col font-inter">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-8 h-full flex flex-col font-inter">
       <div className="space-y-6 mb-8">
         {/* Owner Selector */}
         <div className="relative">
@@ -262,7 +262,7 @@ export default function AgreementUpload({ onUploadSuccess }: AgreementUploadProp
       <div
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        className="flex-1 min-h-[220px] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-8 bg-slate-50/50 transition-all hover:bg-slate-50 hover:border-primary/30 group"
+        className="flex-1 min-h-[160px] sm:min-h-[220px] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl p-4 sm:p-8 bg-slate-50/50 transition-all hover:bg-slate-50 hover:border-primary/30 group"
       >
         <input
           type="file"
@@ -271,7 +271,7 @@ export default function AgreementUpload({ onUploadSuccess }: AgreementUploadProp
           accept=".pdf,.doc,.docx"
           className="hidden"
         />
-        <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
           <svg
             className="w-8 h-8 text-primary"
             fill="none"
@@ -327,7 +327,7 @@ export default function AgreementUpload({ onUploadSuccess }: AgreementUploadProp
         )}
       </AnimatePresence>
 
-      <div className="mt-10 pt-8 border-t border-slate-100 flex flex-col gap-4">
+      <div className="mt-6 sm:mt-10 pt-6 sm:pt-8 border-t border-slate-100 flex flex-col gap-4">
         <AnimatePresence mode="wait">
           {file && !error && (
             <motion.div
@@ -390,6 +390,6 @@ export default function AgreementUpload({ onUploadSuccess }: AgreementUploadProp
           </p>
         )}
       </div>
-    </div>
+    </div >
   );
 }

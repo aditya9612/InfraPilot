@@ -4,21 +4,17 @@ import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
 import { dashboardService, type ClientDashboardData } from "../../services/dashboardService";
 import { projectService } from "../../services/projectService";
+import { workProgressService } from "../../services/workProgressService";
 import toast from "react-hot-toast";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 
-
-const updates = [
-  { id: 1, text: "Slab reinforcement for Phase 3 completed", time: "Today's Work", icon: "🏗️" },
-  { id: 2, text: "Main gate structure framing completed", time: "Yesterday", icon: "✔" },
-  { id: 3, text: "Electrical wirings for 1st floor delivered", time: "2 days ago", icon: "🚚" },
-];
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const [isBotOpen, setIsBotOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<ClientDashboardData | null>(null);
   const [projectData, setProjectData] = useState<any>(null);
+  const [liveFeed, setLiveFeed] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { projectId } = useClientProjectId();
 
@@ -60,6 +56,29 @@ const ClientDashboard = () => {
         };
 
         setDashboardData(syncedDashboardData);
+
+        // 3. Fetch Activities for Live Execution Feed
+        try {
+          const activities = await workProgressService.listActivities(projectId);
+          if (active) {
+            const mappedFeed = activities
+              .filter((act: any) => {
+                const s = act.status?.toUpperCase();
+                return s === 'IN_PROGRESS' || s === 'ON_TRACK' || s === 'ON TRACK';
+              })
+              .slice(0, 5)
+              .map((act: any) => ({
+                id: act.id,
+                text: `${act.activity_name} - ${Math.round(act.completion_percentage)}% completed`,
+                time: act.status?.replace('_', ' ') || "ACTIVE",
+                icon: act.status?.toUpperCase() === 'COMPLETED' ? "✔" : "🏗️"
+              }));
+            setLiveFeed(mappedFeed);
+          }
+        } catch (e) {
+          console.warn("Activities fetch failed for dashboard feed:", e);
+        }
+
       } catch (error: any) {
         if (!active) return;
         console.error("Dashboard Fetch Error:", error);
@@ -132,7 +151,7 @@ const ClientDashboard = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
             <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-1">Project Command Center</p>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight">{projectData?.project_name || "PROPOSAL STAGE"}</h1>
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">{(projectData?.project_name || "PROPOSAL STAGE").toUpperCase()}</h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm flex items-center gap-3">
@@ -150,8 +169,8 @@ const ClientDashboard = () => {
             { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining", smallText: true },
             { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed} / ${dashboardData.milestones_total}` : "—", sub: "Completed / Total" },
             { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed} / ${dashboardData.tasks_total}` : "—", sub: "Completed / Total" },
-            { 
-              label: "Project Dates", 
+            {
+              label: "Project Dates",
               value: dashboardData ? (
                 <div className="flex items-center gap-3 mt-2">
                   <div className="flex flex-col">
@@ -164,19 +183,19 @@ const ClientDashboard = () => {
                     <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.end_date)}</span>
                   </div>
                 </div>
-              ) : "—", 
-              sub: "Project Duration" 
+              ) : "—",
+              sub: "Project Duration"
             },
             { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining}` : "—", sub: "Days Remaining" },
           ].map((card: any, i) => (
             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md group flex flex-col justify-between min-h-[140px]">
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{card.label}</p>
               <div className="flex-1 flex flex-col justify-center py-2">
-                 {typeof card.value === "string" ? (
-                   <p className={`${card.smallText ? "text-lg" : "text-2xl"} font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words`}>{card.value}</p>
-                 ) : (
-                   card.value
-                 )}
+                {typeof card.value === "string" ? (
+                  <p className={`${card.smallText ? "text-lg" : "text-2xl"} font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words`}>{card.value}</p>
+                ) : (
+                  card.value
+                )}
               </div>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{card.sub}</p>
             </div>
@@ -229,13 +248,17 @@ const ClientDashboard = () => {
             <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 h-full">
               <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-50 pb-4">Live Execution Feed</h2>
               <div className="space-y-10 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
-                {updates.map(update => (
+                {liveFeed.length > 0 ? liveFeed.map(update => (
                   <div key={update.id} className="relative pl-12">
                     <span className="absolute left-0 top-0 w-8 h-8 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-sm shadow-md shadow-slate-100 group-hover:scale-110 transition-transform">{update.icon}</span>
                     <p className="text-[13px] font-bold text-slate-800 leading-relaxed tracking-tight">{update.text}</p>
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 italic">{update.time}</p>
                   </div>
-                ))}
+                )) : (
+                  <div className="pl-4 py-10 text-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No active feed records found</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

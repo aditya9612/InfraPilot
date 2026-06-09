@@ -152,7 +152,7 @@ const ClientAnnouncementsPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Communication", "Announcements"]} />
+      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Chat", "Announcements"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex-1">
@@ -221,7 +221,7 @@ const ClientAnnouncementsPage = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-2">
                   <button 
                     onClick={() => handleMarkRead(ann.id)}
                     className="p-3 bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-2xl transition-all"

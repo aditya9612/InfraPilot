@@ -100,11 +100,45 @@ export const documentService = {
     },
 
     /**
-     * Get download URL for a document
+     * Get download URL or blob for a document
      * GET /api/v1/documents/{id}/download
      */
     async getDownloadUrl(id: number): Promise<{ file_url: string }> {
         const response = await api.get(`/documents/${id}/download`);
         return response.data;
+    },
+
+    /**
+     * Download a specific document
+     * GET /api/v1/documents/{id}/download
+     */
+    async downloadDocument(id: number, fileName?: string) {
+        const response = await api.get(`/documents/${id}/download`, {
+            responseType: 'blob'
+        });
+        
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fileName || `document_${id}`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    },
+
+    /**
+     * View a specific document (as blob)
+     * GET /api/v1/documents/{id}/download (Using download as proxy for view)
+     */
+    async viewDocument(id: number) {
+        const response = await api.get(`/documents/${id}/download`, {
+            responseType: 'blob'
+        });
+
+        return {
+            data: response.data,
+            contentType: response.headers?.['content-type'] || 'application/pdf'
+        };
     }
 };
