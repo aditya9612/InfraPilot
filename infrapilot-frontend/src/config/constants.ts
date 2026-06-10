@@ -10,6 +10,6 @@ export const BOQ_CATEGORIES = [
 
 export const BOQ_UNITS = ['Bags', 'Cum', 'Sqm', 'MT', 'Kg', 'Ft', 'Nos', 'Ltr'];
 
-export const BOQ_STATUSES = ['Active', 'Draft', 'Under Review', 'Completed'];
+export const BOQ_STATUSES = ['Active', 'Draft', 'Under Review', 'Completed', 'Pending'];
 
 export const BOQ_APPROVAL_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'UNDER_REVIEW'];

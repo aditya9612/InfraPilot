@@ -4,16 +4,21 @@ import { useTextToAudio } from '../../utils/useTextToAudio';
 import AttendanceCard from '../../components/labour/AttendanceCard';
 import TaskList from '../../components/labour/TaskList';
 import TaskDetailModal from '../../components/labour/TaskDetailModal';
-import PaymentTracker from '../../components/labour/PaymentTracker';
 import PageTransition from '../../components/common/PageTransition';
 import Navbar from '../../components/common/Navbar';
 import {
     Clipboard,
     CheckCircle,
     AlertCircle,
-    Clock,
+    Calendar,
     Volume2,
-    Plus
+    Briefcase,
+    User,
+    TrendingUp,
+    Wallet,
+    ArrowRight,
+    Camera,
+    Play
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -21,6 +26,8 @@ interface Task {
     id: string;
     name: string;
     project: string;
+    contractorId?: string;
+    assignedFrom?: 'Self' | 'Site Engineer';
     description: string;
     status: 'Pending' | 'In Progress' | 'Completed' | 'Hold';
     priority: 'High' | 'Medium' | 'Low';
@@ -36,121 +43,160 @@ const LabourDashboard: React.FC = () => {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
-    const [tasks, setTasks] = useState<Task[]>([
+    const [tasks] = useState<Task[]>([
         { id: 'T-001', name: 'FOUNDATION REINFORCEMENT', project: 'Urban Heights', description: 'Reinforcing foundation columns', status: 'In Progress', priority: 'High', startDate: '2026-05-27', endDate: '2026-05-30', progress: 65 },
         { id: 'T-002', name: 'CONCRETING SECTION B', project: 'Urban Heights', description: 'Pouring concrete for section B', status: 'Pending', priority: 'Medium', startDate: '2026-05-28', endDate: '2026-06-02', progress: 0 },
         { id: 'T-003', name: 'CLEAR DEBRIS', project: 'Urban Heights', description: 'Remove construction waste', status: 'Completed', priority: 'Low', startDate: '2026-05-26', endDate: '2026-05-28', progress: 100 },
     ]);
 
-    const handleCheckIn = () => {
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(() => {
-                setIsCheckedIn(true);
-                speak(`Check-in successful`);
-                toast.success("Checked in successfully!");
-            }, () => {
-                toast.error("Location access required for check-in");
-            });
-        }
-    };
-
-    const handleCheckOut = () => {
-        setIsCheckedIn(false);
-        speak("Checked out successfully");
-        toast.success("Checked out!");
-    };
-
-    const handleUpdateTask = (id: string, status: string) => {
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: status as any, progress: status === 'Completed' ? 100 : t.progress } : t));
-        setIsTaskModalOpen(false);
+    const handleUpdateTask = (_id: string, status: string) => {
         toast.success(`Task ${status}!`);
+        setIsTaskModalOpen(false);
     };
 
     const stats = [
-        { label: 'Total Tasks', value: 12, icon: Clipboard, color: 'text-blue-500' },
-        { label: 'Completed', value: 8, icon: CheckCircle, color: 'text-green-500' },
-        { label: 'Pending', value: 3, icon: AlertCircle, color: 'text-orange-500' },
-        { label: 'In Progress', value: 1, icon: Clock, color: 'text-purple-500' },
+        { label: 'Total Tasks', value: 12, icon: Clipboard, color: 'text-blue-500', bg: 'bg-blue-50' },
+        { label: 'Completed', value: 8, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+        { label: 'Pending', value: 3, icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
+        { label: 'This Month Earnings', value: '₹14,500', icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+    ];
+
+    const quickActions = [
+        { label: 'Check In', icon: Camera, color: 'bg-emerald-500', onClick: () => toast.success("Opening Check-in...") },
+        { label: 'Check Out', icon: Calendar, color: 'bg-rose-500', onClick: () => toast.success("Opening Check-out...") },
+        { label: 'View Tasks', icon: Clipboard, color: 'bg-blue-500', onClick: () => toast.success("Navigating to Tasks...") },
+        { label: 'Start Work', icon: Play, color: 'bg-indigo-500', onClick: () => toast.success("Select a task to start") },
     ];
 
     return (
         <>
             <Navbar
-                title="Labour Overview"
-                breadcrumb={['InfraPilot', 'Dashboard', 'Labour']}
+                title="Labour Portal"
+                breadcrumb={['InfraPilot', 'Dashboard']}
             />
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <div>
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                                Namaste, {user?.name || 'Gopal Yadav'}
-                            </h1>
-                            <button
-                                onClick={() => speak(`Namaste, ${user?.name || 'Gopal Yadav'}`)}
-                                className="p-1 px-2 rounded-full hover:bg-white text-slate-300 transition-colors"
-                            >
-                                <Volume2 className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <p className="text-slate-500 text-sm">Track your work and payments here</p>
-                    </div>
-                    <AttendanceCard
-                        isCheckedIn={isCheckedIn}
-                        onCheckIn={handleCheckIn}
-                        onCheckOut={handleCheckOut}
-                    />
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    {stats.map((stat, i) => (
-                        <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between h-[140px] transition-transform hover:scale-[1.01]">
-                            <div className="inline-flex p-2 rounded-xl bg-slate-50">
-                                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter pb-20">
+                {/* ── Welcome & Top Section ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="lg:col-span-3">
+                        <div className="flex items-center gap-4 mb-2">
+                            <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-2xl shadow-sm">
+                                👋
                             </div>
                             <div>
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">{stat.label}</span>
-                                <span className="text-2xl font-bold text-slate-800">{stat.value}</span>
+                                <div className="flex items-center gap-2">
+                                    <h1 className="text-2xl font-black text-slate-800 tracking-tight">
+                                        Welcome, {user?.name || 'Gopal Yadav'}
+                                    </h1>
+                                    <button onClick={() => speak(`Welcome, ${user?.name || 'Gopal Yadav'}`)} className="text-slate-300 hover:text-indigo-500">
+                                        <Volume2 className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-1">
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                        <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
+                                        Urban Heights
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                        <User className="w-3.5 h-3.5 text-emerald-500" />
+                                        M/S Sharma Contractors
+                                    </div>
+                                </div>
                             </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center lg:justify-end">
+                        <AttendanceCard
+                            isCheckedIn={isCheckedIn}
+                            onCheckIn={() => setIsCheckedIn(true)}
+                            onCheckOut={() => setIsCheckedIn(false)}
+                        />
+                    </div>
+                </div>
+
+                {/* ── Statistics Cards ── */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+                    {stats.map((stat, i) => (
+                        <div key={i} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm transition-all hover:shadow-md group">
+                            <div className={`w-10 h-10 rounded-2xl ${stat.bg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                            </div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{stat.label}</p>
+                            <p className="text-xl md:text-2xl font-black text-slate-800">{stat.value}</p>
                         </div>
                     ))}
                 </div>
 
-                {/* Main Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="flex justify-between items-center px-1">
-                            <div className="flex items-center gap-3">
-                                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Assigned Tasks</h2>
-                                <button onClick={() => speak("Assigned Tasks")} className="text-slate-300 hover:text-indigo-500 transition-colors">
-                                    <Volume2 className="w-4 h-4" />
+                {/* ── Main Dashboard Layout ── */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+                    {/* Left Column: Tasks & Quick Actions */}
+                    <div className="xl:col-span-8 space-y-8">
+                        {/* Quick Action Grid */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-6 px-1">
+                                <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Quick Actions</h2>
+                                <div className="h-px flex-1 bg-slate-100" />
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {quickActions.map((action, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={action.onClick}
+                                        className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-3 hover:bg-slate-50 transition-all hover:-translate-y-1 active:translate-y-0"
+                                    >
+                                        <div className={`w-12 h-12 rounded-2xl ${action.color} text-white flex items-center justify-center shadow-lg shadow-current/20`}>
+                                            <action.icon className="w-6 h-6" />
+                                        </div>
+                                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{action.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Recent Tasks */}
+                        <div>
+                            <div className="flex justify-between items-center mb-6 px-1">
+                                <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Recent Tasks</h2>
+                                <button className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 group">
+                                    View All <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </div>
-                            <button
-                                onClick={() => toast.success("Feature coming soon!")}
-                                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors uppercase tracking-widest"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Self-Assign
-                            </button>
+                            <TaskList
+                                tasks={tasks}
+                                onSelectTask={(t) => { setSelectedTask(t as any); setIsTaskModalOpen(true); }}
+                                onSelfAssign={(id) => handleUpdateTask(id, 'In Progress')}
+                            />
                         </div>
-                        <TaskList
-                            tasks={tasks}
-                            onSelectTask={(t) => { setSelectedTask(t as any); setIsTaskModalOpen(true); }}
-                            onSelfAssign={(id) => handleUpdateTask(id, 'In Progress')}
-                        />
                     </div>
 
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3 px-1">
-                            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Payment Status</h2>
-                            <button onClick={() => speak("Payment Status")} className="text-slate-300 hover:text-indigo-500 transition-colors">
-                                <Volume2 className="w-4 h-4" />
-                            </button>
+                    {/* Right Column: Activity & Payments */}
+                    <div className="xl:col-span-4 space-y-8">
+                        <div>
+                            <div className="flex items-center gap-3 mb-6 px-1">
+                                <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Recent Activity</h2>
+                                <div className="h-px flex-1 bg-slate-100" />
+                            </div>
+                            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                                {[
+                                    { title: 'Payment Received', subtitle: '₹2,500 credited for Foundation work', time: '2 hours ago', icon: Wallet, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                                    { title: 'Task Completed', subtitle: 'Reinforcement work marked as finished', time: 'Yesterday', icon: CheckCircle, color: 'text-blue-500', bg: 'bg-blue-50' },
+                                    { title: 'New Task Assigned', subtitle: 'Concreting for Section B', time: '2 days ago', icon: Clipboard, color: 'text-amber-500', bg: 'bg-amber-50' },
+                                ].map((activity, i) => (
+                                    <div key={i} className="flex gap-4 group cursor-pointer hover:bg-slate-50 p-2 -m-2 rounded-2xl transition-colors">
+                                        <div className={`w-10 h-10 rounded-xl ${activity.bg} flex items-center justify-center shrink-0`}>
+                                            <activity.icon className={`w-5 h-5 ${activity.color}`} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-black text-slate-800 truncate leading-none mb-1">{activity.title}</p>
+                                            <p className="text-xs text-slate-500 truncate mb-1">{activity.subtitle}</p>
+                                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{activity.time}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                <button className="w-full py-3 bg-slate-50 hover:bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all">
+                                    Show More
+                                </button>
+                            </div>
                         </div>
-                        <PaymentTracker />
                     </div>
                 </div>
 

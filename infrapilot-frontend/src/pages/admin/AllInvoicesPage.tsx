@@ -1,12 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import {
-  Plus,
   Search,
   FileText,
   Eye,
   Trash2,
   Download,
+  Plus,
+  ChevronDown,
+  Layers,
+  Users,
+  Package
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import Navbar from "../../components/common/Navbar";
@@ -16,112 +20,243 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import { quotationService } from "../../services/quotationService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
-import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
+import { formatCompactCurrency } from "../../utils/currencyUtils";
 import { exportToCSV } from "../../utils/csvExport";
-import { generateQuotationPDF } from "../../utils/quotationPDFGenerator";
+import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
+import { financeService } from "../../services/financeService";
+import { projectService } from "../../services/projectService";
+import type { Project } from "../../types/project";
+import type { Invoice, InvoiceType } from "../../types/invoice";
+
+
+
+const STATUS_BADGE: Record<string, string> = {
+  approved: "bg-emerald-100 text-emerald-600",
+  draft: "bg-slate-100 text-slate-600",
+  converted: "bg-amber-100 text-amber-600",
+  paid: "bg-emerald-100 text-emerald-700",
+  pending: "bg-amber-100 text-amber-700",
+  partial: "bg-orange-100 text-orange-700",
+};
 
 const AllInvoicesPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState(searchParams.get("type") || "all");
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeCreateType, setActiveCreateType] = useState<InvoiceType>("owner");
+  const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false);
+
   const PAGE_SIZE = 10;
 
+  const setType = (type: string) => {
+    setSearchParams({ type });
+    setTypeFilter(type);
+    setCurrentPage(0);
+    setSearchTerm("");
+    setStatusFilter("all");
+  };
+
   useEffect(() => {
-    const fetchEstimates = async () => {
+    const type = searchParams.get("type") || "all";
+    if (type !== typeFilter) {
+      setTypeFilter(type);
+      setCurrentPage(0);
+      setSearchTerm("");
+      setStatusFilter("all");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
-        const data = await quotationService.getQuotations();
-        setQuotations(data);
+        const [quotData, invData, projData] = await Promise.all([
+          quotationService.getQuotations(),
+          financeService.getInvoices(200),
+          projectService.getProjects(100, 0),
+        ]);
+        setQuotations(quotData);
+        setInvoices(Array.isArray(invData) ? invData : []);
+        const projList = Array.isArray(projData)
+          ? projData
+          : projData.items || projData.data || [];
+        setProjects(projList);
       } catch (error) {
-        console.error("Failed to fetch estimates", error);
-        toast.error("Failed to load estimates");
+        console.error("Failed to load data", error);
+        toast.error("Failed to load invoice data");
       } finally {
         setIsLoading(false);
       }
     };
-    fetchEstimates();
+    load();
   }, []);
+
+  const handleCreateInvoice = async (data: any) => {
+    try {
+      await financeService.createInvoice(data);
+      toast.success("Invoice created successfully");
+      setIsModalOpen(false);
+      // Refresh invoice list
+      const invData = await financeService.getInvoices(200);
+      setInvoices(Array.isArray(invData) ? invData : []);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create invoice");
+    }
+  };
+
+
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      await quotationService.deleteQuotation(deleteTarget);
-      toast.success("Estimate deleted successfully");
-      const data = await quotationService.getQuotations();
-      setQuotations(data);
+      const itemToDelete = unifiedAllData.find(d => d.id === deleteTarget);
+      if (itemToDelete?.isQuotation) {
+        await quotationService.deleteQuotation(deleteTarget);
+        const data = await quotationService.getQuotations();
+        setQuotations(data);
+      } else {
+        await financeService.deleteInvoice(deleteTarget);
+        const invData = await financeService.getInvoices(200);
+        setInvoices(Array.isArray(invData) ? invData : []);
+      }
+      toast.success("Deleted successfully");
     } catch (error) {
-      toast.error("Failed to delete estimate");
+      toast.error("Failed to delete");
     } finally {
       setIsDeleting(false);
       setDeleteTarget(null);
     }
   };
 
-  const filteredData = useMemo(() => {
-    const filtered = quotations.filter(q => {
+  // Filtered data
+  const filteredQuotations = useMemo(() => {
+    return quotations.filter((q) => {
+      const isConverted = q.status?.toLowerCase() === "converted";
+      if (!isConverted) return false;
+
       const matchSearch =
         q.quotation_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         q.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         q.project_name?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchStatus = statusFilter === "all" ||
+      const matchStatus =
+        statusFilter === "all" ||
         q.status?.toLowerCase() === statusFilter.toLowerCase();
       return matchSearch && matchStatus;
     });
-    return [...filtered].sort((a, b) => {
+  }, [quotations, searchTerm, statusFilter]);
+
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((inv) => {
+      const proj = projects.find((p) => p.id === inv.project_id);
+      const matchSearch =
+        (proj?.project_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        inv.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `INV-${inv.id}`.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchStatus =
+        statusFilter === "all" ||
+        inv.status?.toLowerCase() === statusFilter.toLowerCase();
+      return matchSearch && matchStatus;
+    });
+  }, [invoices, projects, searchTerm, statusFilter]);
+
+  const unifiedAllData = useMemo(() => {
+    // Map converted quotations to invoice-like structure
+    const mappedQuotations = filteredQuotations.map(q => ({
+      id: q.id,
+      isQuotation: true,
+      invoice_no: q.quotation_no || `QTN-${q.id}`,
+      project_name: q.project_name || "Unknown Project",
+      description: "Converted from quotation",
+      type: "invoice",
+      amount: q.subtotal || 0,
+      total_amount: q.grand_total || 0,
+      status: "converted",
+      created_at: q.created_at
+    }));
+
+    const mappedInvoices = filteredInvoices.map(inv => {
+      const proj = projects.find(p => p.id === inv.project_id);
+      return {
+        ...inv,
+        isQuotation: false,
+        invoice_no: `INV-${String(inv.id).padStart(3, "0")}`,
+        project_name: proj?.project_name || `Project #${inv.project_id}`
+      };
+    });
+
+    const combined = [...mappedInvoices, ...mappedQuotations];
+
+    const finalFiltered = combined.filter(item => {
+      if (typeFilter === "all") return true;
+      if (typeFilter === "invoice") return item.isQuotation || item.type === "owner";
+      return item.type?.toLowerCase() === typeFilter.toLowerCase();
+    });
+
+    return finalFiltered.sort((a, b) => {
       const aDate = new Date(a.created_at || 0).getTime();
       const bDate = new Date(b.created_at || 0).getTime();
       return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
     });
-  }, [quotations, searchTerm, statusFilter, sortOrder]);
+  }, [filteredInvoices, filteredQuotations, projects, sortOrder, typeFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
-  const pagedData = filteredData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  const displayData = unifiedAllData;
+  const totalPages = Math.max(1, Math.ceil(displayData.length / PAGE_SIZE));
+  const pagedData = displayData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
-  // Reset to page 0 on search/filter changes
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, typeFilter]);
 
+  // Stats
   const stats = useMemo(() => {
-    const total = quotations.reduce((sum, q) => sum + (q.grand_total || 0), 0);
-    const approved = quotations.filter(q => q.status === "approved").reduce((sum, q) => sum + (q.grand_total || 0), 0);
-    const draft = quotations.filter(q => q.status === "draft").reduce((sum, q) => sum + (q.grand_total || 0), 0);
-    return { total, pending: draft, paid: approved, labelTotal: "Pipeline Value", labelPending: "Draft Estimates", labelPaid: "Approved Proposals" };
-  }, [quotations]);
+    const total = displayData.reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+    const pending = displayData.filter((i) => i.status === "pending").reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+    const paid = displayData.filter((i) => i.status === "paid").reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+    return { total, pending, paid };
+  }, [displayData]);
 
   const handleExportAll = () => {
-    if (filteredData.length === 0) {
-      toast.error("No data to export.");
-      return;
-    }
-    const csvData = filteredData.map((q) => ({
-      quotation_no: q.quotation_no || `QTN-${q.id}`,
-      client_name: q.client_name || "Unknown",
-      project_name: q.project_name || "-",
-      date: q.created_at ? new Date(q.created_at).toLocaleDateString() : "-",
-      grand_total: q.grand_total || 0,
-      status: q.status || "draft",
+    if (displayData.length === 0) { toast.error("No data to export."); return; }
+    const csvData = displayData.map((item) => ({
+      id: item.invoice_no,
+      type: item.type,
+      project: item.project_name,
+      description: item.description,
+      amount: item.total_amount,
+      status: item.status,
+      date: item.created_at ? new Date(item.created_at).toLocaleDateString() : "-",
     }));
-    exportToCSV(csvData, `invoices_export_${new Date().toISOString().split("T")[0]}.csv`, {
-      quotation_no: "Invoice #",
-      client_name: "Client Name",
-      project_name: "Project / Description",
-      date: "Date",
-      grand_total: "Amount (₹)",
-      status: "Status",
+    exportToCSV(csvData, `invoice_portfolio_${new Date().toISOString().split("T")[0]}.csv`, {
+      id: "Invoice #", type: "Type", project: "Project", description: "Description",
+      amount: "Amount (₹)", status: "Status", date: "Date",
     });
-    toast.success(`Exported ${filteredData.length} records to CSV!`);
+    toast.success(`Exported ${displayData.length} records to CSV!`);
+  };
+
+  const openCreateModal = (type: InvoiceType) => {
+    setActiveCreateType(type);
+    setIsModalOpen(true);
   };
 
   return (
     <>
-      <Navbar title="Estimates & Invoices" breadcrumb={["Dashboard", "Invoices", "All Invoices"]} />
+      <Navbar
+        title={typeFilter === "labour" ? "Labour Invoices" : typeFilter === "material" ? "Material Invoices" : "Estimates & Invoices"}
+        breadcrumb={["Dashboard", "Invoices", typeFilter === "all" ? "Portfolio" : typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1)]} />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
         <div className="max-w-[1600px] mx-auto space-y-6">
@@ -129,44 +264,66 @@ const AllInvoicesPage = () => {
           {/* HEADER */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Invoice Portfolio</h1>
+              <h1 className="text-2xl font-bold text-slate-800">
+                {typeFilter === "labour" ? "Labour Invoices" : typeFilter === "material" ? "Material Invoices" : "Invoice Portfolio"}
+              </h1>
               <p className="text-sm text-slate-500">Track and manage all client estimates and final invoices.</p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={handleExportAll}
                 className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
-                <Download className="w-4 h-4" /> Export All
+                <Download className="w-4 h-4" /> Export
               </button>
-              <Link
-                to="/admin/invoices/create"
-                className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-sm font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> Add Invoice
-              </Link>
+
+              <div className="relative">
+                <button
+                  onClick={() => setIsAddDropdownOpen(!isAddDropdownOpen)}
+                  className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:bg-blue-600 transition-all flex items-center gap-2">
+                  <Plus className="w-4 h-4" /> Add Invoice <ChevronDown className={`w-4 h-4 transition-transform ${isAddDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isAddDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsAddDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <button
+                        onClick={() => { navigate("/admin/quotations"); setIsAddDropdownOpen(false); }}
+                        className="w-full px-4 py-2.5 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                        <FileText className="w-4 h-4 text-emerald-500" /> Quotation
+                      </button>
+                      <button
+                        onClick={() => { openCreateModal("labour"); setIsAddDropdownOpen(false); }}
+                        className="w-full px-4 py-2.5 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                        <Users className="w-4 h-4 text-blue-500" /> Labour Invoice
+                      </button>
+                      <button
+                        onClick={() => { openCreateModal("material"); setIsAddDropdownOpen(false); }}
+                        className="w-full px-4 py-2.5 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                        <Package className="w-4 h-4 text-purple-500" /> Material Invoice
+                      </button>
+                      <button
+                        onClick={() => { navigate("/admin/measurements"); setIsAddDropdownOpen(false); }}
+                        className="w-full px-4 py-2.5 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                        <Layers className="w-4 h-4 text-orange-500" /> Final Measurement
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
+
+
           {/* STATS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <StatCard
-              title={stats.labelTotal}
-              value={formatCompactCurrency(stats.total)}
-              sub={`${quotations.length} Active Estimates`}
-              accent="text-indigo-600"
-            />
-            <StatCard
-              title={stats.labelPending}
-              value={formatCompactCurrency(stats.pending)}
-              sub="Requires review"
-              accent="text-amber-500"
-            />
-            <StatCard
-              title={stats.labelPaid}
-              value={formatCompactCurrency(stats.paid)}
-              sub="Won projects"
-              accent="text-emerald-500"
-            />
+            <StatCard title="Portfolio Value" value={formatCompactCurrency(stats.total)} sub={`${displayData.length} records`} accent="text-indigo-600" />
+            <StatCard title="Pending" value={formatCompactCurrency(stats.pending)} sub="Requires action" accent="text-amber-500" />
+            <StatCard title="Paid" value={formatCompactCurrency(stats.paid)} sub="Completed" accent="text-emerald-500" />
           </div>
 
           {/* TABLE CONTAINER */}
@@ -184,14 +341,24 @@ const AllInvoicesPage = () => {
               </div>
               <div className="flex items-center gap-3">
                 <select
+                  value={typeFilter}
+                  onChange={(e) => setType(e.target.value)}
+                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none focus:ring-2 focus:ring-indigo-100 shadow-sm"
+                >
+                  <option value="all">All Invoice</option>
+                  <option value="invoice">Invoice</option>
+                  <option value="labour">Labour</option>
+                  <option value="material">Material</option>
+                </select>
+                <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black uppercase tracking-widest text-slate-600 outline-none"
                 >
                   <option value="all">All Status</option>
-                  <option value="draft">Draft</option>
-                  <option value="approved">Approved</option>
-                  <option value="converted">Converted</option>
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="partial">Partial</option>
                 </select>
                 <SortDropdown value={sortOrder} onChange={setSortOrder} />
               </div>
@@ -202,10 +369,10 @@ const AllInvoicesPage = () => {
                 <thead>
                   <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
                     <th className="px-6 py-4">Invoice #</th>
-                    <th className="px-6 py-4">Client Name</th>
-                    <th className="px-6 py-4">Description</th>
-                    <th className="px-6 py-4">Date</th>
-                    <th className="px-6 py-4">Amount</th>
+                    <th className="px-6 py-4">Project / Description</th>
+                    <th className="px-6 py-4">Type</th>
+                    <th className="px-6 py-4 text-right">Base Amount</th>
+                    <th className="px-6 py-4 text-right">Total Amount</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
@@ -213,79 +380,79 @@ const AllInvoicesPage = () => {
                 <tbody className="divide-y divide-slate-50">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-20 text-center">
+                      <td colSpan={7} className="px-6 py-20 text-center">
                         <div className="inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2"></div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading estimates...</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading...</p>
                       </td>
                     </tr>
-                  ) : filteredData.length === 0 ? (
+                  ) : pagedData.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-20 text-center">
+                      <td colSpan={7} className="px-6 py-20 text-center">
                         <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No estimates found</p>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No records found</p>
                       </td>
                     </tr>
                   ) : (
-                    (pagedData as Quotation[]).map((q) => (
-                      <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-6 py-4 text-sm font-black text-slate-800">
-                          {q.quotation_no || `QTN-${q.id}`}
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-bold text-slate-700">{q.client_name || "Unknown Client"}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-xs text-slate-500 font-medium line-clamp-1 max-w-[200px]">{q.project_name}</p>
-                        </td>
-                        <td className="px-6 py-4 text-xs font-bold text-slate-400">
-                          {q.created_at ? new Date(q.created_at).toLocaleDateString() : "-"}
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-black text-slate-800">{formatCompactCurrency(q.grand_total || 0)}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${q.status === 'approved' ? 'bg-emerald-100 text-emerald-600' :
-                            q.status === 'draft' ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-600'
-                            }`}>
-                            {q.status || "draft"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link
-                              to={`/admin/quotations/view/${q.id}`}
-                              className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Link>
-                            <button
-                              onClick={() => generateQuotationPDF(q)}
-                              className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                              title="Download PDF"
-                            >
-                              <Download className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => q.id && setDeleteTarget(q.id)}
-                              className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                              title="Delete Estimate"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    pagedData.map((inv: any) => {
+                      return (
+                        <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-6 py-4 text-sm font-black text-slate-800">
+                            {inv.invoice_no}
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-bold text-slate-700">{inv.project_name || "Unknown Project"}</p>
+                            <p className="text-xs text-slate-400 line-clamp-1 max-w-[220px]">{inv.description}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${inv.type === "labour" ? "bg-blue-100 text-blue-600" :
+                              inv.type === "material" ? "bg-purple-100 text-purple-600" : "bg-emerald-100 text-emerald-600"
+                              }`}>
+                              {inv.type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-bold text-slate-700 text-right tabular-nums">
+                            {formatCompactCurrency(Number(inv.amount) || 0)}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-black text-slate-800 text-right tabular-nums">
+                            {formatCompactCurrency(Number(inv.total_amount) || 0)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${STATUS_BADGE[inv.status || "pending"] || "bg-emerald-100 text-emerald-600"}`}>
+                              {inv.status || "pending"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {inv.isQuotation && (
+                                <Link
+                                  to={`/admin/quotations/view/${inv.id}`}
+                                  className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                  title="View Details"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Link>
+                              )}
+                              <button
+                                onClick={() => inv.id && setDeleteTarget(inv.id)}
+                                className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                title="Delete Invoice"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
-            {/* Pagination Component */}
+
             {totalPages > 1 && (
               <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                  Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredData.length)} of {filteredData.length} records
+                  Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, displayData.length)} of {displayData.length} records
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -318,10 +485,18 @@ const AllInvoicesPage = () => {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         isLoading={isDeleting}
-        title="Delete Estimate"
-        message="Are you sure you want to permanently delete this estimate? This action cannot be undone."
+        title="Delete Record"
+        message="Are you sure you want to permanently delete this record? This action cannot be undone."
         confirmLabel="Delete"
         confirmClass="bg-rose-500 hover:bg-rose-600 shadow-rose-200"
+      />
+
+      <CreateInvoiceModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateInvoice}
+        initialType={activeCreateType}
+        projects={projects}
       />
     </>
   );

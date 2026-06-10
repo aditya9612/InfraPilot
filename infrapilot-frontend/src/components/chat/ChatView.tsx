@@ -4,9 +4,8 @@ import { useAuth } from "../../context/AuthContext";
 import { chatService } from "../../services/chatService";
 import type { ChatMessage, Conversation } from "../../types/chat";
 import {
-    Send, Paperclip, MoreVertical, Search, Pin, Smile,
-    Check, CheckCheck, X, Users, Phone, Shield, User,
-    BellOff, Bell, Archive, Info
+    Search, Send, Paperclip, MoreVertical, Smile, Pin, Check, X,
+    User, Shield, Info, Archive, BellOff, CheckCheck, Users, Phone
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -16,12 +15,19 @@ import { formatToIST } from "../../utils/dateUtils";
 const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "🙏", "🔥"];
 
 const ChatView: React.FC = () => {
-    const { activeChatId, conversations, setActiveChatId } = useChat();
+    const { activeChatId, conversations, setActiveChatId, updateConversation } = useChat();
     const { user } = useAuth();
     const myUserId = user?.id ? parseInt(user.id, 10) : null;
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [activeChat, setActiveChat] = useState<Conversation | null>(null);
+    const [activeChatFetched, setActiveChatFetched] = useState<Conversation | null>(null);
+
+    // Derive activeChat by merging fetched details with context metadata (source of truth for status)
+    const activeChatFromContext = conversations.find(c => Number(c.id) === Number(activeChatId));
+    const activeChat = activeChatFetched
+        ? { ...activeChatFetched, ...activeChatFromContext }
+        : activeChatFromContext;
+
     const [isLoading, setIsLoading] = useState(false);
     const [inputText, setInputText] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
@@ -34,8 +40,10 @@ const ChatView: React.FC = () => {
     const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     // User info panel
-    type UserProfile = { name: string; mobile?: string | null; role?: string; profile_image?: string | null; };
+    type GroupMemberInfo = { user_id: number; name: string; role: "admin" | "member"; profile_image?: string | null };
+    type UserProfile = { name: string; mobile?: string | null; role?: string; profile_image?: string | null; isGroup?: boolean; members?: GroupMemberInfo[]; memberCount?: number; };
     const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
+    const [isLoadingMembers, setIsLoadingMembers] = useState(false);
     const openProfile = (profile: UserProfile) => setSelectedProfile(profile);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -64,7 +72,7 @@ const ChatView: React.FC = () => {
                 chatService.getChatInfo(activeChatId)
             ]);
             setMessages(messagesData);
-            setActiveChat(chatInfo);
+            setActiveChatFetched(chatInfo);
             // Mark delivered
             messagesData
                 .filter(m => m.sender_id !== myUserId && m.status === "sent")
@@ -224,11 +232,26 @@ const ChatView: React.FC = () => {
                 <div
                     className="flex items-center gap-3 cursor-pointer group/header"
                     onClick={() => {
-                        if (activeChat?.type !== "group") {
-                            openProfile({
-                                name: activeChat?.other_user_name || conversations.find(c => c.id === activeChatId)?.other_user_name || "Unknown",
-                                profile_image: activeChat?.other_user_avatar || activeChat?.avatar_url || conversations.find(c => c.id === activeChatId)?.other_user_avatar,
-                            });
+                        if (activeChat) {
+                            if (activeChat.type === "group") {
+                                // Trigger the "View Information" fetch logic for groups
+                                const viewInfoBtn = document.getElementById('view-info-button');
+                                if (viewInfoBtn) {
+                                    viewInfoBtn.click();
+                                } else {
+                                    // Fallback if button id not found
+                                    openProfile({
+                                        name: activeChat.name || "Group",
+                                        profile_image: activeChat.avatar_url,
+                                        isGroup: true,
+                                    });
+                                }
+                            } else {
+                                openProfile({
+                                    name: activeChat.other_user_name || conversations.find(c => c.id === activeChatId)?.other_user_name || "Unknown",
+                                    profile_image: activeChat.other_user_avatar || activeChat.avatar_url || conversations.find(c => c.id === activeChatId)?.other_user_avatar,
+                                });
+                            }
                         }
                     }}
                 >
@@ -246,9 +269,14 @@ const ChatView: React.FC = () => {
                         )}
                     </div>
                     <div>
-                        <h3 className="text-sm font-black text-slate-800 tracking-tight">
-                            {activeChat?.name || activeChat?.other_user_name || conversations.find(c => c.id === activeChatId)?.name || conversations.find(c => c.id === activeChatId)?.other_user_name || "Unknown"}
-                        </h3>
+                        <div className="flex items-center gap-2 min-w-0">
+                            <h3 className="text-sm font-black text-slate-800 tracking-tight truncate">
+                                {activeChat?.name || activeChat?.other_user_name || conversations.find(c => c.id === activeChatId)?.name || conversations.find(c => c.id === activeChatId)?.other_user_name || "Unknown"}
+                            </h3>
+                            {(activeChat?.is_muted || (activeChat as any)?.muted || (activeChat as any)?.isMuted) && (
+                                <BellOff className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                            )}
+                        </div>
                         {typingUsers.length > 0 ? (
                             <p className="text-[10px] font-black text-amber-500 flex items-center gap-1">
                                 <span className="flex gap-0.5">
@@ -290,15 +318,81 @@ const ChatView: React.FC = () => {
                                     className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[110] p-1.5"
                                 >
                                     <button
-                                        onClick={() => {
+                                        id="view-info-button"
+                                        onClick={async () => {
                                             setShowMoreMenu(false);
                                             if (activeChat) {
-                                                openProfile({
-                                                    name: activeChat.type === "group" ? (activeChat.name || "Group") : (activeChat.other_user_name || "Unknown"),
-                                                    profile_image: activeChat.type === "group" ? activeChat.avatar_url : activeChat.other_user_avatar,
-                                                    role: activeChat.type === "group" ? "Group Conversation" : "Private Chat",
-                                                    mobile: activeChat.type === "private" ? activeChat.other_user_mobile : undefined
-                                                });
+                                                if (activeChat.type === "group") {
+                                                    // Show group info with members
+                                                    openProfile({
+                                                        name: activeChat.name || "Group",
+                                                        profile_image: activeChat.avatar_url,
+                                                        role: `${activeChat.member_count || 0} members`,
+                                                        isGroup: true,
+                                                        members: [],
+                                                    });
+                                                    setIsLoadingMembers(true);
+                                                    try {
+                                                        const membersRes = await chatService.getGroupMembers(activeChat.id);
+                                                        console.log(`[GroupFetch] Primary API Response for ${activeChat.id}:`, membersRes);
+
+                                                        let members = Array.isArray(membersRes) ? membersRes : (membersRes as any).members || [];
+
+                                                        // Fallback 2: Check activeChat object itself
+                                                        if (members.length === 0 && (activeChat as any).members && Array.isArray((activeChat as any).members)) {
+                                                            console.log("[GroupFetch] Fallback 2: Using activeChat.members");
+                                                            members = (activeChat as any).members;
+                                                        }
+
+                                                        // Fallback 3: Try getMentionUsers (often contains all chat participants)
+                                                        if (members.length === 0) {
+                                                            console.log("[GroupFetch] Fallback 3: Attempting getMentionUsers...");
+                                                            try {
+                                                                const mentionUsers = await chatService.getMentionUsers(activeChat.id);
+                                                                if (mentionUsers?.items && mentionUsers.items.length > 0) {
+                                                                    members = mentionUsers.items.map(u => ({
+                                                                        user_id: u.user_id,
+                                                                        name: u.full_name || "Member",
+                                                                        role: "member",
+                                                                        profile_image: u.profile_image
+                                                                    }));
+                                                                }
+                                                            } catch (e) {
+                                                                console.warn("[GroupFetch] Mentions fallback failed:", e);
+                                                            }
+                                                        }
+
+                                                        const mappedMembers = members.map((m: any) => ({
+                                                            user_id: m.user_id || m.id || m.ID || 0,
+                                                            name: m.name || m.full_name || m.fullName || "User",
+                                                            role: m.role || "member",
+                                                            profile_image: m.profile_image || m.avatar_url
+                                                        }));
+
+                                                        console.log("[GroupFetch] Final Result:", mappedMembers);
+
+                                                        setSelectedProfile(prev => {
+                                                            if (!prev) return null;
+                                                            return {
+                                                                ...prev,
+                                                                members: mappedMembers,
+                                                                memberCount: mappedMembers.length > 0 ? mappedMembers.length : (activeChat.member_count || 0)
+                                                            };
+                                                        });
+                                                    } catch (err) {
+                                                        console.error("[GroupFetch] All paths failed:", err);
+                                                        setSelectedProfile(prev => prev ? { ...prev, memberCount: activeChat.member_count || 0 } : null);
+                                                    } finally {
+                                                        setIsLoadingMembers(false);
+                                                    }
+                                                } else {
+                                                    openProfile({
+                                                        name: activeChat.other_user_name || "Unknown",
+                                                        profile_image: activeChat.other_user_avatar,
+                                                        role: "Private Chat",
+                                                        mobile: activeChat.other_user_mobile,
+                                                    });
+                                                }
                                             }
                                         }}
                                         className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-primary rounded-xl transition-all"
@@ -309,20 +403,66 @@ const ChatView: React.FC = () => {
 
                                     <button
                                         onClick={async () => {
-                                            if (!activeChatId || !activeChat) return;
-                                            try {
-                                                const isMuted = activeChat.is_muted;
-                                                await chatService.muteChat(activeChatId, !isMuted);
-                                                setActiveChat(prev => prev ? { ...prev, is_muted: !isMuted } : null);
-                                                toast.success(!isMuted ? "Notifications muted" : "Notifications enabled", { position: "top-right", icon: !isMuted ? "🔇" : "🔔" });
-                                            } catch {
-                                                toast.error("Action failed");
-                                            }
                                             setShowMoreMenu(false);
+                                            if (activeChat) {
+                                                try {
+                                                    // Source of truth for current status is our merged activeChat (from context)
+                                                    const currentStatus = !!(activeChat.is_archived || (activeChat as any).archived || (activeChat as any).isArchived);
+                                                    const targetStatus = !currentStatus;
+
+                                                    // 1. Instantly update context (Source of Truth for Sidebar/Header)
+                                                    updateConversation(activeChatId!, {
+                                                        is_archived: targetStatus,
+                                                        archived: targetStatus
+                                                    } as any);
+
+                                                    // 2. Call API in background
+                                                    await chatService.archiveChat(activeChatId!, targetStatus);
+
+                                                    // 3. Clear active view if archiving
+                                                    if (targetStatus) {
+                                                        setActiveChatId(null);
+                                                    }
+
+                                                    toast.success(targetStatus ? "Chat archived" : "Chat unarchived", { position: "top-right" });
+                                                } catch (err) {
+                                                    console.error(err);
+                                                    toast.error("Action failed");
+                                                }
+                                            }
                                         }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-primary rounded-xl transition-all"
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-50 transition-colors"
                                     >
-                                        {activeChat?.is_muted ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                                        <Archive className="w-4 h-4" />
+                                        {activeChat?.is_archived ? "Unarchive Chat" : "Archive Chat"}
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            setShowMoreMenu(false);
+                                            if (activeChat) {
+                                                try {
+                                                    const currentMuted = !!(activeChat.is_muted || (activeChat as any).muted || (activeChat as any).isMuted);
+                                                    const targetMuted = !currentMuted;
+
+                                                    // 1. Instantly update context
+                                                    updateConversation(activeChatId!, {
+                                                        is_muted: targetMuted,
+                                                        muted: targetMuted
+                                                    } as any);
+
+                                                    // 2. Call API
+                                                    await chatService.muteChat(activeChatId!, targetMuted);
+
+                                                    toast.success(targetMuted ? "Notifications muted" : "Notifications enabled", { position: "top-right", icon: targetMuted ? "🔇" : "🔔" });
+                                                } catch (err) {
+                                                    console.error(err);
+                                                    toast.error("Action failed");
+                                                }
+                                            }
+                                        }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-50 border-t border-slate-50 transition-colors"
+                                    >
+                                        <BellOff className="w-4 h-4" />
                                         {activeChat?.is_muted ? "Unmute Notifications" : "Mute Notifications"}
                                     </button>
 
@@ -339,29 +479,7 @@ const ChatView: React.FC = () => {
                                         Search History
                                     </button>
 
-                                    <button
-                                        onClick={async () => {
-                                            if (!activeChatId || !activeChat) return;
-                                            try {
-                                                const currentStatus = !!(activeChat.is_archived || (activeChat as any).archived || (activeChat as any).isArchived);
-                                                const newStatus = !currentStatus;
-                                                await chatService.archiveChat(activeChatId, newStatus);
-                                                toast.success(newStatus ? "Chat archived" : "Chat unarchived", { position: "top-right" });
-                                                // Refresh chat list to sync
-                                                window.dispatchEvent(new CustomEvent('refresh_chat_list'));
-                                                // If archiving, clear active chat. If unarchiving, stay here.
-                                                if (newStatus) setActiveChatId(null);
-                                                else setActiveChat(prev => prev ? { ...prev, is_archived: false, archived: false } as any : null);
-                                            } catch {
-                                                toast.error("Process failed");
-                                            }
-                                            setShowMoreMenu(false);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-black text-rose-500 hover:bg-rose-50 rounded-xl transition-all uppercase tracking-widest"
-                                    >
-                                        <Archive className="w-4 h-4" />
-                                        {((activeChat as any)?.is_archived || (activeChat as any)?.archived || (activeChat as any)?.isArchived) ? "Unarchive Chat" : "Archive Chat"}
-                                    </button>
+
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -605,7 +723,7 @@ const ChatView: React.FC = () => {
                     </div>
                 </div>
             </div>
-            {/* ── User Info Panel (WhatsApp style) ── */}
+            {/* ── User / Group Info Panel ── */}
             <AnimatePresence>
                 {selectedProfile && (
                     <>
@@ -633,55 +751,133 @@ const ChatView: React.FC = () => {
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
-                                <span className="absolute top-4 left-0 right-0 text-center text-xs font-black text-white/80 uppercase tracking-widest">Profile Info</span>
+                                <span className="absolute top-4 left-0 right-0 text-center text-xs font-black text-white/80 uppercase tracking-widest">
+                                    {selectedProfile.isGroup ? "Group Info" : "Profile Info"}
+                                </span>
 
                                 {/* Avatar */}
                                 <div className="w-24 h-24 rounded-3xl overflow-hidden bg-white/20 flex items-center justify-center text-4xl font-black text-white shadow-xl border-4 border-white/30 mb-3">
                                     {selectedProfile.profile_image ? (
                                         <img src={getFullImageUrl(selectedProfile.profile_image)} alt="Profile" className="w-full h-full object-cover" />
+                                    ) : selectedProfile.isGroup ? (
+                                        <Users className="w-12 h-12 text-white/80" />
                                     ) : (
                                         <span>{(selectedProfile.name || "?").charAt(0).toUpperCase()}</span>
                                     )}
                                 </div>
                                 <h2 className="text-white font-black text-lg tracking-tight">{selectedProfile.name}</h2>
-                                {selectedProfile.role && (
+                                {selectedProfile.isGroup ? (
+                                    <span className="text-white/70 text-xs font-bold mt-0.5">
+                                        {isLoadingMembers ? "Loading members..." : `${selectedProfile.memberCount ?? (selectedProfile.members?.length ?? 0)} members`}
+                                    </span>
+                                ) : selectedProfile.role && (
                                     <span className="text-white/70 text-xs font-bold mt-0.5">{selectedProfile.role}</span>
                                 )}
                             </div>
 
                             {/* Info rows */}
-                            <div className="flex-1 overflow-y-auto py-4">
-                                {selectedProfile.mobile && (
-                                    <div className="px-5 py-4 flex items-center gap-4 border-b border-slate-50">
-                                        <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
-                                            <Phone className="w-4 h-4 text-emerald-500" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-black text-slate-800">{selectedProfile.mobile}</p>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile</p>
+                            <div className="flex-1 overflow-y-auto">
+                                {/* Private chat info */}
+                                {!selectedProfile.isGroup && (
+                                    <div className="py-4">
+                                        {selectedProfile.mobile && (
+                                            <div className="px-5 py-4 flex items-center gap-4 border-b border-slate-50">
+                                                <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                                    <Phone className="w-4 h-4 text-emerald-500" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-slate-800">{selectedProfile.mobile}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {selectedProfile.role && (
+                                            <div className="px-5 py-4 flex items-center gap-4 border-b border-slate-50">
+                                                <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                                                    <Shield className="w-4 h-4 text-primary" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-slate-800">
+                                                        {selectedProfile.isGroup && selectedProfile.memberCount
+                                                            ? `${selectedProfile.memberCount} ${selectedProfile.memberCount === 1 ? 'member' : 'members'}`
+                                                            : selectedProfile.role}
+                                                    </p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedProfile.isGroup ? "Total Members" : "Role"}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <div className="px-5 py-4 flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0">
+                                                <User className="w-4 h-4 text-slate-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-black text-slate-800">{selectedProfile.name}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Name</p>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
-                                {selectedProfile.role && (
-                                    <div className="px-5 py-4 flex items-center gap-4 border-b border-slate-50">
-                                        <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                                            <Shield className="w-4 h-4 text-primary" />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-black text-slate-800">{selectedProfile.role}</p>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Role</p>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="px-5 py-4 flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0">
-                                        <User className="w-4 h-4 text-slate-400" />
-                                    </div>
+
+                                {/* Group members list */}
+                                {selectedProfile.isGroup && (
                                     <div>
-                                        <p className="text-sm font-black text-slate-800">{selectedProfile.name}</p>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Name</p>
+                                        <div className="px-5 py-3 border-b border-slate-50">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                <Users className="w-3.5 h-3.5" /> Members
+                                            </p>
+                                        </div>
+
+                                        {isLoadingMembers ? (
+                                            <div className="flex items-center justify-center py-10">
+                                                <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                            </div>
+                                        ) : selectedProfile.members && selectedProfile.members.length > 0 ? (
+                                            <div className="divide-y divide-slate-50">
+                                                {selectedProfile.members.map(member => (
+                                                    <div key={member.user_id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-slate-50 transition-colors">
+                                                        {/* Member avatar */}
+                                                        <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-sm font-black text-primary shrink-0 uppercase">
+                                                            {member.profile_image ? (
+                                                                <img src={getFullImageUrl(member.profile_image)} alt={member.name} className="w-full h-full object-cover rounded-2xl" />
+                                                            ) : (
+                                                                (member.name || "?").charAt(0).toUpperCase()
+                                                            )}
+                                                        </div>
+                                                        {/* Member info */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-black text-slate-800 truncate">{member.name}</p>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                                {member.role === "admin" ? "Admin" : "Member"}
+                                                            </p>
+                                                        </div>
+                                                        {/* Admin badge */}
+                                                        {member.role === "admin" && (
+                                                            <span className="px-2 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-black uppercase tracking-widest rounded-lg border border-amber-200 shrink-0">
+                                                                Admin
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center py-10 px-6 gap-2 text-center">
+                                                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mb-2">
+                                                    <Users className="w-6 h-6 text-slate-300" />
+                                                </div>
+                                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">No members found</p>
+                                                <p className="text-[10px] font-bold text-slate-300 leading-relaxed">
+                                                    The member list is currently empty. Try clicking below to refresh.
+                                                </p>
+                                                <button
+                                                    onClick={() => document.getElementById('view-info-button')?.click()}
+                                                    className="mt-4 px-4 py-2 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/20 transition-all"
+                                                >
+                                                    Refresh List
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </motion.div>
                     </>

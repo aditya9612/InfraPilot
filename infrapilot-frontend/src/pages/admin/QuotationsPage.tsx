@@ -9,7 +9,8 @@ import {
     CheckCircle,
     Clock,
     XCircle,
-    Download
+    Download,
+    Zap
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import Navbar from "../../components/common/Navbar";
@@ -18,6 +19,7 @@ import StatCard from "../../components/common/StatCard";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
 import { quotationService } from "../../services/quotationService";
+import { financeService } from "../../services/financeService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
 import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
@@ -131,6 +133,19 @@ const QuotationsPage = () => {
             fetchQuotations();
         } catch (error) {
             toast.error("Failed to approve quotation");
+        }
+    };
+
+    const handleConvertQuotation = async (quotationId: number) => {
+        try {
+            setIsLoading(true);
+            await financeService.convertQuotationToInvoice(quotationId);
+            toast.success("Converted to invoice successfully!");
+            navigate("/admin/invoices/all?type=invoice");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to convert quotation");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -326,6 +341,15 @@ const QuotationsPage = () => {
                                                                 <XCircle className="w-4 h-4" />
                                                             </button>
                                                         </>
+                                                    )}
+                                                    {q.status?.toLowerCase() === 'approved' && (
+                                                        <button
+                                                            onClick={() => q.id && handleConvertQuotation(q.id)}
+                                                            className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"
+                                                            title="Convert to Invoice"
+                                                        >
+                                                            <Zap className="w-4 h-4 text-emerald-500" />
+                                                        </button>
                                                     )}
                                                     <button
                                                         onClick={() => navigate(`/admin/quotations/view/${q.id}`)}

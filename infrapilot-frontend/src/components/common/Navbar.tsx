@@ -54,7 +54,8 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!user) return;
+    // Only fetch notifications if not a Client or Labour (to avoid 401 logouts for new roles)
+    if (!user || user.role === "Client" || user.role === "Labour") return;
 
     const fetchNotifs = async () => {
       try {
