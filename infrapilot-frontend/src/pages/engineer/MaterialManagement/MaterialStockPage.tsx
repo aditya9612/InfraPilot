@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
-import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
@@ -171,33 +170,61 @@ const MaterialStockPage = () => {
         finally { setIsSubmitting(false); }
     };
 
-    const renderPagination = (total: number) => (
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
-            <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
-                    <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-                </select>
+    const renderPagination = (total: number) => {
+        const totalPages = Math.max(1, Math.ceil(total / itemsPerPage));
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+        const pages = [];
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return (
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                    <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                    </select>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500">
+                    Showing {total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total} records
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
+                    {pages.map(page => (
+                        <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors ${currentPage === page ? 'bg-blue-600 text-white border border-blue-600 shadow-sm' : 'border border-slate-200 text-slate-600 hover:bg-slate-50 bg-white'}`}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || total === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
+                </div>
             </div>
-            <div className="text-[11px] font-medium text-slate-500">
-                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total}
-            </div>
-            <div className="flex items-center gap-1.5">
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
-                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(total / itemsPerPage), p + 1))} disabled={currentPage === Math.max(1, Math.ceil(total / itemsPerPage)) || total === 0} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
-            </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <>
             <Navbar title="Material Stock" breadcrumb={["Engineer", "Material Management", "Stock & Inventory"]} />
-            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] flex flex-col pb-8">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+                {/* ─── Header ──────────────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Stock & Inventory Management</h1>
-                        <p className="text-slate-500 text-sm">Monitor inventory levels, view strategic reports, and perform physical audits.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Stock & Inventory Management
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Monitor inventory levels, view strategic reports, and perform physical audits.
+                        </p>
                     </div>
                     {activeTab === "Reports" && (
                         <div className="flex items-center gap-3">
@@ -218,7 +245,7 @@ const MaterialStockPage = () => {
 
                 {/* Tabs & Project Filter */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit overflow-x-auto max-w-full">
+                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit overflow-x-auto max-w-full scrollbar-none">
                         {(["Stock Overview", "Global Inventory", "Reports", "Inventory Adjustment"] as TabType[]).map(tab => (
                             <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
                                 {tab}
@@ -237,13 +264,48 @@ const MaterialStockPage = () => {
 
                 {/* Tab Content */}
                 {activeTab === "Stock Overview" && (
-                    <div className="space-y-6 flex-1 flex flex-col min-h-0">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <StatCard title="Inventory Scope" value={stats.totalItems.toString()} sub="Resource Types" accent="text-blue-500" />
-                            <StatCard title="Gross Valuation" value={formatINR(stats.totalValue)} sub="Current Stock Value" accent="text-emerald-500" />
-                            <StatCard title="Critical Stock" value={stats.criticalCount.toString()} sub="Refill Required" accent="text-rose-500" />
+                    <div className="space-y-8 flex-1 flex flex-col min-h-0">
+                        <div>
+                            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Stock Valuation Stats</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                {[
+                                    {
+                                        title: "Inventory Scope",
+                                        value: stats.totalItems.toString(),
+                                        sub: "Resource Types",
+                                        accent: "text-blue-500",
+                                    },
+                                    {
+                                        title: "Gross Valuation",
+                                        value: formatINR(stats.totalValue),
+                                        sub: "Current Stock Value",
+                                        accent: "text-emerald-500",
+                                    },
+                                    {
+                                        title: "Critical Stock",
+                                        value: stats.criticalCount.toString(),
+                                        sub: "Refill Required",
+                                        accent: "text-rose-500",
+                                    },
+                                ].map((s) => (
+                                    <div
+                                        key={s.title}
+                                        className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default hover:scale-[1.01]`}
+                                    >
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                                            {s.title}
+                                        </p>
+                                        <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                            {s.sub}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
+                        <div className="space-y-4 h-full flex flex-col min-h-0">
+                            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Project Inventory</h2>
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
                             <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                                 <div className="relative flex-1 max-w-md">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
@@ -271,10 +333,12 @@ const MaterialStockPage = () => {
                             {renderPagination(filteredInventory.length)}
                         </div>
                     </div>
+                    </div>
                 )}
 
                 {activeTab === "Global Inventory" && (
-                    <div className="space-y-6 flex-1 flex flex-col min-h-0">
+                    <div className="space-y-4 flex-1 flex flex-col min-h-0">
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">All Projects Stock</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
                             <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                                 <div className="relative flex-1 max-w-md">
@@ -307,12 +371,14 @@ const MaterialStockPage = () => {
                                 </table>
                             </div>
                             {renderPagination(filteredGlobalInventory.length)}
-                        </div>
+                    </div>
                     </div>
                 )}
 
                 {activeTab === "Reports" && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
+                    <div className="space-y-4 flex-1 flex flex-col min-h-0">
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Consumption & Stock Reports</h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
                         <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                             <div className="relative flex-1 max-w-md">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
@@ -340,11 +406,14 @@ const MaterialStockPage = () => {
                             </table>
                         </div>
                         {renderPagination(filteredReports.length)}
+                        </div>
                     </div>
                 )}
 
                 {activeTab === "Inventory Adjustment" && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
+                    <div className="space-y-4 flex-1 flex flex-col min-h-0">
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Audit Adjustments Log</h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
                         <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                             <div className="relative flex-1 max-w-md">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
@@ -371,6 +440,7 @@ const MaterialStockPage = () => {
                             </table>
                         </div>
                         {renderPagination(filteredAdjustments.length)}
+                        </div>
                     </div>
                 )}
             </PageTransition>

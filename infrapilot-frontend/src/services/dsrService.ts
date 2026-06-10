@@ -36,8 +36,16 @@ export const dsrService = {
       payload.weather = "Sunny";
     }
 
-    // POST /dsr expects JSON body without photos or labour metrics
-    const response = await api.post<DsrItem>("/dsr", payload);
+    // Convert empty strings and 0 for optional foreign keys to null
+    const finalPayload: any = { ...payload };
+    Object.keys(finalPayload).forEach(key => {
+      if (finalPayload[key] === "" || (key === "contractor_id" && finalPayload[key] === 0)) {
+        finalPayload[key] = null;
+      }
+    });
+
+    // POST /dsr expects query parameters, NOT a JSON body
+    const response = await api.post<DsrItem>("/dsr", null, { params: finalPayload });
     return response.data;
   },
 
@@ -85,8 +93,16 @@ export const dsrService = {
       payload.weather = "Sunny";
     }
 
-    // PUT /dsr/{id} expects JSON body without photos or labour metrics
-    const response = await api.put<DsrItem>(`/dsr/${id}`, payload);
+    // Convert empty strings and 0 for optional foreign keys to null
+    const finalPayload: any = { ...payload };
+    Object.keys(finalPayload).forEach(key => {
+      if (finalPayload[key] === "" || (key === "contractor_id" && finalPayload[key] === 0)) {
+        finalPayload[key] = null;
+      }
+    });
+
+    // PUT /dsr/{id} expects query parameters, NOT a JSON body
+    const response = await api.put<DsrItem>(`/dsr/${id}`, null, { params: finalPayload });
     return response.data;
   },
 

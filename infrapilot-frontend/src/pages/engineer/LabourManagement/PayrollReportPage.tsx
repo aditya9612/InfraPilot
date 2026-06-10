@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
-import StatCard from '../../../components/common/StatCard';
 import {
     Filter,
     Download,
@@ -112,47 +111,63 @@ const PayrollReportPage: React.FC = () => {
         <>
             <Navbar title="Financial Intelligence" breadcrumb={["Engineer", "Human Resources", "Payroll Reports"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
-                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Fiscal Payroll Analysis</h1>
-                        <p className="text-slate-500 text-sm">Historical man-power costing and wage distribution trends.</p>
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+                {/* ─── Header ──────────────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                    <div className="font-inter">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Fiscal Payroll Analysis</h1>
+                        <p className="text-slate-500 text-sm font-inter">Historical man-power costing and wage distribution trends.</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3 font-inter">
                     </div>
                 </div>
 
-                {/* â”€â”€ Summary Stats with Interactive Filtering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Total Payout"
-                            value={formatCurrency(stats.totalPayout)}
-                            sub="All Wage Items"
-                            accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("High")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "High" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="High Payouts"
-                            value={stats.highPayouts.toString()}
-                            sub="Above ₹5k Threshold"
-                            accent="text-emerald-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("OT")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "OT" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="OT Intensive"
-                            value={stats.otIntensive.toString()}
-                            sub="Shifts with Overtime"
-                            accent="text-amber-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Summary")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Summary" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Advance Adjusted"
-                            value={formatCurrency(stats.advanceAdjusted)}
-                            sub="Recovery Target"
-                            accent="text-rose-500" />
-                    </div>
+                {/* ── Interactive Stats ───────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                    {[
+                        {
+                            title: "Total Payout",
+                            value: formatCurrency(stats.totalPayout),
+                            sub: "All Wage Items",
+                            accent: "text-slate-800",
+                            status: "All",
+                        },
+                        {
+                            title: "High Payouts",
+                            value: stats.highPayouts.toString(),
+                            sub: "Above ₹5k Threshold",
+                            accent: "text-emerald-500",
+                            status: "High",
+                        },
+                        {
+                            title: "OT Intensive",
+                            value: stats.otIntensive.toString(),
+                            sub: "Shifts with Overtime",
+                            accent: "text-amber-500",
+                            status: "OT",
+                        },
+                        {
+                            title: "Advance Adjusted",
+                            value: formatCurrency(stats.advanceAdjusted),
+                            sub: "Recovery Target",
+                            accent: "text-rose-500",
+                            status: "Summary",
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => setActiveStatFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:border-primary/20 hover:scale-[1.02] active:scale-95 group ${activeStatFilter === s.status ? "ring-2 ring-primary/20" : ""}`}
+                        >
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                {s.sub}
+                            </p>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Chart has been moved to the bottom */}

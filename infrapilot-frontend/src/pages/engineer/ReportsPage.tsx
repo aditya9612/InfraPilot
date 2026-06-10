@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import {
     RotateCcw
 } from "lucide-react";
-import StatCard from "../../components/common/StatCard";
+
 import { dsrService } from "../../services/dsrService";
 import { workProgressService } from "../../services/workProgressService";
 import { materialService } from "../../services/materialService";
@@ -979,73 +979,84 @@ const ReportsPage = () => {
                 breadcrumb={["InfraPilot", "Engineer", "Reports"]}
             />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar font-inter flex flex-col pb-8">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 md:mb-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                            Site Engineer
-                        </p>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Reports
                         </h1>
-                        <p className="text-slate-500 text-sm font-medium">
+                        <p className="text-slate-500 text-sm">
                             Generate, view, and export daily, weekly, labour, material, and issue reports.
                         </p>
                     </div>
-
-                    <button
-                        onClick={fetchReports}
-                        disabled={isInitialLoading}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter disabled:opacity-50"
-                    >
-                        {isInitialLoading ? (
-                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        )}
-                        Refresh Reports
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={fetchReports}
+                            disabled={isInitialLoading}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50"
+                        >
+                            {isInitialLoading ? (
+                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            )}
+                            Refresh Reports
+                        </button>
+                    </div>
                 </div>
 
-                {/* ── Stat Cards ───────────────────────────────────────────── */}
-                <div className="mb-8">
-                    <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
-                        Report Overview
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary bg-primary/5 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                            <StatCard
-                                title="Total Reports"
-                                value={reportsStats.total.toString()}
-                                sub="Available in Catalog"
-                                accent="text-primary" />
+                {/* ── Interactive Stats ────────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {[
+                        {
+                            title: "Total Reports",
+                            value: reportsStats.total.toString(),
+                            sub: "Available in Catalog",
+                            accent: "text-primary",
+                            status: "All",
+                        },
+                        {
+                            title: "Generated Today",
+                            value: reportsStats.generatedToday.toString(),
+                            sub: "Recent Site Logs",
+                            accent: "text-emerald-500",
+                            status: "Recent",
+                        },
+                        {
+                            title: "Avg. Report Size",
+                            value: `${reportsStats.avgSize} MB`,
+                            sub: "Inventory Volume",
+                            accent: "text-amber-500",
+                            status: "Large",
+                        },
+                        {
+                            title: "Open Issues",
+                            value: reportsStats.openIssues.toString(),
+                            sub: "High Priority Items",
+                            accent: "text-rose-500",
+                            status: "Issues",
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => s.status && setActiveStatFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? 'hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20' : 'cursor-default'} group`}
+                        >
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            {s.sub && (
+                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                    {s.sub}
+                                </p>
+                            )}
                         </div>
-                        <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500 bg-emerald-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                            <StatCard
-                                title="Generated Today"
-                                value={reportsStats.generatedToday.toString()}
-                                sub="Recent Site Logs"
-                                accent="text-emerald-500" />
-                        </div>
-                        <div onClick={() => setActiveStatFilter("Large")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Large" ? "ring-2 ring-amber-500 bg-amber-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                            <StatCard
-                                title="Avg. Report Size"
-                                value={`${reportsStats.avgSize} MB`}
-                                sub="Inventory Volume"
-                                accent="text-amber-500" />
-                        </div>
-                        <div onClick={() => setActiveStatFilter("Issues")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Issues" ? "ring-2 ring-rose-500 bg-rose-50 shadow-md scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                            <StatCard
-                                title="Open Issues"
-                                value={reportsStats.openIssues.toString()}
-                                sub="High Priority Items"
-                                accent="text-rose-500" />
-                        </div>
-                    </div>
+                    ))}
                 </div>
 
                 {/* ── Filter Tabs + Report Cards ───────────────────────────── */}

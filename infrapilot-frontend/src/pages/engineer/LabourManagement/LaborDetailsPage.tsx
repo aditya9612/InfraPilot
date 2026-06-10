@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
-import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
@@ -77,6 +76,7 @@ const LaborDetailsPage = () => {
     const [assignProjectId, setAssignProjectId] = useState<string>("");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
     useEffect(() => {
         if (isFormModalOpen) {
@@ -357,13 +357,21 @@ const LaborDetailsPage = () => {
         return true;
     });
 
+    const sortedLaborers = [...baseFilteredLaborers].sort((a, b) => {
+        if (sortOrder === "newest") {
+            return b.id - a.id;
+        } else {
+            return a.id - b.id;
+        }
+    });
+
     const stats = {
-        total: baseFilteredLaborers.length,
-        active: baseFilteredLaborers.filter(l => l.status === "Active").length,
-        skilled: baseFilteredLaborers.filter(l => l.skill_type === "Skilled").length,
+        total: sortedLaborers.length,
+        active: sortedLaborers.filter(l => l.status === "Active").length,
+        skilled: sortedLaborers.filter(l => l.skill_type === "Skilled").length,
     };
 
-    const filteredLaborers = baseFilteredLaborers.filter(l => {
+    const filteredLaborers = sortedLaborers.filter(l => {
         // Apply Stat Cards filter
         if (activeStatFilter === "Active" && l.status !== "Active") return false;
         if (activeStatFilter === "Skilled" && l.skill_type !== "Skilled") return false;
@@ -381,12 +389,16 @@ const LaborDetailsPage = () => {
         <>
             <Navbar title="Personnel Registry" breadcrumb={["Engineer", "Workforce", "Detail Directory"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
-                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+                {/* ─── Header ──────────────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight italic-none">Workforce Personnel Ledger</h1>
-                        <p className="text-slate-500 text-sm italic-none">Centralized database of site workforce, performance metrics and compliance.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Workforce Personnel Ledger
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Centralized database of site workforce, performance metrics and compliance.
+                        </p>
                     </div>
                     <button
                         onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setAssignProjectId(""); setIsFormModalOpen(true); }}
@@ -397,17 +409,45 @@ const LaborDetailsPage = () => {
                     </button>
                 </div>
 
-                {/* â”€â”€ Summary Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Personnel Database" value={stats.total.toString()} sub="Total Records" accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Active")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Active" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Active Labour" value={stats.active.toString()} sub="Currently Deployed" accent="text-blue-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Skilled")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Skilled" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Technical Skill" value={stats.skilled.toString()} sub="Skilled Labourers" accent="text-emerald-500" />
-                    </div>
+                {/* ─── Summary Stats ─────────────────────────────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    {[
+                        {
+                            title: "Personnel Database",
+                            value: stats.total.toString(),
+                            sub: "Total Records",
+                            accent: "text-slate-800",
+                            status: "All",
+                        },
+                        {
+                            title: "Active Labour",
+                            value: stats.active.toString(),
+                            sub: "Currently Deployed",
+                            accent: "text-blue-500",
+                            status: "Active",
+                        },
+                        {
+                            title: "Technical Skill",
+                            value: stats.skilled.toString(),
+                            sub: "Skilled Labourers",
+                            accent: "text-emerald-500",
+                            status: "Skilled",
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => setActiveStatFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:border-primary/20 hover:scale-[1.02] active:scale-95 group ${activeStatFilter === s.status ? "ring-2 ring-primary/20" : ""}`}
+                        >
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                {s.sub}
+                            </p>
+                        </div>
+                    ))}
                 </div>
 
                 {/* â”€â”€ Main Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -434,6 +474,12 @@ const LaborDetailsPage = () => {
                                 onChange={(e) => setContractorFilter(e.target.value ? Number(e.target.value) : null)}
                                 className="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
                             />
+                        </div>
+                        <div className="flex items-center gap-2 font-inter md:border-l md:border-slate-100 md:pl-4">
+                            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest">
+                                <option value="newest">Newest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
                         </div>
                     </div>
 

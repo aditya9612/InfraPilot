@@ -460,19 +460,23 @@ const TaskManagementPage = () => {
         <>
             <Navbar title="Task Management" breadcrumb={["Engineer", "Task Management"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
                 {/* ─── Header Section ──────────────────────────────────────────────────────── */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight mb-1">Task Management</h1>
-                        <p className="text-slate-500 text-sm">Efficiently organize, track, and manage all your tasks in one place</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Task Management
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Efficiently organize, track, and manage all your tasks in one place.
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap gap-2">
                         {activeTab !== "Project Tasks" && (
                             <button
                                 onClick={() => setIsCreateDrawerOpen(true)}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-indigo-600 transition-colors whitespace-nowrap"
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                             >
                                 <Plus className="w-4 h-4" />
                                 Create Task
@@ -482,21 +486,21 @@ const TaskManagementPage = () => {
                 </div>
 
                 {/* ─── Tabs Section ──────────────────────────────────────────────────────── */}
-                <div className="bg-slate-100 p-1.5 rounded-xl flex gap-1 mb-6 border border-slate-200">
+                <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 md:mb-8 max-w-full overflow-x-auto scrollbar-none font-inter">
                     <button
                         onClick={() => setActiveTab("All Tasks")}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "All Tasks"
-                            ? "bg-indigo-500 text-white shadow-sm"
-                            : "text-slate-500 hover:bg-slate-200"
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "All Tasks"
+                            ? "bg-slate-100 text-slate-800 shadow-sm"
+                            : "text-slate-500 hover:bg-slate-50"
                             }`}
                     >
                         All Tasks
                     </button>
                     <button
                         onClick={() => setActiveTab("Project Tasks")}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "Project Tasks"
-                            ? "bg-indigo-500 text-white shadow-sm"
-                            : "text-slate-500 hover:bg-slate-200"
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "Project Tasks"
+                            ? "bg-slate-100 text-slate-800 shadow-sm"
+                            : "text-slate-500 hover:bg-slate-50"
                             }`}
                     >
                         Project Tasks
@@ -617,16 +621,16 @@ const TaskManagementPage = () => {
                                         <span className="font-bold text-sm">All Tasks Filters</span>
                                     </div>
 
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Search className="h-4 w-4 text-slate-400" />
+                                    <div className="relative font-inter flex-1 max-w-md">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                            <Search className="h-4 w-4" />
                                         </div>
                                         <input
                                             type="text"
                                             placeholder="Search tasks..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-64 bg-slate-50 hover:bg-white"
+                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                                         />
                                     </div>
                                 </div>
@@ -637,7 +641,7 @@ const TaskManagementPage = () => {
                                         <select
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                         >
                                             <option>All Status</option>
                                             <option>Planned</option>
@@ -649,7 +653,7 @@ const TaskManagementPage = () => {
 
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Filter</span>
-                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors">
+                                        <select className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
                                             <option>All Tasks</option>
                                             <option>Created Tasks</option>
                                             <option>Received Tasks</option>
@@ -661,7 +665,7 @@ const TaskManagementPage = () => {
                                         <select
                                             value={departmentFilter}
                                             onChange={(e) => setDepartmentFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                         >
                                             <option>All Departments</option>
                                             <option>Engineering</option>
@@ -796,10 +800,10 @@ const TaskManagementPage = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="overflow-x-auto custom-scrollbar bg-white rounded-xl border border-slate-200">
-                                        <table className="w-full text-left border-collapse block md:table">
+                                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                                        <table className="w-full text-left font-inter min-w-[1000px] block md:table">
                                             <thead className="hidden md:table-header-group">
-                                                <tr className="border-b border-slate-200 bg-slate-50/50">
+                                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Task</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Project</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned By</th>
@@ -950,16 +954,16 @@ const TaskManagementPage = () => {
                                         <span className="font-bold text-sm">Filter Projects</span>
                                     </div>
 
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Search className="h-4 w-4 text-slate-400" />
+                                    <div className="relative font-inter flex-1 max-w-md">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                            <Search className="h-4 w-4" />
                                         </div>
                                         <input
                                             type="text"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             placeholder="Search projects or task..."
-                                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-64 bg-slate-50 hover:bg-white"
+                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                                         />
                                     </div>
                                 </div>
@@ -970,7 +974,7 @@ const TaskManagementPage = () => {
                                         <select
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                         >
                                             <option value="All Status">All Status</option>
                                             <option value="Planned">Planned</option>
@@ -985,7 +989,7 @@ const TaskManagementPage = () => {
                                         <select
                                             value={ownershipFilter}
                                             onChange={(e) => setOwnershipFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                         >
                                             <option value="Entire View">Entire View</option>
                                             <option value="My Projects">My Projects</option>
@@ -1152,14 +1156,30 @@ const TaskManagementPage = () => {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
                         {/* Modal Header */}
-                        <div className="bg-sky-200 p-6 flex items-start justify-between relative border-b border-sky-300">
-                            <div>
-                                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{selectedTask.title}</h2>
-                                <p className="text-slate-600 text-sm mt-1">Detailed view of task assignments and progress</p>
+                        <div className="bg-primary p-6 md:p-8 flex items-start justify-between relative overflow-hidden font-inter border-b border-primary/20">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4 pointer-events-none"></div>
+
+                            <div className="relative z-10 flex items-center gap-4 md:gap-6">
+                                <div className="relative">
+                                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary text-2xl font-bold border border-white/20">
+                                        <FileText className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+                                    </div>
+                                    <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center animate-pulse">
+                                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-none">{selectedTask.title}</h2>
+                                    </div>
+                                    <p className="text-primary-50 text-xs md:text-sm font-medium tracking-wide">Detailed view of task assignments and progress</p>
+                                </div>
                             </div>
+
                             <button
                                 onClick={() => setSelectedTask(null)}
-                                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-black/5 rounded-full transition-colors"
+                                className="relative z-10 p-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-xl transition-colors backdrop-blur-sm"
                             >
                                 <X className="w-5 h-5" />
                             </button>

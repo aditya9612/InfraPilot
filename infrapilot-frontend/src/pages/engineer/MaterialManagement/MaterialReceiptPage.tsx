@@ -3,7 +3,6 @@ import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
-import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import {
     Plus, ShoppingCart, Eye, Edit2, Trash2, Search, RotateCcw,
@@ -193,13 +192,46 @@ const MaterialReceiptPage = () => {
     };
 
     const handleSupplierSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSubmitting(true);
+        e.preventDefault(); 
+        
+        // Front-end validations
+        const nameRegex = /^[a-zA-Z\s]+$/;
+        if (!nameRegex.test(supplierForm.supplier_name || "")) {
+            return toast.error("Supplier name must contain only letters and spaces.");
+        }
+        if (!nameRegex.test(supplierForm.contact_person || "")) {
+            return toast.error("Contact person must contain only letters and spaces.");
+        }
+        if (!/^[0-9]{10}$/.test(supplierForm.phone_email || "")) {
+            return toast.error("Phone number must be exactly 10 digits.");
+        }
+        const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
+        if (!gstRegex.test(supplierForm.gst_number || "")) {
+            return toast.error("Invalid GST Number format. e.g. 27ABCDE1234F1Z5");
+        }
+
+        setIsSubmitting(true);
         try {
-            if (selectedSupplier) await materialService.updateSupplier(selectedSupplier.id, supplierForm);
-            else await materialService.createSupplier(supplierForm);
+            const payload = {
+                supplier_name: supplierForm.supplier_name,
+                contact_person: supplierForm.contact_person,
+                phone_email: supplierForm.phone_email,
+                gst_number: supplierForm.gst_number,
+                address: supplierForm.address || ""
+            };
+
+            if (selectedSupplier) {
+                await materialService.updateSupplier(selectedSupplier.id, payload);
+            } else {
+                await materialService.createSupplier(payload);
+            }
             toast.success(selectedSupplier ? "Supplier updated!" : "Supplier added!");
-            setIsSupplierModalOpen(false); fetchSuppliers();
-        } catch (e) { toast.error("Operation failed"); }
+            setIsSupplierModalOpen(false); 
+            fetchSuppliers();
+        } catch (error: any) { 
+            console.error("Supplier submit error:", error.response?.data || error.message);
+            toast.error(error.response?.data?.detail?.[0]?.msg || error.response?.data?.message || "Operation failed"); 
+        }
         finally { setIsSubmitting(false); }
     };
 
@@ -229,33 +261,61 @@ const MaterialReceiptPage = () => {
         finally { setIsSubmitting(false); }
     };
 
-    const renderPagination = (total: number) => (
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
-            <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
-                    <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-                </select>
+    const renderPagination = (total: number) => {
+        const totalPages = Math.max(1, Math.ceil(total / itemsPerPage));
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+        const pages = [];
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return (
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                    <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                    </select>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500">
+                    Showing {total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total} records
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
+                    {pages.map(page => (
+                        <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors ${currentPage === page ? 'bg-blue-600 text-white border border-blue-600 shadow-sm' : 'border border-slate-200 text-slate-600 hover:bg-slate-50 bg-white'}`}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || total === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
+                </div>
             </div>
-            <div className="text-[11px] font-medium text-slate-500">
-                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total}
-            </div>
-            <div className="flex items-center gap-1.5">
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
-                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(total / itemsPerPage), p + 1))} disabled={currentPage === Math.max(1, Math.ceil(total / itemsPerPage)) || total === 0} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
-            </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <>
             <Navbar title="Material Receipt" breadcrumb={["Engineer", "Material Management", "Receipt & Masters"]} />
-            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] flex flex-col pb-8">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+                {/* ─── Header ──────────────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Material Management</h1>
-                        <p className="text-slate-500 text-sm">Manage materials, suppliers, purchase orders and inventory</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Material Management
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Manage materials, suppliers, purchase orders and inventory
+                        </p>
                     </div>
                     {activeTab === "Materials" && (
                         <button onClick={() => { setSelectedMaterial(null); setMaterialForm({ category: "Construction", unit: "Bags", rate_type: "FIXED", quantity_purchased: 0, payment_given: 0 }); setIsMaterialModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
@@ -276,9 +336,9 @@ const MaterialReceiptPage = () => {
 
                 {/* Tabs & Project Filter */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit">
+                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit max-w-full overflow-x-auto scrollbar-none">
                         {(["Dashboard", "Materials", "Suppliers", "Purchase Orders"] as TabType[]).map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
+                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
                                 {tab}
                             </button>
                         ))}
@@ -295,15 +355,55 @@ const MaterialReceiptPage = () => {
 
                 {/* Dashboard Tab */}
                 {activeTab === "Dashboard" && (
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <StatCard title="Total Materials" value={summary?.total_materials.toString() || "0"} sub="Registered items" accent="text-slate-500" />
-                            <StatCard title="Inventory Value" value={formatINR(inventoryValue)} sub="Total stock valuation" accent="text-blue-500" />
-                            <StatCard title="Pending Payments" value={formatINR(summary?.total_pending_payments)} sub="Amount due" accent="text-rose-500" />
-                            <StatCard title="Low Stock Alerts" value={alerts.length.toString()} sub="Items below threshold" accent="text-amber-500" />
+                    <div className="space-y-8">
+                        <div>
+                            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Quick Stats</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                                {[
+                                    {
+                                        title: "Total Materials",
+                                        value: summary?.total_materials.toString() || "0",
+                                        sub: "Registered items",
+                                        accent: "text-slate-800",
+                                    },
+                                    {
+                                        title: "Inventory Value",
+                                        value: formatINR(inventoryValue),
+                                        sub: "Total stock valuation",
+                                        accent: "text-blue-500",
+                                    },
+                                    {
+                                        title: "Pending Payments",
+                                        value: formatINR(summary?.total_pending_payments),
+                                        sub: "Amount due",
+                                        accent: "text-rose-500",
+                                    },
+                                    {
+                                        title: "Low Stock Alerts",
+                                        value: alerts.length.toString(),
+                                        sub: "Items below threshold",
+                                        accent: "text-amber-500",
+                                    },
+                                ].map((s) => (
+                                    <div
+                                        key={s.title}
+                                        className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default hover:scale-[1.01]`}
+                                    >
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                                            {s.title}
+                                        </p>
+                                        <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                            {s.sub}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-500" /> Material Alerts</h3>
+                        <div>
+                            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Alerts</h2>
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-500" /> Material Alerts</h3>
                             {isLoading ? <p className="text-sm text-slate-400">Loading...</p> : alerts.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {alerts.map(a => (
@@ -319,14 +419,17 @@ const MaterialReceiptPage = () => {
                                     ))}
                                 </div>
                             ) : <p className="text-sm text-slate-400">No active alerts.</p>}
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {/* Lists with Search */}
                 {activeTab !== "Dashboard" && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
-                        <div className="p-4 border-b border-slate-50 flex items-center gap-4">
+                    <div className="space-y-4 h-full flex flex-col min-h-0">
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Data Register</h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
+                            <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                             <div className="relative flex-1 max-w-md">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                 <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
@@ -462,6 +565,7 @@ const MaterialReceiptPage = () => {
                         </div>
                         {renderPagination(activeTab === "Materials" ? filteredMaterials.length : activeTab === "Suppliers" ? filteredSuppliers.length : filteredPOs.length)}
                     </div>
+                </div>
                 )}
             </PageTransition>
 
@@ -589,10 +693,10 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Supplier Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.supplier_name || ""} onChange={e => setSupplierForm({ ...supplierForm, supplier_name: e.target.value })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contact_person || ""} onChange={e => setSupplierForm({ ...supplierForm, contact_person: e.target.value })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Phone/Email *</label><input required value={supplierForm.phone_email || ""} onChange={e => setSupplierForm({ ...supplierForm, phone_email: e.target.value })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>GST Number</label><input value={supplierForm.gst_number || ""} onChange={e => setSupplierForm({ ...supplierForm, gst_number: e.target.value })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.supplier_name || ""} onChange={e => setSupplierForm({ ...supplierForm, supplier_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
+                            <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contact_person || ""} onChange={e => setSupplierForm({ ...supplierForm, contact_person: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
+                            <div><label className={labelClasses}>Phone Number *</label><input required value={supplierForm.phone_email || ""} onChange={e => setSupplierForm({ ...supplierForm, phone_email: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })} className={inputClasses} placeholder="10-digit mobile number" /></div>
+                            <div><label className={labelClasses}>GST Number *</label><input required value={supplierForm.gst_number || ""} onChange={e => setSupplierForm({ ...supplierForm, gst_number: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
                     </div>

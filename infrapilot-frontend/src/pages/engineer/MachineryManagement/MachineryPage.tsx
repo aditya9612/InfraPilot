@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
-import StatCard from "../../../components/common/StatCard";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
@@ -14,7 +13,7 @@ import type {
 
 import {
     Search, Plus, Edit2, Trash2, Eye, FileText, Wrench, Activity,
-    AlertTriangle, ShieldCheck, Download, Link2, Link2Off, History, ChevronLeft, ChevronRight
+    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
 
@@ -422,22 +421,35 @@ const MachineryPage = () => {
     // ─── Tab Renderers ────────────────────────────────────────────────
 
     const renderDashboard = () => (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div onClick={() => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("All"); }} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Total Equipment" value={dashStats.total.toString()} sub="Registered Units" accent="text-slate-800" /></div>
-                <div onClick={() => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Unallocated"); }} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Available" value={dashStats.avail.toString()} sub="Ready for deploy" accent="text-emerald-500" /></div>
-                <div onClick={() => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Allocated"); }} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Allocated" value={dashStats.alloc.toString()} sub="Currently in use" accent="text-blue-500" /></div>
-                <div onClick={() => setActiveTab("Maintenance")} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Maintenance Due" value={dashStats.maint.toString()} sub="Upcoming/Overdue" accent="text-amber-500" /></div>
-                <div onClick={() => setActiveTab("Reports & Alerts")} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Equipment Alerts" value={dashStats.alerts.toString()} sub="Issues detected" accent="text-rose-500" /></div>
-                <div onClick={() => setActiveTab("Rental")} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Total Rental/Mo" value={`₹${dashStats.totalRental.toLocaleString()}`} sub="Estimated cost" accent="text-purple-500" /></div>
+        <div className="space-y-8">
+            <div>
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Quick Stats</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {[
+                        { title: "Total Equipment", value: dashStats.total.toString(), sub: "Registered Units", accent: "text-slate-800", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("All"); } },
+                        { title: "Available", value: dashStats.avail.toString(), sub: "Ready for deploy", accent: "text-emerald-500", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Unallocated"); } },
+                        { title: "Allocated", value: dashStats.alloc.toString(), sub: "Currently in use", accent: "text-blue-500", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Allocated"); } },
+                        { title: "Maintenance Due", value: dashStats.maint.toString(), sub: "Upcoming/Overdue", accent: "text-amber-500", action: () => setActiveTab("Maintenance") },
+                        { title: "Equipment Alerts", value: dashStats.alerts.toString(), sub: "Issues detected", accent: "text-rose-500", action: () => setActiveTab("Reports & Alerts") },
+                        { title: "Total Rental/Mo", value: `₹${dashStats.totalRental.toLocaleString()}`, sub: "Estimated cost", accent: "text-purple-500", action: () => setActiveTab("Rental") }
+                    ].map((s) => (
+                        <div key={s.title} onClick={s.action} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 group">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">{s.title}</p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-                {/* Maintenance Alerts */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <Wrench className="w-4 h-4 text-amber-500" /> Maintenance Alerts
-                    </h3>
+            <div>
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Alerts & Maintenance</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+                    {/* Maintenance Alerts */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Wrench className="w-4 h-4 text-amber-500" /> Maintenance Alerts
+                        </h3>
                     <div className="space-y-3">
                         {maintenanceAlerts.length > 0 ? maintenanceAlerts.map((alert, i) => (
                             <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50">
@@ -479,14 +491,17 @@ const MachineryPage = () => {
                             <div className="p-8 text-center text-slate-400 text-sm">No equipment alerts</div>
                         )}
                     </div>
+                    </div>
                 </div>
             </div>
         </div>
     );
 
     const renderEquipmentList = () => (
-        <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-200">
-            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-4 h-full flex flex-col">
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Equipment Register</h2>
+            <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200">
+                <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-1">
                     <div className="relative flex-1 max-w-sm">
                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -637,6 +652,7 @@ const MachineryPage = () => {
                 </div>
             )}
         </div>
+        </div>
     );
 
     const renderUsage = () => {
@@ -654,9 +670,17 @@ const MachineryPage = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <StatCard title="Total Hours Logged" value={totalHrs.toString()} sub="All equipment" accent="text-blue-500" />
-                    <StatCard title="Total Fuel Consumed" value={`${totalFuel} L`} sub="All equipment" accent="text-orange-500" />
-                    <StatCard title="Usage Entries" value={totalCount.toString()} sub="Total logs recorded" accent="text-emerald-500" />
+                    {[
+                        { title: "Total Hours Logged", value: totalHrs.toString(), sub: "All equipment", accent: "text-blue-500" },
+                        { title: "Total Fuel Consumed", value: `${totalFuel} L`, sub: "All equipment", accent: "text-orange-500" },
+                        { title: "Usage Entries", value: totalCount.toString(), sub: "Total logs recorded", accent: "text-emerald-500" }
+                    ].map((s) => (
+                        <div key={s.title} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default group">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.title}</p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
+                        </div>
+                    ))}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -788,10 +812,18 @@ const MachineryPage = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <StatCard title="Total Rental Cost" value={`₹${tCost.toLocaleString()}`} sub="All time" accent="text-purple-600" />
-                    <StatCard title="Rental Count" value={tCount.toString()} sub="Contracts executed" accent="text-blue-500" />
-                    <StatCard title="Total Days" value={tDays.toString()} sub="Days rented out" accent="text-emerald-500" />
-                    <StatCard title="Avg Rev/Day" value={`₹${tDays > 0 ? Math.round(tCost / tDays).toLocaleString() : 0}`} sub="Across fleet" accent="text-amber-500" />
+                    {[
+                        { title: "Total Rental Cost", value: `₹${tCost.toLocaleString()}`, sub: "All time", accent: "text-purple-600" },
+                        { title: "Rental Count", value: tCount.toString(), sub: "Contracts executed", accent: "text-blue-500" },
+                        { title: "Total Days", value: tDays.toString(), sub: "Days rented out", accent: "text-emerald-500" },
+                        { title: "Avg Rev/Day", value: `₹${tDays > 0 ? Math.round(tCost / tDays).toLocaleString() : 0}`, sub: "Across fleet", accent: "text-amber-500" }
+                    ].map((s) => (
+                        <div key={s.title} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default group">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.title}</p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
+                        </div>
+                    ))}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -917,29 +949,36 @@ const MachineryPage = () => {
         <>
             <Navbar title="Machinery & Equipment" breadcrumb={["Engineer", "Machinery", activeTab]} />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50 font-inter">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ─── Main Header ─── */}
-                <div className="bg-white px-6 pt-6 pb-2">
-                    <h1 className="text-2xl font-bold text-slate-800">Machinery & Equipment</h1>
-                    <p className="text-slate-500 text-sm mt-1">Complete lifecycle tracking — allocation, usage, maintenance, cost</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Machinery & Equipment
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Complete lifecycle tracking — allocation, usage, maintenance, cost
+                        </p>
+                    </div>
                 </div>
 
                 {/* ─── Tab Bar ─── */}
-                <div className="bg-white border-b border-slate-200 px-6 pt-2 flex gap-6 overflow-x-auto shrink-0 scrollbar-none">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`pb-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-                        >
-                            {tab}
-                        </button>
-                    ))}
+                <div className="mb-8 overflow-x-auto scrollbar-none">
+                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit">
+                        {TABS.map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* ─── Main Content ─── */}
-                <div className="flex-1 p-6 overflow-y-auto">
-                    <PageTransition>
+                <div className="w-full">
                         {isLoading && equipmentList.length === 0 ? (
                             <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div></div>
                         ) : (
@@ -952,9 +991,8 @@ const MachineryPage = () => {
                                 {activeTab === "Reports & Alerts" && renderReports()}
                             </>
                         )}
-                    </PageTransition>
                 </div>
-            </div>
+            </PageTransition>
 
             {/* ─── Modals ────────────────────────────────────────────────────────── */}
 

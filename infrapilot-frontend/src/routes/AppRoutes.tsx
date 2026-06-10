@@ -92,8 +92,7 @@ import MaterialStockPage from "../pages/engineer/MaterialManagement/MaterialStoc
 import MaterialHistoryPage from "../pages/engineer/MaterialManagement/MaterialHistoryPage";
 import QCInspectionPage from "../pages/engineer/QC/QCInspectionPage";
 import MachineryPage from "../pages/engineer/MachineryManagement/MachineryPage";
-import SafetyChecklistPage from "../pages/engineer/Safety/SafetyChecklistPage";
-import IncidentReportPage from "../pages/engineer/Safety/IncidentReportPage";
+import SafetyManagementPage from "../pages/engineer/Safety/SafetyManagementPage";
 import IssueTrackerPage from "../pages/engineer/IssueTracker/IssueTrackerPage";
 import DrawingsDocumentsPage from "../pages/engineer/Drawings/DrawingsDocumentsPage";
 import ChecklistsPage from "../pages/engineer/Checklists/ChecklistsPage";
@@ -281,7 +280,7 @@ function AppRoutes() {
               <Route path="labour/:id" element={<LabourTaskDetailPage />} />
               <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
               <Route path="compliance/qc" element={<QCGovernancePage />} />
-              <Route path="compliance/safety" element={<SafetyChecklistPage />} />
+              <Route path="compliance/safety" element={<SafetyManagementPage />} />
               <Route path="settings" element={<ManagerSettingsPage />} />
             </Route>
 
@@ -421,8 +420,8 @@ function AppRoutes() {
               <Route path="/engineer/qc/inspection" element={<QCInspectionPage />} />
               <Route path="/engineer/qc/reports" element={<QCInspectionPage />} />
               <Route path="/engineer/machinery" element={<MachineryPage />} />
-              <Route path="/engineer/safety/checklist" element={<SafetyChecklistPage />} />
-              <Route path="/engineer/safety/incident" element={<IncidentReportPage />} />
+              <Route path="/engineer/safety/checklist" element={<SafetyManagementPage />} />
+              <Route path="/engineer/safety/incident" element={<SafetyManagementPage />} />
               <Route path="/engineer/issues" element={<IssueTrackerPage />} />
               <Route path="/engineer/drawings" element={<DrawingsDocumentsPage />} />
               <Route path="/engineer/checklists" element={<ChecklistsPage />} />

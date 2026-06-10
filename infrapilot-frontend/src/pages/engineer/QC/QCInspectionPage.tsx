@@ -4,7 +4,6 @@ import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
-import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import {
     Plus,
@@ -14,7 +13,6 @@ import {
     Trash2,
     Activity,
     User,
-    ShieldAlert,
     Briefcase,
     Mail,
     RotateCcw,
@@ -22,9 +20,7 @@ import {
     Image as ImageIcon,
     Camera,
     ChevronLeft,
-    ChevronRight,
-    Clock,
-    ChevronDown
+    ChevronRight
 } from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
@@ -61,7 +57,7 @@ const QCInspectionPage = () => {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [viewLoadingId, setViewLoadingId] = useState<number | null>(null);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [, setSelectedFile] = useState<File | null>(null);
 
     // Selection States
     const [selectedQc, setSelectedQc] = useState<QcItem | null>(null);
@@ -344,9 +340,9 @@ const QCInspectionPage = () => {
 
         return filtered.sort((a, b) => {
             if (sortOrder === "latest") {
-                return Number(b.id) - Number(a.id);
-            } else {
                 return Number(a.id) - Number(b.id);
+            } else {
+                return Number(b.id) - Number(a.id);
             }
         });
     }, [qcList, searchTerm, filterType, filterStatus, activeStatFilter, sortOrder]);
@@ -423,53 +419,93 @@ const QCInspectionPage = () => {
         <>
             <Navbar title="QC Inspection" breadcrumb={["Engineer", "Quality Control", "Inspection Vault"]} />
 
-            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Quality Control Ledger</h1>
-                        <p className="text-slate-500 text-sm">Historical record of site inspections and material quality audits.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Quality Control Ledger
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Historical record of site inspections and material quality audits.
+                        </p>
                     </div>
-                    <button
-                        onClick={() => { resetForm(); setIsNewModalOpen(true); }}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Log QC Entry
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => { resetForm(); setIsNewModalOpen(true); }}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Log QC Entry
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Total Audits" value={stats.total.toString()} sub="Verified Logs" accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Pass Tests" value={stats.passed.toString()} sub="Pass Tests" accent="text-emerald-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Failed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Failed" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Failed Tests" value={stats.failed.toString()} sub="Failed Tests" accent="text-rose-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Momentum")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Momentum" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Audit Momentum" value={`${stats.compliance}%`} sub="Overall Pass Percentage" accent="text-blue-500" />
-                    </div>
+                    {[
+                        {
+                            title: "Total Audits",
+                            value: stats.total.toString(),
+                            sub: "Verified Logs",
+                            accent: "text-slate-800",
+                            status: "All",
+                        },
+                        {
+                            title: "Pass Tests",
+                            value: stats.passed.toString(),
+                            sub: "Pass Tests",
+                            accent: "text-emerald-500",
+                            status: "Compliance",
+                        },
+                        {
+                            title: "Failed Tests",
+                            value: stats.failed.toString(),
+                            sub: "Failed Tests",
+                            accent: "text-rose-500",
+                            status: "Failed",
+                        },
+                        {
+                            title: "Audit Momentum",
+                            value: `${stats.compliance}%`,
+                            sub: "Overall Pass Percentage",
+                            accent: "text-blue-500",
+                            status: "Momentum",
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => s.status && setActiveStatFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? 'hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20' : 'cursor-default'} group`}
+                        >
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            {s.sub && (
+                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                    {s.sub}
+                                </p>
+                            )}
+                        </div>
+                    ))}
                 </div>
 
-                <div className="flex items-center gap-8 border-b border-slate-200 mb-8 font-inter">
+                <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 md:mb-8 max-w-full overflow-x-auto scrollbar-none font-inter">
                     <button
                         onClick={() => navigate("/engineer/qc/inspection")}
-                        className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "Inspection" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "Inspection" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
                     >
                         QC Inspection
                     </button>
                     <button
                         onClick={() => navigate("/engineer/qc/reports")}
-                        className={`pb-4 text-sm font-bold transition-all relative ${activeTab === "Test Reports" ? "text-primary border-b-2 border-primary" : "text-slate-500 hover:text-slate-700"}`}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "Test Reports" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
                     >
                         Test Reports
                     </button>
                 </div>
 
                 {activeTab === "Inspection" && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -484,11 +520,10 @@ const QCInspectionPage = () => {
                             />
                         </div>
                         <div className="flex flex-wrap items-center gap-3 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Filters:</span>
                             <select
                                 value={filterType}
                                 onChange={(e) => setFilterType(e.target.value)}
-                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
+                                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                             >
                                 <option value="All">All Types</option>
                                 {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -496,37 +531,29 @@ const QCInspectionPage = () => {
                             <select
                                 value={filterStatus}
                                 onChange={(e) => setFilterStatus(e.target.value)}
-                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
+                                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                             >
                                 <option value="All">All Status</option>
                                 <option value="Pass">Pass</option>
                                 <option value="Fail">Fail</option>
                             </select>
                             {activeStatFilter !== "All" && (
-                                <button onClick={() => setActiveStatFilter("All")} className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors">
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter bg-white border border-slate-200 rounded-xl shadow-sm">
                                     <RotateCcw className="w-4 h-4" />
                                 </button>
                             )}
-                            <div className="relative flex items-center font-inter">
-                                <div className="absolute left-3 text-slate-400 pointer-events-none">
-                                    <Clock className="w-4 h-4" />
-                                </div>
-                                <select
-                                    value={sortOrder}
-                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
-                                >
-                                    <option value="latest">Latest First</option>
-                                    <option value="oldest">Oldest First</option>
-                                </select>
-                                <div className="absolute right-3 text-slate-400 pointer-events-none">
-                                    <ChevronDown className="w-4 h-4" />
-                                </div>
-                            </div>
+                            <select
+                                value={sortOrder}
+                                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
+                            >
+                                <option value="latest">Latest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                         {isLoading ? (
                             <div className="p-20 text-center text-slate-400 font-inter">
                                 <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
@@ -760,11 +787,11 @@ const QCInspectionPage = () => {
                 title={isEditModalOpen ? "Modify QC Inspection" : "Log QC Entry"}
                 maxWidth="max-w-2xl"
                 footer={
-                    <div className="flex justify-end gap-3 px-6 pb-6 font-inter">
+                    <>
                         <button
                             type="button"
                             onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); resetForm(); }}
-                            className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors font-inter"
+                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors font-inter disabled:opacity-50"
                         >
                             Cancel
                         </button>
@@ -776,7 +803,7 @@ const QCInspectionPage = () => {
                         >
                             {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Update Inspection" : "Commit Entry")}
                         </button>
-                    </div>
+                    </>
                 }
             >
                 <div className="p-6 space-y-6 bg-slate-50/30 font-inter max-h-[70vh] overflow-y-auto scrollbar-thin">
@@ -969,23 +996,26 @@ const QCInspectionPage = () => {
             >
                 {selectedQc && (
                     <div className="p-6 font-inter">
-                        <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
-                            <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
-                                    <ShieldAlert className="w-10 h-10 text-white" />
-                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 ${selectedQc.status === 'Pass' ? 'bg-emerald-400' : 'bg-red-400'} border-4 border-white/20 rounded-full animate-pulse`} />
+                        <div className="bg-primary rounded-xl p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
+                            <div className="relative z-10 flex items-center gap-8 font-inter">
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
+                                    <span className="text-4xl font-bold font-inter">{selectedQc.test_type.charAt(0)}</span>
+                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 border-4 border-slate-800 rounded-full animate-pulse ${selectedQc.status === 'Pass' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-bold tracking-tight font-inter uppercase">{selectedQc.test_type}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{selectedQc.status}</span>
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter truncate max-w-[200px]">{selectedQc.test_type}</h3>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest ${selectedQc.status === 'Pass' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-rose-500/20 text-rose-100'}`}>
+                                            {selectedQc.status}
+                                        </span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter">qc.audit-#{selectedQc.id}@infrapilot.com</span>
+                                        <span className="text-[10px] font-bold font-inter uppercase tracking-widest">qc.ref-#{selectedQc.id}</span>
                                     </div>
-                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">LOGGED BY: {selectedQc.engineer_name}</span>
+                                    <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
+                                        <span className="text-[9px] font-bold uppercase tracking-widest font-inter">INSPECTION: {selectedQc.inspection_type}</span>
                                     </div>
                                 </div>
                             </div>

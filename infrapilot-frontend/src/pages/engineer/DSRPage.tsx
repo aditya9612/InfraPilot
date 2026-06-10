@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import StatCard from "../../components/common/StatCard";
 import NewDSREntryModal from "../../components/dashboard/NewDSREntryModal";
 import EditDSRModal from "../../components/dashboard/EditDSRModal";
 import Modal from "../../components/common/Modal";
@@ -312,14 +311,18 @@ const DSRPage = () => {
         <>
             <Navbar title="Daily Site Reports" breadcrumb={["Engineer", "Site Records", "DSR Vault"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Daily Ledger</h1>
-                        <p className="text-slate-500 text-sm">Historical record of activities, labour, and material movements.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Project Daily Ledger
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Historical record of activities, labour, and material movements.
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
                         <button
                             onClick={fetchDsr}
                             className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
@@ -341,14 +344,14 @@ const DSRPage = () => {
                                         }
                                     });
                             }}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95 font-inter"
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95"
                         >
                             <FileDown className="w-4 h-4" />
                             Export
                         </button>
                         <button
                             onClick={() => setIsCreateOpen(true)}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
                             <Plus className="w-4 h-4" />
                             New Entry
@@ -357,65 +360,82 @@ const DSRPage = () => {
                 </div>
 
                 {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "All" ? "ring-2 ring-primary/20 rounded-xl" : ""}`}>
-                        <StatCard
-                            title="Total Logs"
-                            value={stats.total.toString()}
-                            sub="All Time Records"
-                            accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Draft")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "Draft" ? "ring-2 ring-slate-400/20 rounded-xl" : ""}`}>
-                        <StatCard
-                            title="Draft Reports"
-                            value={stats.draftCount.toString()}
-                            sub="Pending Submission"
-                            accent="text-slate-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Submitted")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "Submitted" ? "ring-2 ring-blue-500/20 rounded-xl" : ""}`}>
-                        <StatCard
-                            title="Submitted Reports"
-                            value={stats.submittedCount.toString()}
-                            sub="Pending Audit"
-                            accent="text-blue-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Approved")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "Approved" ? "ring-2 ring-emerald-500/20 rounded-xl" : ""}`}>
-                        <StatCard
-                            title="Approved Reports"
-                            value={stats.approvedCount.toString()}
-                            sub="Verified & Approved"
-                            accent="text-emerald-500" />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    {[
+                        {
+                            title: "Total Logs",
+                            value: stats.total.toString(),
+                            sub: "All Time Records",
+                            accent: "text-slate-800",
+                            status: "All",
+                        },
+                        {
+                            title: "Draft Reports",
+                            value: stats.draftCount.toString(),
+                            sub: "Pending Submission",
+                            accent: "text-slate-500",
+                            status: "Draft",
+                        },
+                        {
+                            title: "Submitted Reports",
+                            value: stats.submittedCount.toString(),
+                            sub: "Pending Audit",
+                            accent: "text-blue-500",
+                            status: "Submitted",
+                        },
+                        {
+                            title: "Approved Reports",
+                            value: stats.approvedCount.toString(),
+                            sub: "Verified & Approved",
+                            accent: "text-emerald-500",
+                            status: "Approved",
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => setActiveStatFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:border-primary/20 hover:scale-[1.02] active:scale-95 group ${activeStatFilter === s.status ? "ring-2 ring-primary/20" : ""}`}
+                        >
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                {s.sub}
+                            </p>
+                        </div>
+                    ))}
                 </div>
 
                 {/* ── Tabs ───────────────────────────────────────────── */}
-                <div className="flex items-center gap-6 border-b border-slate-200 mb-6 px-2">
+                <div className="flex p-1 bg-slate-200/50 rounded-xl w-fit mb-6 md:mb-8 border border-slate-200/50">
                     <button
                         onClick={() => setActiveTab("list")}
-                        className={`pb-3 text-sm font-bold transition-all relative ${
+                        className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${
                             activeTab === "list" 
-                            ? "text-primary border-b-2 border-primary" 
-                            : "text-slate-500 hover:text-slate-800"
+                            ? "bg-white text-primary shadow-sm border border-slate-200/50" 
+                            : "text-slate-500 hover:text-slate-700"
                         }`}
                     >
                         DSR Ledger
                     </button>
                     <button
                         onClick={() => setActiveTab("analytics")}
-                        className={`pb-3 text-sm font-bold transition-all relative ${
+                        className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${
                             activeTab === "analytics" 
-                            ? "text-primary border-b-2 border-primary" 
-                            : "text-slate-500 hover:text-slate-800"
+                            ? "bg-white text-primary shadow-sm border border-slate-200/50" 
+                            : "text-slate-500 hover:text-slate-700"
                         }`}
                     >
-                        Analytics Dashboard
+                        Analytics Overview
                     </button>
                 </div>
 
-                {/* ── Tab Content ───────────────────────────────────────────── */}
-                
                 {activeTab === "analytics" && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <div className="mb-8">
+                    {/* ── Analytics Overview ───────────────────────────────────────────── */}
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Analytics Overview</h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Labour Trend Graph */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -492,10 +512,14 @@ const DSRPage = () => {
                         )}
                     </div>
                 </div>
+                </div>
                 )}
 
                 {activeTab === "list" && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
+                <div className="mb-8">
+                    {/* ── DSR Ledger ───────────────────────────────────────────── */}
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">DSR Ledger</h2>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter flex flex-col">
                     {/* Integrated Filter Bar */}
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -734,6 +758,7 @@ const DSRPage = () => {
                             </div>
                         </div>
                     )}
+                </div>
                 </div>
                 )}
             </PageTransition>

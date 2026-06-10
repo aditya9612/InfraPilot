@@ -46,10 +46,10 @@ const MaterialHistoryPage = () => {
     setIsLoading(true);
     try {
       const [data, materials, projectData, allProjects] = await Promise.all([
-        materialService.getLogs({ project_id: projectId }),
+        materialService.getLogs(projectId),
         materialService.listMaterials(projectId),
-        import('../../../services/projectService').then(m => m.projectService.getProjectById(projectId).catch(() => null)),
-        import('../../../services/projectService').then(m => m.projectService.getProjects(100).catch(() => []))
+        projectService.getProjectById(projectId).catch(() => null),
+        projectService.getProjects(100).catch(() => [])
       ]);
       setLogs(data || []);
       const map: Record<number, string> = {};
@@ -217,7 +217,8 @@ const MaterialHistoryPage = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Material History</h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">MATERIAL HUB</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">Material History</h1>
             <p className="text-slate-500 text-sm">Comprehensive audit ledger for all material transactions.</p>
           </div>
           <div className="flex items-center gap-3 font-inter">
@@ -232,7 +233,9 @@ const MaterialHistoryPage = () => {
         </div>
 
         {/* Transaction History */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter">
+        <div className="space-y-4 flex-1 flex flex-col min-h-0">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Transaction History</h2>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter flex-1 flex flex-col min-h-0">
           <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white font-inter">
             <div className="flex items-center gap-3 font-inter">
               <History className="w-5 h-5 text-slate-400 font-inter" />
@@ -456,6 +459,7 @@ const MaterialHistoryPage = () => {
               </button>
             </div>
           </div>
+        </div>
         </div>
       </PageTransition>
     </>

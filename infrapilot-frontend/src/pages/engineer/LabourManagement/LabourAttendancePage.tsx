@@ -3,7 +3,6 @@ import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import Modal from '../../../components/common/Modal';
 import {
-    Clock,
     MapPin,
     Search,
     Download,
@@ -371,29 +370,25 @@ const LabourAttendancePage: React.FC = () => {
         <>
             <Navbar title="Attendance Management" breadcrumb={["Engineer", "Human Resources", "Attendance Management"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 font-inter min-h-[calc(100vh-64px)] overflow-y-auto pb-8 flex flex-col gap-6">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col gap-6">
 
-                {/* Header Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-indigo-500 rounded-xl flex items-center justify-center shadow-sm">
-                            <Clock className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Attendance Management</h1>
-                            <div className="flex items-center gap-2 mt-1 text-slate-500 text-xs font-medium">
-                                <Calendar className="w-3.5 h-3.5" />
-                                <span>{formatDate(currentDateTime)} | {formatTime(currentDateTime)}</span>
-                            </div>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
+                    <div className="font-inter">
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Attendance Management</h1>
+                        <div className="flex items-center gap-2 mt-1 text-slate-500 text-sm font-inter">
+                            <Calendar className="w-4 h-4 text-primary" />
+                            <span>{formatDate(currentDateTime)} | {formatTime(currentDateTime)}</span>
                         </div>
                     </div>
-                    <button
-                        onClick={handleExport}
-                        disabled={isExporting}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed">
-                        <Download className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
-                        {isExporting ? "Exporting..." : "Export Report"}
-                    </button>
+                    <div className="flex items-center gap-3 font-inter">
+                        <button
+                            onClick={handleExport}
+                            disabled={isExporting}
+                            className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter w-fit disabled:opacity-70 disabled:cursor-not-allowed">
+                            <Download className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
+                            {isExporting ? "Exporting..." : "Export Report"}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Tabs Navigation */}

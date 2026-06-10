@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
-import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import {
@@ -341,8 +340,6 @@ const DailyProgressEntryPage = () => {
   const paginatedDelayActivities = delayActivities.slice(startIndex, endIndex);
   const totalPages = Math.ceil((activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length) / itemsPerPage);
 
-  const momentum = stats.momentum;
-
   const resetFilters = () => {
     setSearchTerm("");
     setFilterDate(""); // Clear date to show all history
@@ -355,49 +352,72 @@ const DailyProgressEntryPage = () => {
   return (
     <>
       <Navbar title="Daily Work Progress" breadcrumb={["Engineer", "Work Progress", "Daily Progress"]} />
-      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
-        {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
-          <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter uppercase">Daily Work Progress</h1>
-            <p className="text-slate-500 text-sm font-inter">Log and track daily execution activities on site.</p>
+        {/* ─── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              Daily Work Progress
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Log and track daily execution activities on site.
+            </p>
           </div>
-          {activeTab === 'today' && (
-            <button
-              onClick={() => setIsLogModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+          <div className="flex flex-wrap items-center gap-2">
+            {activeTab === 'today' && (
+              <button
+                onClick={() => setIsLogModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                Add Daily Progress
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ─── Interactive Stats ─────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {[
+            {
+              title: "Total Logs",
+              value: stats.total.toString(),
+              sub: "Entries Displayed",
+              accent: "text-slate-800",
+              status: "All",
+            },
+            {
+              title: "Finished Logs",
+              value: stats.completed.toString(),
+              sub: "100% Progress Reached",
+              accent: "text-emerald-500",
+              status: "Completed",
+            },
+            {
+              title: "Delayed Logs",
+              value: stats.delayed.toString(),
+              sub: "Critical Items",
+              accent: "text-rose-500",
+              status: "Delayed",
+            },
+          ].map((s) => (
+            <div
+              key={s.title}
+              onClick={() => setActiveStatFilter(s.status as any)}
+              className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:border-primary/20 hover:scale-[1.02] active:scale-95 group ${activeStatFilter === s.status ? "ring-2 ring-primary/20" : ""}`}
             >
-              <Plus className="w-4 h-4" />
-              Add Daily Progress
-            </button>
-          )}
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                {s.title}
+              </p>
+              <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+              <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                {s.sub}
+              </p>
+            </div>
+          ))}
         </div>
 
-        {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
-          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Total Logs"
-              value={stats.total.toString()}
-              sub="Entries Displayed"
-              accent="text-slate-800" />
-          </div>
-          <div onClick={() => setActiveStatFilter("Completed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Completed" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Finished Logs"
-              value={stats.completed.toString()}
-              sub="100% Progress Reached"
-              accent="text-emerald-500" />
-          </div>
-          <div onClick={() => setActiveStatFilter("Delayed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Delayed" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Delayed Logs"
-              value={stats.delayed.toString()}
-              sub="Critical Items"
-              accent="text-rose-500" />
-          </div>
-        </div>
 
         {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">

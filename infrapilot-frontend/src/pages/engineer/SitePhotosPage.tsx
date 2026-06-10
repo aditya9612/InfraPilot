@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../components/common/PageTransition";
 import Navbar from "../../components/common/Navbar";
-import StatCard from "../../components/common/StatCard";
 import Modal from "../../components/common/Modal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import UploadPhotoModal from "../../components/forms/UploadPhotoModal";
@@ -212,41 +211,62 @@ const SitePhotosPage = () => {
         <>
             <Navbar title="Site Evidence" breadcrumb={["Engineer", "Site Photos", "Gallery"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
-                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
-                    <div className="font-inter">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Evidence Documentation Ledger</h1>
-                        <p className="text-slate-500 text-sm font-inter">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+                {/* ── Header ──────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Evidence Documentation Ledger
+                        </h1>
+                        <p className="text-slate-500 text-sm">
                             Maintain a chronological visual archive of project progress milestones.
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => setIsUploadOpen(true)}
-                        className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
-                    >
-                        <Upload className="w-4 h-4" />
-                        Log Site Photo
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsUploadOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+                        >
+                            <Upload className="w-4 h-4" />
+                            Log Site Photo
+                        </button>
+                    </div>
                 </div>
 
-                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Total Evidence"
-                            value={stats.total.toString()}
-                            sub="Project Archive"
-                            accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Recent Logs"
-                            value={stats.thisWeek.toString()}
-                            sub="Past 7 Days"
-                            accent="text-emerald-500" />
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+                    {[
+                        {
+                            title: "Total Evidence",
+                            value: stats.total.toString(),
+                            sub: "Project Archive",
+                            accent: "text-slate-800",
+                            status: "All",
+                        },
+                        {
+                            title: "Recent Logs",
+                            value: stats.thisWeek.toString(),
+                            sub: "Past 7 Days",
+                            accent: "text-emerald-500",
+                            status: "Recent",
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => s.status && setActiveStatFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? 'hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20' : 'cursor-default'} group`}
+                        >
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            {s.sub && (
+                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                    {s.sub}
+                                </p>
+                            )}
+                        </div>
+                    ))}
                 </div>
 
                 {/* â”€â”€ Evidence Vault Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}

@@ -13,13 +13,13 @@ import {
     Plus,
     Eye,
     RefreshCcw,
-    RotateCcw,
     Edit2,
     CheckCircle,
     Download,
     History,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Folder
 } from "lucide-react";
 import { drawingService } from "../../../services/drawingService";
 import { projectService } from "../../../services/projectService";
@@ -37,6 +37,9 @@ interface DrawingRecord {
     approval_status?: string | null;
     approval_id?: string | null;
     project_id?: string | number;
+    is_folder?: boolean;
+    type?: string;
+    parent_id?: number | null;
 }
 
 // â”€â”€â”€ Initial State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -53,6 +56,8 @@ const initialFormData = {
 const DrawingsDocumentsPage = () => {
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [selectedDrawing, setSelectedDrawing] = useState<DrawingRecord | null>(null);
+    const [viewBlobUrl, setViewBlobUrl] = useState<string | null>(null);
+    const [isViewLoading, setIsViewLoading] = useState(false);
     const [drawingData, setDrawingData] = useState<DrawingRecord[]>([]);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -65,18 +70,18 @@ const DrawingsDocumentsPage = () => {
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(100);
+    const [currentParentId, setCurrentParentId] = useState<number | null>(null);
+    const [folderPath, setFolderPath] = useState<{ id: number, name: string }[]>([]);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    const [latestDrawing, setLatestDrawing] = useState<any>(null);
 
     const [approvalHistory, setApprovalHistory] = useState<any[]>([]);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
     const [projectId, setProjectId] = useState<number>(92);
 
-    // Interactive StatCard Filter
-    const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Recent">("All");
+
     // Type filter tabs: All / Documents / Drawings
     const [typeFilter, setTypeFilter] = useState<"All" | "Documents" | "Drawings">("All");
 
@@ -115,31 +120,88 @@ const DrawingsDocumentsPage = () => {
     const fetchDrawings = useCallback(async () => {
         setIsLoading(true);
         try {
-            const activeProjectIds = [projectId || 92]; // fallback default
+            const activeProjectId = projectId || 92;
 
-            // Fetch versions for all active projects
-            const versionsPromises = activeProjectIds.map(id => drawingService.getVersions(id).catch(() => []));
-            const versionsResults = await Promise.all(versionsPromises);
+            let versionsResult: any = { status: 'rejected' };
+            let docsResult: any = { status: 'rejected' };
 
-            // Combine all arrays into one flat array
-            const combinedData = versionsResults.flat();
-            setDrawingData(combinedData);
+            const promises: Promise<any>[] = [];
 
-            // Fetch latest for the first project as fallback if needed, or if one project selected
-            if (activeProjectIds.length > 0) {
-                try {
-                    const latest = await drawingService.getLatest(activeProjectIds[0]);
-                    if (latest) setLatestDrawing(latest);
-                } catch (e) {
-                    // Ignore latest error
-                }
+            // 1. Fetch Drawings (Versions)
+            if (currentParentId === null) {
+                promises.push(
+                    drawingService.getVersions(activeProjectId)
+                        .then(res => versionsResult = { status: 'fulfilled', value: res })
+                        .catch(err => versionsResult = { status: 'rejected', reason: err })
+                );
             }
+
+            // 2. Fetch Documents
+            promises.push(
+                drawingService.getDocuments({ project_id: activeProjectId, parent_id: currentParentId, limit: 100 })
+                    .then(res => docsResult = { status: 'fulfilled', value: res })
+                    .catch(err => docsResult = { status: 'rejected', reason: err })
+            );
+
+            // 3. Fetch Latest
+            promises.push(
+                drawingService.getLatest(activeProjectId)
+                    .catch(err => console.error(err))
+            );
+
+            await Promise.allSettled(promises);
+
+            let apiDrawings: any[] = [];
+            let apiDocs: any[] = [];
+
+            if (versionsResult.status === 'fulfilled') {
+                apiDrawings = Array.isArray(versionsResult.value) ? versionsResult.value : (versionsResult.value as any).items || [];
+            }
+
+            if (docsResult.status === 'fulfilled') {
+                apiDocs = Array.isArray(docsResult.value) ? docsResult.value : (docsResult.value as any).items || (docsResult.value as any).data || [];
+            }
+
+            const mappedDrawings = apiDrawings.map((d: any) => ({
+                id: d.id,
+                drawing_name: d.drawing_name || d.title,
+                version: d.version,
+                date: d.date || (d.created_at ? d.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
+                remarks: d.remarks || "",
+                file_url: d.file_url || d.upload_file,
+                approval_status: d.approval_status || d.status || "Pending",
+                approved_by: d.approved_by,
+                approval_id: d.approval_id,
+                project_id: d.project_id,
+                type: "Drawing"
+            }));
+
+            const mappedDocs = apiDocs
+                .map((d: any) => ({
+                    id: d.id,
+                    drawing_name: d.title || d.drawing_name,
+                    version: d.version || "v1.0",
+                    date: d.uploaded_at ? d.uploaded_at.split('T')[0] : new Date().toISOString().split('T')[0],
+                    remarks: d.remarks || "",
+                    file_url: d.file_url,
+                    approval_status: d.status || d.approval_status || "Pending",
+                    approved_by: d.uploaded_by_user_id ? `User ${d.uploaded_by_user_id}` : null,
+                    project_id: d.project_id,
+                    is_folder: d.is_folder,
+                    parent_id: d.parent_id,
+                    document_type: d.document_type,
+                    type: d.is_folder ? "Folder" : "Document"
+                }));
+
+            const combined = [...mappedDrawings, ...mappedDocs].sort((a, b) => b.id - a.id);
+            setDrawingData(combined);
+
         } catch (error) {
             toast.error("Vault Sync Interrupted");
         } finally {
             setIsLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, currentParentId]);
 
     useEffect(() => {
         fetchDrawings();
@@ -148,7 +210,7 @@ const DrawingsDocumentsPage = () => {
     // Reset pagination on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, activeStatFilter]);
+    }, [searchTerm]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -253,8 +315,37 @@ const DrawingsDocumentsPage = () => {
         }
     };
 
-    const handleViewDocument = (drawing: DrawingRecord) => {
+    const handleViewDocument = async (drawing: DrawingRecord) => {
         setSelectedDrawing(drawing);
+        setViewBlobUrl(null);
+        setIsViewLoading(true);
+        try {
+            const { data, contentType } = await drawingService.viewDocument(drawing.id);
+            const blob = new Blob([data], { type: String(contentType) });
+            const url = URL.createObjectURL(blob);
+            setViewBlobUrl(url);
+        } catch (error) {
+            // Silently fallback to the direct static URL if the secure API returns 404
+            console.warn("Secure view API failed, falling back to static URL");
+        } finally {
+            setIsViewLoading(false);
+        }
+    };
+
+    const handleFolderClick = (folder: DrawingRecord) => {
+        setCurrentParentId(Number(folder.id));
+        setFolderPath(prev => [...prev, { id: Number(folder.id), name: folder.drawing_name }]);
+    };
+
+    const handleBreadcrumbClick = (index: number) => {
+        if (index === -1) {
+            setCurrentParentId(null);
+            setFolderPath([]);
+        } else {
+            const newPath = folderPath.slice(0, index + 1);
+            setCurrentParentId(newPath[newPath.length - 1].id);
+            setFolderPath(newPath);
+        }
     };
 
     const handleEditClick = (drawing: DrawingRecord) => {
@@ -303,23 +394,18 @@ const DrawingsDocumentsPage = () => {
     const filteredDrawings = useMemo(() => {
         let data = drawingData;
 
-        // Apply StatCard Filter (date-based)
-        if (activeStatFilter === "Recent") {
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            data = data.filter(d => d.date && new Date(d.date as string) >= thirtyDaysAgo);
-        }
-
         // Apply type tab filter
         if (typeFilter === "Drawings") {
-            // Only images — JPG, PNG, SVG, sketches, photos
+            // Only images — JPG, PNG, SVG, sketches, photos, plus folders for navigation
             data = data.filter(d => {
+                if (d.is_folder || d.type === "Folder") return true;
                 const url = (d.file_url || (d as any).upload_file || "").toLowerCase();
                 return IMAGE_EXTS.test(url);
             });
         } else if (typeFilter === "Documents") {
-            // All files EXCEPT images
+            // All files EXCEPT images, plus folders
             data = data.filter(d => {
+                if (d.is_folder || d.type === "Folder") return true;
                 const url = (d.file_url || (d as any).upload_file || "").toLowerCase();
                 return url && !IMAGE_EXTS.test(url);
             });
@@ -330,7 +416,7 @@ const DrawingsDocumentsPage = () => {
             (d.drawing_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
             String(d.id).toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [drawingData, searchTerm, activeStatFilter, typeFilter]);
+    }, [drawingData, searchTerm, typeFilter]);
 
     const paginatedDrawings = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -338,15 +424,29 @@ const DrawingsDocumentsPage = () => {
     }, [filteredDrawings, currentPage, itemsPerPage]);
 
 
-    const stats = {
-        total: drawingData.length,
-        verified: drawingData.length,
-        latestVersion: (() => {
-            if (latestDrawing?.version && latestDrawing.version.toLowerCase() !== "string") return latestDrawing.version;
-            const valid = drawingData.find(d => d.version && d.version.toLowerCase() !== "string");
-            return valid?.version || "V1.0";
-        })()
-    };
+    const stats = useMemo(() => {
+        let allCount = 0;
+        let docsCount = 0;
+        let drawingsCount = 0;
+
+        drawingData.forEach(d => {
+            allCount++;
+            if (!d.is_folder && d.type !== "Folder") {
+                const url = (d.file_url || (d as any).upload_file || "").toLowerCase();
+                if (IMAGE_EXTS.test(url)) {
+                    drawingsCount++;
+                } else {
+                    docsCount++;
+                }
+            }
+        });
+
+        return {
+            all: allCount,
+            documents: docsCount,
+            drawings: drawingsCount
+        };
+    }, [drawingData]);
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
@@ -360,7 +460,7 @@ const DrawingsDocumentsPage = () => {
             <Navbar title="Drawings & Documents" breadcrumb={["Engineer", "Document Vault", "Blueprints"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
-                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ———————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————— */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Engineering Document Vault</h1>
@@ -385,20 +485,20 @@ const DrawingsDocumentsPage = () => {
                     </div>
                 </div>
 
-                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————— */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Total Document" value={stats.total.toString()} sub="Engineering Assets" accent="text-slate-800" />
+                    <div onClick={() => { setTypeFilter("All"); setCurrentPage(1); }} className={`cursor-pointer group transition-all rounded-xl ${typeFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="All Files" value={stats.all.toString()} sub="Total Assets" accent="text-slate-800" />
                     </div>
-                    <div onClick={() => setActiveStatFilter("Recent")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Recent" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Verified Assets" value={stats.verified.toString()} sub="Execution Ready" accent="text-emerald-500" />
+                    <div onClick={() => { setTypeFilter("Documents"); setCurrentPage(1); }} className={`cursor-pointer group transition-all rounded-xl ${typeFilter === "Documents" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Documents" value={stats.documents.toString()} sub="PDFs, Docs, Excels" accent="text-blue-500" />
                     </div>
-                    <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-                        <StatCard title="Global Revision" value={stats.latestVersion} sub="Latest Version" accent="text-rose-500" />
+                    <div onClick={() => { setTypeFilter("Drawings"); setCurrentPage(1); }} className={`cursor-pointer group transition-all rounded-xl ${typeFilter === "Drawings" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
+                        <StatCard title="Drawings" value={stats.drawings.toString()} sub="Images & CAD" accent="text-amber-500" />
                     </div>
                 </div>
 
-                {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ———————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————— */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
                         {/* Search */}
@@ -421,28 +521,34 @@ const DrawingsDocumentsPage = () => {
                                 <button
                                     key={tab}
                                     onClick={() => { setTypeFilter(tab); setCurrentPage(1); }}
-                                    className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all font-inter ${
-                                        typeFilter === tab
-                                            ? "bg-white text-primary shadow-sm"
-                                            : "text-slate-500 hover:text-slate-700"
-                                    }`}
+                                    className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all font-inter ${typeFilter === tab
+                                        ? "bg-white text-primary shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
+                                        }`}
                                 >
                                     {tab}
                                 </button>
                             ))}
                         </div>
 
-                        {/* Reset date filter */}
-                        <div className="flex flex-wrap items-center gap-3 font-inter">
-                            {activeStatFilter !== "All" && (
-                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                                    <RotateCcw className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
                     </div>
 
-                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    {/* Breadcrumbs for folder navigation */}
+                    {folderPath.length > 0 && (
+                        <div className="flex items-center gap-2 mt-4 px-1 pb-2">
+                            <button onClick={() => handleBreadcrumbClick(-1)} className="text-xs font-bold text-slate-500 hover:text-primary transition-colors">Root Vault</button>
+                            {folderPath.map((folder, idx) => (
+                                <React.Fragment key={folder.id}>
+                                    <ChevronRight className="w-3 h-3 text-slate-300" />
+                                    <button onClick={() => handleBreadcrumbClick(idx)} className={`text-xs font-bold transition-colors ${idx === folderPath.length - 1 ? "text-slate-800" : "text-slate-500 hover:text-primary"}`}>
+                                        {folder.name}
+                                    </button>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter mt-2">
                         <table className="w-full text-left font-inter min-w-[1200px]">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
@@ -465,10 +571,19 @@ const DrawingsDocumentsPage = () => {
                                         </td>
                                     </tr>
                                 ) : paginatedDrawings.length > 0 ? (
-                                    paginatedDrawings.map((drawing) => (
-                                        <tr key={drawing.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                    paginatedDrawings.map((drawing, index) => (
+                                        <tr key={`${drawing.type}_${drawing.id}_${index}`} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                             <td className="px-6 py-4 font-inter">
                                                 {(() => {
+                                                    if (drawing.is_folder || drawing.type === "Folder") {
+                                                        return (
+                                                            <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                                <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest leading-none">DIR</span>
+                                                                <Folder className="w-5 h-5 text-indigo-500" />
+                                                            </div>
+                                                        );
+                                                    }
+
                                                     const fileUrl = (drawing.file_url || drawing.upload_file || "").toLowerCase();
                                                     const isPdf = fileUrl.endsWith(".pdf");
                                                     const isDoc = fileUrl.endsWith(".doc") || fileUrl.endsWith(".docx");
@@ -501,15 +616,9 @@ const DrawingsDocumentsPage = () => {
                                                         </div>
                                                     );
                                                     if (isImage) return (
-                                                        <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 shadow-sm group-hover:scale-105 transition-transform font-inter">
-                                                            <img
-                                                                src={drawingService.resolveUrl(drawing.file_url || drawing.upload_file || null) || ""}
-                                                                alt="Drawing"
-                                                                className="w-full h-full object-cover font-inter"
-                                                                onError={(e) => {
-                                                                    (e.target as HTMLImageElement).style.display = "none";
-                                                                }}
-                                                            />
+                                                        <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                            <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest leading-none">IMG</span>
+                                                            <FileText className="w-5 h-5 text-purple-500" />
                                                         </div>
                                                     );
                                                     // Unknown / no extension — generic doc icon
@@ -522,9 +631,18 @@ const DrawingsDocumentsPage = () => {
                                             </td>
                                             <td className="px-6 py-4 font-inter">
                                                 <div className="flex flex-col font-inter">
-                                                    <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
+                                                    {(drawing.is_folder || drawing.type === "Folder") ? (
+                                                        <button
+                                                            onClick={() => handleFolderClick(drawing)}
+                                                            className="text-sm font-bold text-indigo-600 hover:text-indigo-800 text-left hover:underline font-inter w-fit"
+                                                        >
+                                                            {drawing.drawing_name}
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
+                                                    )}
                                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
-                                                        {drawing.file_url || drawing.upload_file || "Cloud Sync"}
+                                                        {drawing.file_url || drawing.upload_file || ((drawing.is_folder || drawing.type === "Folder") ? "Directory" : "Cloud Sync")}
                                                     </span>
                                                 </div>
                                             </td>
@@ -663,7 +781,11 @@ const DrawingsDocumentsPage = () => {
             {/* ── Document Preview Modal ──────────────────────────────────────── */}
             <Modal
                 isOpen={!!selectedDrawing && !isHistoryModalOpen}
-                onClose={() => setSelectedDrawing(null)}
+                onClose={() => {
+                    setSelectedDrawing(null);
+                    if (viewBlobUrl) URL.revokeObjectURL(viewBlobUrl);
+                    setViewBlobUrl(null);
+                }}
                 title="Document Preview"
                 maxWidth="max-w-3xl"
                 footer={
@@ -751,26 +873,41 @@ const DrawingsDocumentsPage = () => {
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1">
                                         <span>⊟</span> Content Preview
                                     </p>
-                                    <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50" style={{ minHeight: 320 }}>
-                                        {isImage && resolvedUrl ? (
+                                    <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 relative" style={{ minHeight: 320 }}>
+                                        {isViewLoading ? (
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm z-10 gap-3">
+                                                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Fetching Secure Preview...</p>
+                                            </div>
+                                        ) : null}
+
+                                        {isImage && (viewBlobUrl || resolvedUrl) ? (
                                             <img
-                                                src={resolvedUrl}
+                                                src={viewBlobUrl || resolvedUrl}
                                                 alt={selectedDrawing.drawing_name}
                                                 className="w-full h-full object-contain max-h-[400px]"
                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                                             />
-                                        ) : isPdf && resolvedUrl ? (
+                                        ) : isPdf && (viewBlobUrl || resolvedUrl) ? (
                                             <iframe
-                                                src={resolvedUrl}
+                                                src={viewBlobUrl || resolvedUrl}
                                                 title={selectedDrawing.drawing_name}
                                                 className="w-full"
                                                 style={{ height: 400, border: "none" }}
                                             />
-                                        ) : resolvedUrl ? (
-                                            <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-400">
-                                                <FileText className="w-12 h-12" />
-                                                <p className="text-xs font-bold uppercase tracking-widest">Preview not available</p>
-                                                <p className="text-[10px] text-slate-400 max-w-xs text-center truncate">{fileUrl}</p>
+                                        ) : (viewBlobUrl || resolvedUrl) ? (
+                                            <div className="flex flex-col items-center justify-center h-64 gap-4 text-slate-400">
+                                                <FileText className="w-16 h-16 text-indigo-200" />
+                                                <div className="text-center">
+                                                    <p className="text-sm font-bold text-slate-700">Preview not natively supported</p>
+                                                    <p className="text-[10px] text-slate-400 max-w-xs text-center truncate mt-1">{fileUrl}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleDownloadDocument(selectedDrawing)}
+                                                    className="px-6 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                                                >
+                                                    Download to View
+                                                </button>
                                             </div>
                                         ) : (
                                             <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-300">

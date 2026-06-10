@@ -156,33 +156,61 @@ const MaterialConsumptionPage = () => {
         finally { setIsSubmitting(false); }
     };
 
-    const renderPagination = (total: number) => (
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
-            <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
-                    <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-                </select>
+    const renderPagination = (total: number) => {
+        const totalPages = Math.max(1, Math.ceil(total / itemsPerPage));
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+        const pages = [];
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return (
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                    <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                    </select>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500">
+                    Showing {total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total} records
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
+                    {pages.map(page => (
+                        <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors ${currentPage === page ? 'bg-blue-600 text-white border border-blue-600 shadow-sm' : 'border border-slate-200 text-slate-600 hover:bg-slate-50 bg-white'}`}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || total === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
+                </div>
             </div>
-            <div className="text-[11px] font-medium text-slate-500">
-                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total}
-            </div>
-            <div className="flex items-center gap-1.5">
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
-                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(total / itemsPerPage), p + 1))} disabled={currentPage === Math.max(1, Math.ceil(total / itemsPerPage)) || total === 0} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
-            </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <>
             <Navbar title="Material Consumption" breadcrumb={["Engineer", "Material Management", "Consumption"]} />
-            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] flex flex-col pb-8">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+                {/* ─── Header ──────────────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Consumption & Logistics</h1>
-                        <p className="text-slate-500 text-sm">Manage usage, inter-project transfers, and log history</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Consumption & Logistics
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Manage usage, inter-project transfers, and log history
+                        </p>
                     </div>
                     {activeTab === "Transfers" && (
                         <button onClick={() => { setTransferForm({ from_project_id: projectId, status: "PENDING" }); setIsTransferModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all active:scale-95">
@@ -193,9 +221,9 @@ const MaterialConsumptionPage = () => {
 
                 {/* Tabs & Project Filter */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit">
+                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit max-w-full overflow-x-auto scrollbar-none">
                         {(["Usage", "Transfers", "Transactions"] as TabType[]).map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
+                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
                                 {tab}
                             </button>
                         ))}
@@ -211,8 +239,10 @@ const MaterialConsumptionPage = () => {
                 </div>
 
                 {/* Main Content Area */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex items-center gap-4">
+                <div className="space-y-4 h-full flex flex-col min-h-0">
+                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Consumption Logs</h2>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
+                        <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                         <div className="relative flex-1 max-w-md">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                             <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
@@ -281,6 +311,7 @@ const MaterialConsumptionPage = () => {
                         </table>
                     </div>
                     {renderPagination(activeTab === "Usage" ? filteredInventory.length : activeTab === "Transfers" ? filteredTransfers.length : filteredTransactions.length)}
+                </div>
                 </div>
             </PageTransition>
 
