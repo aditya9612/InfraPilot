@@ -4,7 +4,7 @@ import { chatService } from "../../services/chatService";
 import type { ChatUser } from "../../types/chat";
 import {
     Search, Plus, MessageCircle, Users, Archive, Star,
-    Filter, Check, X, UserPlus, ChevronLeft
+    Filter, Check, X, UserPlus, ChevronLeft, BellOff, ArchiveRestore
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -43,7 +43,7 @@ const ChatSidebar: React.FC = () => {
     const filteredConversations = conversations.filter(c => {
         // WhatsApp style: filter archived chats from the main list. 
         // Handles multiple backend naming variations (is_archived, archived, isArchived).
-        const archivedStatus = !!(c.is_archived || (c as any).archived || (c as any).isArchived);
+        const archivedStatus = !!(c.is_archived || (c as any).archived || (c as any).isArchived || (c as any).is_archive || (c as any).archive);
         if (showArchived && !archivedStatus) return false;
         if (!showArchived && archivedStatus) return false;
 
@@ -58,7 +58,7 @@ const ChatSidebar: React.FC = () => {
         return matchesFilter && matchesSearch;
     });
 
-    const archivedCount = conversations.filter(c => c.is_archived || (c as any).archived || (c as any).isArchived).length;
+
 
     const filteredUsers = users.filter(u =>
         !userSearch ||
@@ -103,7 +103,24 @@ const ChatSidebar: React.FC = () => {
     ];
 
     return (
-        <div className="flex flex-col h-full bg-white">
+        <div className="flex flex-col h-full bg-white relative">
+            <style>
+                {`
+                .chat-sidebar-scroll::-webkit-scrollbar {
+                    width: 5px;
+                }
+                .chat-sidebar-scroll::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .chat-sidebar-scroll::-webkit-scrollbar-thumb {
+                    background: #e2e8f0;
+                    border-radius: 10px;
+                }
+                .chat-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+                    background: #cbd5e1;
+                }
+                `}
+            </style>
             {/* ── Header ── */}
             <div className="p-5 border-b border-slate-50">
                 <div className="flex items-center justify-between mb-4">
@@ -207,24 +224,41 @@ const ChatSidebar: React.FC = () => {
             )}
 
             {/* ── Main Scrollable Area ── */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto chat-sidebar-scroll">
 
-                {/* Archived Entry (WhatsApp Style) */}
-                {mode === "list" && !showArchived && archivedCount > 0 && (
+                {/* Archived Section Header - Responsive and intuitive */}
+                {!showArchived && (
                     <button
                         onClick={() => setShowArchived(true)}
-                        className="w-full flex items-center gap-4 px-5 py-3 hover:bg-slate-50 border-b border-slate-50 transition-all group"
+                        className="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 border-b border-slate-100 transition-colors group"
                     >
-                        <div className="text-slate-400 group-hover:text-primary transition-colors">
+                        <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-primary transition-colors">
                             <Archive className="w-5 h-5" />
                         </div>
                         <div className="flex-1 text-left">
-                            <p className="text-sm font-bold text-slate-800">Archived</p>
+                            <h3 className="text-sm font-black text-slate-700">Archived Chats</h3>
+                            <p className="text-[10px] font-bold text-slate-400">
+                                View your hidden conversations
+                            </p>
                         </div>
-                        <div className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                            {archivedCount}
-                        </div>
+                        <ChevronLeft className="w-4 h-4 text-slate-300 group-hover:text-primary rotate-180 transition-transform" />
                     </button>
+                )}
+
+                {showArchived && (
+                    <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-3">
+                        <button
+                            onClick={() => setShowArchived(false)}
+                            className="w-10 h-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-primary hover:border-primary transition-all shadow-sm"
+                            title="Back to Chats"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <div className="flex-1">
+                            <h3 className="text-sm font-black text-slate-700">Archived Conversations</h3>
+                            <p className="text-[10px] font-bold text-slate-400">Viewing hidden chats</p>
+                        </div>
+                    </div>
                 )}
 
                 {/* Chat List */}
@@ -244,10 +278,13 @@ const ChatSidebar: React.FC = () => {
                         </div>
                     ) : (
                         filteredConversations.map(c => (
-                            <button
+                            <div
                                 key={c.id}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => setActiveChatId(c.id)}
-                                className={`w-full flex items-center gap-3 px-5 py-3.5 transition-all relative border-b border-slate-50/60 ${activeChatId === c.id ? "bg-primary/5" : "hover:bg-slate-50"}`}
+                                onKeyDown={e => e.key === 'Enter' && setActiveChatId(c.id)}
+                                className={`w-full flex items-center gap-3 px-5 py-3.5 transition-all relative border-b border-slate-50/60 cursor-pointer ${activeChatId === c.id ? "bg-primary/5" : "hover:bg-slate-50"}`}
                             >
                                 {/* Active indicator */}
                                 {activeChatId === c.id && (
@@ -264,29 +301,53 @@ const ChatSidebar: React.FC = () => {
                                     )}
                                 </div>
                                 {/* Details */}
-                                <div className="flex-1 min-w-0 text-left">
-                                    <div className="flex items-center justify-between mb-0.5">
-                                        <h3 className={`text-sm font-black truncate ${activeChatId === c.id ? "text-primary" : "text-slate-800"}`}>
-                                            {c.name || c.other_user_name || "Anonymous"}
-                                        </h3>
-                                        {c.last_message_at && (
-                                            <span className="text-[9px] font-bold text-slate-400 shrink-0 ml-2">
-                                                {formatToIST(c.last_message_at)}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center justify-between">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0 text-left">
+                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                            <h3 className={`text-sm font-black truncate ${c.id === activeChatId ? 'text-primary' : 'text-slate-700'}`}>
+                                                {c.name || c.other_user_name || "Anonymous"}
+                                            </h3>
+                                            {(c.is_muted || (c as any).muted || (c as any).isMuted || (c as any).is_mute) && (
+                                                <BellOff className="w-3 h-3 text-rose-500 shrink-0" />
+                                            )}
+                                        </div>
                                         <p className="text-[11px] text-slate-400 truncate font-medium">
                                             {c.last_message || "Tap to begin..."}
                                         </p>
-                                        {c.unread_count > 0 && (
-                                            <span className="ml-2 min-w-[18px] h-[18px] bg-rose-500 text-white text-[9px] font-black rounded-md px-1 flex items-center justify-center shrink-0">
-                                                {c.unread_count}
-                                            </span>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1.5 shrink-0 ml-2">
+                                        {showArchived ? (
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                        await chatService.archiveChat(c.id, false);
+                                                        await refreshChatList(true);
+                                                        toast.success("Unarchived");
+                                                    } catch { toast.error("Failed"); }
+                                                }}
+                                                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary transition-all"
+                                                title="Unarchive"
+                                            >
+                                                <ArchiveRestore className="w-4 h-4" />
+                                            </button>
+                                        ) : (
+                                            c.last_message_at && (
+                                                <span className="text-[9px] font-bold text-slate-400">
+                                                    {formatToIST(c.last_message_at)}
+                                                </span>
+                                            )
                                         )}
+                                        <div className="flex items-center gap-1.5 justify-end">
+                                            {c.unread_count > 0 && (
+                                                <span className="min-w-[18px] h-[18px] bg-rose-500 text-white text-[9px] font-black rounded-md px-1 flex items-center justify-center">
+                                                    {c.unread_count}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </button>
+                            </div>
                         ))
                     )
                 )}

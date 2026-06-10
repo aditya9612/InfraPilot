@@ -434,6 +434,7 @@ function AppRoutes() {
             {/* Labour Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Labour"]} />}>
               <Route path="/labour" element={<LabourDashboard />} />
+              <Route path="/labour/attendance" element={<AttendancePage />} />
               <Route path="/labour/tasks" element={<MyTasksPage />} />
               <Route path="/labour/payments" element={<PaymentsPage />} />
               <Route path="/labour/settings" element={<LabourSettingsPage />} />

@@ -867,29 +867,44 @@ const SidebarItem = ({
         item.path === "/client"
       }
       onClick={onClose}
-      className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${isActive
+      className={({ isActive: baseActive }) => {
+        // More specific active check for paths with query parameters
+        const hasQueryParams = item.path.includes("?");
+        const fullCurrentPath = location.pathname + location.search;
+        const isActive = hasQueryParams
+          ? fullCurrentPath === item.path
+          : baseActive;
+
+        return `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors mb-0.5 ${isActive
           ? "text-primary bg-blue-50 font-semibold shadow-sm shadow-blue-100/50"
           : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-        }`
-      }
+          }`;
+      }}
     >
-      {({ isActive }) => (
-        <>
-          <span className={isActive ? "text-primary" : "text-slate-400"}>
-            {icons[item.icon]}
-          </span>
-          <span className="flex-1 flex items-center justify-between">
-            {item.label}
-            {item.label === "Chat" && unreadTotal > 0 && (
-              <span className="min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-black rounded-lg flex items-center justify-center px-1 shadow-sm animate-pulse">
-                {unreadTotal > 99 ? "99+" : unreadTotal}
-              </span>
-            )}
-          </span>
-          {!hasSubNav && depth === 0 && <Chevron />}
-        </>
-      )}
+      {({ isActive: baseActive }) => {
+        const hasQueryParams = item.path.includes("?");
+        const fullCurrentPath = location.pathname + location.search;
+        const isActive = hasQueryParams
+          ? fullCurrentPath === item.path
+          : baseActive;
+
+        return (
+          <>
+            <span className={isActive ? "text-primary" : "text-slate-400"}>
+              {icons[item.icon]}
+            </span>
+            <span className="flex-1 flex items-center justify-between">
+              {item.label}
+              {item.label === "Chat" && unreadTotal > 0 && (
+                <span className="min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-black rounded-lg flex items-center justify-center px-1 shadow-sm animate-pulse">
+                  {unreadTotal > 99 ? "99+" : unreadTotal}
+                </span>
+              )}
+            </span>
+            {!hasSubNav && depth === 0 && <Chevron />}
+          </>
+        );
+      }}
     </NavLink>
   );
 };

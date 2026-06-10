@@ -18,6 +18,8 @@ interface Task {
     id: string;
     name: string;
     project: string;
+    contractorId?: string;
+    assignedFrom?: 'Self' | 'Site Engineer';
     description: string;
     status: 'Pending' | 'In Progress' | 'Completed' | 'Hold';
     priority: 'High' | 'Medium' | 'Low';
@@ -34,10 +36,10 @@ const MyTasksPage: React.FC = () => {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
     const [tasks, setTasks] = useState<Task[]>([
-        { id: 'T-001', name: 'FOUNDATION REINFORCEMENT', project: 'Urban Heights', description: 'Reinforcing foundation columns', status: 'In Progress', priority: 'High', startDate: '2026-05-27', endDate: '2026-05-30', progress: 65 },
-        { id: 'T-002', name: 'CONCRETING SECTION B', project: 'Urban Heights', description: 'Pouring concrete for section B', status: 'Pending', priority: 'Medium', startDate: '2026-05-28', endDate: '2026-06-02', progress: 0 },
-        { id: 'T-003', name: 'CLEAR DEBRIS', project: 'Urban Heights', description: 'Remove construction waste', status: 'Completed', priority: 'Low', startDate: '2026-05-26', endDate: '2026-05-28', progress: 100 },
-        { id: 'T-004', name: 'BRICKWORK LEVEL 2', project: 'Skyline', description: 'Internal partition walls', status: 'Pending', priority: 'High', startDate: '2026-06-01', endDate: '2026-06-05', progress: 0 },
+        { id: 'T-001', name: 'FOUNDATION REINFORCEMENT', project: 'Urban Heights', contractorId: 'CTR-992', assignedFrom: 'Site Engineer', description: 'Reinforcing foundation columns with 12mm TMT bars', status: 'In Progress', priority: 'High', startDate: '2026-05-27', endDate: '2026-05-30', progress: 65 },
+        { id: 'T-002', name: 'CONCRETING SECTION B', project: 'Urban Heights', contractorId: 'CTR-992', assignedFrom: 'Site Engineer', description: 'Pouring concrete for section B foundation', status: 'Pending', priority: 'Medium', startDate: '2026-05-28', endDate: '2026-06-02', progress: 0 },
+        { id: 'T-003', name: 'CLEAR DEBRIS', project: 'Urban Heights', contractorId: 'CTR-992', assignedFrom: 'Self', description: 'Remove construction waste from the main entrance', status: 'Completed', priority: 'Low', startDate: '2026-05-26', endDate: '2026-05-28', progress: 100 },
+        { id: 'T-004', name: 'BRICKWORK LEVEL 2', project: 'Skyline', contractorId: 'CTR-104', assignedFrom: 'Site Engineer', description: 'Internal partition walls for block A', status: 'Pending', priority: 'High', startDate: '2026-06-01', endDate: '2026-06-05', progress: 0 },
     ]);
 
     React.useEffect(() => {

@@ -135,6 +135,12 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                       alt={document.name}
                       className="w-full h-full object-contain"
                     />
+                  ) : (document.file_url?.match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/i)) ? (
+                    <iframe
+                      src={`https://docs.google.com/viewer?url=${encodeURIComponent(document.file_url)}&embedded=true`}
+                      className="w-full h-full border-none rounded-2xl"
+                      title="Office Document Preview"
+                    />
                   ) : (
                     <div className="flex flex-col items-center justify-center p-6 text-center">
                       <FileText size={48} className="text-slate-300 mb-4 opacity-50" />

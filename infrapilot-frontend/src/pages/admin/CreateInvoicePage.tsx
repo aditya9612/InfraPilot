@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
@@ -29,6 +29,7 @@ import PageTransition from "../../components/common/PageTransition";
 import { projectService } from "../../services/projectService";
 import { quotationService } from "../../services/quotationService";
 import { userService } from "../../services/userService";
+import { financeService } from "../../services/financeService";
 import type { LabourItem, MaterialItem, ExtraChargeItem } from "../../types/quotation";
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
@@ -58,11 +59,12 @@ const CreateInvoicePage = () => {
   // Extract clientId from query params
   const queryParams = new URLSearchParams(location.search);
   const clientIdFromUrl = queryParams.get("clientId");
+  const projectIdFromUrl = queryParams.get("projectId");
 
   const [projects, setProjects] = useState<Project[]>([]);
 
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState("measurements");
+  const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
   const [isSaving, setIsSaving] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<any>(null);
@@ -195,6 +197,21 @@ const CreateInvoicePage = () => {
     end: ""
   });
 
+  // Signature
+  const [signatureImage, setSignatureImage] = useState<string | null>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Signature image must be under 2MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => setSignatureImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
   // Calculate Plum Concrete
   useEffect(() => {
     const cuft = measurementData.plum.l * measurementData.plum.w * measurementData.plum.h;
@@ -216,9 +233,8 @@ const CreateInvoicePage = () => {
   }, [measurementData.stone]);
 
   useEffect(() => {
-    // Only auto-populate from project list when creating a new quotation.
-    // When editing (id exists), project details are already loaded from the API.
-    if (!id && selectedProjectId !== 0) {
+    // Auto-populate from project list when selectedProjectId changes.
+    if (selectedProjectId !== 0) {
       const selectedProject = projects.find(p => p.id === selectedProjectId);
       if (selectedProject) {
         setProjectDetails({
@@ -236,9 +252,41 @@ const CreateInvoicePage = () => {
             end: selectedProject.end_date || ""
           });
         }
+
+        // Auto-populate client details if the project has an owner/client
+        if (selectedProject.owner_id && !clientIdFromUrl) {
+          const fetchClient = async () => {
+            try {
+              const u = await userService.getUserById(selectedProject.owner_id);
+              if (u) {
+                setClientDetails({
+                  name: u.full_name || "",
+                  company: u.designation || "",
+                  mobile: u.mobile_number || "",
+                  email: u.email || "",
+                  address: u.address || "",
+                  gst: u.pan_number || ""
+                });
+              }
+            } catch (error) {
+              console.error("Failed to auto-populate client details from project owner", error);
+            }
+          };
+          fetchClient();
+        }
       }
     }
-  }, [selectedProjectId, projects, id]);
+  }, [selectedProjectId, projects, id, clientIdFromUrl]);
+
+  // Pre-populate project from URL if provided
+  useEffect(() => {
+    if (projectIdFromUrl && !id && projects.length > 0) {
+      const pid = Number(projectIdFromUrl);
+      if (pid !== selectedProjectId) {
+        setSelectedProjectId(pid);
+      }
+    }
+  }, [projectIdFromUrl, id, projects]);
 
   // Fetch Projects
   useEffect(() => {
@@ -489,14 +537,11 @@ const CreateInvoicePage = () => {
 
   const handleConvertToInvoice = async () => {
     if (!id) return;
-    if (!selectedProjectId) {
-      toast.error("Please select a project first");
-      return;
-    }
     try {
       setIsConvertingInvoice(true);
-      await quotationService.convertToInvoice(Number(id), selectedProjectId);
+      await financeService.convertQuotationToInvoice(Number(id));
       toast.success("Converted to invoice successfully!");
+      navigate("/admin/finance/invoices");
     } catch (err: any) {
       toast.error(err.message || "Failed to convert to invoice");
     } finally {
@@ -554,6 +599,7 @@ const CreateInvoicePage = () => {
         billing_address: clientDetails.address,
         site_address: projectDetails.siteAddress,
         gst_number: clientDetails.gst,
+        project_id: selectedProjectId,
 
         project_name: projectDetails.name,
         project_type: projectDetails.type,
@@ -2130,6 +2176,60 @@ const CreateInvoicePage = () => {
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-100"
                         placeholder="Add terms and conditions..."
                       />
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "signature" && (
+                  <div className="space-y-6">
+                    <div className="flex items-start gap-6 flex-wrap">
+                      <div className="flex-1 min-w-[240px] space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Upload Signature Image</label>
+                          <p className="text-xs text-slate-400 mb-4">Upload a PNG/JPEG signature to be printed on this quotation. Transparent PNGs look best.</p>
+                        </div>
+                        <div
+                          onClick={() => !isReadOnly && signatureInputRef.current?.click()}
+                          className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-8 transition-all min-h-[140px] ${isReadOnly ? "border-slate-100 bg-slate-50 cursor-not-allowed" : "border-slate-200 bg-slate-50/50 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30"}`}
+                        >
+                          {signatureImage ? (
+                            <img src={signatureImage} alt="Signature Preview" className="max-h-24 w-auto object-contain" />
+                          ) : (
+                            <>
+                              <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3">
+                                <Edit3 className="w-6 h-6 text-indigo-400" />
+                              </div>
+                              <p className="text-sm font-bold text-slate-500">Click to upload signature</p>
+                              <p className="text-xs text-slate-400 mt-1">PNG, JPEG · Max 2MB</p>
+                            </>
+                          )}
+                        </div>
+                        <input ref={signatureInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleSignatureUpload} disabled={isReadOnly} />
+                        {signatureImage && !isReadOnly && (
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => signatureInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all">
+                              <Edit3 className="w-3.5 h-3.5" /> Change
+                            </button>
+                            <button onClick={() => setSignatureImage(null)} className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-500 rounded-xl text-xs font-bold hover:bg-rose-100 transition-all">
+                              <X className="w-3.5 h-3.5" /> Remove
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="w-64 shrink-0">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Preview on Quotation</label>
+                        <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm">
+                          <p className="text-[10px] font-black text-slate-900 uppercase mb-3">For {clientDetails.company || "Your Company"}</p>
+                          <div className="h-16 border-b border-slate-200 flex items-end justify-center pb-2 mb-2">
+                            {signatureImage ? (
+                              <img src={signatureImage} alt="Sig" className="max-h-12 w-auto object-contain opacity-80" />
+                            ) : (
+                              <span className="text-[10px] text-slate-300 italic">No signature uploaded</span>
+                            )}
+                          </div>
+                          <p className="text-[10px] font-black text-slate-600 uppercase text-center tracking-widest">Authorized Signatory</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

@@ -17,6 +17,54 @@ export interface ClientDashboardData {
   days_remaining: number;
 }
 
+export interface AdminDashboardData {
+  project_overview: {
+    total: number;
+    active: number;
+    completed: number | string;
+    delayed: number | string;
+  };
+  financial: {
+    revenue: number;
+    expense: number;
+    profit: number;
+  };
+  vitals: {
+    total_labour_today: number;
+    pending_approvals: number;
+    action_items: number;
+    material_used_today: number;
+    site_issues_open: number;
+  };
+  active_users: number;
+  discipline_progress: {
+    discipline: string;
+    planned_percent: number;
+    actual_percent: number;
+  }[];
+  master_projects: {
+    id: number;
+    name: string;
+    start_date: string;
+    end_date: string;
+    progress: number;
+    performance_score: number;
+    health: string;
+  }[];
+  recent_activities: {
+    type: string;
+    user: string;
+    description: string;
+    time: string;
+    project_name: string;
+  }[];
+  kpi_comparison: {
+    current_month: number;
+    previous_month: number;
+    difference: number;
+  };
+}
+
 export const dashboardService = {
   /**
    * Get Client Dashboard stats
@@ -26,6 +74,15 @@ export const dashboardService = {
     const response = await api.get<ClientDashboardData>(`/dashboard/client`, {
       params: { project_id: projectId }
     });
+    return response.data;
+  },
+
+  /**
+   * Get Admin Dashboard stats
+   * GET /api/v1/dashboard/admin
+   */
+  async getAdminDashboard(): Promise<AdminDashboardData> {
+    const response = await api.get<AdminDashboardData>('/dashboard/admin');
     return response.data;
   },
 

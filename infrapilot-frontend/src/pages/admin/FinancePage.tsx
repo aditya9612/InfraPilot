@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -19,11 +19,14 @@ import CreateExpenseModal from "../../components/forms/CreateExpenseModal";
 import { settingsService } from "../../services/settingsService";
 import { useEffect, useCallback } from "react";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
+import CreateInvoiceDropdown from "../../components/common/CreateInvoiceDropdown";
+import { Hammer, Plus } from "lucide-react";
 
 // No static mock data here, we use the service
 
 const FinancePage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const subPage = location.pathname.split("/").pop() || "invoices";
 
   // States
@@ -41,7 +44,6 @@ const FinancePage = () => {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
 
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -420,16 +422,15 @@ const FinancePage = () => {
             </p>
           </div>
           <div className="flex gap-2 relative">
-            <Link
-              to="/admin/measurements"
-              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
-            >
-              <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-              </svg>
-              Manage Measurements
-            </Link>
+            {subPage === "expenses" && (
+              <button
+                onClick={() => navigate("/admin/measurements")}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
+              >
+                <Hammer className="w-4 h-4 text-indigo-600" />
+                Manage Measurements
+              </button>
+            )}
             <button
               onClick={handleSyncLedger}
               disabled={isSyncing}
@@ -446,60 +447,34 @@ const FinancePage = () => {
                   setSelectedExpense(null);
                   setIsExpenseModalOpen(true);
                 }}
-                className="px-6 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all active:scale-95"
+                className="px-6 py-2 bg-emerald-500 text-white rounded-xl text-sm font-black shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all flex items-center gap-2"
               >
-                + Record Expense
+                <Plus className="w-4 h-4" />
+                <span>Record Expense</span>
               </button>
             ) : (
-              <div className="relative">
-                <button
-                  onClick={() => setShowTypeSelector(!showTypeSelector)}
-                  className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
-                >
-                  + Create Invoice
-                  <svg
-                    className={`w-4 h-4 transition-transform ${showTypeSelector ? "rotate-180" : ""}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-
-                {showTypeSelector && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Select Category
-                    </div>
-                    {[
-                      { id: "labour", label: "Labour Invoice", icon: "👷" },
-                      { id: "material", label: "Material Supply", icon: "🏗️" },
-                      { id: "owner", label: "Owner Billing", icon: "🏢" },
-                      { id: "expense", label: "Site Expense", icon: "💵" },
-                    ].map((type) => (
-                      <button
-                        key={type.id}
-                        onClick={() => {
-                          setSelectedInvoice(null);
-                          setActiveCreateType(type.id);
-                          setIsModalOpen(true);
-                          setShowTypeSelector(false);
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-primary transition-all flex items-center gap-3"
-                      >
-                        <span className="text-base">{type.icon}</span>
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <CreateInvoiceDropdown
+                onSelectType={(type) => {
+                  if (type === "owner") {
+                    setSelectedInvoice(null);
+                    setActiveCreateType("owner");
+                    setIsModalOpen(true);
+                  } else if (type === "labour") {
+                    setSelectedInvoice(null);
+                    setActiveCreateType("labour");
+                    setIsModalOpen(true);
+                  } else if (type === "material") {
+                    setSelectedInvoice(null);
+                    setActiveCreateType("material");
+                    setIsModalOpen(true);
+                  } else if (type === "measurement") {
+                    navigate("/admin/invoices/create?tab=measurements");
+                  } else if (type === "expense") {
+                    setSelectedExpense(null);
+                    setIsExpenseModalOpen(true);
+                  }
+                }}
+              />
             )}
           </div>
         </div>
