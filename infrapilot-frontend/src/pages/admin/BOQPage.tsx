@@ -294,11 +294,17 @@ const BOQPage = () => {
     setIsActivityDeleteModalOpen(true);
   };
 
-  const handleDeleteActivityConfirm = () => {
+  const handleDeleteActivityConfirm = async () => {
     if (activityToDelete) {
-      toast.success("Activity removed successfully!");
-      setIsActivityDeleteModalOpen(false);
-      setActivityToDelete(null);
+      try {
+        await boqService.deleteBoq(activityToDelete);
+        toast.success("Activity removed successfully!");
+        await refreshBoqs();
+        setIsActivityDeleteModalOpen(false);
+        setActivityToDelete(null);
+      } catch (error) {
+        toast.error("Failed to delete activity");
+      }
     }
   };
 
@@ -696,6 +702,7 @@ const BOQPage = () => {
                 <option value="draft">Draft</option>
                 <option value="completed">Completed</option>
                 <option value="under review">Under Review</option>
+                <option value="pending">Pending</option>
               </select>
 
               <select
@@ -840,9 +847,6 @@ const BOQPage = () => {
                               <p className="font-bold text-slate-700 group-hover:text-primary transition-colors line-clamp-1">
                                 {item.item_name}
                               </p>
-                              {item.boq_group_id && (
-                                <span className="text-[8px] font-black bg-primary/5 text-primary/60 px-1.5 py-0.5 rounded border border-primary/10">#{item.boq_group_id}</span>
-                              )}
                             </div>
                             <p className="text-[10px] text-slate-400 font-medium line-clamp-1">
                               {projectMap[item.project_id] || "N/A"}
@@ -863,31 +867,27 @@ const BOQPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-slate-700">
-                          {formatCompactCurrency(item.unit_cost || 0)}
+                          {formatCompactCurrency(Number(item.unit_cost) || 0)}
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-primary">
-                          {formatCompactCurrency(item.total_cost || 0)}
+                          {formatCompactCurrency(Number(item.total_cost) || 0)}
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-rose-500">
-                          {formatCompactCurrency(item.variance_cost || 0)}
+                          {formatCompactCurrency(Number(item.variance_cost) || 0)}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span
-                            className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status === "Ongoing" ||
-                              item.status === "ACTIVE" ||
-                              item.status === "Ongoing"
+                            className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status?.toUpperCase() === "ONGOING" ||
+                              item.status?.toUpperCase() === "ACTIVE"
                               ? "bg-emerald-100 text-emerald-600"
-                              : item.status === "Completed"
+                              : item.status?.toUpperCase() === "COMPLETED"
                                 ? "bg-blue-100 text-blue-600"
-                                : item.status === "Draft"
+                                : item.status?.toUpperCase() === "DRAFT"
                                   ? "bg-slate-100 text-slate-600"
                                   : "bg-amber-100 text-amber-600"
                               }`}
                           >
-                            {item.status === "Ongoing" ||
-                              item.status === "ACTIVE"
-                              ? "Ongoing"
-                              : item.status}
+                            {item.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">

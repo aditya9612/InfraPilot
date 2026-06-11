@@ -291,4 +291,18 @@ export const financeService = {
       throw error;
     }
   },
+
+  /**
+   * Create Invoice From Quotation
+   * POST /api/v1/invoices/from-quotation/{quotation_id}
+   */
+  async convertQuotationToInvoice(quotationId: number): Promise<Invoice> {
+    try {
+      const response = await api.post(`/invoices/from-quotation/${quotationId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Convert Quotation ${quotationId} to Invoice Error:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
 };

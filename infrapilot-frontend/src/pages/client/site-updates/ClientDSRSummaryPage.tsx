@@ -201,7 +201,7 @@ const ClientDSRSummaryPage = () => {
                   value={dateFilter}
                   max={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setDateFilter(e.target.value)}
-                  className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 px-6 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none hover:bg-white transition-all shadow-sm font-inter"
+                  className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 px-3 w-[155px] text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none hover:bg-white transition-all shadow-sm font-inter"
                 />
                 {dateFilter && (
                   <button

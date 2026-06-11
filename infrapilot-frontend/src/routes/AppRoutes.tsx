@@ -42,6 +42,11 @@ import QCGovernancePage from "../pages/manager/QCGovernancePage";
 import DSRApprovalPage from "../pages/manager/DSRApprovalPage";
 import ResourceOrchestratorPage from "../pages/manager/ResourceOrchestratorPage";
 import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
+import WorkProgressPage from "../pages/manager/WorkProgressPage";
+import ManagerTasksPage from "../pages/manager/ManagerTasksPage";
+import ManagerProcurementPage from "../pages/manager/ManagerProcurementPage";
+import ManagerQualityPage from "../pages/manager/ManagerQualityPage";
+import ManagerSafetyPage from "../pages/manager/ManagerSafetyPage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -271,11 +276,20 @@ function AppRoutes() {
               <Route index element={<ManagerDashboard />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/:id" element={<ProjectDetailsPage />} />
+              <Route path="work-progress" element={<WorkProgressPage />} />
+              <Route path="work-progress/:tab" element={<WorkProgressPage />} />
+              <Route path="tasks" element={<ManagerTasksPage />} />
               <Route path="approvals" element={<ManagerApprovalsPage />} />
               <Route path="approvals/dsr" element={<DSRApprovalPage />} />
               <Route path="approvals/material" element={<ManagerApprovalsPage />} />
               <Route path="approvals/expense" element={<ManagerApprovalsPage />} />
               <Route path="boq" element={<BOQPage />} />
+              <Route path="procurement" element={<ManagerProcurementPage />} />
+              <Route path="procurement/:tab" element={<ManagerProcurementPage />} />
+              <Route path="quality" element={<ManagerQualityPage />} />
+              <Route path="quality/:tab" element={<ManagerQualityPage />} />
+              <Route path="safety" element={<ManagerSafetyPage />} />
+              <Route path="safety/:tab" element={<ManagerSafetyPage />} />
               <Route path="labour" element={<LaborDetailsPage />} />
               <Route path="labour/:id" element={<LabourTaskDetailPage />} />
               <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
@@ -432,6 +446,7 @@ function AppRoutes() {
             {/* Labour Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Labour"]} />}>
               <Route path="/labour" element={<LabourDashboard />} />
+              <Route path="/labour/attendance" element={<AttendancePage />} />
               <Route path="/labour/tasks" element={<MyTasksPage />} />
               <Route path="/labour/payments" element={<PaymentsPage />} />
               <Route path="/labour/settings" element={<LabourSettingsPage />} />

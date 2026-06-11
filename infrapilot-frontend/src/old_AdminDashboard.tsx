@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { exportToCSV } from "../../utils/csvExport";
 import {
-  ComposedChart,
-  Area,
+  LineChart,
   Line,
   XAxis,
   YAxis,
@@ -11,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  ReferenceArea,
 } from "recharts";
 import { useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
@@ -25,9 +25,17 @@ import { formatCompactCurrency } from "../../utils/currencyUtils";
 import { projectService } from "../../services/projectService";
 import { boqService } from "../../services/boqService";
 import { userService } from "../../services/userService";
-import { dashboardService } from "../../services/dashboardService";
+import { expenseService } from "../../services/expenseService";
+import { financeService } from "../../services/financeService";
+import { sitePhotoService } from "../../services/sitePhotoService";
+import { materialService } from "../../services/materialService";
+import { equipmentService } from "../../services/equipmentService";
+import { notificationService } from "../../services/notificationService";
 import { generateProjectListPDF } from "../../utils/projectPDFGenerator";
 import type { Project, ProjectStatus } from "../../types/project";
+
+// Dynamic graph data will replace this
+// const budgetData = [];
 
 // ─── Styling Helpers ──────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
@@ -56,6 +64,7 @@ const progressPulse: Record<ProjectStatus, string> = {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 const AdminDashboard = () => {
+  const [activityFilter, setActivityFilter] = useState("All");
   const [timeFilter, setTimeFilter] = useState("This Year");
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
@@ -78,174 +87,235 @@ const AdminDashboard = () => {
     profitLoss: 0,
     activeUsers: 0,
     pendingApprovals: 0,
-    actionItems: 0,
-    siteIssuesOpen: 0,
-    totalLabourToday: 0,
-    materialUsedToday: 0,
-    projectOverview: {
-      total: 0,
-      active: 0,
-      completed: 0,
-      delayed: 0
-    }
+    activeAlerts: 0
   });
 
-  const [kpiComparison, setKpiComparison] = useState({
-    current_month: 0,
-    previous_month: 0,
-    difference: 0,
-  });
-
-  const [disciplineProgress, setDisciplineProgress] = useState<any[]>([]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      setIsLoading(true);
-      console.log("Dashboard: Fetching from /api/v1/dashboard/admin...");
+      if (projects.length === 0) setIsLoading(true);
+      console.log("Dashboard: Starting Tier 1 (Core) fetch...");
 
-      const data = await dashboardService.getAdminDashboard();
-      console.log("Dashboard: API response received", data);
+      // Tier 1: Core Data (Essential for stats and graphs)
+      const coreResults = await Promise.all([
+        projectService.getProjects(100, 0).catch(err => { console.error("Tier 1: Projects failed", err); return []; }),
+        expenseService.listExpenses().catch(err => { console.error("Tier 1: Expenses failed", err); return []; }),
+        financeService.getInvoices(100).catch(err => { console.error("Tier 1: Invoices failed", err); return []; }),
+        userService.getAllUsers(100).catch(err => { console.error("Tier 1: Users failed", err); return []; }),
+        financeService.getPendingInvoices().catch(err => { console.error("Tier 1: Pending Invoices failed", err); return []; }),
+      ]);
 
-      // --- Map stats from the correct API response shape ---
-      const po = data.project_overview || {};
-      const financial = data.financial || {};
-      const vitals = data.vitals || {};
+      const [pData, expensesData, invoicesRes, usersRes, pendingApprovalsRes] = coreResults;
 
-      setDashboardStats({
-        totalRevenue: Number(financial.revenue) || 0,
-        totalExpenses: Number(financial.expense) || 0,
-        profitLoss: Number(financial.profit) || 0,
-        activeUsers: Number(data.active_users) || 0,
-        pendingApprovals: Number(vitals.pending_approvals) || 0,
-        actionItems: Number(vitals.action_items) || 0,
-        siteIssuesOpen: Number(vitals.site_issues_open) || 0,
-        totalLabourToday: Number(vitals.total_labour_today) || 0,
-        materialUsedToday: Number(vitals.material_used_today) || 0,
-        projectOverview: {
-          total: Number(po.total) || 0,
-          active: Number(po.active) || 0,
-          completed: Number(po.completed) || 0,
-          delayed: Number(po.delayed) || 0,
+      const projectsList = Array.isArray(pData) ? pData : pData.items || pData.data || [];
+      setProjects(projectsList);
+
+      const invoices = Array.isArray(invoicesRes) ? invoicesRes : ((invoicesRes as any)?.items || (invoicesRes as any)?.data || []);
+      const users = Array.isArray(usersRes) ? usersRes : ((usersRes as any)?.items || (usersRes as any)?.data || []);
+      const pendingApprovals = Array.isArray(pendingApprovalsRes) ? pendingApprovalsRes : ((pendingApprovalsRes as any)?.items || (pendingApprovalsRes as any)?.data || []);
+
+      const totalExpenses = Array.isArray(expensesData) ? expensesData.reduce((sum: number, exp: any) => sum + (Number(exp.amount) || 0), 0) : 0;
+      const totalRevenue = invoices.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || Number(inv.amount) || 0), 0);
+      const profitLoss = totalRevenue - totalExpenses;
+
+      setDashboardStats(prev => ({
+        ...prev,
+        totalRevenue,
+        totalExpenses,
+        profitLoss,
+        activeUsers: users.filter((u: any) => u.is_active !== false).length,
+        pendingApprovals: pendingApprovals.length,
+      }));
+
+      // Compute Chart Data (Needs Tier 1)
+      const monthlyData: Record<string, { budget: number, actual: number }> = {
+        Jan: { budget: 0, actual: 0 }, Feb: { budget: 0, actual: 0 },
+        Mar: { budget: 0, actual: 0 }, Apr: { budget: 0, actual: 0 },
+        May: { budget: 0, actual: 0 }, Jun: { budget: 0, actual: 0 },
+        Jul: { budget: 0, actual: 0 }, Aug: { budget: 0, actual: 0 },
+        Sep: { budget: 0, actual: 0 }, Oct: { budget: 0, actual: 0 },
+        Nov: { budget: 0, actual: 0 }, Dec: { budget: 0, actual: 0 },
+      };
+
+      projectsList.forEach((p: any) => {
+        if (p.budget && p.start_date && p.end_date) {
+          const start = new Date(p.start_date);
+          const end = new Date(p.end_date);
+          const monthsDiff = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+          const monthlyBudget = p.budget / (monthsDiff > 0 ? monthsDiff : 1);
+
+          for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
+            const monthKey = d.toLocaleString('default', { month: 'short' });
+            if (monthlyData[monthKey]) {
+              monthlyData[monthKey].budget += monthlyBudget;
+            }
+          }
         }
       });
 
-      // KPI comparison
-      if (data.kpi_comparison) {
-        setKpiComparison(data.kpi_comparison);
+      if (Array.isArray(expensesData)) {
+        expensesData.forEach((exp: any) => {
+          if (exp.expense_date) {
+            const monthKey = new Date(exp.expense_date).toLocaleString('default', { month: 'short' });
+            if (monthlyData[monthKey]) {
+              monthlyData[monthKey].actual += Number(exp.amount) || 0;
+            }
+          }
+        });
       }
 
-      // Discipline progress (used for chart)
-      const discipline = Array.isArray(data.discipline_progress) ? data.discipline_progress : [];
-      setDisciplineProgress(discipline);
+      const monthsArr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      if (timeFilter === "This Year") {
+        setGraphData(monthsArr.map(m => ({ month: m, budget: Math.round(monthlyData[m].budget), actual: Math.round(monthlyData[m].actual) })));
+      } else {
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const monthName = monthsArr[currentMonth];
+        const dailyBudget = monthlyData[monthName].budget / daysInMonth;
+        const dailyDataArray = [];
+        for (let i = 1; i <= daysInMonth; i++) {
+          let dayActual = 0;
+          if (Array.isArray(expensesData)) {
+            expensesData.forEach((exp: any) => {
+              if (exp.expense_date) {
+                const expDate = new Date(exp.expense_date);
+                if (expDate.getDate() === i && expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear) {
+                  dayActual += Number(exp.amount) || 0;
+                }
+              }
+            });
+          }
+          dailyDataArray.push({ month: `${i} ${monthName}`, budget: Math.round(dailyBudget), actual: Math.round(dayActual) });
+        }
+        setGraphData(dailyDataArray);
+      }
 
-      // Projects: master_projects[] -> map to Project shape
-      const projectsList = (data.master_projects || []).map((p: any) => ({
-        id: p.id,
-        project_name: p.name,
-        start_date: p.start_date,
-        end_date: p.end_date,
-        completion_percentage: p.progress ?? 0,
-        status: (() => {
-          const h = (p.health || "").toUpperCase();
-          if (h === "ONGOING") return "Ongoing";
-          if (h === "COMPLETED") return "Completed";
-          if (h === "DELAYED") return "Delayed";
-          if (h === "ON_HOLD") return "On Hold";
-          return "Planned";
-        })(),
-        performance_score: p.performance_score,
-      } as unknown as Project));
-      setProjects(projectsList);
+      setIsLoading(false); // Tier 1 Done!
 
-      // Critical alerts: delayed projects from master_projects
-      const criticalAlerts = projectsList
-        .filter((p: any) => p.status === "Delayed" || (p.performance_score !== undefined && p.performance_score < -50))
-        .map((p: any) => ({
-          ...p,
-          display_name: p.project_name,
-          display_status: p.status,
-          display_date: p.end_date ? `End: ${new Date(p.end_date).toLocaleDateString()}` : "TBD",
-          project_id: p.id,
-        }));
+      // Tier 2: Activities & Batch 2 (Non-blocking)
+      console.log("Dashboard: Starting Tier 2 fetch...");
+      const tier2Results = await Promise.allSettled([
+        projectService.getProjectAlerts(),
+        projectService.getTaskAlerts(),
+        materialService.getLogs({ limit: 50 }),
+        sitePhotoService.getPhotos(),
+      ]);
+
+      const pAlerts = tier2Results[0].status === 'fulfilled' ? tier2Results[0].value : [];
+      const tAlerts = tier2Results[1].status === 'fulfilled' ? tier2Results[1].value : [];
+      const mLogs = tier2Results[2].status === 'fulfilled' ? tier2Results[2].value : [];
+      const photosRes = tier2Results[3].status === 'fulfilled' ? tier2Results[3].value : { items: [] };
+
+      // Tier 3: Secondary Monitoring (Non-blocking)
+      console.log("Dashboard: Starting Tier 3 fetch...");
+      const tier3Results = await Promise.allSettled([
+        materialService.getMaterialAlerts(),
+        equipmentService.getMaintenanceAlerts(),
+        equipmentService.getEquipmentAlerts(),
+        notificationService.listAlerts(),
+      ]);
+
+      const matAlerts = tier3Results[0].status === 'fulfilled' ? tier3Results[0].value : [];
+      const maintainAlerts = tier3Results[1].status === 'fulfilled' ? tier3Results[1].value : [];
+      const equipAlerts = tier3Results[2].status === 'fulfilled' ? tier3Results[2].value : [];
+      const genAlerts = tier3Results[3].status === 'fulfilled' ? tier3Results[3].value : [];
+
+      const projectAlerts = Array.isArray(pAlerts) ? pAlerts : (pAlerts?.items || pAlerts?.data || []);
+      const taskAlerts = Array.isArray(tAlerts) ? tAlerts : (tAlerts?.items || tAlerts?.data || []);
+
+      const allAlertsCount = projectAlerts.length + taskAlerts.length + (matAlerts?.length || 0) + (maintainAlerts?.length || 0) + (equipAlerts?.length || 0) + (genAlerts?.length || 0);
+
+      setDashboardStats(prev => ({ ...prev, activeAlerts: allAlertsCount }));
+
+      const criticalAlerts = [
+        ...projectAlerts.filter((a: any) => (a.status || "").toLowerCase().includes("delayed")).map((a: any) => ({
+          ...a, type: 'Project', display_name: a.project_name, display_status: a.status,
+          display_date: a.end_date ? `Delayed since: ${new Date(a.end_date).toLocaleDateString()}` : "TBD"
+        })),
+        ...(matAlerts || []).filter((a: any) => (a.remaining_stock < (a.threshold || 10))).map((a: any) => ({
+          ...a, type: 'Material', display_name: a.material_name, display_status: 'Low Stock',
+          display_date: `Only ${a.remaining_stock} ${a.unit || 'units'} left`
+        })),
+        ...(maintainAlerts || []).map((a: any) => ({
+          ...a, type: 'Maintenance', display_name: a.equipment_name, display_status: 'Service Due',
+          display_date: 'Requires immediate attention'
+        }))
+      ];
       setProjectAlertsData(criticalAlerts);
 
-      // Activity / alerts feed from recent_activities
-      const activities = Array.isArray(data.recent_activities) ? data.recent_activities : [];
-      const ACTIVITY_ICONS: Record<string, string> = {
-        UPDATE_USER: "👤", DELETE_USER: "🗑️", CREATE_USER: "👤+",
-        UPDATE_PROJECT: "🏗️", DELETE_PROJECT: "🗑️", CREATE_PROJECT: "🏗️+",
-        UPDATE_INVOICE: "🧾", CREATE_INVOICE: "🧾+", DELETE_INVOICE: "🗑️",
-      };
-      setAlerts(activities.map((a: any) => ({
-        user: a.user || "System",
-        action: `${a.description || a.type}${a.project_name && a.project_name !== "Global" ? ` — ${a.project_name}` : ""}`,
-        time: a.time || "Recent",
-        rawTime: a.time || "",
-        type: (a.type || "").toLowerCase().includes("delete") ? "alert" :
-          (a.type || "").toLowerCase().includes("invoice") ? "money" : "task",
-        icon: ACTIVITY_ICONS[a.type] || "🔔",
-        color: (a.type || "").toLowerCase().includes("delete") ? "bg-red-50 text-red-500" :
-          (a.type || "").toLowerCase().includes("invoice") ? "bg-amber-50 text-amber-500" :
-            "bg-blue-50 text-blue-500",
-      })));
+      const photos = Array.isArray(photosRes) ? photosRes : (photosRes.items || []);
+      const logs = Array.isArray(mLogs) ? mLogs : [];
 
-      // Discipline dataset is stored entirely into state; we construct the timeline via useEffect
-      if (discipline.length === 0) {
-        setGraphData([{ name: "None", budget: 0, actual: 0 }]);
-      }
+      const combinedAlerts = [
+        ...projectAlerts.map((a: any) => ({
+          user: a.user_name || "System",
+          action: a.message || a.description || (a.project_name ? `${a.project_name} is ${a.status || 'Updated'}` : "Project alert reported"),
+          time: a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent",
+          rawTime: a.created_at || "",
+          type: (a.status || "").toLowerCase().includes("delayed") ? "alert" : "task",
+          icon: (a.status || "").toLowerCase().includes("delayed") ? "⚠️" : "🏗️",
+          color: (a.status || "").toLowerCase().includes("delayed") ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500",
+        })),
+        ...taskAlerts.map((a: any) => {
+          const isFinance = /payment|invoice|bill|payroll|budget|expense|salary/i.test(a.task_name || "");
+          const isDelayed = (a.status || "").toLowerCase().includes("delayed") || (a.action || "").toLowerCase().includes("delay");
+          return {
+            user: a.assigned_to_name || a.author || "Member",
+            action: `${a.task_name || 'Task'}: ${a.status || 'Updated'}`,
+            time: a.updated_at ? new Date(a.updated_at).toLocaleTimeString() : (a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent"),
+            rawTime: a.updated_at || a.created_at || "",
+            type: isDelayed ? "alert" : (isFinance ? "money" : "task"),
+            icon: isDelayed ? "⚠️" : (isFinance ? "💰" : "✔"),
+            color: isDelayed ? "bg-red-50 text-red-500" : (isFinance ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500"),
+          };
+        }),
+        ...(matAlerts || []).map((a: any) => ({
+          user: "Inventory", action: `Low stock: ${a.material_name} (${a.remaining_stock} ${a.unit || 'units'} left)`,
+          time: "Now", rawTime: new Date().toISOString(), type: "alert", icon: "📦", color: "bg-orange-50 text-orange-500",
+        })),
+        ...(maintainAlerts || []).map((a: any) => ({
+          user: "Equipment", action: `Maintenance due: ${a.equipment_name || 'Machinery'}`,
+          time: "Scheduled", rawTime: new Date().toISOString(), type: "alert", icon: "🔧", color: "bg-red-50 text-red-500",
+        })),
+        ...(genAlerts || []).map((a: any) => ({
+          user: "System", action: a.message || "New alert reported",
+          time: a.created_at ? new Date(a.created_at).toLocaleTimeString() : "Recent",
+          rawTime: a.created_at || new Date().toISOString(), type: "alert", icon: "🔔", color: "bg-indigo-50 text-indigo-500",
+        })),
+        ...invoices.map((inv: any) => ({
+          user: inv.client_name || "System", action: `Invoice #${inv.invoice_number || inv.id}: ${inv.status}`,
+          time: inv.created_at ? new Date(inv.created_at).toLocaleTimeString() : "Recent", rawTime: inv.created_at || "",
+          type: "money", icon: "🧾", color: "bg-amber-50 text-amber-500",
+        })),
+        ...photos.map((p: any) => ({
+          user: p.uploaded_by || "Engineer", action: `Uploaded site photo: ${p.description || p.activity_tag || "General Update"}`,
+          time: p.created_at ? new Date(p.created_at).toLocaleTimeString() : "Recent", rawTime: p.created_at || "",
+          type: "task", icon: "📷", color: "bg-purple-50 text-purple-500",
+        })),
+        ...logs.map((l: any) => {
+          const isPurchase = l.type === "PURCHASE";
+          return {
+            user: "Store", action: `${l.type}: ${l.quantity} units of material recorded`,
+            time: l.created_at ? new Date(l.created_at).toLocaleTimeString() : "Recent", rawTime: l.created_at || "",
+            type: isPurchase ? "money" : "task", icon: isPurchase ? "🛒" : "📦", color: isPurchase ? "bg-orange-50 text-orange-500" : "bg-slate-50 text-slate-500",
+          };
+        })
+      ].sort((a: any, b: any) => new Date(b.rawTime).getTime() - new Date(a.rawTime).getTime());
 
+      setAlerts(combinedAlerts);
     } catch (error) {
-      console.error("Dashboard: /api/v1/dashboard/admin failed", error);
-      toast.error("Failed to load dashboard data");
+      console.error("Dashboard: Critical Data Sync Error", error);
+      toast.error("Failed to load core dashboard data");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [timeFilter]);
 
   useEffect(() => {
     fetchDashboardData();
-  }, [fetchDashboardData]);
-
-  // Generate timeline data for the graph depending on timeFilter
-  useEffect(() => {
-    if (disciplineProgress.length === 0) return;
-
-    // Use the first discipline (General) or sum them to trace the primary timeline
-    const targetPlanned = disciplineProgress[0]?.planned_percent || 0;
-    const targetActual = disciplineProgress[0]?.actual_percent || 0;
-    const d = new Date();
-
-    if (timeFilter === "This Year") {
-      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const currentMonth = d.getMonth();
-      const mapped = months.map((m, i) => {
-        // Curve Planned Budget up to target linearly
-        const budget = Number(((targetPlanned / 11) * i).toFixed(2));
-
-        let actual = 0;
-        if (i <= currentMonth) {
-          // Curve Actual Cost up to the target on the current month
-          actual = currentMonth === 0 ? targetActual : Number(((targetActual / currentMonth) * i).toFixed(2));
-        }
-
-        return { name: m, budget, actual };
-      });
-      setGraphData(mapped);
-    } else {
-      // "This Month" filter
-      const weeks = ["Week 1", "Week 2", "Week 3", "Week 4"];
-      const currentWeek = Math.min(Math.floor(d.getDate() / 7), 3);
-      const mapped = weeks.map((w, i) => {
-        const budget = Number(((targetPlanned / 3) * i).toFixed(2));
-        let actual = 0;
-        if (i <= currentWeek) {
-          actual = currentWeek === 0 ? targetActual : Number(((targetActual / currentWeek) * i).toFixed(2));
-        }
-        return { name: w, budget, actual };
-      });
-      setGraphData(mapped);
-    }
-  }, [disciplineProgress, timeFilter]);
+  }, [fetchDashboardData, timeFilter]);
 
   const navigate = useNavigate();
 
@@ -302,6 +372,22 @@ const AdminDashboard = () => {
     }
   };
 
+  // Dynamic Statistics
+  const stats = {
+    total: projects.length,
+    active: projects.filter((p) => p.status === "Ongoing").length,
+    completed: projects.filter((p) => p.status === "Completed").length,
+    delayed: projects.filter((p) => p.status === "Delayed").length,
+  };
+
+  const filteredAlerts = alerts.filter(act => {
+    if (activityFilter === "All") return true;
+    if (activityFilter === "Finance") return act.type === "money";
+    if (activityFilter === "Issues") return act.type === "alert";
+    if (activityFilter === "Updates") return act.type === "task";
+    return true;
+  });
+
   return (
     <>
       <Navbar
@@ -351,25 +437,25 @@ const AdminDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard
               title="Total Projects"
-              value={String(dashboardStats.projectOverview.total)}
-              sub="Master projects"
+              value={String(stats.total)}
+              sub="+3 this month"
               accent="text-primary"
             />
             <StatCard
               title="Ongoing Projects"
-              value={String(dashboardStats.projectOverview.active)}
+              value={String(stats.active)}
               sub="On-going sites"
               accent="text-blue-500"
             />
             <StatCard
               title="Completed Projects"
-              value={String(dashboardStats.projectOverview.completed)}
+              value={String(stats.completed)}
               sub="Handed over"
               accent="text-emerald-500"
             />
             <StatCard
               title="Delayed Projects"
-              value={String(dashboardStats.projectOverview.delayed)}
+              value={String(stats.delayed)}
               sub="At high risk"
               accent="text-rose-500"
             />
@@ -403,12 +489,12 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Operations & Vitals */}
+        {/* Operations & Alerts */}
         <div className="mb-8">
           <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
-            Operations &amp; Vitals
+            Operations & Health
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
               title="Active Users"
               value={dashboardStats.activeUsers.toString()}
@@ -418,53 +504,15 @@ const AdminDashboard = () => {
             <StatCard
               title="Pending Approvals"
               value={dashboardStats.pendingApprovals.toString()}
-              sub="Awaiting review"
+              sub="Invoices / Work Orders"
               accent="text-amber-500"
             />
             <StatCard
-              title="Action Items"
-              value={dashboardStats.actionItems.toString()}
-              sub="Requires action"
-              accent="text-orange-500"
-            />
-            <StatCard
-              title="Site Issues Open"
-              value={dashboardStats.siteIssuesOpen.toString()}
-              sub="Open tickets"
+              title="Active Alerts"
+              value={dashboardStats.activeAlerts.toString()}
+              sub="Project & Task Updates"
               accent="text-danger"
             />
-            <StatCard
-              title="Labour Today"
-              value={dashboardStats.totalLabourToday.toString()}
-              sub="On-site workers"
-              accent="text-emerald-500"
-            />
-          </div>
-        </div>
-
-        {/* KPI Comparison */}
-        <div className="mb-8">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
-            KPI — Month on Month
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Month</p>
-              <p className="text-2xl font-black text-indigo-600">{formatCompactCurrency(kpiComparison.current_month)}</p>
-              <p className="text-xs text-slate-400 mt-1">Revenue this month</p>
-            </div>
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Previous Month</p>
-              <p className="text-2xl font-black text-slate-600">{formatCompactCurrency(kpiComparison.previous_month)}</p>
-              <p className="text-xs text-slate-400 mt-1">Revenue last month</p>
-            </div>
-            <div className={`bg-white rounded-2xl p-5 shadow-sm border border-slate-100 border-l-4 ${kpiComparison.difference >= 0 ? 'border-l-emerald-400' : 'border-l-red-400'}`}>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">MoM Change</p>
-              <p className={`text-2xl font-black ${kpiComparison.difference >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                {kpiComparison.difference >= 0 ? '+' : ''}{formatCompactCurrency(kpiComparison.difference)}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">{kpiComparison.difference >= 0 ? 'Growth' : 'Decline'} vs last month</p>
-            </div>
           </div>
         </div>
 
@@ -474,10 +522,10 @@ const AdminDashboard = () => {
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2 className="text-lg font-bold text-slate-800">
-                  Discipline Progress
+                  Cost Tracking
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Planned vs Actual % progress across disciplines
+                  Budget vs Actual expenditure across all projects
                 </p>
               </div>
               <select
@@ -496,7 +544,7 @@ const AdminDashboard = () => {
                   height={300}
                   debounce={100}
                 >
-                  <ComposedChart
+                  <LineChart
                     data={graphData}
                     margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
                   >
@@ -506,7 +554,7 @@ const AdminDashboard = () => {
                       stroke="#f1f5f9"
                     />
                     <XAxis
-                      dataKey="name"
+                      dataKey="month"
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#94a3b8", fontSize: 12 }}
@@ -528,9 +576,39 @@ const AdminDashboard = () => {
                       iconType="circle"
                       wrapperStyle={{ paddingTop: "20px" }}
                     />
-                    <Area type="monotone" dataKey="actual" name="Actual Cost" stroke="#f43f5e" strokeWidth={2} fill="#f43f5e" fillOpacity={0.05} dot={{ r: 4, strokeWidth: 2, fill: "#f43f5e" }} activeDot={{ r: 6 }} />
-                    <Line type="monotone" dataKey="budget" name="Planned Budget" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4, strokeWidth: 2, fill: "#3b82f6" }} activeDot={{ r: 6 }} />
-                  </ComposedChart>
+                    <Line
+                      type="monotone"
+                      dataKey="budget"
+                      stroke="#2563EB"
+                      strokeWidth={3}
+                      dot={{ fill: "#2563EB", strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      name="Planned Budget"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="actual"
+                      stroke="#F43F5E"
+                      strokeWidth={3}
+                      dot={{ fill: "#F43F5E", strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      name="Actual Cost"
+                    />
+                    {/* Highlight Over Budget Areas in Red */}
+                    <ReferenceArea
+                      x1="Feb"
+                      x2="Apr"
+                      fill="#fee2e2"
+                      fillOpacity={0.3}
+                      label={{
+                        position: "top",
+                        value: "Over Budget",
+                        fill: "#ef4444",
+                        fontSize: 10,
+                        fontWeight: "bold",
+                      }}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
@@ -545,11 +623,25 @@ const AdminDashboard = () => {
 
           {/* Activity Panel */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-            <div className="px-6 py-5 border-b border-slate-50 flex justify-between items-center">
-              <h2 className="font-bold text-slate-800">Activity Pulse</h2>
+            <div className="px-6 py-5 border-b border-slate-50">
+              <h2 className="font-bold text-slate-800 mb-4">Activity Pulse</h2>
+              <div className="flex gap-2">
+                {["All", "Finance", "Issues", "Updates"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActivityFilter(tab)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${activityFilter === tab
+                      ? "bg-primary text-white shadow-md shadow-primary/20"
+                      : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                      }`}
+                  >
+                    {tab.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex-1 p-6 space-y-6 overflow-y-auto max-h-[400px]">
-              {alerts.length === 0 ? (
+              {filteredAlerts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 opacity-50">
                   <span className="text-2xl mb-2">✨</span>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -557,7 +649,7 @@ const AdminDashboard = () => {
                   </p>
                 </div>
               ) : (
-                alerts.map((act, i) => (
+                filteredAlerts.map((act, i) => (
                   <div key={i} className="flex gap-4 group">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${act.color || (act.type === "alert"
@@ -686,29 +778,29 @@ const AdminDashboard = () => {
             {/* Progress Pagination */}
             {projects.length > PROGRESS_PER_PAGE && (
               <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-50">
-                <span className="text-xs text-slate-400 font-medium">
-                  {progressPage * PROGRESS_PER_PAGE + 1}–{Math.min((progressPage + 1) * PROGRESS_PER_PAGE, projects.length)} of {projects.length} projects
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                  Page {progressPage + 1} of {Math.ceil(projects.length / PROGRESS_PER_PAGE)}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex gap-1">
                   <button
                     onClick={() => setProgressPage(p => Math.max(0, p - 1))}
                     disabled={progressPage === 0}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
-                  <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+                  <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm shadow-primary/20">
                     {progressPage + 1}
                   </div>
                   <button
                     onClick={() => setProgressPage(p => Math.min(Math.ceil(projects.length / PROGRESS_PER_PAGE) - 1, p + 1))}
                     disabled={progressPage >= Math.ceil(projects.length / PROGRESS_PER_PAGE) - 1}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
                 </div>
@@ -830,29 +922,29 @@ const AdminDashboard = () => {
           {/* Table Pagination */}
           {projects.length > TABLE_PER_PAGE && (
             <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50">
-              <span className="text-xs text-slate-400 font-medium">
-                {tablePage * TABLE_PER_PAGE + 1}–{Math.min((tablePage + 1) * TABLE_PER_PAGE, projects.length)} of {projects.length} projects
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Showing {tablePage * TABLE_PER_PAGE + 1}–{Math.min((tablePage + 1) * TABLE_PER_PAGE, projects.length)} of {projects.length} projects
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => setTablePage(p => Math.max(0, p - 1))}
                   disabled={tablePage === 0}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+                <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center text-sm font-bold shadow-sm shadow-primary/20">
                   {tablePage + 1}
                 </div>
                 <button
                   onClick={() => setTablePage(p => Math.min(Math.ceil(projects.length / TABLE_PER_PAGE) - 1, p + 1))}
                   disabled={tablePage >= Math.ceil(projects.length / TABLE_PER_PAGE) - 1}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               </div>

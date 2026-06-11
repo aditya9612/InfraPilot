@@ -13,14 +13,22 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Dashboard", path: "/admin", icon: "grid" },
     { label: "Projects", path: "/admin/projects", icon: "folder" },
     {
-      label: "Estimates / Invoices",
+      label: "Invoices & Estimates",
       path: "/admin/invoices",
       icon: "file-text",
       subNav: [
         { label: "All Invoices", path: "/admin/invoices/all", icon: "list" },
-        { label: "Quotations", path: "/admin/quotations", icon: "file-text" },
-        { label: "Create Invoice", path: "/admin/invoices/create", icon: "plus" },
-        { label: "Measurements", path: "/admin/measurements", icon: "tool" },
+        {
+          label: "Owner",
+          path: "/admin/quotations",
+          icon: "user-check",
+          subNav: [
+            { label: "Quotation", path: "/admin/quotations", icon: "file-text" },
+            { label: "Final Measurement", path: "/admin/measurements", icon: "tool" },
+          ],
+        },
+        { label: "Labour", path: "/admin/invoices/all?type=labour", icon: "users" },
+        { label: "Material", path: "/admin/invoices/all?type=material", icon: "package" },
       ],
     },
     {
@@ -98,16 +106,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/admin/finance",
       icon: "dollar-sign",
       subNav: [
-        {
-          label: "Invoices",
-          path: "/admin/finance/invoices",
-          icon: "file-text",
-        },
-        {
-          label: "Payments",
-          path: "/admin/finance/payments",
-          icon: "credit-card",
-        },
         {
           label: "Expenses",
           path: "/admin/finance/expenses",
@@ -197,6 +195,8 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ProjectManager: [
     { label: "Dashboard", path: "/manager", icon: "grid" },
     { label: "Projects", path: "/manager/projects", icon: "folder" },
+    { label: "Work Progress", path: "/manager/work-progress", icon: "activity" },
+    { label: "Tasks", path: "/manager/tasks", icon: "check-square" },
     {
       label: "Approvals",
       path: "/manager/approvals",
@@ -208,6 +208,9 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     { label: "BOQ", path: "/manager/boq", icon: "list" },
+    { label: "Procurement", path: "/manager/procurement", icon: "shopping-cart" },
+    { label: "Quality", path: "/manager/quality", icon: "shield-check" },
+    { label: "Safety", path: "/manager/safety", icon: "alert-octagon" },
     {
       label: "Resources",
       path: "/manager/resources",
@@ -442,6 +445,15 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   Labour: [
     { label: "Dashboard", path: "/labour", icon: "grid" },
+    {
+      label: "Attendance",
+      path: "/labour/attendance",
+      icon: "calendar",
+      subNav: [
+        { label: "Check In/Out", path: "/labour/attendance", icon: "camera" },
+        { label: "Attendance History", path: "/labour/attendance#history", icon: "list" },
+      ],
+    },
     { label: "My Tasks", path: "/labour/tasks", icon: "clipboard" },
     { label: "Payments", path: "/labour/payments", icon: "wallet" },
     { label: "Settings", path: "/labour/settings", icon: "settings" },

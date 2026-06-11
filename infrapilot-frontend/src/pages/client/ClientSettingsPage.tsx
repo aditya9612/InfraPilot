@@ -2,7 +2,7 @@ import Navbar from "../../components/common/Navbar";
 import { useState, useEffect, useRef } from "react";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
-import { masterService, type MasterEntity } from "../../services/masterService";
+import { masterService } from "../../services/masterService";
 import { useAuth } from "../../context/AuthContext";
 import type { UserProfile, UserSettings } from "../../types/settings";
 import toast from "react-hot-toast";
@@ -14,7 +14,7 @@ const ClientSettingsPage = () => {
     const [updating, setUpdating] = useState(false);
     const [projects, setProjects] = useState<any[]>([]);
     const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
-    const [availableUnits, setAvailableUnits] = useState<MasterEntity[]>([]);
+
     const { refreshUser } = useAuth();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +53,7 @@ const ClientSettingsPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [profileData, settingsData, projectsResult, unitsResult] = await Promise.all([
+                const [profileData, settingsData, projectsResult] = await Promise.all([
                     settingsService.getProfile(),
                     settingsService.getSettings(),
                     projectService.getProjects(50, 0).catch(() => []),
@@ -61,7 +61,7 @@ const ClientSettingsPage = () => {
                 ]);
                 const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
                 setProjects(projectsList);
-                setAvailableUnits(unitsResult);
+
                 if (projectsList.length > 0) {
                     const localSavedId = localStorage.getItem("client_selected_project_id");
                     const defaultPid = settingsData?.default_project_id || (localSavedId ? Number(localSavedId) : null) || projectsList[0]?.id || projectsList[0]?.project_id;
@@ -396,19 +396,23 @@ const ClientSettingsPage = () => {
                         </div>
 
                         <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-3 mb-8">
-                                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                                <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Units</h2>
+                            <div className="flex items-center gap-3 mb-10">
+                                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                                </div>
+                                <h2 className="text-[13px] font-black text-slate-500 uppercase tracking-[0.2em]">Units</h2>
                             </div>
-                            <div className="space-y-6">
-                                <div className="space-y-3">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit System</p>
-                                    <div className="flex gap-2">
+                            
+                            <div className="space-y-10">
+                                {/* Unit System */}
+                                <div className="space-y-4">
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Unit System</p>
+                                    <div className="flex gap-4">
                                         {["Metric", "Imperial"].map(u => (
                                             <button
                                                 key={u}
                                                 onClick={() => setSettings(s => ({ ...s, unit: u }))}
-                                                className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${settings.unit === u ? 'bg-[#1e293b] text-white' : 'bg-slate-50 text-slate-400'}`}
+                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${settings.unit === u ? 'bg-[#1e293b] text-white border-[#1e293b]' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
                                             >
                                                 {u}
                                             </button>
@@ -416,47 +420,49 @@ const ClientSettingsPage = () => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-3">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Mass / Weight</p>
-                                        <div className="flex items-center bg-slate-50 rounded-xl p-1 overflow-x-auto">
-                                            {(availableUnits.filter(u => u.category.toLowerCase().includes("mass") || u.category === "Weight").length > 0
-                                                ? availableUnits.filter(u => u.category.toLowerCase().includes("mass") || u.category === "Weight")
-                                                : [{ name: "Kg", unique_code: "Kg" }, { name: "Ton", unique_code: "Ton" }]
-                                            ).map((v, i) => (
-                                                <button key={i} onClick={() => setMassUnit(v.unique_code)} className={`flex-1 min-w-[50px] py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${v.unique_code === massUnit ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v.name}</button>
-                                            ))}
-                                        </div>
+                                {/* Mass / Weight */}
+                                <div className="space-y-4">
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Mass / Weight</p>
+                                    <div className="flex gap-4">
+                                        {["Kg", "Feet", "Meter"].map(u => (
+                                            <button
+                                                key={u}
+                                                onClick={() => setMassUnit(u)}
+                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${massUnit === u ? 'bg-[#2563eb] text-white border-[#2563eb] shadow-lg shadow-blue-500/20' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
+                                            >
+                                                {u}
+                                            </button>
+                                        ))}
                                     </div>
-                                    <div className="space-y-3">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Length / Distance</p>
-                                        <div className="flex items-center bg-slate-50 rounded-xl p-1 gap-1 overflow-x-auto">
-                                            {(availableUnits.filter(u => u.category.toLowerCase().includes("length") || u.category === "Distance").length > 0
-                                                ? availableUnits.filter(u => u.category.toLowerCase().includes("length") || u.category === "Distance")
-                                                : [{ name: "Meter", unique_code: "Meter" }, { name: "Feet", unique_code: "Feet" }]
-                                            ).map((v, i) => (
-                                                <button key={i} onClick={() => setLengthUnit(v.unique_code)} className={`flex-1 min-w-[50px] py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${v.unique_code === lengthUnit ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}>{v.name}</button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    {availableUnits.some(u => u.category.toLowerCase() === "area") && (
-                                        <div className="space-y-3 md:col-span-2">
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Area</p>
-                                            <div className="flex items-center bg-slate-50 rounded-xl p-1 gap-1 overflow-x-auto">
-                                                {availableUnits.filter(u => u.category.toLowerCase() === "area").map((v, i) => (
-                                                    <button key={i} className="flex-1 min-w-[80px] py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all bg-slate-50 text-slate-400 hover:bg-slate-100">{v.name}</button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
 
-                                <div className="bg-slate-50/50 p-4 rounded-xl flex items-center justify-between border border-dashed border-slate-200 mt-2">
-                                    <div>
-                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Units</p>
-                                        <p className="text-xs font-black text-slate-800">{settings.unit} · {massUnit} · {lengthUnit}</p>
+                                {/* Length / Distance */}
+                                <div className="space-y-4">
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Length / Distance</p>
+                                    <div className="flex gap-4">
+                                        {["Meter", "Feet", "Inch", "Cm"].map(u => (
+                                            <button
+                                                key={u}
+                                                onClick={() => setLengthUnit(u)}
+                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${lengthUnit === u ? 'bg-[#2563eb] text-white border-[#2563eb] shadow-lg shadow-blue-500/20' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
+                                            >
+                                                {u}
+                                            </button>
+                                        ))}
                                     </div>
-                                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">⚖️</div>
+                                </div>
+
+                                {/* Current Units Summary */}
+                                <div className="bg-slate-50/50 p-8 rounded-[24px] flex items-center justify-between border border-slate-100/50 mt-4 h-24">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Units</p>
+                                        <p className="text-[18px] font-black text-slate-800 tracking-tight">
+                                            {settings.unit} <span className="text-slate-300 mx-1">·</span> {massUnit} <span className="text-slate-300 mx-1">·</span> {lengthUnit}
+                                        </p>
+                                    </div>
+                                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-50">
+                                        <span className="text-2xl">⚖️</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

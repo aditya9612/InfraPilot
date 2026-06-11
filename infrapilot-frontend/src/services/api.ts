@@ -45,13 +45,30 @@ api.interceptors.response.use(
         url.includes('/invoices') ||
         url.includes('/communication') ||
         url.includes('/alerts') ||
-        url.includes('/projects/alerts');
+        url.includes('/projects/alerts') ||
+        url.includes('/chats') ||
+        url.includes('/chat') ||
+        url.includes('/settings') ||
+        url.includes('/notifications');
 
       if (isIgnored) {
         console.warn("Auth Interceptor: Ignoring 401 from endpoint to prevent logout:", url);
       } else {
+        const userString = localStorage.getItem("infrapilot_user");
+        let isLabour = false;
+        try {
+          if (userString) {
+            const user = JSON.parse(userString);
+            isLabour = user.role === 'Labour';
+          }
+        } catch (e) { /* ignore */ }
+
+        if (isLabour) {
+          console.warn("Auth Interceptor: Labour role 401 on non-ignored endpoint, but skipping logout for stability:", url);
+          return Promise.reject(error);
+        }
+
         const path = window.location.pathname;
-        // Don't redirect if we're already on the login page or root (which shows login)
         if (path !== '/login' && path !== '/') {
           localStorage.removeItem('infrapilot_user');
           window.location.href = '/login';

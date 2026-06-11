@@ -69,7 +69,7 @@ const ClientDashboard = () => {
               .slice(0, 5)
               .map((act: any) => ({
                 id: act.id,
-                text: `${act.activity_name} - ${Math.round(act.completion_percentage)}% completed`,
+                text: `${act.activity_name} - ${act.completion_percentage}% completed`,
                 time: act.status?.replace('_', ' ') || "ACTIVE",
                 icon: act.status?.toUpperCase() === 'COMPLETED' ? "✔" : "🏗️"
               }));
