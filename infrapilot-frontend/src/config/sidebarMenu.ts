@@ -197,6 +197,8 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ProjectManager: [
     { label: "Dashboard", path: "/manager", icon: "grid" },
     { label: "Projects", path: "/manager/projects", icon: "folder" },
+    { label: "Work Progress", path: "/manager/work-progress", icon: "activity" },
+    { label: "Tasks", path: "/manager/tasks", icon: "check-square" },
     {
       label: "Approvals",
       path: "/manager/approvals",
@@ -208,6 +210,9 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     { label: "BOQ", path: "/manager/boq", icon: "list" },
+    { label: "Procurement", path: "/manager/procurement", icon: "shopping-cart" },
+    { label: "Quality", path: "/manager/quality", icon: "shield-check" },
+    { label: "Safety", path: "/manager/safety", icon: "alert-octagon" },
     {
       label: "Resources",
       path: "/manager/resources",

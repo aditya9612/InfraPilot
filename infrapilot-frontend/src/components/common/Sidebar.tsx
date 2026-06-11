@@ -456,6 +456,22 @@ const icons: Record<string, JSX.Element> = {
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeWidth="1.8" />
     </svg>
   ),
+  "shield-check": (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeWidth="1.8" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M9 12l2 2 4-4"
+      />
+    </svg>
+  ),
   camera: (
     <svg
       className="w-4 h-4"
@@ -498,6 +514,37 @@ const icons: Record<string, JSX.Element> = {
         y1="17"
         x2="12.01"
         y2="17"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  ),
+  "alert-octagon": (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <polygon
+        points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <line
+        x1="12"
+        y1="8"
+        x2="12"
+        y2="12"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+      <line
+        x1="12"
+        y1="16"
+        x2="12.01"
+        y2="16"
         strokeLinecap="round"
         strokeWidth="1.8"
       />

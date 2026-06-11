@@ -9,6 +9,7 @@ const ClientAnnouncementsPage = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState<string>("All");
+  const [statusFilter, setStatusFilter] = useState<string>("All");
   
   // Create Alert State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,10 +123,13 @@ const ClientAnnouncementsPage = () => {
     }
   };
 
-  const filteredAlerts = (selectedType === "All" 
-    ? alerts 
-    : alerts.filter(a => a.alert_type === selectedType)
-  ).sort((a, b) => {
+  const filteredAlerts = alerts.filter(a => {
+    const typeMatch = selectedType === "All" || a.alert_type === selectedType;
+    const statusMatch = statusFilter === "All" 
+      || (statusFilter === "Read" && a.status === 'read')
+      || (statusFilter === "Unread" && (a.status === 'active' || !a.status));
+    return typeMatch && statusMatch;
+  }).sort((a, b) => {
     // Sort unread ('active') to the top
     if (a.status === 'active' && b.status !== 'active') return -1;
     if (a.status !== 'active' && b.status === 'active') return 1;
@@ -187,7 +191,29 @@ const ClientAnnouncementsPage = () => {
           </div>
         </div>
 
-        <div className="space-y-6 max-w-6xl mx-auto">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {[
+            { label: "Total Announcements", value: alerts.length, sub: "All Notifications", color: "text-slate-800", icon: "📢", filter: "All" },
+            { label: "Read Announcements", value: alerts.filter(a => a.status === 'read').length, sub: "Acknowledged", color: "text-emerald-500", icon: "✅", filter: "Read" },
+            { label: "Unread Announcements", value: alerts.filter(a => a.status === 'active' || !a.status).length, sub: "Action Required", color: "text-blue-500", icon: "🔔", filter: "Unread" },
+          ].map((card, i) => (
+            <div 
+              key={i} 
+              onClick={() => setStatusFilter(card.filter)}
+              className={`bg-white p-6 rounded-3xl border transition-all h-full flex flex-col justify-between cursor-pointer ${statusFilter === card.filter ? 'border-blue-500 shadow-xl shadow-blue-500/10 ring-1 ring-blue-500' : 'border-slate-100 shadow-sm hover:shadow-md'}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{card.label}</p>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm transition-all ${statusFilter === card.filter ? 'bg-blue-500 text-white shadow-lg' : 'bg-slate-50'}`}>{card.icon}</div>
+              </div>
+              <h3 className={`text-4xl font-black ${card.color} mb-1 tracking-tighter`}>{card.value}</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{card.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-6">
           {loading ? (
              <div className="flex flex-col items-center justify-center py-32 space-y-4">
                 <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
@@ -223,9 +249,14 @@ const ClientAnnouncementsPage = () => {
 
                 <div className="flex items-center gap-2">
                   <button 
-                    onClick={() => handleMarkRead(ann.id)}
-                    className="p-3 bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-2xl transition-all"
-                    title="Mark as Read"
+                    onClick={() => ann.status !== 'read' && handleMarkRead(ann.id)}
+                    disabled={ann.status === 'read'}
+                    className={`p-3 rounded-2xl transition-all ${
+                      ann.status === 'read' 
+                      ? 'bg-slate-50 text-slate-300 cursor-default' 
+                      : 'bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 active:scale-95'
+                    }`}
+                    title={ann.status === 'read' ? "Acknowledged" : "Mark as Read"}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                   </button>
