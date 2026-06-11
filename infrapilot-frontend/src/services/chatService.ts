@@ -42,7 +42,7 @@ export const chatService = {
     },
 
     async muteChat(chatId: number, muted: boolean): Promise<{ status: string; is_muted: boolean }> {
-        const response = await api.post<{ status: string; is_muted: boolean }>(`/chats/${chatId}/mute`, { muted });
+        const response = await api.post<{ status: string; is_muted: boolean }>(`/chats/${chatId}/mute?muted=${muted}`);
         return response.data;
     },
 

@@ -172,7 +172,7 @@ export const materialService = {
       total_purchased: rep.total_purchased ?? 0,
       total_used: rep.total_used ?? 0,
       remaining_stock: rep.remaining_stock ?? 0,
-      total_cost: rep.total_cost ?? rep.total_amount ?? rep.total_value ?? 0,
+      total_cost: rep.total_cost ?? 0,
       payment_pending: rep.payment_pending ?? 0,
       project_id: rep.project_id
     }));

@@ -354,14 +354,14 @@ const DailyProgressEntryPage = () => {
 
   return (
     <>
-      <Navbar title="Field Progress Terminal" breadcrumb={["Engineer", "Work Progress", "Field Logs"]} />
+      <Navbar title="Daily Work Progress" breadcrumb={["Engineer", "Work Progress", "Daily Progress"]} />
       <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
 
         {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
           <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter uppercase">Field Execution Reporting Terminal</h1>
-            <p className="text-slate-500 text-sm font-inter">Sync daily execution intelligence with the project's primary ledger.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter uppercase">Daily Work Progress</h1>
+            <p className="text-slate-500 text-sm font-inter">Log and track daily execution activities on site.</p>
           </div>
           {activeTab === 'today' && (
             <button
@@ -407,19 +407,19 @@ const DailyProgressEntryPage = () => {
               onClick={() => setActiveTab('today')}
               className={`pb-5 text-[10px] font-bold uppercase tracking-wider transition-all relative ${activeTab === 'today' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-700'}`}
             >
-              daily execution log
+              Today's Progress
             </button>
             <button
               onClick={() => setActiveTab('all')}
               className={`pb-5 text-[10px] font-bold uppercase tracking-wider transition-all relative ${activeTab === 'all' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-700'}`}
             >
-              historical intelligence
+              Progress History
             </button>
             <button
               onClick={() => setActiveTab('delay')}
               className={`pb-5 text-[10px] font-bold uppercase tracking-wider transition-all relative ${activeTab === 'delay' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-700'}`}
             >
-              delay report
+              Delayed Activities
             </button>
           </div>
 
@@ -478,33 +478,37 @@ const DailyProgressEntryPage = () => {
                   <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                     <table className="w-full text-left font-inter min-w-[1200px]">
                       <thead>
-                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">entry_date</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">remarks</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">created_at</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">today_progress</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">updated_at</th>
-                          <th className="px-6 py-4 text-right font-inter whitespace-nowrap">actions</th>
+                        <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-50 font-inter">
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Activity</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Date</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Progress Added</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Remarks</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Logged At</th>
+                          <th className="px-6 py-4 text-right font-inter whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
                         {loading ? (
                           <tr>
-                            <td colSpan={7} className="py-20 text-center font-inter">
+                            <td colSpan={6} className="py-20 text-center font-inter">
                               <div className="inline-block w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
-                              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Syncing Field Intelligence...</p>
+                              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Loading Data...</p>
                             </td>
                           </tr>
                         ) : paginatedTodayEntries.length > 0 ? paginatedTodayEntries.map((e) => {
+                          const currentActivity = activitiesList.find(a => a.id === e.activity_id);
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                              <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">
+                                {currentActivity?.activity_name || "-"}
+                                {currentActivity?.boq_code && <span className="block text-xs font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
+                              </td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.entry_date}</td>
+                              <td className="px-6 py-6 font-inter">
+                                <span className="text-sm font-bold text-primary">{e.today_progress} {currentActivity?.unit || ""}</span>
+                              </td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600 max-w-[200px] truncate" title={e.remarks}>{e.remarks || "-"}</td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
-                              <td className="px-6 py-6 font-inter">
-                                <span className="text-sm font-bold text-primary">{e.today_progress}%</span>
-                              </td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.updated_at ? new Date(e.updated_at).toLocaleString() : "-"}</td>
                               <td className="px-6 py-6 font-inter text-right">
                                 <div className="flex items-center justify-end gap-3 font-inter">
                                   <button
@@ -624,11 +628,13 @@ const DailyProgressEntryPage = () => {
                   <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                     <table className="w-full text-left font-inter min-w-[1200px]">
                       <thead>
-                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                          <th className="px-6 py-4 font-inter">ACTION</th>
-                          <th className="px-6 py-4 font-inter">STATUS</th>
-                          <th className="px-6 py-4 font-inter">TODAY_PROGRESS</th>
-                          <th className="px-6 py-4 font-inter">TOTAL_COMPLETED</th>
+                        <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-50 font-inter">
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Date & Time</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Activity</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Status</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Progress Added</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Total Completed</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Action Type</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
@@ -636,8 +642,12 @@ const DailyProgressEntryPage = () => {
                           const currentActivity = activitiesList.find(a => a.id === e.activity_id) || activitiesList[index % activitiesList.length];
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                              <td className="px-6 py-6 font-inter text-xs font-bold text-slate-500 uppercase tracking-tight">
-                                {e.action || "DAILY_PROGRESS_UPDATE"}
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">
+                                {e.created_at ? new Date(e.created_at).toLocaleString() : e.entry_date || "-"}
+                              </td>
+                              <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">
+                                {currentActivity?.activity_name || "-"}
+                                {currentActivity?.boq_code && <span className="block text-xs font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
                               </td>
                               <td className="px-6 py-6 font-inter">
                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.new_value?.status || ""] || "bg-rose-50 text-rose-600"} font-inter`}>
@@ -648,19 +658,22 @@ const DailyProgressEntryPage = () => {
                                 <div className="flex items-center gap-2 font-inter">
                                   <TrendingUp className="w-3.5 h-3.5 text-primary font-inter" />
                                   <span className="text-sm font-bold text-primary font-inter">
-                                    {e.new_value?.today_progress || 0} {currentActivity?.unit || "Cum"}
+                                    {e.new_value?.today_progress || 0} {currentActivity?.unit || ""}
                                   </span>
                                 </div>
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700">
-                                {e.new_value?.total_completed || 0} {currentActivity?.unit || "Cum"}
+                                {e.new_value?.total_completed || 0} {currentActivity?.unit || ""}
+                              </td>
+                              <td className="px-6 py-6 font-inter text-xs font-bold text-slate-500 uppercase tracking-tight">
+                                {e.action || "DAILY_PROGRESS_UPDATE"}
                               </td>
                             </tr>
                           );
                         }) : (
                           <tr>
-                            <td colSpan={5} className="px-6 py-32 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
-                              No historical execution records discovered in the intelligence vault.
+                            <td colSpan={6} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
+                              No history records found for the selected filters.
                             </td>
                           </tr>
                         )}
@@ -754,45 +767,45 @@ const DailyProgressEntryPage = () => {
                   <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                     <table className="w-full text-left font-inter min-w-[1500px]">
                       <thead>
-                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                          <th className="px-6 py-4 font-inter">created_at</th>
-                          <th className="px-6 py-4 font-inter">total_completed</th>
-                          <th className="px-6 py-4 font-inter">updated_at</th>
-                          <th className="px-6 py-4 font-inter">remaining_quantity</th>
-                          <th className="px-6 py-4 font-inter">activity_name</th>
-                          <th className="px-6 py-4 font-inter">completion_percentage</th>
-                          <th className="px-6 py-4 font-inter">planned_quantity</th>
-                          <th className="px-6 py-4 font-inter">unit</th>
-                          <th className="px-6 py-4 font-inter">status</th>
-                          <th className="px-6 py-4 font-inter">start_date</th>
-                          <th className="px-6 py-4 font-inter">end_date</th>
+                        <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-50 font-inter">
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Activity</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Status</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Progress (%)</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Completed / Planned</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Remaining</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Start Date</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">End Date</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Reported On</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
                         {paginatedDelayActivities.length > 0 ? paginatedDelayActivities.map((e: any) => {
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_at || "-"}</td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.total_completed || 0}</td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.updated_at || "-"}</td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.remaining_quantity || 0}</td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">{e.activity_name || "-"}</td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.completion_percentage || 0}%</td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.planned_quantity || 0}</td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.unit || "-"}</td>
                               <td className="px-6 py-6 font-inter">
                                 <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase bg-rose-50 text-rose-600 font-inter">
                                   {e.status || "DELAY"}
                                 </span>
                               </td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">
+                                <span className="text-sm font-bold text-primary">{e.completion_percentage || 0}%</span>
+                              </td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">
+                                {e.total_completed || 0} / {e.planned_quantity || 0} <span className="text-xs text-slate-400">{e.unit || ""}</span>
+                              </td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">
+                                {e.remaining_quantity || 0} <span className="text-xs text-slate-400">{e.unit || ""}</span>
+                              </td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.start_date || "-"}</td>
                               <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.end_date || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_at ? new Date(e.created_at).toLocaleDateString() : "-"}</td>
                             </tr>
                           );
                         }) : (
                           <tr>
-                            <td colSpan={11} className="px-6 py-32 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
-                              No delay items reported currently.
+                            <td colSpan={8} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
+                              No delayed activities found.
                             </td>
                           </tr>
                         )}

@@ -96,7 +96,6 @@ import MaterialConsumptionPage from "../pages/engineer/MaterialManagement/Materi
 import MaterialStockPage from "../pages/engineer/MaterialManagement/MaterialStockPage";
 import MaterialHistoryPage from "../pages/engineer/MaterialManagement/MaterialHistoryPage";
 import QCInspectionPage from "../pages/engineer/QC/QCInspectionPage";
-import QCTestReportsPage from "../pages/engineer/QC/QCTestReportsPage";
 import MachineryPage from "../pages/engineer/MachineryManagement/MachineryPage";
 import SafetyChecklistPage from "../pages/engineer/Safety/SafetyChecklistPage";
 import IncidentReportPage from "../pages/engineer/Safety/IncidentReportPage";
@@ -434,7 +433,7 @@ function AppRoutes() {
               <Route path="/engineer/material/stock" element={<MaterialStockPage />} />
               <Route path="/engineer/material/history" element={<MaterialHistoryPage />} />
               <Route path="/engineer/qc/inspection" element={<QCInspectionPage />} />
-              <Route path="/engineer/qc/reports" element={<QCTestReportsPage />} />
+              <Route path="/engineer/qc/reports" element={<QCInspectionPage />} />
               <Route path="/engineer/machinery" element={<MachineryPage />} />
               <Route path="/engineer/safety/checklist" element={<SafetyChecklistPage />} />
               <Route path="/engineer/safety/incident" element={<IncidentReportPage />} />
@@ -448,6 +447,7 @@ function AppRoutes() {
             {/* Labour Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Labour"]} />}>
               <Route path="/labour" element={<LabourDashboard />} />
+              <Route path="/labour/attendance" element={<AttendancePage />} />
               <Route path="/labour/tasks" element={<MyTasksPage />} />
               <Route path="/labour/payments" element={<PaymentsPage />} />
               <Route path="/labour/settings" element={<LabourSettingsPage />} />

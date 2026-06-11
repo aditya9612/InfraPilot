@@ -13,14 +13,22 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Dashboard", path: "/admin", icon: "grid" },
     { label: "Projects", path: "/admin/projects", icon: "folder" },
     {
-      label: "Estimates / Invoices",
+      label: "Invoices & Estimates",
       path: "/admin/invoices",
       icon: "file-text",
       subNav: [
         { label: "All Invoices", path: "/admin/invoices/all", icon: "list" },
-        { label: "Quotations", path: "/admin/quotations", icon: "file-text" },
-        { label: "Create Invoice", path: "/admin/invoices/create", icon: "plus" },
-        { label: "Measurements", path: "/admin/measurements", icon: "tool" },
+        {
+          label: "Owner",
+          path: "/admin/quotations",
+          icon: "user-check",
+          subNav: [
+            { label: "Quotation", path: "/admin/quotations", icon: "file-text" },
+            { label: "Final Measurement", path: "/admin/measurements", icon: "tool" },
+          ],
+        },
+        { label: "Labour", path: "/admin/invoices/all?type=labour", icon: "users" },
+        { label: "Material", path: "/admin/invoices/all?type=material", icon: "package" },
       ],
     },
     {
@@ -98,16 +106,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/admin/finance",
       icon: "dollar-sign",
       subNav: [
-        {
-          label: "Invoices",
-          path: "/admin/finance/invoices",
-          icon: "file-text",
-        },
-        {
-          label: "Payments",
-          path: "/admin/finance/payments",
-          icon: "credit-card",
-        },
         {
           label: "Expenses",
           path: "/admin/finance/expenses",
@@ -271,7 +269,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         { label: "Material Receipt", path: "/engineer/material/receipt", icon: "package" },
         { label: "Material Consumption", path: "/engineer/material/consumption", icon: "tool" },
         { label: "Stock Summary", path: "/engineer/material/stock", icon: "database" },
-        { label: "Material History", path: "/engineer/material/history", icon: "history" },
       ],
     },
     { label: "Machinery & Equipment", path: "/engineer/machinery", icon: "tool" },
@@ -448,6 +445,15 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   Labour: [
     { label: "Dashboard", path: "/labour", icon: "grid" },
+    {
+      label: "Attendance",
+      path: "/labour/attendance",
+      icon: "calendar",
+      subNav: [
+        { label: "Check In/Out", path: "/labour/attendance", icon: "camera" },
+        { label: "Attendance History", path: "/labour/attendance#history", icon: "list" },
+      ],
+    },
     { label: "My Tasks", path: "/labour/tasks", icon: "clipboard" },
     { label: "Payments", path: "/labour/payments", icon: "wallet" },
     { label: "Settings", path: "/labour/settings", icon: "settings" },
