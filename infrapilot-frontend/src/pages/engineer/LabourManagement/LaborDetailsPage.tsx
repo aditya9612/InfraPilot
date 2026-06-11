@@ -138,12 +138,27 @@ const LaborDetailsPage = () => {
         setIsLoading(true);
         try {
             console.log(`Synchronizing Personnel Registry for Project: ${projectId}`);
-            const response = await labourService.getLabours(projectId, {
-                limit: 50, // Reverted to 50 to prevent 422 error
-                offset: 0,
-                status: statusFilter === "All" ? undefined : statusFilter
-            });
-            console.log("Personnel Registry Sync Success:", response);
+            let allItems: any[] = [];
+            let offset = 0;
+            let hasMore = true;
+
+            while (hasMore) {
+                const response = await labourService.getLabours(projectId, {
+                    limit: 50,
+                    offset: offset,
+                    status: statusFilter === "All" ? undefined : statusFilter
+                });
+                
+                const items = response.items || [];
+                allItems = [...allItems, ...items];
+                
+                if (items.length < 50) {
+                    hasMore = false;
+                } else {
+                    offset += 50;
+                }
+            }
+            console.log(`Personnel Registry Sync Success: Fetched ${allItems.length} records`);
 
             // Get local additions
             const localKey = `created_labourers_${projectId || 92}`;
@@ -155,7 +170,7 @@ const LaborDetailsPage = () => {
             const deletedSaved = localStorage.getItem(deletedKey);
             const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
 
-            let combined = response.items || [];
+            let combined = allItems;
             // Merge, avoiding duplicates
             const existingIds = new Set(combined.map((l: any) => l.id));
             localItems.forEach((l: any) => {

@@ -204,7 +204,8 @@ const QCInspectionPage = () => {
             fetchData();
         } catch (err: any) {
             console.error("QC Create Error:", err.response?.data || err.message);
-            const errorMsg = err.response?.data?.detail || err.response?.data?.message || "Failed to create QC inspection";
+            let errorMsg = err.response?.data?.detail || err.response?.data?.message || "Failed to create QC inspection";
+            if (typeof errorMsg !== "string") errorMsg = "Validation failed: Please check all required fields.";
             toast.error(errorMsg);
         } finally {
             setIsSubmitting(false);
@@ -238,7 +239,8 @@ const QCInspectionPage = () => {
             fetchData();
         } catch (err: any) {
             console.error("QC Update Error:", err.response?.data || err.message);
-            const errorMsg = err.response?.data?.detail || err.response?.data?.message || "Failed to update QC inspection";
+            let errorMsg = err.response?.data?.detail || err.response?.data?.message || "Failed to update QC inspection";
+            if (typeof errorMsg !== "string") errorMsg = "Validation failed: Please check all required fields.";
             toast.error(errorMsg);
         } finally {
             setIsSubmitting(false);
@@ -340,9 +342,9 @@ const QCInspectionPage = () => {
 
         return filtered.sort((a, b) => {
             if (sortOrder === "latest") {
-                return Number(a.id) - Number(b.id);
-            } else {
                 return Number(b.id) - Number(a.id);
+            } else {
+                return Number(a.id) - Number(b.id);
             }
         });
     }, [qcList, searchTerm, filterType, filterStatus, activeStatFilter, sortOrder]);

@@ -63,8 +63,8 @@ export const qcService = {
             dsr_id: data.dsr_id || null,
             remarks: data.remarks || null
         };
-        const response = await api.post('/qc', payload, {
-            params: { project_id: data.project_id }
+        const response = await api.post('/qc', null, {
+            params: payload
         });
         return response.data;
     },
@@ -77,8 +77,8 @@ export const qcService = {
             dsr_id: data.dsr_id || null,
             remarks: data.remarks || null
         };
-        const response = await api.put(`/qc/${qc_id}`, payload, {
-            params: { project_id: data.project_id }
+        const response = await api.put(`/qc/${qc_id}`, null, {
+            params: payload
         });
         return response.data;
     },

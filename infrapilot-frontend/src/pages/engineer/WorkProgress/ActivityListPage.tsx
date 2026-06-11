@@ -402,8 +402,13 @@ const ActivityListPage = () => {
                         </button>
                         <button
                           onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }}
-                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
-                          title="Archive Entry"
+                          disabled={a.status === "ON_TRACK" || a.status === "COMPLETED"}
+                          className={`p-2 rounded-xl transition-all font-inter ${
+                            a.status === "ON_TRACK" || a.status === "COMPLETED" 
+                              ? "text-slate-300 opacity-50 cursor-not-allowed" 
+                              : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          }`}
+                          title={a.status === "ON_TRACK" || a.status === "COMPLETED" ? "Cannot delete active or completed activities" : "Archive Entry"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

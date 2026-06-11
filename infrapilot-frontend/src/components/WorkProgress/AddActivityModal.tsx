@@ -13,8 +13,8 @@ interface AddActivityModalProps {
 
 import { boqService } from "../../services/boqService";
 import api from "../../services/api";
+import { masterService } from "../../services/masterService";
 
-const UNITS = ["Cum", "Sqm", "Rft", "Nos", "Kg", "Ton", "Bag"];
 const STATUSES = ["NOT_STARTED", "ON_TRACK", "DELAY", "COMPLETED"];
 
 const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: AddActivityModalProps) => {
@@ -34,6 +34,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
   const [allBoqs, setAllBoqs] = useState<any[]>([]);
   const [allWorkOrders, setAllWorkOrders] = useState<any[]>([]);
+  const [unitList, setUnitList] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -63,6 +64,13 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         } catch (err) {
           console.error("Failed to fetch all Work Orders", err);
           setAllWorkOrders([]);
+        }
+
+        try {
+          const unitsRes = await masterService.getEntities("units");
+          setUnitList(Array.isArray(unitsRes) ? unitsRes : []);
+        } catch (err) {
+          console.error("Failed to fetch units", err);
         }
       };
 
@@ -280,7 +288,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             <div>
               <label className={labelClasses}>Unit of Measure*</label>
               <select name="unit" className={inputClasses()} value={formData.unit} onChange={handleChange}>
-                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                <option value="">Select Unit</option>
+                {unitList.map(u => <option key={u.id || u.name} value={u.name}>{u.name}</option>)}
               </select>
             </div>
           </div>

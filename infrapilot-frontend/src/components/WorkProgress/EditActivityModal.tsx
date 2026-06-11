@@ -1,6 +1,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { ActivityItem, UpdateActivityRequest } from "../../types/workProgress";
+import { masterService } from "../../services/masterService";
 
 interface EditActivityModalProps {
   isOpen: boolean;
@@ -9,8 +10,6 @@ interface EditActivityModalProps {
   activity: ActivityItem | null;
 }
 
-const UNITS = ["Cum", "Sqm", "Rft", "Nos", "Kg", "Ton", "Bag"];
-const STATUSES = ["NOT_STARTED", "ON_TRACK", "DELAY", "COMPLETED"];
 
 const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivityModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,6 +23,15 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [unitList, setUnitList] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+        masterService.getEntities("units")
+            .then(res => setUnitList(Array.isArray(res) ? res : []))
+            .catch(err => console.error("Failed to fetch units", err));
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (activity) {
@@ -161,7 +169,8 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
             <div>
               <label className={labelClasses}>Unit of Measure*</label>
               <select name="unit" className={inputClasses()} value={formData.unit} onChange={handleChange}>
-                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                <option value="">Select Unit</option>
+                {unitList.map(u => <option key={u.id || u.name} value={u.name}>{u.name}</option>)}
               </select>
             </div>
           </div>

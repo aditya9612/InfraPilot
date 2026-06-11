@@ -265,9 +265,9 @@ const SafetyManagementPage = () => {
 
         data.sort((a, b) => {
             if (sortOrder === "latest") {
-                return Number(a.id) - Number(b.id);
-            } else {
                 return Number(b.id) - Number(a.id);
+            } else {
+                return Number(a.id) - Number(b.id);
             }
         });
 

@@ -154,7 +154,7 @@ const NewDSREntryModal = ({
     try {
       // Create the DSR entry (JSON body)
       const newDsr = await dsrService.createDsr(formData);
-      
+
       // Upload photo if selected
       if (photoFile) {
         toast.loading("Uploading photo...", { id: tid });
@@ -196,7 +196,7 @@ const NewDSREntryModal = ({
       }
     >
       <form id="dsr-form" onSubmit={handleSubmit} noValidate className="space-y-6">
-        
+
         {/* Basic Info */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
@@ -236,7 +236,7 @@ const NewDSREntryModal = ({
               </select>
             </div>
           </div>
-          
+
           <div className="mt-4 flex flex-col gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

@@ -99,14 +99,14 @@ const MaterialStockPage = () => {
 
     const fetchAdjustments = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getLogs(projectId, "ADJUSTMENT"); setAdjustments(data); }
+        try { const data = await materialService.getLogs({ project_id: projectId, type: "ADJUSTMENT" }); setAdjustments(data); }
         catch (e) { toast.error("Failed to load adjustments"); }
         finally { setIsLoading(false); }
     };
 
     const fetchGlobalInventory = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getAllInventory(); setGlobalInventory(data); }
+        try { const data = await materialService.getInventory(); setGlobalInventory(data); }
         catch (e) { toast.error("Failed to load global inventory"); }
         finally { setIsLoading(false); }
     };
@@ -145,15 +145,11 @@ const MaterialStockPage = () => {
         setIsExporting(true);
         const t = toast.loading(`Generating ${type.toUpperCase()}...`);
         try {
-            const blob = type === 'pdf' ? await materialService.exportPDF() : await materialService.exportExcel();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Material_Report_${new Date().toISOString().split('T')[0]}.${type === 'pdf' ? 'pdf' : 'xlsx'}`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
+            if (type === 'pdf') {
+                await materialService.exportPdf(projectId);
+            } else {
+                await materialService.exportExcel(projectId);
+            }
             toast.success("Download started", { id: t });
         } catch (e) { toast.error("Export failed", { id: t }); }
         finally { setIsExporting(false); }

@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
     Filter, Search, Plus, Eye, Calendar, User,
     CheckCircle, Clock, AlertCircle, XCircle, List, Grid,
-    ChevronDown, ChevronUp, Folder,
+    ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
     Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward
 } from 'lucide-react';
 import ConfirmModal from "../../../components/common/ConfirmModal";
@@ -75,6 +75,9 @@ const AudioButton = ({ audioData }: { audioData: string }) => {
 const TaskManagementPage = () => {
     const [projectId, setProjectId] = useState<number | null>(null);
     const [tasks, setTasks] = useState<FrontendTask[]>([]);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
 
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -456,6 +459,15 @@ const TaskManagementPage = () => {
         });
     }, [tasks, searchQuery, statusFilter, ownershipFilter]);
 
+    const paginatedTasks = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredTasks.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredTasks, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, statusFilter, ownershipFilter, activeTab, departmentFilter]);
+
     return (
         <>
             <Navbar title="Task Management" breadcrumb={["Engineer", "Task Management"]} />
@@ -693,7 +705,7 @@ const TaskManagementPage = () => {
                             <div className="p-6 bg-slate-50 flex-1">
                                 {viewMode === 'grid' ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                        {filteredTasks.map(task => (
+                                        {paginatedTasks.map(task => (
                                             <div key={task.id} className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col ${task.status === 'Cancelled' ? 'border-rose-200' : 'border-slate-200'}`}>
                                                 <div className="p-5 flex-1">
                                                     <div className="flex items-center justify-between mb-4">
@@ -816,7 +828,7 @@ const TaskManagementPage = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="block md:table-row-group">
-                                                {filteredTasks.map((task) => (
+                                                {paginatedTasks.map((task) => (
                                                     <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors block md:table-row">
                                                         <td className="p-4 block md:table-cell">
                                                             <p className="text-sm font-bold text-slate-800">{task.title}</p>
@@ -941,6 +953,74 @@ const TaskManagementPage = () => {
                                     </div>
                                 )}
                             </div>
+                            
+                            {/* Pagination Block */}
+                            {filteredTasks.length > 0 && (
+                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter rounded-b-2xl mt-auto">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                        <select
+                                            value={itemsPerPage}
+                                            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                            className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                        >
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={50}>50</option>
+                                            <option value={100}>100</option>
+                                        </select>
+                                    </div>
+                                    <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                        Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredTasks.length)} of {filteredTasks.length} records
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <button
+                                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                            disabled={currentPage === 1}
+                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+                                        {(() => {
+                                            const totalItems = filteredTasks.length;
+                                            const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                            const pages = [];
+                                            if (totalPages <= 5) {
+                                                for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                            } else {
+                                                if (currentPage <= 3) {
+                                                    pages.push(1, 2, 3, 4, '...', totalPages);
+                                                } else if (currentPage >= totalPages - 2) {
+                                                    pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                                } else {
+                                                    pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                                }
+                                            }
+                                            return pages.map((page, index) => {
+                                                if (page === '...') return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                                const pageNum = page as number;
+                                                const isActive = currentPage === pageNum;
+                                                return (
+                                                    <button
+                                                        key={`page-${pageNum}`}
+                                                        onClick={() => setCurrentPage(pageNum)}
+                                                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'}`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                );
+                                            });
+                                        })()}
+                                        <button
+                                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredTasks.length / itemsPerPage), prev + 1))}
+                                            disabled={currentPage === Math.max(1, Math.ceil(filteredTasks.length / itemsPerPage)) || filteredTasks.length === 0}
+                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     ) : (
                         <>
@@ -1493,39 +1573,36 @@ const TaskManagementPage = () => {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                    Task Title <span className="text-rose-500">*</span>
+                                    Task Title
                                 </label>
                                 <input
                                     type="text"
                                     name="title"
                                     defaultValue={selectedEditTask?.title}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                    required
                                 />
                             </div>
 
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                    Description <span className="text-rose-500">*</span>
+                                    Description
                                 </label>
                                 <textarea
                                     name="description"
                                     rows={4}
                                     defaultValue={selectedEditTask?.description}
                                     className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
-                                    required
                                 />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Assign To <span className="text-rose-500">*</span>
+                                        Assign To
                                     </label>
                                     <select
                                         name="assigned_user_id"
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                        required
                                     >
                                         <option value={selectedEditTask?.assigned_user_id || 1}>{selectedEditTask?.assignedTo?.name || "Select User"}</option>
                                         <option value="1">Suresh Chaudhari</option>
@@ -1536,13 +1613,12 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Priority <span className="text-rose-500">*</span>
+                                        Priority
                                     </label>
                                     <select
                                         name="priority"
                                         defaultValue={selectedEditTask?.priority}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                        required
                                     >
                                         <option value="High">High</option>
                                         <option value="Medium">Medium</option>
@@ -1572,13 +1648,12 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Status <span className="text-rose-500">*</span>
+                                        Status
                                     </label>
                                     <select
                                         name="status"
                                         defaultValue={selectedEditTask?.status}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                        required
                                     >
                                         <option value="Planned">Planned</option>
                                         <option value="In Progress">In Progress</option>
@@ -1589,27 +1664,25 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Start Date <span className="text-rose-500">*</span>
+                                        Start Date
                                     </label>
                                     <input
                                         type="date"
                                         name="start_date"
                                         defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                        required
                                     />
                                 </div>
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Deadline <span className="text-rose-500">*</span>
+                                        Deadline
                                     </label>
                                     <input
                                         type="date"
                                         name="end_date"
                                         defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                        required
                                     />
                                 </div>
                             </div>
@@ -1682,7 +1755,10 @@ const TaskManagementPage = () => {
                             max="100"
                             value={progressPercentage}
                             onChange={(e) => setProgressPercentage(Number(e.target.value))}
-                            className="w-full accent-emerald-500"
+                            className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:rounded-full"
+                            style={{
+                                background: `linear-gradient(to right, #3b82f6 ${progressPercentage}%, #e2e8f0 ${progressPercentage}%)`
+                            }}
                         />
                         <div className="flex justify-between text-xs text-slate-500 mt-1 font-medium">
                             <span>0%</span>
@@ -1691,14 +1767,13 @@ const TaskManagementPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Remarks <span className="text-rose-500">*</span></label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Remarks</label>
                         <textarea
                             value={progressRemark}
                             onChange={(e) => setProgressRemark(e.target.value)}
                             placeholder="e.g. 10 percent remaining"
                             rows={3}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
-                            required
                         />
                     </div>
                 </div>
@@ -1750,7 +1825,7 @@ const TaskManagementPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Reason / Remarks <span className="text-rose-500">*</span></label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Reason / Remarks</label>
                         <textarea
                             value={passRemark}
                             onChange={(e) => setPassRemark(e.target.value)}
