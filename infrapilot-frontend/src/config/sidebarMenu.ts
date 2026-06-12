@@ -431,6 +431,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Documents & Drawings", path: "/client/documents", icon: "folder" },
     { label: "Approvals", path: "/client/approvals", icon: "check-circle" },
     { label: "Chat", path: "/chat", icon: "message-circle" },
+    { label: "Notifications", path: "/client/communication/announcements", icon: "bell" },
     {
       label: "Reports",
       path: "/client/reports",

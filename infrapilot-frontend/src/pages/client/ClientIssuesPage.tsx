@@ -20,7 +20,6 @@ const ClientIssuesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL STATUS");
   const [priorityFilter, setPriorityFilter] = useState("ALL PRIORITY");
-  const [categoryFilter, setCategoryFilter] = useState("ALL CATEGORY");
 
   const [newIssue, setNewIssue] = useState({
     title: "",
@@ -94,21 +93,24 @@ const ClientIssuesPage = () => {
     }
 
     if (statusFilter !== "ALL STATUS") {
-      const targetStatus = statusFilter === "OPEN" ? "Open" : statusFilter === "PENDING" ? "In Progress" : "Resolved";
-      result = result.filter(i => i.status === targetStatus);
+      // Handle "Open" as both "Open" and "In Progress/Pending" if desired, 
+      // but strictly following "Open and Closed" for now.
+      result = result.filter(i => {
+          const s = i.status?.toLowerCase();
+          if (statusFilter === "OPEN") {
+              return s === 'open' || s === 'in progress' || s === 'pending';
+          }
+          return s === 'resolved' || s === 'closed';
+      });
     }
 
     if (priorityFilter !== "ALL PRIORITY") {
       result = result.filter(i => i.priority?.toUpperCase() === priorityFilter);
     }
 
-    if (categoryFilter !== "ALL CATEGORY") {
-      result = result.filter(i => i.category?.toUpperCase() === categoryFilter);
-    }
-
     setFilteredIssues(result);
     setCurrentPage(1);
-  }, [issues, searchQuery, statusFilter, priorityFilter, categoryFilter]);
+  }, [issues, searchQuery, statusFilter, priorityFilter]);
 
   const handleViewIssue = async (id: number) => {
     try {
@@ -203,58 +205,44 @@ const ClientIssuesPage = () => {
         <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden min-h-[600px] flex flex-col font-inter">
           
           {/* Filter Bar */}
-          <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="relative flex-1 max-w-xl font-inter font-inter">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 font-inter" />
-              <input 
-                type="text"
-                placeholder="Search by title, description or ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-50/50 border border-slate-100 rounded-full py-4 pl-14 pr-8 text-sm font-medium text-slate-600 outline-none focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-400 font-inter font-inter"
-              />
-            </div>
-            
-            <div className="flex items-center gap-6 font-inter overflow-x-auto">
-              <div className="flex items-center gap-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Category:</p>
-                <div className="relative group">
-                  <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-6 pr-12 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
-                  >
-                    <option>ALL CATEGORY</option>
-                    <option>MATERIAL</option>
-                    <option>SAFETY</option>
-                    <option>DELAY</option>
-                    <option>QUALITY</option>
-                    <option>GENERAL</option>
-                  </select>
-                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none font-inter" />
-                </div>
+          <div className="px-8 py-6 border-b border-slate-50 mt-4">
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
+              {/* Search Bar */}
+              <div className="relative flex-1 group">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <input 
+                  type="text"
+                  placeholder="Search by title or description..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#f8fafc] border border-slate-100/50 rounded-2xl py-4 pl-14 pr-8 text-sm font-medium text-slate-600 outline-none focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400"
+                />
               </div>
 
-              <div className="flex items-center gap-4 font-inter">
-                <div className="relative font-inter font-inter">
+              {/* Action Filters */}
+              <div className="flex items-center gap-3">
+                <div className="p-3.5 bg-white border border-slate-100 rounded-xl text-slate-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                </div>
+
+                <div className="relative">
                   <select 
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-6 pr-12 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter"
+                    className="appearance-none bg-white border border-slate-100 rounded-xl py-3.5 pl-6 pr-12 text-[11px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-200 transition-all shadow-sm"
                   >
                     <option>ALL STATUS</option>
                     <option>OPEN</option>
-                    <option>PENDING</option>
-                    <option>RESOLVED</option>
+                    <option>CLOSED</option>
                   </select>
-                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none font-inter" />
+                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
 
-                <div className="relative font-inter font-inter">
+                <div className="relative">
                   <select 
                     value={priorityFilter}
                     onChange={(e) => setPriorityFilter(e.target.value)}
-                    className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-6 pr-12 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white shadow-sm transition-all font-inter font-inter"
+                    className="appearance-none bg-white border border-slate-100 rounded-xl py-3.5 pl-6 pr-12 text-[11px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-200 transition-all shadow-sm"
                   >
                     <option>ALL PRIORITY</option>
                     <option value="CRITICAL">CRITICAL</option>
@@ -262,7 +250,7 @@ const ClientIssuesPage = () => {
                     <option value="MEDIUM">MEDIUM</option>
                     <option value="LOW">LOW</option>
                   </select>
-                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none font-inter" />
+                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
               </div>
             </div>

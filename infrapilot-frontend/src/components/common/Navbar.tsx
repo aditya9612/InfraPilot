@@ -55,47 +55,53 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
   useEffect(() => {
     // Only fetch notifications if not a Client or Labour (to avoid 401 logouts for new roles)
-    if (!user || user.role === "Client" || user.role === "Labour") return;
+    if (!user || user.role === "Labour") return;
 
     const fetchNotifs = async () => {
       try {
-        let data: Notification[] = [];
-        if (user.role !== "Client") {
-          data = await notificationService.getNotifications();
-        } else {
-          // Provide high-fidelity mock notifications for Client demonstration
-          data = [
-            {
-              id: 101,
-              title: "Project Milestone Reached",
-              description: "Foundation work for Tower B has been completed.",
-              details: "Concrete pouring for the Tower B foundation is complete. Next phase: Plinth level work.",
+        let data: any[] = [];
+        if (user.role === "Client") {
+          // Use project-aware fetching for Clients
+          const projectIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("mock_settings") ? JSON.parse(localStorage.getItem("mock_settings") || "{}").project_id : null;
+          const projectId = projectIdStr ? Number(projectIdStr) : null;
+          
+          const { alertService } = await import("../../services/alertService");
+          const { projectService } = await import("../../services/projectService");
+          
+          const [generalData, projectAlertsRaw] = await Promise.all([
+            alertService.getAlerts(),
+            projectService.getProjectAlerts()
+          ]);
+
+          const mappedProjectAlerts = projectAlertsRaw.map((p: any) => ({
+            id: `p-${p.project_id}`,
+            title: `Project ${p.status}`,
+            description: `${p.project_name} is currently ${p.status}.`,
+            details: `Expected completion: ${p.end_date || 'N/A'}`,
+            type: "Alert",
+            timestamp: new Date().toISOString(),
+            read: false,
+            source: "project",
+            project_id: p.project_id
+          }));
+
+          const combined = [...generalData.map((a: any) => ({
+              id: a.id,
+              title: a.alert_type,
+              description: a.message,
+              details: a.message,
               type: "Alert",
-              timestamp: new Date().toISOString(),
-              read: false,
-              source: "project"
-            },
-            {
-              id: 102,
-              title: "New Report Published",
-              description: "Monthly Financial Summary for April 2026.",
-              details: "The consolidated financial summary for April 2026 is now available for your review in the Reports section.",
-              type: "Info",
-              timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 mins ago
-              read: false,
-              source: "general"
-            },
-            {
-              id: 103,
-              title: "Payment Received",
-              description: "RA Bill #14 payment has been successfully recorded.",
-              details: "Your payment for Running Account Bill #14 has been processed and updated in the ledger.",
-              type: "Approval",
-              timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), // 3 hours ago
-              read: true,
-              source: "general"
-            }
-          ] as any[];
+              timestamp: a.created_at,
+              read: a.status === 'read',
+              source: "general",
+              project_id: a.project_id
+          })), ...mappedProjectAlerts];
+
+          data = projectId 
+            ? combined.filter(a => Number(a.project_id) === Number(projectId))
+            : combined;
+        } else {
+          data = await notificationService.getNotifications();
         }
         setNotifications(data);
       } catch (err) {

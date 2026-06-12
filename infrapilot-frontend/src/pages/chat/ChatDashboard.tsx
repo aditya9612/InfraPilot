@@ -4,22 +4,16 @@ import PageTransition from "../../components/common/PageTransition";
 import ChatSidebar from "../../components/chat/ChatSidebar";
 import ChatView from "../../components/chat/ChatView.tsx";
 import { useAuth } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
 
 const ChatDashboard: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const { user } = useAuth();
-    const navigate = useNavigate();
 
     return (
         <>
             <Navbar
                 title="Collaboration Hub"
                 breadcrumb={user?.role === "Client" ? ["InfraPilot", "Chat"] : ["InfraPilot", "Communication", "Chat"]}
-                action={user?.role === "Client" ? {
-                    label: "Announcements",
-                    onClick: () => navigate("/client/communication/announcements")
-                } : undefined}
             />
 
             <PageTransition className="bg-slate-50 h-[calc(100vh-64px)] overflow-hidden font-inter">

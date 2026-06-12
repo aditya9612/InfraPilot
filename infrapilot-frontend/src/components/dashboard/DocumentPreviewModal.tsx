@@ -1,6 +1,7 @@
 import React from "react";
 import Modal from "../common/Modal";
 import { FileText, Download, Info, Calendar, HardDrive } from "lucide-react";
+import ExcelPreview from "./ExcelPreview";
 
 interface DocumentPreviewModalProps {
   isOpen: boolean;
@@ -18,7 +19,8 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   const [isValidPdf, setIsValidPdf] = React.useState<boolean>(true);
 
   React.useEffect(() => {
-    if (isOpen && document?.file_url && document.file_url.toLowerCase().endsWith('.pdf')) {
+    const isPdf = document?.file_url?.toLowerCase().includes('.pdf') || document?.name?.toLowerCase().endsWith('.pdf');
+    if (isOpen && document?.file_url && isPdf) {
       // Test if the URL actually exists and isn't falling back to the Vite React SPA intercept
       fetch(document.file_url, { method: "HEAD" })
         .then(res => {
@@ -33,7 +35,7 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
     } else {
       setIsValidPdf(true); // reset
     }
-  }, [isOpen, document?.file_url]);
+  }, [isOpen, document?.file_url, document?.name]);
 
   if (!document) return null;
 
@@ -123,19 +125,21 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
                 </div>
               ) : (
                 <>
-                  {(document.file_url?.toLowerCase().endsWith('.pdf') && isValidPdf) ? (
+                  {((document.file_url?.toLowerCase().includes('.pdf') || document.name?.toLowerCase().endsWith('.pdf')) && isValidPdf) ? (
                     <iframe
                       src={`${document.file_url}#toolbar=0`}
                       className="w-full h-full border-none rounded-2xl"
                       title="PDF Preview"
                     />
-                  ) : (document.file_url?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
+                  ) : (document.file_url?.match(/\.(jpg|jpeg|png|gif|webp)([?#].*)?$/i) || document.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i)) ? (
                     <img
                       src={document.file_url}
                       alt={document.name}
                       className="w-full h-full object-contain"
                     />
-                  ) : (document.file_url?.match(/\.(doc|docx|xls|xlsx|ppt|pptx)$/i)) ? (
+                  ) : (document.file_url?.match(/\.(xls|xlsx|csv)([?#].*)?$/i) || document.name?.match(/\.(xls|xlsx|csv)$/i)) ? (
+                    <ExcelPreview url={document.file_url} />
+                  ) : (document.file_url?.match(/\.(doc|docx|ppt|pptx)([?#].*)?$/i) || document.name?.match(/\.(doc|docx|ppt|pptx)$/i)) ? (
                     <iframe
                       src={`https://docs.google.com/viewer?url=${encodeURIComponent(document.file_url)}&embedded=true`}
                       className="w-full h-full border-none rounded-2xl"
