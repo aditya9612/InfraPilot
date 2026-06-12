@@ -24,7 +24,7 @@ import {
     CheckCircle,
     Trash2
 } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
 import { dsrService } from "../../services/dsrService";
 import { sitePhotoService } from "../../services/sitePhotoService";
@@ -310,21 +310,13 @@ const DSRPage = () => {
     }, [searchTerm, statusFilter, activeStatFilter, projectId]);
 
     const aggregatedLabourTrend = useMemo(() => {
-        const grouped = labourTrend.reduce((acc, curr) => {
-            const date = new Date(curr.date);
-            const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear().toString().slice(-2)}`;
-            if (!acc[monthYear]) {
-                acc[monthYear] = { date: monthYear, labour: 0, count: 0 };
-            }
-            acc[monthYear].labour += curr.labour;
-            acc[monthYear].count += 1;
-            return acc;
-        }, {} as Record<string, { date: string, labour: number, count: number }>);
-        
-        return Object.values(grouped).map(item => ({
-            date: item.date,
-            labour: Math.round(item.labour / item.count)
-        }));
+        return labourTrend.map(item => {
+            const date = new Date(item.date);
+            return {
+                date: `${date.toLocaleString('default', { month: 'short' })} ${date.getDate()}`,
+                labour: item.labour
+            };
+        });
     }, [labourTrend]);
 
     const paginatedList = useMemo(() => {
@@ -490,23 +482,36 @@ const DSRPage = () => {
                                     Contractor Performance
                                 </h3>
                                 {contractorAnalytics.length > 0 ? (
-                                    <div className="overflow-y-auto max-h-48 custom-scrollbar">
-                                        <table className="w-full text-left text-xs">
-                                            <thead className="bg-slate-50 sticky top-0">
-                                                <tr>
-                                                    <th className="px-3 py-2 font-bold text-slate-500 uppercase">Contractor</th>
-                                                    <th className="px-3 py-2 font-bold text-slate-500 uppercase text-right">Entries</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {contractorAnalytics.map((c, i) => (
-                                                    <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                                        <td className="px-3 py-2 font-medium text-slate-700">{c.contractor}</td>
-                                                        <td className="px-3 py-2 font-bold text-emerald-600 text-right">{c.entries}</td>
+                                    <div className="flex flex-col gap-4">
+                                        <div className="h-40 w-full">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <BarChart data={contractorAnalytics} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                                    <XAxis dataKey="contractor" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(val) => val.length > 8 ? val.substring(0, 8) + '...' : val} />
+                                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} allowDecimals={false} />
+                                                    <RechartsTooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                                    <Bar dataKey="entries" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} name="Entries" />
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                        <div className="overflow-y-auto max-h-32 custom-scrollbar border-t border-slate-100 pt-2">
+                                            <table className="w-full text-left text-xs">
+                                                <thead className="bg-slate-50 sticky top-0 z-10">
+                                                    <tr>
+                                                        <th className="px-3 py-2 font-bold text-slate-500 uppercase">Contractor</th>
+                                                        <th className="px-3 py-2 font-bold text-slate-500 uppercase text-right">Entries</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {contractorAnalytics.map((c, i) => (
+                                                        <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                                            <td className="px-3 py-2 font-medium text-slate-700">{c.contractor}</td>
+                                                            <td className="px-3 py-2 font-bold text-emerald-600 text-right">{c.entries}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 ) : (
                                     <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Contractor Data</p>
@@ -520,7 +525,7 @@ const DSRPage = () => {
                                     Issue Analytics
                                 </h3>
                                 {issueAnalytics ? (
-                                    <div className="grid grid-cols-3 gap-3">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 flex flex-col items-center justify-center text-center shadow-sm">
                                             <span className="text-2xl font-black text-rose-600">{issueAnalytics.total_reports}</span>
                                             <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest mt-1">Total Reports</span>
@@ -528,14 +533,6 @@ const DSRPage = () => {
                                         <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex flex-col items-center justify-center text-center shadow-sm">
                                             <span className="text-2xl font-black text-amber-600">{issueAnalytics.reports_with_issues}</span>
                                             <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-1">With Issues</span>
-                                        </div>
-                                        <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100 flex flex-col items-center justify-center text-center shadow-sm">
-                                            <span className="text-2xl font-black text-emerald-600">
-                                                {issueAnalytics.total_reports > 0
-                                                    ? Math.round((issueAnalytics.reports_with_issues / issueAnalytics.total_reports) * 100)
-                                                    : 0}%
-                                            </span>
-                                            <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Frequency</span>
                                         </div>
                                     </div>
                                 ) : (

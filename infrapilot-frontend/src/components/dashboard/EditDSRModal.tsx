@@ -24,6 +24,7 @@ const EditDSRModal = ({ isOpen, onClose, dsr, onSuccess }: EditDSRModalProps) =>
     if (dsr) {
       setFormData({
         report_date: dsr.report_date,
+        project_id: dsr.project_id,
         site_location: dsr.site_location,
         contractor_id: dsr.contractor_id,
         weather: dsr.weather,

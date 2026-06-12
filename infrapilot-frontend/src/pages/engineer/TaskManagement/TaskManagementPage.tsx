@@ -1758,9 +1758,9 @@ const TaskManagementPage = () => {
                             max="100"
                             value={progressPercentage}
                             onChange={(e) => setProgressPercentage(Number(e.target.value))}
-                            className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:rounded-full"
+                            className="w-full h-3.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-md hover:[&::-webkit-slider-thumb]:scale-110 transition-all [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:bg-blue-600 [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:shadow-md"
                             style={{
-                                background: `linear-gradient(to right, #3b82f6 ${progressPercentage}%, #e2e8f0 ${progressPercentage}%)`
+                                background: `linear-gradient(to right, #2563eb ${progressPercentage}%, #e2e8f0 ${progressPercentage}%)`
                             }}
                         />
                         <div className="flex justify-between text-xs text-slate-500 mt-1 font-medium">

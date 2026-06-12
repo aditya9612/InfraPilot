@@ -39,7 +39,8 @@ export type {
   Transfer,
   TransferCreate,
   PriceHistory,
-  InventorySummary
+  InventorySummary,
+  TransferStatus
 } from "../types/material";
 
 const mapMaterial = (m: any): Material => ({

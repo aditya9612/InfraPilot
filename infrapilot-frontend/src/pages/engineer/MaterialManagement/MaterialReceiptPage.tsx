@@ -754,7 +754,29 @@ const MaterialReceiptPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelClasses}>Project *</label><select required value={poForm.project_id || projectId} onChange={e => setPoForm({ ...poForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
                             <div><label className={labelClasses}>Supplier *</label><select required value={poForm.supplier_id || ""} onChange={e => setPoForm({ ...poForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-                            <div><label className={labelClasses}>Material *</label><select required value={poForm.material_id || ""} onChange={e => setPoForm({ ...poForm, material_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material</option>{materials.map(m => <option key={m.id} value={m.id}>{m.material_name}</option>)}</select></div>
+                            <div>
+                                <label className={labelClasses}>Material *</label>
+                                <select 
+                                    required 
+                                    value={poForm.material_id || ""} 
+                                    onChange={e => {
+                                        const materialId = Number(e.target.value);
+                                        const selectedMat = materials.find(m => m.id === materialId);
+                                        setPoForm({ 
+                                            ...poForm, 
+                                            material_id: materialId,
+                                            rate: selectedMat ? selectedMat.purchase_rate : poForm.rate
+                                        });
+                                    }} 
+                                    className={inputClasses}
+                                >
+                                    <option value="">Select Material</option>
+                                    {materials
+                                        .filter(m => !poForm.supplier_id || m.supplier_id === poForm.supplier_id)
+                                        .map(m => <option key={m.id} value={m.id}>{m.material_name}</option>)
+                                    }
+                                </select>
+                            </div>
                             <div><label className={labelClasses}>Quantity *</label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>Rate *</label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
                             
