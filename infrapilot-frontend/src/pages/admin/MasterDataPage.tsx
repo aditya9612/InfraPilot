@@ -3,7 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
-import CreateMasterDataModal from "../../components/forms/CreateMasterDataModal";
+import CreateMaterialModal from "../../components/forms/CreateMaterialModal";
+import CreateLabourModal from "../../components/forms/CreateLabourModal";
+import CreateActivityModal from "../../components/forms/CreateActivityModal";
+import CreateUnitModal from "../../components/forms/CreateUnitModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import { Eye, Edit2, Trash2 } from "lucide-react";
@@ -370,15 +373,42 @@ const MasterDataPage = () => {
         </div>
       </PageTransition>
 
-      <CreateMasterDataModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingItem(null);
-        }}
-        onSubmit={handleCreateOrUpdate}
-        initialData={editingItem}
-      />
+      {/* Specialized Modals */}
+      {((editingItem?.system_tag === "MATERIAL") || (activeTab === "Material" && !editingItem) || (activeTab === "All" && !editingItem)) && (
+        <CreateMaterialModal
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
+          onSubmit={handleCreateOrUpdate}
+          initialData={editingItem}
+        />
+      )}
+
+      {((editingItem?.system_tag === "LABOR") || (activeTab === "Labour" && !editingItem)) && (
+        <CreateLabourModal
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
+          onSubmit={handleCreateOrUpdate}
+          initialData={editingItem}
+        />
+      )}
+
+      {((editingItem?.system_tag === "ACTIVITY") || (activeTab === "Activity" && !editingItem)) && (
+        <CreateActivityModal
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
+          onSubmit={handleCreateOrUpdate}
+          initialData={editingItem}
+        />
+      )}
+
+      {((editingItem?.system_tag === "UNIT") || (activeTab === "Unit" && !editingItem)) && (
+        <CreateUnitModal
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
+          onSubmit={handleCreateOrUpdate}
+          initialData={editingItem}
+        />
+      )}
 
       <ConfirmModal
         isOpen={isDeleteModalOpen}

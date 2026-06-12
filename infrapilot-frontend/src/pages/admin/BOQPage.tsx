@@ -37,7 +37,7 @@ import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
 import ActivityDetailsModal from "../../components/dashboard/ActivityDetailsModal";
 import { BOQ_CATEGORIES } from "../../config/constants";
-import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
+import { formatCompactCurrency } from "../../utils/currencyUtils";
 
 // Removing INITIAL_ACTIVITIES_DATA as we fetch from API
 
@@ -58,6 +58,7 @@ const BOQPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -500,8 +501,16 @@ const BOQPage = () => {
   // Memoized Filtered Logic (Frontend fallback filtering if needed,
   // but we are using server-side filtering now via refreshBoqs)
   const filteredBoqData = useMemo(() => {
-    return boqData;
-  }, [boqData]);
+    return [...boqData].sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+      if (dateA !== dateB) {
+        return sortOrder === "latest" ? dateB - dateA : dateA - dateB;
+      }
+      return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
+    });
+  }, [boqData, sortOrder]);
 
   // Filtered Activities Logic (Frontend filtering for mock/local data)
   const filteredActivities = useMemo(() => {
@@ -510,7 +519,8 @@ const BOQPage = () => {
       name: item.item_name,
       type: item.category,
       project: projectMap[item.project_id] || "N/A",
-      status: item.is_completed ? "Completed" : (item.status === 'ACTIVE' || item.status === 'Ongoing') ? "Active" : item.status || "In Progress"
+      status: item.is_completed ? "Completed" : (item.status === 'ACTIVE' || item.status === 'Ongoing') ? "Active" : item.status || "In Progress",
+      created_at: item.created_at
     }));
   }, [
     filteredBoqData,
@@ -718,6 +728,15 @@ const BOQPage = () => {
                 ))}
               </select>
 
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+              >
+                <option value="latest">Latest</option>
+                <option value="oldest">Oldest</option>
+              </select>
+
 
               {projectFilter !== "all" && versionsList.length > 0 && (
                 <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
@@ -835,8 +854,8 @@ const BOQPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {boqData.length > 0 ? (
-                    boqData.map((item) => (
+                  {filteredBoqData.length > 0 ? (
+                    filteredBoqData.map((item) => (
                       <tr
                         key={item.id}
                         className="hover:bg-slate-50/50 transition-colors group text-slate-800"

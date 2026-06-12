@@ -173,9 +173,10 @@ export const boqService = {
    * Get summary statistics for a project's BOQ
    * GET /api/v1/boq/summary/{project_id}
    */
-  async getBoqSummary(projectId: number): Promise<any> {
+  async getBoqSummary(projectId: number, version_no?: number | "latest"): Promise<any> {
     try {
-      const response = await api.get(`/boq/summary/${projectId}`);
+      const params = version_no && version_no !== "latest" ? { version_no } : {};
+      const response = await api.get(`/boq/summary/${projectId}`, { params });
       return response.data;
     } catch (error: any) {
       console.error(
@@ -190,9 +191,10 @@ export const boqService = {
    * Get comparison data (Estimated vs Actual) for a project
    * GET /api/v1/boq/comparison/{project_id}
    */
-  async getBoqComparison(projectId: number): Promise<any[]> {
+  async getBoqComparison(projectId: number, version_no?: number | "latest"): Promise<any[]> {
     try {
-      const response = await api.get(`/boq/comparison/${projectId}`);
+      const params = version_no && version_no !== "latest" ? { version_no } : {};
+      const response = await api.get(`/boq/comparison/${projectId}`, { params });
       return response.data;
     } catch (error: any) {
       console.error(

@@ -10,6 +10,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import SortDropdown from "../../components/common/SortDropdown";
 import { notificationService } from "../../services/notificationService";
 import { projectService } from "../../services/projectService";
+import { userService } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 
 
@@ -28,6 +29,7 @@ const NotificationsPage = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [projectMap, setProjectMap] = useState<Record<number, string>>({});
+  const [usersMap, setUsersMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 10;
 
   const fetchAlerts = async () => {
@@ -51,6 +53,16 @@ const NotificationsPage = () => {
       const map: Record<number, string> = {};
       list.forEach((p: any) => { map[p.id || p.project_id] = p.name || p.project_name || `#${p.id}`; });
       setProjectMap(map);
+    }).catch(() => { });
+    // Fetch users to build a name lookup map
+    userService.getAllUsers(100, 0).then((data: any) => {
+      const list = Array.isArray(data) ? data : (data?.items || data?.users || []);
+      const map: Record<number, string> = {};
+      list.forEach((u: any) => {
+        const uid = u.user_id ?? u.id;
+        if (uid) map[uid] = u.full_name || u.name || u.username || u.email || `#${uid}`;
+      });
+      setUsersMap(map);
     }).catch(() => { });
   }, []);
 
@@ -451,6 +463,8 @@ const NotificationsPage = () => {
           setViewingAlert(null);
         }}
         alert={viewingAlert}
+        projectMap={projectMap}
+        usersMap={usersMap}
       />
 
       <ConfirmModal

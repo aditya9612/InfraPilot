@@ -88,8 +88,8 @@ const BOQDetailPage = () => {
             console.log(`[BOQ Detail] Fetching data for Project: ${projectId}, Version: ${selectedVersion}, Page: ${currentPage}`);
             const [projectData, boqSummary, boqComparison] = await Promise.all([
                 projectService.getProjectById(projectId),
-                boqService.getBoqSummary(projectId),
-                boqService.getBoqComparison(projectId)
+                boqService.getBoqSummary(projectId, selectedVersion),
+                boqService.getBoqComparison(projectId, selectedVersion)
             ]);
 
             setProject(projectData);
@@ -102,6 +102,11 @@ const BOQDetailPage = () => {
                 limit: itemsPerPage,
                 offset: (currentPage - 1) * itemsPerPage
             });
+
+            console.log(`[BOQ Detail] Received ${res.items.length} items for version ${selectedVersion}`);
+            if (selectedVersion !== 'latest') {
+                toast.success(`Showing Version v${selectedVersion}`, { id: 'version-switch' });
+            }
 
 
             // Filter out deleted and inactive items from the local state
@@ -140,8 +145,9 @@ const BOQDetailPage = () => {
     }, [projectId, currentPage, itemsPerPage, selectedVersion]);
 
     useEffect(() => {
+        console.log(`[BOQ Detail] selectedVersion changed to: ${selectedVersion}`);
         fetchData();
-    }, [fetchData, currentPage]);
+    }, [fetchData, selectedVersion]);
 
     const handleVersionChange = (version: number | "latest") => {
         setSelectedVersion(version);
@@ -733,7 +739,16 @@ const BOQDetailPage = () => {
                                     <div key={v} className="p-6 border border-slate-100 rounded-3xl bg-slate-50/50 hover:bg-white hover:shadow-xl transition-all group">
                                         <div className="flex justify-between items-start mb-4">
                                             <span className="px-3 py-1 bg-white border border-slate-100 rounded-lg text-xs font-black text-slate-800 uppercase tracking-widest">Version v{v}</span>
-                                            <button className="text-primary transition-opacity"><ArrowLeft className="w-4 h-4 rotate-180" /></button>
+                                            <button
+                                                onClick={() => {
+                                                    handleVersionChange(v);
+                                                    setActiveTab("overview");
+                                                }}
+                                                className="text-primary hover:scale-110 transition-all p-1 bg-white rounded-lg shadow-sm"
+                                                title="Switch to this version"
+                                            >
+                                                <ArrowLeft className="w-4 h-4 rotate-180" />
+                                            </button>
                                         </div>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">State</p>
                                         <p className="text-sm font-bold text-slate-700">{v === Math.max(...versions) ? "Master Snapshot (Active)" : "Archived Perspective"}</p>
