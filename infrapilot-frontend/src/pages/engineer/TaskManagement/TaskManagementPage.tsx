@@ -1421,9 +1421,12 @@ const TaskManagementPage = () => {
                                                     const attachmentName = attachmentMatch ? attachmentMatch[1] : null;
                                                     const cleanText = messageContent.replace(/\[Attached:\s*(.*?)\]/g, '').trim();
 
+                                                    const member = projectMembers.find(m => m.user_id === c.author_user_id);
+                                                    const authorName = c.author_name || member?.full_name || "User";
+
                                                     return (
                                                         <div key={i} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 w-max max-w-[80%]">
-                                                            <p className="text-xs font-bold text-slate-700 mb-1">{c.author_name || "User"}</p>
+                                                            <p className="text-xs font-bold text-slate-700 mb-1">{authorName}</p>
 
                                                             {cleanText && (
                                                                 <p className="text-sm text-slate-600 whitespace-pre-wrap">{cleanText}</p>
@@ -1526,7 +1529,7 @@ const TaskManagementPage = () => {
                                                             <h4 className="text-sm font-bold text-slate-800">{activity.action || "Progress Updated"}</h4>
                                                             <span className="text-[10px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</span>
                                                         </div>
-                                                        <p className="text-sm text-slate-600">{activity.description || `Progress moved to ${activity.progress_percentage || 0}%`}</p>
+                                                        <p className="text-sm text-slate-600">{activity.description || activity.remarks || `Progress moved to ${activity.percentage ?? activity.progress_percentage ?? 0}%`}</p>
                                                     </div>
                                                 </div>
                                             ))}

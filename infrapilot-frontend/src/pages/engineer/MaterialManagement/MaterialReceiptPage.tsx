@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { materialService, type MaterialItem, type Supplier, type PurchaseOrder, type InventorySummary, type PriceHistory, type MaterialLog, type IssueType, type RateType } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
+import { masterService } from "../../../services/masterService";
 
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
@@ -38,6 +39,7 @@ const MaterialReceiptPage = () => {
     const [alerts, setAlerts] = useState<MaterialItem[]>([]);
     const [inventoryValue, setInventoryValue] = useState(0);
     const [projectsList, setProjectsList] = useState<any[]>([]);
+    const [masterUnits, setMasterUnits] = useState<any[]>([]);
 
     // Modal Specific Data
     const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
@@ -69,6 +71,14 @@ const MaterialReceiptPage = () => {
             } catch (err) {}
         };
         fetchProjects();
+
+        const fetchUnits = async () => {
+            try {
+                const res = await masterService.getEntities("units");
+                setMasterUnits(Array.isArray(res) ? res : ((res as any).items || (res as any).data || []));
+            } catch (err) {}
+        };
+        fetchUnits();
     }, []);
 
     const handleProjectChange = (newProjectId: number) => {
@@ -579,7 +589,7 @@ const MaterialReceiptPage = () => {
                             {!selectedMaterial && <div><label className={labelClasses}>Project *</label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
                             <div><label className={labelClasses}>Material Name *</label><input required value={materialForm.material_name || ""} onChange={e => setMaterialForm({ ...materialForm, material_name: e.target.value })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>Category *</label><select required value={materialForm.category} onChange={e => setMaterialForm({ ...materialForm, category: e.target.value })} className={inputClasses}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
-                            <div><label className={labelClasses}>Unit *</label><select required value={materialForm.unit} onChange={e => setMaterialForm({ ...materialForm, unit: e.target.value })} className={inputClasses}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></div>
+                            <div><label className={labelClasses}>Unit *</label><select required value={materialForm.unit} onChange={e => setMaterialForm({ ...materialForm, unit: e.target.value })} className={inputClasses}>{(masterUnits.length > 0 ? masterUnits.map(u => u.name) : UNITS).map(u => <option key={u}>{u}</option>)}</select></div>
                             <div><label className={labelClasses}>Supplier *</label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
                         </div>
                     </div>
@@ -618,7 +628,7 @@ const MaterialReceiptPage = () => {
                             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                 <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">General Info</h4>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project ID</p><p className="font-bold text-slate-700">{selectedMaterial.project_id}</p></div>
+                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="font-bold text-slate-700">{projectsList.find(p => p.id === selectedMaterial.project_id)?.project_name || `Project #${selectedMaterial.project_id}`}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Supplier</p><p className="font-bold text-slate-700">{selectedMaterial.supplier_name || `ID: ${selectedMaterial.supplier_id}`}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit</p><p className="font-bold text-slate-700">{selectedMaterial.unit}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min. Stock</p><p className="font-bold text-slate-700">{selectedMaterial.minimum_stock_level}</p></div>
@@ -764,7 +774,7 @@ const MaterialReceiptPage = () => {
                         <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center">
                             <div>
                                 <h3 className="text-2xl font-black text-slate-800">PO-{selectedPO.id}</h3>
-                                <p className="text-sm font-bold text-slate-500">Project: Proj-{selectedPO.project_id} • Supplier: Supp-{selectedPO.supplier_id}</p>
+                                <p className="text-sm font-bold text-slate-500">Project: {projectsList.find(p => p.id === selectedPO.project_id)?.project_name || `Proj-${selectedPO.project_id}`} &bull; Supplier: {suppliers.find(s => s.id === selectedPO.supplier_id)?.name || `Supp-${selectedPO.supplier_id}`}</p>
                             </div>
                             <div className="text-right">
                                 <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border ${selectedPO.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedPO.status === 'CREATED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
