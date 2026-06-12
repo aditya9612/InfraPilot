@@ -66,13 +66,16 @@ const ClientDocumentsPage = () => {
     const toastId = toast.loading(`Preparing ${doc.name || doc.title}...`);
     try {
       let file_url = doc.file_url;
-      if (!file_url && doc.id) {
+      
+      // Always try to get a fresh download URL from the new API if ID is available
+      if (doc.id) {
         try {
-          const detail = await documentService.getDocument(doc.id);
-          file_url = detail.file_url;
-        } catch (e) {
           const data = await documentService.getDownloadUrl(doc.id);
-          file_url = typeof data === 'string' ? data : (data as any)?.file_url;
+          if (data?.file_url) {
+            file_url = data.file_url;
+          }
+        } catch (e) {
+          console.warn("Failed to fetch fresh download URL, falling back to cached URL");
         }
       }
 
@@ -144,7 +147,12 @@ const ClientDocumentsPage = () => {
         name: currentDoc.title || currentDoc.name || "Preview",
         previewUrl: blobUrl,
         previewType: contentType,
-        fullUrl: fullUrl
+        fullUrl: fullUrl,
+        // Ensure new API fields are captured
+        remarks: currentDoc.remarks,
+        uploaded_at: currentDoc.uploaded_at || currentDoc.date,
+        project_name: currentDoc.project_name,
+        file_size: currentDoc.file_size
       });
     } catch (err: any) {
       console.error("View failed:", err);
@@ -393,12 +401,29 @@ const ClientDocumentsPage = () => {
             </div>
           )}
         </div>
-        <div className="mt-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">Version: {selectedPreview?.version}</span>
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">Status: {selectedPreview?.approval_status || 'Archived'}</span>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">Status: {selectedPreview?.approval_status || selectedPreview?.status || 'Archived'}</span>
+            {selectedPreview?.project_name && (
+              <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">Project: {selectedPreview.project_name}</span>
+            )}
+            {selectedPreview?.uploaded_at && (
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">Uploaded: {new Date(selectedPreview.uploaded_at).toLocaleDateString()}</span>
+            )}
+            {selectedPreview?.file_size && (
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">Size: {(selectedPreview.file_size / 1024).toFixed(1)} KB</span>
+            )}
           </div>
-          <div className="flex gap-3">
+          
+          {selectedPreview?.remarks && (
+             <div className="w-full bg-amber-50/50 p-4 rounded-xl border border-amber-100/50">
+                <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Remarks & Annotations</p>
+                <p className="text-[11px] font-bold text-slate-600 leading-relaxed">{selectedPreview.remarks}</p>
+             </div>
+          )}
+
+          <div className="flex gap-3 ml-auto">
             <button onClick={() => handleDownload(selectedPreview)} className="px-6 py-3 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all font-inter">Download {selectedPreview?.file_url?.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/) ? 'Image' : 'PDF'}</button>
             <button onClick={() => setIsPreviewOpen(false)} className="px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all font-inter">Exit Theater</button>
           </div>
