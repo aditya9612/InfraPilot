@@ -1529,7 +1529,16 @@ const TaskManagementPage = () => {
                                                             <h4 className="text-sm font-bold text-slate-800">{activity.action || "Progress Updated"}</h4>
                                                             <span className="text-[10px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</span>
                                                         </div>
-                                                        <p className="text-sm text-slate-600">{activity.description || activity.remarks || `Progress moved to ${activity.percentage ?? activity.progress_percentage ?? 0}%`}</p>
+                                                        <div className="space-y-1.5">
+                                                            <p className="text-sm text-slate-800 font-medium">
+                                                                {activity.description || `Progress moved to ${activity.percentage ?? activity.progress_percentage ?? 0}%`}
+                                                            </p>
+                                                            {activity.remarks && (
+                                                                <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 shadow-sm">
+                                                                    <span className="font-bold text-slate-700 block mb-0.5">Remarks:</span> {activity.remarks}
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
