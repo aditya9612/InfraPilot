@@ -3,13 +3,8 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 
-import { Sun, Cloud, CloudRain, CloudSun, CloudDrizzle, CloudFog, CloudSnow, CloudLightning } from "lucide-react";
-import { workProgressService } from "../../services/workProgressService";
-import { labourService } from "../../services/labourService";
-import { issueService } from "../../services/issueService";
-import { materialService } from "../../services/materialService";
-import { expenseService } from "../../services/expenseService";
-import { projectService } from "../../services/projectService";
+import { Sun, Cloud, CloudRain, CloudSun, CloudDrizzle, CloudFog, CloudSnow, CloudLightning, ChevronLeft, ChevronRight } from "lucide-react";
+import { dashboardService } from "../../services/dashboardService";
 const expenseCategoryColors: Record<string, string> = {
     Labour: "bg-blue-50 text-blue-600",
     Material: "bg-emerald-50 text-emerald-600",
@@ -69,6 +64,10 @@ const EngineerDashboard = () => {
 
     const [dashboardData, setDashboardData] = useState<any>(getEmptyDashboardData(projectId, projectName));
     const [isLoading, setIsLoading] = useState(true);
+
+    // Pagination for Expense Register
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Live weather state
     const [liveWeather, setLiveWeather] = useState({
@@ -132,166 +131,91 @@ const EngineerDashboard = () => {
                 setIsLoading(true);
             }
             try {
-                // 1. Fire all real service calls concurrently
-                const [
-                    activities,
-                    laboursRes,
-                    issuesRes,
-                    materials,
-                    expensesRes,
-                    milestonesRes,
-                    projectDetailsRes
-                ] = await Promise.all([
-                    workProgressService.listActivities(projectId, engineer_id).catch(() => []),
-                    labourService.getLabours(projectId, { status: "All" }).catch(() => ({ items: [] })),
-                    issueService.listIssuesByProject(projectId, { limit: 1000 }).catch(() => ({ items: [] })),
-                    materialService.getMaterialReport(projectId).catch(() => []),
-                    expenseService.getExpensesByProject(projectId).catch(() => []),
-                    projectService.getMilestones(projectId).catch(() => []),
-                    projectService.getProjectById(projectId).catch(() => null)
-                ]);
+                const apiData = await dashboardService.getEngineerDashboard(projectId);
 
-                const allIssues = issuesRes?.items || [];
-                const issues = allIssues.filter((i: any) => !projectId || i.project_id === projectId);
-                const labours = laboursRes?.items || [];
-                const expenses = Array.isArray(expensesRes) ? expensesRes : ((expensesRes as any)?.items || []);
-                const milestones = Array.isArray(milestonesRes) ? milestonesRes : ((milestonesRes as any)?.items || []);
-
-                // 2. Process Work Progress Data
-                const activeActivities = activities.filter((a: any) => a.status !== "COMPLETED" && a.completion_percentage < 100);
-                const totalAct = activities.length;
-                const progress = totalAct > 0 ? Math.round(activities.reduce((sum: number, a: any) => sum + (a.completion_percentage || 0), 0) / totalAct) : 0;
-
-                // Aggregating disciplines
-                const disciplines = ["Structural Work", "Masonry & Brickwork", "Plumbing", "Electrical", "Finishing"];
-                const colors = ["bg-blue-500", "bg-indigo-500", "bg-cyan-500", "bg-amber-500", "bg-rose-400"];
-                const discipline_progress = disciplines.map((d, index) => {
-                    const dAct = activities.filter((a: any) => (a.discipline || "Structural Work") === d);
-                    const avgActual = dAct.length > 0 ? dAct.reduce((sum: number, a: any) => sum + a.completion_percentage, 0) / dAct.length : 0;
+                // Map the API data to the UI structure expected by EngineerDashboard
+                
+                const today_work_summary = (apiData.today_work_summary || []).map((a: any, idx: number) => {
+                    const stStatus = a.status === "WorkActivityStatus.COMPLETED" ? "Completed" : 
+                                     a.status === "WorkActivityStatus.DELAY" ? "Pending" : "In Progress";
+                    const statusColor = a.status === "WorkActivityStatus.COMPLETED" ? "bg-emerald-100 text-emerald-600" : 
+                                        a.status === "WorkActivityStatus.DELAY" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600";
+                    
                     return {
-                        label: d,
-                        planned: projectDetailsRes?.planned_progress || 0, // Mocking planned to actual if missing for visual
-                        actual: dAct.length > 0 ? Math.round(avgActual) : 0,
-                        color: colors[index]
+                        id: `act_${idx}`,
+                        activity: a.activity_name,
+                        description: `Start: ${a.start_time || "TBA"} - Finish: ${a.finish_time || "TBA"}`,
+                        status: stStatus,
+                        time: `Status: ${a.status.replace("WorkActivityStatus.", "")}`,
+                        statusColor: statusColor
                     };
                 });
 
-                const today_work_summary = activities.slice(0, 5).map((a: any) => ({
-                    id: a.id,
-                    activity: a.activity_name,
-                    description: `Executing BOQ code ${a.boq_code || "N/A"}. Planned quantity: ${a.planned_quantity} ${a.unit}.`,
-                    status: a.status === "COMPLETED" ? "Completed" : a.status === "DELAY" ? "Pending" : "In Progress",
-                    time: `Deadline: ${a.end_date}`,
-                    statusColor: a.status === "COMPLETED" ? "bg-emerald-100 text-emerald-600" : a.status === "DELAY" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600"
+                const colors = ["bg-blue-500", "bg-indigo-500", "bg-cyan-500", "bg-amber-500", "bg-rose-400", "bg-purple-500"];
+                const discipline_progress = (apiData.discipline_progress || []).map((d: any, index: number) => ({
+                    label: d.discipline,
+                    planned: d.planned_percent || 0,
+                    actual: d.actual_percent || 0,
+                    color: colors[index % colors.length]
                 }));
 
-                // 3. Process Labour Data
-                const skilledLabours = labours.filter((l: any) => l.category === "Skilled" || l.type === "Skilled" || l.skill_type === "Skilled").length;
-                const unskilledLabours = labours.length - skilledLabours;
+                const timeline = (apiData.timeline || []).map((m: any, idx: number) => ({
+                    id: m.phase_id || `phase_${idx}`,
+                    phase: m.phase_name || "Project Phase",
+                    start: m.start_date || "TBD",
+                    end: m.end_date || "TBD",
+                    status: m.status || "Upcoming",
+                    progress: m.progress || 0
+                }));
 
-                // 4. Process Material Data
-                const totalPurchased = materials.reduce((sum: number, m: any) => sum + (Number(m.total_purchased) || Number(m.quantity_purchased) || 0), 0);
-                const totalUsed = materials.reduce((sum: number, m: any) => sum + (Number(m.total_used) || Number(m.quantity_used) || 0), 0);
-                const remainingStock = materials.reduce((sum: number, m: any) => sum + (Number(m.remaining_stock) || Number(m.quantity) || 0), 0);
+                const recent_expenses = (apiData.recent_expenses || []).map((e: any, idx: number) => ({
+                    id: e.id || `exp_${idx}`,
+                    date: e.date || "N/A",
+                    type: e.type || "General",
+                    category: e.category || "General",
+                    note: e.note || "Site Expense",
+                    amount: e.amount || 0
+                }));
 
-                const material_stock_status = {
-                    added_materials: materials.length,
-                    purchased: totalPurchased,
-                    used: totalUsed,
-                    stock: remainingStock
+                const matStatus = apiData.vitals?.material_stock_status || [];
+                const materialStockStatus = {
+                    added_materials: matStatus.length,
+                    purchased: 0,
+                    used: 0,
+                    stock: 0
                 };
 
-                // 5. Process Issues Data
-                const openIssues = issues.filter((i: any) => i.status !== "Resolved" && i.status !== "Closed");
-                const highPriorityIssues = openIssues.filter((i: any) => i.priority === "High" || i.priority === "Critical");
-
-                // 6. Process Expenses Data
-                const recent_expenses = expenses.map((e: any) => ({
-                    id: e.id || e.expense_id,
-                    date: e.payment_date || e.expense_date || e.date || new Date().toISOString().split("T")[0],
-                    type: e.expense_type || e.type || "General",
-                    category: e.category || "General",
-                    note: e.description || e.remarks || e.note || "Site Expense",
-                    amount: e.amount || e.total_amount || 0
-                })).slice(0, 10);
-
-                // 7. Process Milestones Data
-                const timeline = milestones.map((m: any) => {
-                    let mStatus = "Upcoming";
-                    if (m.status === "Completed" || m.completion_percentage === 100) mStatus = "Completed";
-                    else if (m.status === "In Progress" || (m.completion_percentage || 0) > 0) mStatus = "In Progress";
-
-                    return {
-                        id: m.id || m.milestone_id,
-                        phase: m.name || m.title || "Project Phase",
-                        start: m.start_date || "TBD",
-                        end: m.end_date || "TBD",
-                        status: mStatus,
-                        progress: m.completion_percentage || 0
-                    };
-                });
-
-                // Calculate planned vs variance
-                // Show planned/variance when project has activities (even at 0% — activities exist = project is in progress)
-                const hasActivities = totalAct > 0;
-
-                // Determine planned progress:
-                // 1. Use API-provided planned_progress if available
-                // 2. Otherwise calculate from project timeline (time elapsed / total duration)
-                // 3. Fall back to 0 if no activities at all
-                let planned_progress = 0;
-                if (hasActivities) {
-                    if (projectDetailsRes?.planned_progress != null && projectDetailsRes.planned_progress > 0) {
-                        planned_progress = projectDetailsRes.planned_progress;
-                    } else if (projectDetailsRes?.start_date && projectDetailsRes?.end_date) {
-                        // Time-based planned progress: how far along are we in the project duration?
-                        const startDate = new Date(projectDetailsRes.start_date).getTime();
-                        const endDate = new Date(projectDetailsRes.end_date).getTime();
-                        const now = Date.now();
-                        if (endDate > startDate) {
-                            const elapsed = Math.max(0, now - startDate);
-                            const total = endDate - startDate;
-                            planned_progress = Math.min(100, Math.round((elapsed / total) * 100));
-                        }
-                    }
-                    // If neither API value nor dates available, planned_progress stays 0
-                    // (show the ring at 0% planned rather than a fake number)
-                }
-                const variance = hasActivities ? (progress - planned_progress) : 0;
-
-                // Compile Final Data Structure
                 setDashboardData({
-                    project_id: projectId,
-                    project_name: projectDetailsRes?.project_name || projectDetailsRes?.name || projectName,
-                    status: projectDetailsRes?.status || "Active",
-                    progress: progress,
-                    planned_progress: planned_progress,
-                    variance: variance,
+                    project_id: apiData.project_id || projectId,
+                    project_name: apiData.project_name || projectName,
+                    status: apiData.status || "Active",
+                    progress: apiData.progress || 0,
+                    planned_progress: apiData.planned_progress || 0,
+                    variance: apiData.variance || 0,
                     vitals: {
-                        total_labour_today: labours.length,
-                        skilled_labour: skilledLabours,
-                        unskilled_labour: unskilledLabours,
-                        labour_list: labours,
-                        active_activities: activeActivities.length,
+                        total_labour_today: apiData.vitals?.total_labour_today || 0,
+                        skilled_labour: apiData.vitals?.skilled_labour || 0,
+                        unskilled_labour: apiData.vitals?.unskilled_labour || 0,
+                        active_activities: apiData.vitals?.active_activities || 0,
                         open_issues: {
-                            total: openIssues.length,
-                            high_priority: highPriorityIssues.length
+                            total: apiData.vitals?.open_issues?.total || 0,
+                            high_priority: apiData.vitals?.open_issues?.high_priority || 0
                         },
-                        material_stock_status: material_stock_status
+                        material_stock_status: materialStockStatus
                     },
                     today_work_summary: today_work_summary,
                     discipline_progress: discipline_progress,
                     timeline: timeline,
                     recent_expenses: recent_expenses,
-                    has_activities: hasActivities,
-                    weather: {
+                    has_activities: true, // Show segments if we have data
+                    weather: apiData.weather || {
                         condition: "Clear",
                         temperature: 32
                     }
                 });
 
             } catch (err) {
-                console.error("Dashboard Aggregation Error:", err);
+                console.error("Dashboard Fetch Error:", err);
             } finally {
                 if (isFirstLoad) {
                     setIsLoading(false);
@@ -316,6 +240,51 @@ const EngineerDashboard = () => {
     const timelinePhases = dashboardData.timeline || [];
     const siteExpenses = dashboardData.recent_expenses || [];
     const totalExpenses = siteExpenses.reduce((sum: number, e: any) => sum + e.amount, 0);
+
+    const paginatedExpenses = siteExpenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const renderPagination = (total: number) => {
+        const totalPages = Math.max(1, Math.ceil(total / itemsPerPage));
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+        const pages = [];
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return (
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                    <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                    </select>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500">
+                    Showing {total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total} records
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
+                    {pages.map(page => (
+                        <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors ${currentPage === page ? 'bg-blue-600 text-white border border-blue-600 shadow-sm' : 'border border-slate-200 text-slate-600 hover:bg-slate-50 bg-white'}`}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || total === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <>
@@ -586,7 +555,7 @@ const EngineerDashboard = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {siteExpenses.map((expense: any) => (
+                                        {paginatedExpenses.map((expense: any) => (
                                             <tr key={expense.id} className="hover:bg-slate-50/70 transition-colors">
                                                 <td className="px-6 py-4 text-xs font-bold text-slate-500 tabular-nums whitespace-nowrap">{expense.date}</td>
                                                 <td className="px-6 py-4">
@@ -612,6 +581,7 @@ const EngineerDashboard = () => {
                                     </tfoot>
                                 </table>
                             </div>
+                            {renderPagination(siteExpenses.length)}
                         </div>
                     </div>
 

@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
-import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
@@ -364,67 +363,90 @@ const ChecklistsPage = () => {
         <>
             <Navbar title="Checklists" breadcrumb={["Engineer", "Execution", "Checklist Vault"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
-                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
-                    <div className="font-inter">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Checklist Intelligence Ledger</h1>
-                        <p className="text-slate-500 text-sm font-inter">Systematic verification protocols and site execution logs.</p>
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+                {/* ── Header ──────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Checklist Intelligence Ledger
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Systematic verification protocols and site execution logs.
+                        </p>
                     </div>
-                    <button
-                        onClick={() => setIsNewModalOpen(true)}
-                        className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
-                    >
-                        <Plus className="w-4 h-4" />
-                        New Checklist
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setIsNewModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+                        >
+                            <Plus className="w-4 h-4" />
+                            New Checklist
+                        </button>
+                    </div>
                 </div>
 
-                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Total Checklists"
-                            value={stats.total.toString()}
-                            sub="Protocols Logged"
-                            accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Done")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Done" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Compliance"
-                            value={`${stats.compliance}%`}
-                            sub={`${stats.done} / ${stats.total} Passed`}
-                            accent="text-emerald-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Pending Audits"
-                            value={stats.pending.toString()}
-                            sub={`${stats.pending} Need Action`}
-                            accent="text-rose-500" />
-                    </div>
-                    <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-                        <StatCard
-                            title="Global Health"
-                            value={`${stats.globalHealth}%`}
-                            sub={`${stats.globalDone} / ${stats.globalTotal} Overall`}
-                            accent="text-blue-500" />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    {[
+                        {
+                            title: "Total Checklists",
+                            value: stats.total.toString(),
+                            sub: "Protocols Logged",
+                            accent: "text-slate-800",
+                            status: "All",
+                        },
+                        {
+                            title: "Compliance",
+                            value: `${stats.compliance}%`,
+                            sub: `${stats.done} / ${stats.total} Passed`,
+                            accent: "text-emerald-500",
+                            status: "Done",
+                        },
+                        {
+                            title: "Pending Audits",
+                            value: stats.pending.toString(),
+                            sub: `${stats.pending} Need Action`,
+                            accent: "text-rose-500",
+                            status: "Pending",
+                        },
+                        {
+                            title: "Global Health",
+                            value: `${stats.globalHealth}%`,
+                            sub: `${stats.globalDone} / ${stats.globalTotal} Overall`,
+                            accent: "text-blue-500",
+                            status: null,
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => s.status && setActiveStatFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? 'hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20' : 'cursor-default'} group`}
+                        >
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            {s.sub && (
+                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                    {s.sub}
+                                </p>
+                            )}
+                        </div>
+                    ))}
                 </div>
 
                 {/* â”€â”€ Tab Selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="flex items-center gap-4 md:gap-8 border-b border-slate-200 mb-6 md:mb-8 overflow-x-auto scrollbar-hide font-inter">
+                <div className="flex flex-wrap gap-2 mb-8 font-inter">
                     {["Daily Checklist", "Activity Checklist"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
-                            className={`pb-4 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap font-inter ${activeTab === tab ? "text-primary" : "text-slate-400 hover:text-slate-600"
-                                }`}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
+                                activeTab === tab
+                                    ? "bg-slate-800 text-white shadow-lg scale-105"
+                                    : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+                            }`}
                         >
                             {tab}
-                            {activeTab === tab && (
-                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full" />
-                            )}
                         </button>
                     ))}
                 </div>

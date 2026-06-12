@@ -272,8 +272,10 @@ export const materialService = {
     return response.data.map(mapMaterial);
   },
 
-  async getMaterialAlerts(threshold?: number): Promise<Material[]> {
-    const params = threshold ? { threshold } : undefined;
+  async getMaterialAlerts(threshold?: number, project_id?: number): Promise<Material[]> {
+    const params: any = {};
+    if (threshold) params.threshold = threshold;
+    if (project_id) params.project_id = project_id;
     const response = await api.get<Material[]>("/materials/alerts", { params });
     return response.data.map(mapMaterial);
   },
@@ -332,8 +334,9 @@ export const materialService = {
     return response.data;
   },
 
-  async getInventoryValuation(): Promise<any> {
-    const response = await api.get<any>("/materials/inventory/valuation");
+  async getInventoryValuation(project_id?: number): Promise<any> {
+    const params = project_id ? { project_id } : undefined;
+    const response = await api.get<any>("/materials/inventory/valuation", { params });
     return response.data;
   },
 
@@ -347,8 +350,9 @@ export const materialService = {
     return response.data;
   },
 
-  async getMaterialSummary(): Promise<InventorySummary> {
-    const response = await api.get<InventorySummary>("/materials/summary");
+  async getMaterialSummary(project_id?: number): Promise<InventorySummary> {
+    const params = project_id ? { project_id } : undefined;
+    const response = await api.get<InventorySummary>("/materials/summary", { params });
     return response.data;
   }
 };

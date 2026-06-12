@@ -268,5 +268,35 @@ export const drawingService = {
                 }
             ];
         }
+    },
+
+    /**
+     * Get Documents List
+     * GET /api/v1/documents
+     */
+    async getDocuments(params: {
+        project_id?: number | string;
+        search?: string;
+        document_type?: string;
+        parent_id?: number | string | null;
+        limit?: number;
+        offset?: number;
+    }) {
+        console.log(`GET /api/v1/documents`, params);
+        try {
+            const queryParams = new URLSearchParams();
+            if (params.project_id) queryParams.append('project_id', String(params.project_id));
+            if (params.search) queryParams.append('search', params.search);
+            if (params.document_type && params.document_type !== 'All') queryParams.append('document_type', params.document_type);
+            if (params.parent_id !== undefined && params.parent_id !== null) queryParams.append('parent_id', String(params.parent_id));
+            if (params.limit) queryParams.append('limit', String(params.limit));
+            if (params.offset) queryParams.append('offset', String(params.offset));
+
+            const response = await api.get(`/documents?${queryParams.toString()}`);
+            return response.data;
+        } catch (error: any) {
+            console.error("Fetch Documents Failed:", error?.message);
+            return { items: [], meta: { total: 0, limit: params.limit || 20, offset: params.offset || 0 } };
+        }
     }
 };

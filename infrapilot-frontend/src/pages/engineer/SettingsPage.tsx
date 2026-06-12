@@ -340,43 +340,38 @@ const SettingsPage = () => {
                 breadcrumb={["InfraPilot", "Engineer", "Settings"]}
             />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 md:mb-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
-                            Preferences
-                        </p>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Settings
                         </h1>
-                        <p className="text-slate-500 text-sm font-medium">
+                        <p className="text-slate-500 text-sm">
                             Configure your project, units, notifications, and personal preferences.
                         </p>
                     </div>
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
-                    >
-                        {isSaving ? (
-                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-                            </svg>
-                        )}
-                        Save Settings
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50"
+                        >
+                            {isSaving ? (
+                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                                </svg>
+                            )}
+                            Save Settings
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Stat Cards ───────────────────────────────────────────── */}
-                <div className="mb-8">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
-                        Current Configuration
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Active Project</p>
                             <p className="text-base font-bold text-primary truncate">
@@ -402,8 +397,6 @@ const SettingsPage = () => {
                             <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{timezone}</p>
                         </div>
                     </div>
-                </div>
-
                 {/* ── Main Settings Grid ───────────────────────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 

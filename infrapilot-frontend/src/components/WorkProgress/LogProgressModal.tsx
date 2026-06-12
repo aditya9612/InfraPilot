@@ -42,10 +42,6 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
       errs.today_progress = "Executed quantity must be greater than 0";
     }
 
-    if (!formData.remarks.trim()) {
-      errs.remarks = "Field narrative/remarks are required";
-    }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -185,7 +181,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
             Additional Information
           </h3>
-          <label className={labelClasses}>Remarks <span className="text-rose-500">*</span></label>
+          <label className={labelClasses}>Remarks</label>
           <textarea
             name="remarks" rows={3} placeholder="Describe site conditions or progress..."
             className={`${inputClasses(errors.remarks)} resize-none font-inter`}

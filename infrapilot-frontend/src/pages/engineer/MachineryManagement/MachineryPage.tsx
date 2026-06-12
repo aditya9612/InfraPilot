@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
-import StatCard from "../../../components/common/StatCard";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
@@ -14,7 +13,7 @@ import type {
 
 import {
     Search, Plus, Edit2, Trash2, Eye, FileText, Wrench, Activity,
-    AlertTriangle, ShieldCheck, Download, Link2, Link2Off, History, ChevronLeft, ChevronRight
+    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
 
@@ -65,6 +64,9 @@ const MachineryPage = () => {
 
     // Tab 5: Rental
     const [costReport, setCostReport] = useState<CostReport[]>([]);
+    const [allRentals, setAllRentals] = useState<RentalItem[]>([]);
+    const [rentalCurrentPage, setRentalCurrentPage] = useState(1);
+    const [rentalItemsPerPage, setRentalItemsPerPage] = useState(20);
 
     // Tab 6: Reports
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);
@@ -74,7 +76,7 @@ const MachineryPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [conditionFilter, setConditionFilter] = useState("All");
     const [allocationFilter, setAllocationFilter] = useState<'All' | 'Allocated' | 'Unallocated'>("All");
-    
+
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -173,6 +175,13 @@ const MachineryPage = () => {
                 setEquipmentList(eqList);
                 setCostReport(cost);
                 if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
+                
+                // Fetch all rentals
+                try {
+                    const rentalsArrays = await Promise.all(eqList.map(eq => equipmentService.listRental(eq.id)));
+                    const flatRentals = rentalsArrays.flat().sort((a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime());
+                    setAllRentals(flatRentals);
+                } catch(e) { console.error("Failed to fetch all rentals"); }
             }
             else if (activeTab === "Reports & Alerts") {
                 const [avail, util, eqRes] = await Promise.all([
@@ -216,13 +225,13 @@ const MachineryPage = () => {
                     payload.project_id = null;
                 }
                 const newEq = await equipmentService.createEquipment(payload);
-                
+
                 // Force deallocate immediately to ensure it starts as Unallocated
                 try {
                     if (newEq && newEq.id) {
                         await equipmentService.deallocateEquipment(newEq.id);
                     }
-                } catch(err) {
+                } catch (err) {
                     console.error("Failed to explicitly deallocate new equipment", err);
                 }
 
@@ -291,8 +300,10 @@ const MachineryPage = () => {
             if (activeTab === "Usage") {
                 const report = await equipmentService.getUsageReport();
                 setUsageReport(report);
-                if (selectedEquipment && selectedEquipment.id === formData.equipment_id) {
-                    const logs = await equipmentService.listUsage(selectedEquipment.id);
+                const eq = equipmentList.find(e => e.id === formData.equipment_id);
+                if (eq) {
+                    setSelectedEquipment(eq);
+                    const logs = await equipmentService.listUsage(eq.id);
                     setSelectedEquipmentLogs(prev => ({ ...prev, usage: logs }));
                 }
             }
@@ -313,8 +324,10 @@ const MachineryPage = () => {
             if (activeTab === "Maintenance") {
                 const alerts = await equipmentService.getMaintenanceAlerts();
                 setMaintenanceAlerts(alerts);
-                if (selectedEquipment && selectedEquipment.id === formData.equipment_id) {
-                    const logs = await equipmentService.listMaintenance(selectedEquipment.id);
+                const eq = equipmentList.find(e => e.id === formData.equipment_id);
+                if (eq) {
+                    setSelectedEquipment(eq);
+                    const logs = await equipmentService.listMaintenance(eq.id);
                     setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
                 }
             }
@@ -329,7 +342,7 @@ const MachineryPage = () => {
             const today = new Date();
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
-            
+
             await equipmentService.createRental(formData.equipment_id, {
                 ...formData,
                 start_date: formData.start_date || today.toISOString().split('T')[0],
@@ -340,8 +353,10 @@ const MachineryPage = () => {
             if (activeTab === "Rental") {
                 const report = await equipmentService.getCostReport();
                 setCostReport(report);
-                if (selectedEquipment && selectedEquipment.id === formData.equipment_id) {
-                    const logs = await equipmentService.listRental(selectedEquipment.id);
+                const eq = equipmentList.find(e => e.id === formData.equipment_id);
+                if (eq) {
+                    setSelectedEquipment(eq);
+                    const logs = await equipmentService.listRental(eq.id);
                     setSelectedEquipmentLogs(prev => ({ ...prev, rental: logs }));
                 }
             }
@@ -386,14 +401,14 @@ const MachineryPage = () => {
                 item.equipment_code.toLowerCase().includes(term) ||
                 item.operator_name.toLowerCase().includes(term);
             const matchesCondition = conditionFilter === "All" || item.condition === conditionFilter;
-            
+
             let matchesAllocation = true;
             if (allocationFilter === "Allocated") {
                 matchesAllocation = item.project_id != null;
             } else if (allocationFilter === "Unallocated") {
                 matchesAllocation = item.project_id == null;
             }
-            
+
             return matchesSearch && matchesCondition && matchesAllocation;
         });
     }, [equipmentList, searchTerm, conditionFilter, allocationFilter]);
@@ -406,6 +421,11 @@ const MachineryPage = () => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         return filteredEquipmentList.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredEquipmentList, currentPage, itemsPerPage]);
+
+    const paginatedAllRentals = useMemo(() => {
+        const startIndex = (rentalCurrentPage - 1) * rentalItemsPerPage;
+        return allRentals.slice(startIndex, startIndex + rentalItemsPerPage);
+    }, [allRentals, rentalCurrentPage, rentalItemsPerPage]);
 
     // Dashboard Stats
     const dashStats = useMemo(() => {
@@ -422,62 +442,76 @@ const MachineryPage = () => {
     // ─── Tab Renderers ────────────────────────────────────────────────
 
     const renderDashboard = () => (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <div onClick={() => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("All"); }} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Total Equipment" value={dashStats.total.toString()} sub="Registered Units" accent="text-slate-800" /></div>
-                <div onClick={() => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Unallocated"); }} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Available" value={dashStats.avail.toString()} sub="Ready for deploy" accent="text-emerald-500" /></div>
-                <div onClick={() => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Allocated"); }} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Allocated" value={dashStats.alloc.toString()} sub="Currently in use" accent="text-blue-500" /></div>
-                <div onClick={() => setActiveTab("Maintenance")} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Maintenance Due" value={dashStats.maint.toString()} sub="Upcoming/Overdue" accent="text-amber-500" /></div>
-                <div onClick={() => setActiveTab("Reports & Alerts")} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Equipment Alerts" value={dashStats.alerts.toString()} sub="Issues detected" accent="text-rose-500" /></div>
-                <div onClick={() => setActiveTab("Rental")} className="cursor-pointer hover:scale-[1.02] transition-transform"><StatCard title="Total Rental/Mo" value={`₹${dashStats.totalRental.toLocaleString()}`} sub="Estimated cost" accent="text-purple-500" /></div>
+        <div className="space-y-8">
+            <div>
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Quick Stats</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {[
+                        { title: "Total Equipment", value: dashStats.total.toString(), sub: "Registered Units", accent: "text-slate-800", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("All"); } },
+                        { title: "Available", value: dashStats.avail.toString(), sub: "Ready for deploy", accent: "text-emerald-500", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Unallocated"); } },
+                        { title: "Allocated", value: dashStats.alloc.toString(), sub: "Currently in use", accent: "text-blue-500", action: () => { setActiveTab("Machinery & Equipment List"); setAllocationFilter("Allocated"); } },
+                        { title: "Maintenance Due", value: dashStats.maint.toString(), sub: "Upcoming/Overdue", accent: "text-amber-500", action: () => setActiveTab("Maintenance") },
+                        { title: "Equipment Alerts", value: dashStats.alerts.toString(), sub: "Issues detected", accent: "text-rose-500", action: () => setActiveTab("Reports & Alerts") },
+                        { title: "Total Rental/Mo", value: `₹${dashStats.totalRental.toLocaleString()}`, sub: "Estimated cost", accent: "text-purple-500", action: () => setActiveTab("Rental") }
+                    ].map((s) => (
+                        <div key={s.title} onClick={s.action} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 group">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">{s.title}</p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-                {/* Maintenance Alerts */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <Wrench className="w-4 h-4 text-amber-500" /> Maintenance Alerts
-                    </h3>
-                    <div className="space-y-3">
-                        {maintenanceAlerts.length > 0 ? maintenanceAlerts.map((alert, i) => (
-                            <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50">
-                                <div>
-                                    <p className="font-bold text-sm text-slate-800">{alert.equipment_code}</p>
-                                    <p className="text-xs text-slate-500">Due in {alert.days_until} days ({alert.maintenance_date})</p>
+            <div>
+                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Alerts & Maintenance</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+                    {/* Maintenance Alerts */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Wrench className="w-4 h-4 text-amber-500" /> Maintenance Alerts
+                        </h3>
+                        <div className="space-y-3">
+                            {maintenanceAlerts.length > 0 ? maintenanceAlerts.map((alert, i) => (
+                                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50">
+                                    <div>
+                                        <p className="font-bold text-sm text-slate-800">{alert.equipment_code}</p>
+                                        <p className="text-xs text-slate-500">Due in {alert.days_until} days ({alert.maintenance_date})</p>
+                                    </div>
+                                    <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${alert.status === 'OVERDUE' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                                        {alert.status}
+                                    </span>
                                 </div>
-                                <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider ${alert.status === 'OVERDUE' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
-                                    {alert.status}
-                                </span>
-                            </div>
-                        )) : (
-                            <div className="p-8 text-center text-slate-400 text-sm">No maintenance alerts</div>
-                        )}
+                            )) : (
+                                <div className="p-8 text-center text-slate-400 text-sm">No maintenance alerts</div>
+                            )}
+                        </div>
                     </div>
-                </div>
 
-                {/* Equipment Alerts */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-rose-500" /> Equipment Alerts
-                    </h3>
-                    <div className="space-y-3">
-                        {equipmentAlerts.length > 0 ? equipmentAlerts.map((alert, i) => (
-                            <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-bold text-sm text-slate-800">{alert.equipment_name} <span className="text-xs text-slate-500">({alert.equipment_code})</span></h4>
+                    {/* Equipment Alerts */}
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-rose-500" /> Equipment Alerts
+                        </h3>
+                        <div className="space-y-3">
+                            {equipmentAlerts.length > 0 ? equipmentAlerts.map((alert, i) => (
+                                <div key={i} className="p-4 rounded-xl border border-slate-100 bg-slate-50">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-bold text-sm text-slate-800">{alert.equipment_name} <span className="text-xs text-slate-500">({alert.equipment_code})</span></h4>
+                                    </div>
+                                    <ul className="text-xs text-slate-600 list-disc list-inside mb-2">
+                                        {alert.issues.map((issue, j) => (
+                                            <li key={j} className={issue.severity === 'HIGH' ? 'text-rose-600 font-medium' : 'text-amber-600'}>
+                                                {issue.type}: {issue.current_hours}hrs (Limit: {issue.limit})
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <p className="text-xs font-medium text-slate-700 bg-white p-2 rounded border border-slate-200">Recommendation: {alert.recommendation}</p>
                                 </div>
-                                <ul className="text-xs text-slate-600 list-disc list-inside mb-2">
-                                    {alert.issues.map((issue, j) => (
-                                        <li key={j} className={issue.severity === 'HIGH' ? 'text-rose-600 font-medium' : 'text-amber-600'}>
-                                            {issue.type}: {issue.current_hours}hrs (Limit: {issue.limit})
-                                        </li>
-                                    ))}
-                                </ul>
-                                <p className="text-xs font-medium text-slate-700 bg-white p-2 rounded border border-slate-200">Recommendation: {alert.recommendation}</p>
-                            </div>
-                        )) : (
-                            <div className="p-8 text-center text-slate-400 text-sm">No equipment alerts</div>
-                        )}
+                            )) : (
+                                <div className="p-8 text-center text-slate-400 text-sm">No equipment alerts</div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -485,157 +519,160 @@ const MachineryPage = () => {
     );
 
     const renderEquipmentList = () => (
-        <div className="flex flex-col h-full bg-white rounded-2xl shadow-sm border border-slate-200">
-            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4 flex-1">
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input type="text" placeholder="Search by name, code or operator..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary" />
-                    </div>
-                    <select value={conditionFilter} onChange={(e) => setConditionFilter(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
-                        <option value="All">All Conditions</option>
-                        {Object.keys(conditionDisplay).map(k => <option key={k} value={k}>{conditionDisplay[k]}</option>)}
-                    </select>
-                    <select value={allocationFilter} onChange={(e) => setAllocationFilter(e.target.value as any)} className="px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
-                        <option value="All">All Projects</option>
-                        <option value="Allocated">Allocated</option>
-                        <option value="Unallocated">Deallocated</option>
-                    </select>
-                </div>
-                <button onClick={() => { setFormData({}); setIsEquipmentModalOpen(true); }} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 whitespace-nowrap shrink-0">
-                    <Plus className="w-4 h-4" /> Add Equipment
-                </button>
-            </div>
-
-            <div className="flex-1 overflow-auto">
-                <table className="w-full text-left min-w-[1000px]">
-                    <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                        <tr>
-                            <th className="px-6 py-4 border-b border-slate-200">Equipment</th>
-                            <th className="px-6 py-4 border-b border-slate-200">Operator</th>
-                            <th className="px-6 py-4 border-b border-slate-200">Usage</th>
-                            <th className="px-6 py-4 border-b border-slate-200">Condition</th>
-                            <th className="px-6 py-4 border-b border-slate-200">Maintenance</th>
-                            <th className="px-6 py-4 border-b border-slate-200 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {paginatedEquipmentList.length > 0 ? paginatedEquipmentList.map(item => (
-                            <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-3">
-                                    <p className="font-bold text-sm text-slate-800">{item.equipment_name}</p>
-                                    <p className="text-xs text-slate-500">{item.equipment_code}</p>
-                                </td>
-                                <td className="px-6 py-3 text-sm text-slate-700">{item.operator_name}</td>
-                                <td className="px-6 py-3 text-sm text-slate-700">
-                                    {item.working_hours} hrs<br /><span className="text-xs text-slate-400">{item.fuel_used} L Fuel</span>
-                                </td>
-                                <td className="px-6 py-3">
-                                    <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${conditionColors[item.condition] || 'bg-slate-100 text-slate-600'}`}>
-                                        {conditionDisplay[item.condition] || item.condition}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-3 text-sm text-slate-700">{item.maintenance_date}</td>
-                                <td className="px-6 py-3 text-right">
-                                    <div className="flex justify-end gap-1">
-                                        <button onClick={() => openViewModal(item)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded" title="View"><Eye className="w-4 h-4" /></button>
-                                        <button onClick={() => { setFormData(item); setIsEquipmentModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                        <button onClick={() => openAllocateModal(item)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Allocate"><Link2 className="w-4 h-4" /></button>
-                                        <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsUsageModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Log Usage"><Activity className="w-4 h-4" /></button>
-                                        <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
-                                        <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
-                                        <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
-                                        <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        )) : (
-                            <tr><td colSpan={6} className="px-6 py-20 text-center text-slate-400">🚜 No equipment found</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-            
-            {/* ─── Pagination Controls ──────────────────────────────────────────────────────── */}
-            {filteredEquipmentList.length > 0 && (
-                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-                    {/* Left: Items per page */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                        <select
-                            value={itemsPerPage}
-                            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                            className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                        >
-                            <option value={10}>10</option>
-                            <option value={20}>20</option>
-                            <option value={50}>50</option>
-                            <option value={100}>100</option>
+        <div className="space-y-4 h-full flex flex-col">
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Equipment Register</h2>
+            <div className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-slate-200">
+                <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input type="text" placeholder="Search by name, code or operator..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary" />
+                        </div>
+                        <select value={conditionFilter} onChange={(e) => setConditionFilter(e.target.value)} className="px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
+                            <option value="All">All Conditions</option>
+                            {Object.keys(conditionDisplay).map(k => <option key={k} value={k}>{conditionDisplay[k]}</option>)}
+                        </select>
+                        <select value={allocationFilter} onChange={(e) => setAllocationFilter(e.target.value as any)} className="px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary">
+                            <option value="All">All Projects</option>
+                            <option value="Allocated">Allocated</option>
+                            <option value="Unallocated">Deallocated</option>
                         </select>
                     </div>
-
-                    {/* Center: Showing info */}
-                    <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                        Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredEquipmentList.length)} of {filteredEquipmentList.length} records
-                    </div>
-
-                    {/* Right: Pagination */}
-                    <div className="flex items-center gap-1.5">
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentPage === 1}
-                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-
-                        {(() => {
-                            const totalItems = filteredEquipmentList.length;
-                            const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                            const pages = [];
-                            if (totalPages <= 5) {
-                                for (let i = 1; i <= totalPages; i++) pages.push(i);
-                            } else {
-                                if (currentPage <= 3) {
-                                    pages.push(1, 2, 3, 4, '...', totalPages);
-                                } else if (currentPage >= totalPages - 2) {
-                                    pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                                } else {
-                                    pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-                                }
-                            }
-
-                            return pages.map((page, index) => {
-                                if (page === '...') {
-                                    return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                                }
-                                const pageNum = page as number;
-                                const isActive = currentPage === pageNum;
-                                return (
-                                    <button
-                                        key={`page-${pageNum}`}
-                                        onClick={() => setCurrentPage(pageNum)}
-                                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                            }`}
-                                    >
-                                        {pageNum}
-                                    </button>
-                                );
-                            });
-                        })()}
-
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredEquipmentList.length / itemsPerPage), prev + 1))}
-                            disabled={currentPage >= Math.ceil(filteredEquipmentList.length / itemsPerPage)}
-                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                        >
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
+                    <button onClick={() => { setFormData({}); setIsEquipmentModalOpen(true); }} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 whitespace-nowrap shrink-0">
+                        <Plus className="w-4 h-4" /> Add Equipment
+                    </button>
                 </div>
-            )}
+
+                <div className="flex-1 overflow-auto">
+                    <table className="w-full text-left min-w-[1000px]">
+                        <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                            <tr>
+                                <th className="px-6 py-4 border-b border-slate-200">Equipment</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Operator</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Usage</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Condition</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Maintenance</th>
+                                <th className="px-6 py-4 border-b border-slate-200 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {paginatedEquipmentList.length > 0 ? paginatedEquipmentList.map(item => (
+                                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-3">
+                                        <p className="font-bold text-sm text-slate-800">{item.equipment_name}</p>
+                                        <p className="text-xs text-slate-500">{item.equipment_code}</p>
+                                    </td>
+                                    <td className="px-6 py-3 text-sm text-slate-700">{item.operator_name}</td>
+                                    <td className="px-6 py-3 text-sm text-slate-700">
+                                        {item.working_hours} hrs<br /><span className="text-xs text-slate-400">{item.fuel_used} L Fuel</span>
+                                    </td>
+                                    <td className="px-6 py-3">
+                                        <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${conditionColors[item.condition] || 'bg-slate-100 text-slate-600'}`}>
+                                            {conditionDisplay[item.condition] || item.condition}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-3 text-sm text-slate-700">{item.maintenance_date}</td>
+                                    <td className="px-6 py-3 text-right">
+                                        <div className="flex justify-end gap-1">
+                                            <button onClick={() => openViewModal(item)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded" title="View"><Eye className="w-4 h-4" /></button>
+                                            <button onClick={() => { setFormData(item); setIsEquipmentModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                                            <button onClick={() => openAllocateModal(item)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Allocate"><Link2 className="w-4 h-4" /></button>
+                                            <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsUsageModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Log Usage"><Activity className="w-4 h-4" /></button>
+                                            <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
+                                            <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
+                                            <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
+                                            <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr><td colSpan={6} className="px-6 py-20 text-center text-slate-400">🚜 No equipment found</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* ─── Pagination Controls ──────────────────────────────────────────────────────── */}
+                {filteredEquipmentList.length > 0 && (
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                        {/* Left: Items per page */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                            >
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
+
+                        {/* Center: Showing info */}
+                        <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                            Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredEquipmentList.length)} of {filteredEquipmentList.length} records
+                        </div>
+
+                        {/* Right: Pagination */}
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentPage === 1}
+                                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+
+                            {(() => {
+                                const totalItems = filteredEquipmentList.length;
+                                const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                const pages = [];
+                                if (totalPages <= 5) {
+                                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                } else {
+                                    if (currentPage <= 3) {
+                                        pages.push(1, 2, 3, 4, '...', totalPages);
+                                    } else if (currentPage >= totalPages - 2) {
+                                        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                    } else {
+                                        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                    }
+                                }
+
+                                return pages.map((page, index) => {
+                                    if (page === '...') {
+                                        return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                    }
+                                    const pageNum = page as number;
+                                    const isActive = currentPage === pageNum;
+                                    return (
+                                        <button
+                                            key={`page-${pageNum}`}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                });
+                            })()}
+
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredEquipmentList.length / itemsPerPage), prev + 1))}
+                                disabled={currentPage >= Math.ceil(filteredEquipmentList.length / itemsPerPage)}
+                                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 
@@ -654,9 +691,17 @@ const MachineryPage = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <StatCard title="Total Hours Logged" value={totalHrs.toString()} sub="All equipment" accent="text-blue-500" />
-                    <StatCard title="Total Fuel Consumed" value={`${totalFuel} L`} sub="All equipment" accent="text-orange-500" />
-                    <StatCard title="Usage Entries" value={totalCount.toString()} sub="Total logs recorded" accent="text-emerald-500" />
+                    {[
+                        { title: "Total Hours Logged", value: totalHrs.toString(), sub: "All equipment", accent: "text-blue-500" },
+                        { title: "Total Fuel Consumed", value: `${totalFuel} L`, sub: "All equipment", accent: "text-orange-500" },
+                        { title: "Usage Entries", value: totalCount.toString(), sub: "Total logs recorded", accent: "text-emerald-500" }
+                    ].map((s) => (
+                        <div key={s.title} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default group">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.title}</p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
+                        </div>
+                    ))}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -788,26 +833,42 @@ const MachineryPage = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <StatCard title="Total Rental Cost" value={`₹${tCost.toLocaleString()}`} sub="All time" accent="text-purple-600" />
-                    <StatCard title="Rental Count" value={tCount.toString()} sub="Contracts executed" accent="text-blue-500" />
-                    <StatCard title="Total Days" value={tDays.toString()} sub="Days rented out" accent="text-emerald-500" />
-                    <StatCard title="Avg Rev/Day" value={`₹${tDays > 0 ? Math.round(tCost / tDays).toLocaleString() : 0}`} sub="Across fleet" accent="text-amber-500" />
+                    {[
+                        { title: "Total Rental Cost", value: `₹${tCost.toLocaleString()}`, sub: "All time", accent: "text-purple-600" },
+                        { title: "Rental Count", value: tCount.toString(), sub: "Contracts executed", accent: "text-blue-500" },
+                        { title: "Total Days", value: tDays.toString(), sub: "Days rented out", accent: "text-emerald-500" },
+                        { title: "Avg Rev/Day", value: `₹${tDays > 0 ? Math.round(tCost / tDays).toLocaleString() : 0}`, sub: "Across fleet", accent: "text-amber-500" }
+                    ].map((s) => (
+                        <div key={s.title} className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default group">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.title}</p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
+                        </div>
+                    ))}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-2 max-h-[500px] overflow-auto">
-                        <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
-                        {equipmentList.map(eq => (
-                            <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
-                                {eq.equipment_code} <span className="text-xs text-slate-400 block truncate">{eq.equipment_name}</span>
-                            </button>
-                        ))}
-                    </div>
-                    <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 bg-slate-50">
-                            <h3 className="font-bold text-sm text-slate-800">
-                                Rental History {selectedEquipment ? `— ${selectedEquipment.equipment_name}` : "(Select equipment)"}
+                <div className="space-y-6">
+                    {/* Specific Equipment Rental History */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                            <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
+                                Rental History
                             </h3>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</span>
+                                <select 
+                                    className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium outline-none focus:border-primary"
+                                    value={selectedEquipment?.id || ""}
+                                    onChange={(e) => {
+                                        const eq = equipmentList.find(item => item.id === Number(e.target.value));
+                                        if (eq) setSelectedEquipment(eq);
+                                    }}
+                                >
+                                    {equipmentList.map(eq => (
+                                        <option key={eq.id} value={eq.id}>{eq.equipment_code} - {eq.equipment_name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div className="overflow-auto max-h-[440px]">
                             <table className="w-full text-left text-sm">
@@ -843,6 +904,114 @@ const MachineryPage = () => {
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+
+                    {/* All Rental History Container */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col min-h-[400px]">
+                        <div className="p-4 border-b border-slate-100 bg-slate-50">
+                            <h3 className="font-bold text-sm text-slate-800">
+                                All Rental History
+                            </h3>
+                        </div>
+                        <div className="overflow-auto flex-1">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 sticky top-0 z-10 font-bold text-slate-500 text-[10px] uppercase tracking-wider shadow-sm">
+                                    <tr>
+                                        <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Equipment</th>
+                                        <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Start Date</th>
+                                        <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">End Date</th>
+                                        <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Rental Cost</th>
+                                        <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Client Name</th>
+                                        <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200">Notes</th>
+                                        <th className="px-6 py-4 whitespace-nowrap border-b border-slate-200 text-right">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {paginatedAllRentals.length > 0 ? paginatedAllRentals.map(log => {
+                                        const eq = equipmentList.find(e => e.id === log.equipment_id);
+                                        return (
+                                        <tr key={`${log.equipment_id}-${log.id}`} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-3 font-bold text-slate-800">{eq?.equipment_code || `EQ-${log.equipment_id}`}</td>
+                                            <td className="px-6 py-3 text-slate-700">{log.start_date}</td>
+                                            <td className="px-6 py-3 text-slate-700">{log.end_date}</td>
+                                            <td className="px-6 py-3 font-bold text-purple-600">₹{log.rental_cost?.toLocaleString()}</td>
+                                            <td className="px-6 py-3 font-bold text-slate-700">{log.client_name}</td>
+                                            <td className="px-6 py-3 text-slate-500 max-w-[150px] truncate" title={log.notes}>{log.notes || '-'}</td>
+                                            <td className="px-6 py-3 text-right">
+                                                <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{log.status || 'COMPLETED'}</span>
+                                            </td>
+                                        </tr>
+                                    )}) : <tr><td colSpan={7} className="px-6 py-20 text-center text-slate-400">No rental records found in history</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                        {/* Pagination for All Rentals */}
+                        {allRentals.length > 0 && (
+                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter rounded-b-2xl mt-auto">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                    <select
+                                        value={rentalItemsPerPage}
+                                        onChange={(e) => { setRentalItemsPerPage(Number(e.target.value)); setRentalCurrentPage(1); }}
+                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+                                <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                    Showing {(rentalCurrentPage - 1) * rentalItemsPerPage + 1} - {Math.min(rentalCurrentPage * rentalItemsPerPage, allRentals.length)} of {allRentals.length} records
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        onClick={() => setRentalCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={rentalCurrentPage === 1}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    {(() => {
+                                        const totalItems = allRentals.length;
+                                        const totalPages = Math.max(1, Math.ceil(totalItems / rentalItemsPerPage));
+                                        const pages = [];
+                                        if (totalPages <= 5) {
+                                            for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                        } else {
+                                            if (rentalCurrentPage <= 3) {
+                                                pages.push(1, 2, 3, 4, '...', totalPages);
+                                            } else if (rentalCurrentPage >= totalPages - 2) {
+                                                pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                            } else {
+                                                pages.push(1, '...', rentalCurrentPage - 1, rentalCurrentPage, rentalCurrentPage + 1, '...', totalPages);
+                                            }
+                                        }
+                                        return pages.map((page, index) => {
+                                            if (page === '...') return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                            const pageNum = page as number;
+                                            const isActive = rentalCurrentPage === pageNum;
+                                            return (
+                                                <button
+                                                    key={`page-${pageNum}`}
+                                                    onClick={() => setRentalCurrentPage(pageNum)}
+                                                    className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'}`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        });
+                                    })()}
+                                    <button
+                                        onClick={() => setRentalCurrentPage(prev => Math.min(Math.ceil(allRentals.length / rentalItemsPerPage), prev + 1))}
+                                        disabled={rentalCurrentPage >= Math.ceil(allRentals.length / rentalItemsPerPage)}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -917,44 +1086,50 @@ const MachineryPage = () => {
         <>
             <Navbar title="Machinery & Equipment" breadcrumb={["Engineer", "Machinery", activeTab]} />
 
-            <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50 font-inter">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ─── Main Header ─── */}
-                <div className="bg-white px-6 pt-6 pb-2">
-                    <h1 className="text-2xl font-bold text-slate-800">Machinery & Equipment</h1>
-                    <p className="text-slate-500 text-sm mt-1">Complete lifecycle tracking — allocation, usage, maintenance, cost</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Machinery & Equipment
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Complete lifecycle tracking — allocation, usage, maintenance, cost
+                        </p>
+                    </div>
                 </div>
 
                 {/* ─── Tab Bar ─── */}
-                <div className="bg-white border-b border-slate-200 px-6 pt-2 flex gap-6 overflow-x-auto shrink-0 scrollbar-none">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`pb-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-                        >
-                            {tab}
-                        </button>
-                    ))}
+                <div className="mb-8 overflow-x-auto scrollbar-none">
+                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit">
+                        {TABS.map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* ─── Main Content ─── */}
-                <div className="flex-1 p-6 overflow-y-auto">
-                    <PageTransition>
-                        {isLoading && equipmentList.length === 0 ? (
-                            <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div></div>
-                        ) : (
-                            <>
-                                {activeTab === "Dashboard" && renderDashboard()}
-                                {activeTab === "Machinery & Equipment List" && renderEquipmentList()}
-                                {activeTab === "Usage" && renderUsage()}
-                                {activeTab === "Maintenance" && renderMaintenance()}
-                                {activeTab === "Rental" && renderRental()}
-                                {activeTab === "Reports & Alerts" && renderReports()}
-                            </>
-                        )}
-                    </PageTransition>
+                <div className="w-full">
+                    {isLoading && equipmentList.length === 0 ? (
+                        <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div></div>
+                    ) : (
+                        <>
+                            {activeTab === "Dashboard" && renderDashboard()}
+                            {activeTab === "Machinery & Equipment List" && renderEquipmentList()}
+                            {activeTab === "Usage" && renderUsage()}
+                            {activeTab === "Maintenance" && renderMaintenance()}
+                            {activeTab === "Rental" && renderRental()}
+                            {activeTab === "Reports & Alerts" && renderReports()}
+                        </>
+                    )}
                 </div>
-            </div>
+            </PageTransition>
 
             {/* ─── Modals ────────────────────────────────────────────────────────── */}
 
@@ -1021,7 +1196,7 @@ const MachineryPage = () => {
                             <select
                                 required
                                 value={formData.project_id || ''}
-                                onChange={(e) => setFormData({...formData, project_id: e.target.value ? Number(e.target.value) : undefined})}
+                                onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
                                 className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
                             >
                                 <option value="">-- Select project to allocate --</option>

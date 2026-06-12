@@ -242,16 +242,20 @@ export const workProgressService = {
     }
   },
 
-  /**
-   * Get today's progress items for a site engineer
-   */
-  async getTodayProgress(engineerId: number): Promise<DailyEntry[]> {
+
+
+  async getTodayProgress(engineerId: number): Promise<{ limit: number; offset: number; page_count: number; total_count: number; data: DailyEntry[] }> {
     try {
-      const response = await api.get("/work-progress/site-engineer/today-progress");
-      return Array.isArray(response.data) ? response.data : (response.data?.data || []);
+      const response = await api.get("/work-progress/site-engineer/today-progress", {
+        params: { engineer_id: engineerId }
+      });
+      return response.data;
     } catch (error: any) {
       console.warn("getTodayProgress API error, using virtual success fallback:", error.message);
-      return mockDailyEntries.filter(e => e.created_by === engineerId);
+      return {
+        limit: 10, offset: 0, page_count: 1, total_count: 0,
+        data: mockDailyEntries.filter(e => e.created_by === engineerId)
+      };
     }
   },
 

@@ -1,15 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
-import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
-import ConfirmModal from "../../../components/common/ConfirmModal";
 import {
   Plus,
   Calendar,
   AlertCircle,
   Search,
-  RotateCcw,
   TrendingUp,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +21,7 @@ import type { ActivityItem, DailyEntry } from "../../../types/workProgress";
 // Modular Components
 import LogProgressModal from "../../../components/WorkProgress/LogProgressModal";
 import EditDailyEntryModal from "../../../components/WorkProgress/EditDailyEntryModal";
+import ConfirmModal from "../../../components/common/ConfirmModal";
 
 
 const statusBadge: Record<string, string> = {
@@ -58,14 +56,17 @@ const DailyProgressEntryPage = () => {
     }
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'today' | 'all' | 'delay'>('today');
+  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay'>('all');
   const [delayActivities, setDelayActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoadedToday, setHasLoadedToday] = useState(false);
   const [hasLoadedAll, setHasLoadedAll] = useState(false);
+  const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   const [todayActivities, setTodayActivities] = useState<DailyEntry[]>([]);
-  const [allEntries, setAllEntries] = useState<any[]>([]);
+  const [allEntries, setAllEntries] = useState<DailyEntry[]>([]);
+  const [activityHistory, setActivityHistory] = useState<any[]>([]);
   const [activitiesList, setActivitiesList] = useState<ActivityItem[]>([]); // for dropdown
+  const [projectSummary, setProjectSummary] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -73,19 +74,24 @@ const DailyProgressEntryPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [selectedActivityId, setSelectedActivityId] = useState<string>("all");
+  const [activeStatFilter, setActiveStatFilter] = useState("All Logs");
 
-  // Interactive StatCard Filter
-  const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Delayed" | "Completed" | "Momentum">("All");
+  useEffect(() => {
+    if (activeTab === 'all' || activeTab === 'today') setActiveStatFilter("All Logs");
+    else if (activeTab === 'history') setActiveStatFilter("All History");
+    else if (activeTab === 'delay') setActiveStatFilter("All Delayed");
+  }, [activeTab]);
+
+  // Input states for Tab 1 cards
 
   // Input states for Tab 1 cards
 
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isEditEntryModalOpen, setIsEditEntryModalOpen] = useState(false);
+  const [isDeleteEntryModalOpen, setIsDeleteEntryModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<DailyEntry | null>(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<number | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
 
   const loadActivities = useCallback(async () => {
@@ -116,9 +122,10 @@ const DailyProgressEntryPage = () => {
       if (!hasLoadedToday) {
         setLoading(true);
       }
-      const entries = await workProgressService.listDailyEntries();
-      setTodayActivities(entries);
-      setAllEntries(entries);
+      const res = await workProgressService.getTodayProgress(engineer_id);
+      const entries = res?.data || res || [];
+      setTodayActivities(entries as DailyEntry[]);
+      setAllEntries(entries as DailyEntry[]);
       setHasLoadedToday(true);
     } catch (err) {
       toast.error("Failed to load today's tasks");
@@ -132,11 +139,8 @@ const DailyProgressEntryPage = () => {
       if (!hasLoadedAll) {
         setLoading(true);
       }
-      const activityId = selectedActivityId === "all"
-        ? (activitiesList[0]?.id || 1)
-        : Number(selectedActivityId);
-      const res = await workProgressService.getActivityHistory(activityId);
-      setAllEntries(res?.data || []);
+      const res = await workProgressService.listDailyEntries();
+      setAllEntries(res || []);
       setHasLoadedAll(true);
     } catch (err) {
       console.error("Load Entries Error:", err);
@@ -144,7 +148,24 @@ const DailyProgressEntryPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [hasLoadedAll, selectedActivityId, activitiesList]);
+  }, [hasLoadedAll]);
+
+  const loadActivityHistory = useCallback(async () => {
+    try {
+      if (!hasLoadedHistory) setLoading(true);
+      const activityId = selectedActivityId === "all"
+        ? (activitiesList[0]?.id || 1)
+        : Number(selectedActivityId);
+      const res = await workProgressService.getActivityHistory(activityId);
+      setActivityHistory(res?.data || []);
+      setHasLoadedHistory(true);
+    } catch (err) {
+      console.error("Load History Error:", err);
+      toast.error("Failed to load history");
+    } finally {
+      setLoading(false);
+    }
+  }, [hasLoadedHistory, selectedActivityId, activitiesList]);
 
   const loadDelayReport = useCallback(async () => {
     try {
@@ -159,9 +180,20 @@ const DailyProgressEntryPage = () => {
     }
   }, []);
 
+  const loadProjectSummary = useCallback(async () => {
+    if(!projectId) return;
+    try {
+      const res = await workProgressService.getProjectSummary(projectId);
+      setProjectSummary(res);
+    } catch(err) {
+      console.error("Load Project Summary Error", err);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     loadActivities();
-  }, [loadActivities]);
+    loadProjectSummary();
+  }, [loadActivities, loadProjectSummary]);
 
   useEffect(() => {
     if (activeTab === 'today') {
@@ -170,8 +202,12 @@ const DailyProgressEntryPage = () => {
       loadAllEntries();
     } else if (activeTab === 'delay') {
       loadDelayReport();
+    } else if (activeTab === 'history') {
+      loadActivityHistory();
+    } else if (activeTab === 'summary') {
+      loadProjectSummary();
     }
-  }, [activeTab, loadTodayProgress, loadAllEntries, loadDelayReport]);
+  }, [activeTab, loadTodayProgress, loadAllEntries, loadDelayReport, loadActivityHistory, loadProjectSummary]);
 
   const handleLogModalSubmit = async (data: any) => {
     try {
@@ -186,100 +222,131 @@ const DailyProgressEntryPage = () => {
     }
   };
 
-  const handleEditSubmit = async (id: number, data: any) => {
+  const handleEditEntrySubmit = async (id: number, data: { today_progress: number; remarks: string }) => {
     try {
       await workProgressService.updateDailyEntry(id, data);
-      toast.success("Entry updated successfully!");
-      setIsEditModalOpen(false);
+      toast.success("Daily entry updated successfully!");
+      setIsEditEntryModalOpen(false);
       loadActivities();
-      if (activeTab === 'today') {
-        loadTodayProgress();
-      } else {
-        loadAllEntries();
-      }
+      if (activeTab === 'today') loadTodayProgress();
+      else loadAllEntries();
     } catch (err) {
-      toast.error("Failed to update entry");
+      toast.error("Failed to update daily entry");
     }
   };
 
-  const handleDeleteEntry = async () => {
+  const handleDeleteEntrySubmit = async () => {
     if (!deleteEntryId) return;
-    setIsDeleting(true);
     try {
       await workProgressService.deleteDailyEntry(deleteEntryId);
-      toast.success("Entry deleted successfully!");
-      setIsDeleteModalOpen(false);
+      toast.success("Daily entry deleted successfully!");
+      setIsDeleteEntryModalOpen(false);
       loadActivities();
-      if (activeTab === 'today') {
-        loadTodayProgress();
-      } else {
-        loadAllEntries();
-      }
+      if (activeTab === 'today') loadTodayProgress();
+      else loadAllEntries();
     } catch (err) {
-      toast.error("Failed to delete entry");
-    } finally {
-      setIsDeleting(false);
+      toast.error("Failed to delete daily entry");
     }
   };
+
+
 
   const baseTodayActivities = useMemo(() => {
     return todayActivities.filter(e => {
       const a = activitiesList.find(act => act.id === e.activity_id);
-      return searchTerm === "" ||
+      const matchesSearch = searchTerm === "" ||
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesActivity = selectedActivityId === "all" || String(e.activity_id) === String(selectedActivityId);
+      return matchesSearch && matchesActivity;
     });
-  }, [todayActivities, searchTerm, activitiesList]);
+  }, [todayActivities, searchTerm, activitiesList, selectedActivityId]);
 
   const filteredTodayActivities = useMemo(() => {
-    let data = baseTodayActivities;
-
-    if (activeStatFilter === "Delayed") {
-      data = data.filter(e => {
-        const a = activitiesList.find(act => act.id === e.activity_id);
-        return a?.status === "Delay" || a?.status === "DELAY";
-      });
-    } else if (activeStatFilter === "Completed") {
-      data = data.filter(e => Number(e.today_progress) >= 100);
-    }
-
-    return data;
+    if (activeStatFilter === "All Logs") return baseTodayActivities;
+    return baseTodayActivities.filter(e => {
+      const a = activitiesList.find(act => act.id === e.activity_id);
+      const s = (a?.status || "Not Started").toLowerCase().replace("_", " ");
+      if (activeStatFilter === "On Track Logs") return s === "on track";
+      if (activeStatFilter === "Completed Logs") return s === "completed";
+      if (activeStatFilter === "Delayed Logs") return s === "delay";
+      return true;
+    });
   }, [baseTodayActivities, activeStatFilter, activitiesList]);
 
-  const baseHistoryEntries = useMemo(() => {
+  const baseAllEntries = useMemo(() => {
     let list = allEntries;
-
-    if (selectedActivityId !== "all") {
-      list = list.filter(e => e.activity_id === Number(selectedActivityId));
-    }
-
     if (filterDate) {
       list = list.filter(e => e.entry_date === filterDate);
     }
-
     return list.filter(e => {
-      const activity = activitiesList.find(a => a.id === e.activity_id);
-      const activityName = activity?.activity_name.toLowerCase() || "";
-      const boqCode = String(activity?.boq_code || "").toLowerCase();
-      return searchTerm === "" || activityName.includes(searchTerm.toLowerCase()) || boqCode.includes(searchTerm.toLowerCase());
+      const a = activitiesList.find(act => act.id === e.activity_id);
+      const matchesSearch = searchTerm === "" ||
+        a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesActivity = selectedActivityId === "all" || String(e.activity_id) === String(selectedActivityId);
+      return matchesSearch && matchesActivity;
     });
-  }, [allEntries, activitiesList, searchTerm, selectedActivityId, filterDate]);
+  }, [allEntries, filterDate, searchTerm, activitiesList, selectedActivityId]);
 
-  const filteredHistoryEntries = useMemo(() => {
-    let list = baseHistoryEntries;
+  const filteredAllEntries = useMemo(() => {
+    if (activeStatFilter === "All Logs") return baseAllEntries;
+    return baseAllEntries.filter(e => {
+      const a = activitiesList.find(act => act.id === e.activity_id);
+      const s = (a?.status || "Not Started").toLowerCase().replace("_", " ");
+      if (activeStatFilter === "On Track Logs") return s === "on track";
+      if (activeStatFilter === "Completed Logs") return s === "completed";
+      if (activeStatFilter === "Delayed Logs") return s === "delay";
+      return true;
+    });
+  }, [baseAllEntries, activeStatFilter, activitiesList]);
 
-    if (activeStatFilter === "Delayed") {
+  const baseHistoryEntries = useMemo(() => {
+    let list = activityHistory;
+    if (filterDate) {
       list = list.filter(e => {
-        return e.new_value?.status?.toLowerCase() === "delay";
-      });
-    } else if (activeStatFilter === "Completed") {
-      list = list.filter(e => {
-        return Number(e.new_value?.today_progress) >= 100;
+        const d = new Date(e.created_at);
+        if (isNaN(d.getTime())) return true;
+        return d.toISOString().split('T')[0] === filterDate;
       });
     }
+    return list.filter(e => {
+      const a = activitiesList.find(act => act.id === e.activity_id);
+      const matchesSearch = searchTerm === "" ||
+        a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesActivity = selectedActivityId === "all" || String(e.activity_id) === String(selectedActivityId);
+      return matchesSearch && matchesActivity;
+    });
+  }, [activityHistory, filterDate, searchTerm, activitiesList, selectedActivityId]);
 
-    return list;
+  const filteredHistoryEntries = useMemo(() => {
+    if (activeStatFilter === "All History") return baseHistoryEntries;
+    return baseHistoryEntries.filter(e => {
+      if (activeStatFilter === "Progress Updates") return Number(e.new_value?.today_progress) > 0;
+      if (activeStatFilter === "Status Changes") return e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status);
+      return true;
+    });
   }, [baseHistoryEntries, activeStatFilter]);
+
+  const filteredDelayActivities = useMemo(() => {
+    let list = delayActivities;
+    list = list.filter(e => {
+      const matchesSearch = searchTerm === "" ||
+        e.activity_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.boq_code && String(e.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesActivity = selectedActivityId === "all" || String(e.id) === String(selectedActivityId);
+      return matchesSearch && matchesActivity;
+    });
+    if (activeStatFilter === "All Delayed") return list;
+    return list.filter(e => {
+      const p = Number(e.completion_percentage || 0);
+      if (activeStatFilter === "Critical (< 25%)") return p < 25;
+      if (activeStatFilter === "Moderate (25% - 75%)") return p >= 25 && p <= 75;
+      if (activeStatFilter === "Almost Done (> 75%)") return p > 75;
+      return true;
+    });
+  }, [delayActivities, activeStatFilter, searchTerm, selectedActivityId]);
 
   const stats = useMemo(() => {
     if (activeTab === 'delay') {
@@ -332,98 +399,144 @@ const DailyProgressEntryPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchTerm, filterDate, selectedActivityId, activeStatFilter]);
+  }, [activeTab, searchTerm, filterDate, selectedActivityId]);
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedTodayEntries = filteredTodayActivities.slice(startIndex, endIndex);
+  const paginatedAllEntries = filteredAllEntries.slice(startIndex, endIndex);
   const paginatedHistoryEntries = filteredHistoryEntries.slice(startIndex, endIndex);
-  const paginatedDelayActivities = delayActivities.slice(startIndex, endIndex);
-  const totalPages = Math.ceil((activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length) / itemsPerPage);
+  const paginatedDelayActivities = filteredDelayActivities.slice(startIndex, endIndex);
 
-  const momentum = stats.momentum;
-
-  const resetFilters = () => {
-    setSearchTerm("");
-    setFilterDate(""); // Clear date to show all history
-    setSelectedActivityId("all");
-    setActiveStatFilter("All");
+  const getCurrentListLength = () => {
+    switch (activeTab) {
+      case 'today': return filteredTodayActivities.length;
+      case 'all': return filteredAllEntries.length;
+      case 'history': return filteredHistoryEntries.length;
+      case 'delay': return filteredDelayActivities.length;
+      default: return 0;
+    }
   };
 
+  const totalPages = Math.ceil(getCurrentListLength() / itemsPerPage);
 
+  const renderStatCards = () => {
+    let cards: any[] = [];
+    if (activeTab === 'all' || activeTab === 'today') {
+      const base = activeTab === 'today' ? baseTodayActivities : baseAllEntries;
+      cards = [
+        { label: "All Logs", count: base.length, colorClass: "text-slate-800", sub: "Total Entries" },
+        { label: "On Track Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase().replace("_", " ") === "on track"; }).length, colorClass: "text-blue-500", sub: "Performing as expected" },
+        { label: "Completed Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase() === "completed"; }).length, colorClass: "text-emerald-500", sub: "100% Progress" },
+        { label: "Delayed Logs", count: base.filter(e => { const a = activitiesList.find(act => act.id === e.activity_id); return (a?.status || "").toLowerCase() === "delay"; }).length, colorClass: "text-rose-500", sub: "Critical Items" }
+      ];
+    } else if (activeTab === 'history') {
+      cards = [
+        { label: "All History", count: baseHistoryEntries.length, colorClass: "text-slate-800", sub: "Complete Log" },
+        { label: "Progress Updates", count: baseHistoryEntries.filter(e => Number(e.new_value?.today_progress) > 0).length, colorClass: "text-blue-500", sub: "Actual Progress Added" },
+        { label: "Status Changes", count: baseHistoryEntries.filter(e => e.action === "STATUS_CHANGE" || (e.new_value?.status && e.new_value.status !== e.old_value?.status)).length, colorClass: "text-amber-500", sub: "Lifecycle Events" }
+      ];
+    } else if (activeTab === 'delay') {
+      cards = [
+        { label: "All Delayed", count: delayActivities.length, colorClass: "text-rose-500", sub: "Total Delayed" },
+        { label: "Critical (< 25%)", count: delayActivities.filter(e => Number(e.completion_percentage || 0) < 25).length, colorClass: "text-red-600", sub: "High Risk" },
+        { label: "Moderate (25% - 75%)", count: delayActivities.filter(e => Number(e.completion_percentage || 0) >= 25 && Number(e.completion_percentage || 0) <= 75).length, colorClass: "text-amber-500", sub: "At Risk" },
+        { label: "Almost Done (> 75%)", count: delayActivities.filter(e => Number(e.completion_percentage || 0) > 75).length, colorClass: "text-emerald-500", sub: "Near Completion" }
+      ];
+    }
+
+    if (cards.length === 0) return null;
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+        {cards.map(c => (
+          <div
+            key={c.label}
+            onClick={() => {
+              setActiveStatFilter(c.label);
+              setCurrentPage(1);
+            }}
+            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:border-primary/20 hover:scale-[1.02] active:scale-95 group ${activeStatFilter === c.label ? "ring-2 ring-primary/20" : ""}`}
+          >
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors font-inter">
+              {c.label}
+            </p>
+            <p className={`text-2xl font-bold font-inter ${c.colorClass}`}>{c.count}</p>
+            <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">
+              {c.sub}
+            </p>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <>
       <Navbar title="Daily Work Progress" breadcrumb={["Engineer", "Work Progress", "Daily Progress"]} />
-      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
-        {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
-          <div className="font-inter">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter uppercase">Daily Work Progress</h1>
-            <p className="text-slate-500 text-sm font-inter">Log and track daily execution activities on site.</p>
+        {/* ─── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              Daily Work Progress
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Log and track daily execution activities on site.
+            </p>
           </div>
-          {activeTab === 'today' && (
-            <button
-              onClick={() => setIsLogModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
-            >
-              <Plus className="w-4 h-4" />
-              Add Daily Progress
-            </button>
-          )}
-        </div>
-
-        {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 font-inter">
-          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Total Logs"
-              value={stats.total.toString()}
-              sub="Entries Displayed"
-              accent="text-slate-800" />
-          </div>
-          <div onClick={() => setActiveStatFilter("Completed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Completed" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Finished Logs"
-              value={stats.completed.toString()}
-              sub="100% Progress Reached"
-              accent="text-emerald-500" />
-          </div>
-          <div onClick={() => setActiveStatFilter("Delayed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Delayed" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Delayed Logs"
-              value={stats.delayed.toString()}
-              sub="Critical Items"
-              accent="text-rose-500" />
+          <div className="flex flex-wrap items-center gap-2">
+            {activeTab === 'all' && (
+              <button
+                onClick={() => setIsLogModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                Add Daily Progress
+              </button>
+            )}
           </div>
         </div>
 
-        {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {renderStatCards()}
+
+        {/* ─── Navigation Tabs ──────────────────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-8 border-b border-slate-200 mb-8 font-inter px-2">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'all' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            ALL DAILY ENTRIES
+          </button>
+          <button
+            onClick={() => setActiveTab('today')}
+            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'today' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            TODAY'S PROGRESS
+          </button>
+          <button
+            onClick={() => setActiveTab('summary')}
+            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'summary' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            PROJECT SUMMARY
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'history' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            ACTIVITY HISTORY
+          </button>
+          <button
+            onClick={() => setActiveTab('delay')}
+            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'delay' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            DELAY REPORT
+          </button>
+        </div>
+
         <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
-          {/* â”€â”€ Navigation Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          <div className="flex items-center gap-10 border-b border-slate-200 mb-10 font-inter">
-            <button
-              onClick={() => setActiveTab('today')}
-              className={`pb-5 text-[10px] font-bold uppercase tracking-wider transition-all relative ${activeTab === 'today' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-700'}`}
-            >
-              Today's Progress
-            </button>
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`pb-5 text-[10px] font-bold uppercase tracking-wider transition-all relative ${activeTab === 'all' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-700'}`}
-            >
-              Progress History
-            </button>
-            <button
-              onClick={() => setActiveTab('delay')}
-              className={`pb-5 text-[10px] font-bold uppercase tracking-wider transition-all relative ${activeTab === 'delay' ? 'text-primary border-b-2 border-primary' : 'text-slate-400 hover:text-slate-700'}`}
-            >
-              Delayed Activities
-            </button>
-          </div>
-
-          {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ─── Registry Container ────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
             {/* Integrated Filter Bar */}
             <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
@@ -441,17 +554,19 @@ const DailyProgressEntryPage = () => {
               </div>
 
               <div className="flex items-center gap-3 font-inter">
-                {activeTab === 'all' && (
+                {(activeTab === 'all' || activeTab === 'history') && (
                   <div className="flex items-center gap-3 font-inter">
-                    <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm font-inter">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <input
-                        type="date"
-                        value={filterDate}
-                        onChange={(e) => setFilterDate(e.target.value)}
-                        className="bg-transparent text-[11px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter"
-                      />
-                    </div>
+                    {activeTab === 'all' && (
+                      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm font-inter">
+                        <Calendar className="w-4 h-4 text-blue-600" />
+                        <input
+                          type="date"
+                          value={filterDate}
+                          onChange={(e) => setFilterDate(e.target.value)}
+                          className="bg-transparent text-[11px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter"
+                        />
+                      </div>
+                    )}
                     <select
                       value={selectedActivityId}
                       onChange={(e) => setSelectedActivityId(e.target.value)}
@@ -464,74 +579,90 @@ const DailyProgressEntryPage = () => {
                     </select>
                   </div>
                 )}
-                {activeStatFilter !== "All" && (
-                  <button onClick={resetFilters} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
-                )}
               </div>
             </div>
 
             <div className="flex-1 overflow-auto p-10 font-inter scrollbar-thin scrollbar-thumb-slate-200">
-              {activeTab === 'today' ? (
+              {activeTab === 'summary' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    { title: "TOTAL LOGS", value: projectSummary?.total_activities || stats.total.toString(), sub: "Entries Displayed", accent: "text-slate-800" },
+                    { title: "FINISHED LOGS", value: projectSummary?.completed_activities || stats.completed.toString(), sub: "100% Progress Reached", accent: "text-emerald-500" },
+                    { title: "DELAYED LOGS", value: projectSummary?.delayed_activities || stats.delayed.toString(), sub: "Critical Items", accent: "text-rose-500" },
+                    { title: "ON TRACK LOGS", value: projectSummary?.on_track_activities || "0", sub: "Performing as expected", accent: "text-blue-500" },
+                    { title: "NOT STARTED", value: projectSummary?.not_started_activities || "0", sub: "Pending Execution", accent: "text-slate-500" },
+                    { title: "COMPLETION", value: `${projectSummary?.completion_percentage || 0}%`, sub: "Overall Project Progress", accent: "text-indigo-500" },
+                  ].map((s) => (
+                    <div key={s.title} className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 transition-all">
+                      <p className="text-xs font-bold text-slate-400 mb-2 font-inter">{s.title}</p>
+                      <p className={`text-[28px] font-bold ${s.accent}`}>{s.value}</p>
+                      <p className="text-[11px] text-slate-400 mt-1 font-bold font-inter">{s.sub}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(activeTab === 'today' || activeTab === 'all') && (
                 <>
                   <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                     <table className="w-full text-left font-inter min-w-[1200px]">
                       <thead>
-                        <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-50 font-inter">
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Activity</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Date</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Progress Added</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Remarks</th>
-                          <th className="px-6 py-4 font-inter whitespace-nowrap">Logged At</th>
-                          <th className="px-6 py-4 text-right font-inter whitespace-nowrap">Actions</th>
+                        <tr className="bg-white text-slate-500 text-[11px] font-bold uppercase tracking-wider border-b border-slate-100 font-inter">
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">ACTIVITY</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">DATE</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">PROGRESS ADDED</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">REMARKS</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">LOGGED AT</th>
+                          {activeTab === 'all' && <th className="px-6 py-4 font-inter whitespace-nowrap text-right">ACTIONS</th>}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50 font-inter">
+                      <tbody className="divide-y divide-slate-50 font-inter bg-white">
                         {loading ? (
                           <tr>
-                            <td colSpan={6} className="py-20 text-center font-inter">
+                            <td colSpan={5} className="py-20 text-center font-inter">
                               <div className="inline-block w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
                               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Loading Data...</p>
                             </td>
                           </tr>
-                        ) : paginatedTodayEntries.length > 0 ? paginatedTodayEntries.map((e) => {
+                        ) : (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).length > 0 ? (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).map((e) => {
                           const currentActivity = activitiesList.find(a => a.id === e.activity_id);
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                              <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">
+                              <td className="px-6 py-6 font-inter text-[13px] font-bold text-slate-700 whitespace-nowrap">
                                 {currentActivity?.activity_name || "-"}
-                                {currentActivity?.boq_code && <span className="block text-xs font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
+                                {currentActivity?.boq_code && <span className="block text-[11px] font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
                               </td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.entry_date}</td>
-                              <td className="px-6 py-6 font-inter">
-                                <span className="text-sm font-bold text-primary">{e.today_progress} {currentActivity?.unit || ""}</span>
+                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600">{e.entry_date}</td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-bold text-blue-600">
+                                {e.today_progress} {currentActivity?.unit || ""}
                               </td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600 max-w-[200px] truncate" title={e.remarks}>{e.remarks || "-"}</td>
-                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
-                              <td className="px-6 py-6 font-inter text-right">
-                                <div className="flex items-center justify-end gap-3 font-inter">
-                                  <button
-                                    onClick={() => { setSelectedEntry(e); setIsEditModalOpen(true); }}
-                                    className="p-2.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-xl transition-all border border-transparent hover:border-blue-100 font-inter"
-                                    title="Edit Entry"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => { setDeleteEntryId(e.id); setIsDeleteModalOpen(true); }}
-                                    className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100 font-inter"
-                                    title="Delete Entry"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600 max-w-[250px] truncate" title={e.remarks}>{e.remarks || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-500">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
+                              {activeTab === 'all' && (
+                                <td className="px-6 py-6 font-inter">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button
+                                      onClick={() => { setSelectedEntry(e); setIsEditEntryModalOpen(true); }}
+                                      className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                      title="Edit Entry"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => { setDeleteEntryId(e.id); setIsDeleteEntryModalOpen(true); }}
+                                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                      title="Delete Entry"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           );
                         }) : (
                           <tr>
-                            <td colSpan={7} className="px-6 py-20 text-center font-inter bg-slate-50 border-dashed border border-slate-200 rounded-2xl">
+                            <td colSpan={5} className="px-6 py-20 text-center font-inter bg-slate-50 border-dashed border border-slate-200 rounded-2xl">
                               <AlertCircle className="w-12 h-12 text-slate-200 mx-auto mb-4 font-inter" />
                               <h3 className="text-xl font-bold text-slate-400 tracking-tight font-inter uppercase">Field Registry Exhausted</h3>
                               <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2 font-inter">No execution logs discovered for today.</p>
@@ -543,7 +674,7 @@ const DailyProgressEntryPage = () => {
                   </div>
 
                   {/* â”€â”€ Pagination for Today's Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                  {!loading && (activeTab === 'today' ? todayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length) > 0 && (
+                  {!loading && (activeTab === 'today' ? filteredTodayActivities.length : filteredAllEntries.length) > 0 && (
                     <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                       {/* Left: Items per page */}
                       <div className="flex items-center gap-2">
@@ -562,7 +693,7 @@ const DailyProgressEntryPage = () => {
 
                       {/* Center: Showing info */}
                       <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                        Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, (activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length))} of {(activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length)} records
+                        Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, (activeTab === 'today' ? filteredTodayActivities.length : filteredAllEntries.length))} of {(activeTab === 'today' ? filteredTodayActivities.length : filteredAllEntries.length)} records
                       </div>
 
                       {/* Right: Pagination */}
@@ -576,7 +707,7 @@ const DailyProgressEntryPage = () => {
                         </button>
 
                         {(() => {
-                          const totalItems = (activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length);
+                          const totalItems = (activeTab === 'today' ? filteredTodayActivities.length : filteredAllEntries.length);
                           const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
                           const pages = [];
                           if (totalPages <= 5) {
@@ -614,7 +745,7 @@ const DailyProgressEntryPage = () => {
 
                         <button
                           onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                          disabled={currentPage === Math.max(1, totalPages) || (activeTab === 'today' ? filteredTodayActivities.length : activeTab === 'delay' ? delayActivities.length : filteredHistoryEntries.length) === 0}
+                          disabled={currentPage === Math.max(1, totalPages) || (activeTab === 'today' ? filteredTodayActivities.length : filteredAllEntries.length) === 0}
                           className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                         >
                           <ChevronRight className="w-4 h-4" />
@@ -623,7 +754,8 @@ const DailyProgressEntryPage = () => {
                     </div>
                   )}
                 </>
-              ) : activeTab === 'all' ? (
+              )}
+              {activeTab === 'history' && (
                 <>
                   <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                     <table className="w-full text-left font-inter min-w-[1200px]">
@@ -762,7 +894,8 @@ const DailyProgressEntryPage = () => {
                     </div>
                   )}
                 </>
-              ) : (
+              )}
+              {activeTab === 'delay' && (
                 <>
                   <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
                     <table className="w-full text-left font-inter min-w-[1500px]">
@@ -872,10 +1005,7 @@ const DailyProgressEntryPage = () => {
                               <button
                                 key={`page-${pageNum}`}
                                 onClick={() => setCurrentPage(pageNum as number)}
-                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                  }`}
+                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'}`}
                               >
                                 {pageNum}
                               </button>
@@ -906,29 +1036,28 @@ const DailyProgressEntryPage = () => {
         onClose={() => setIsLogModalOpen(false)}
         onSubmit={handleLogModalSubmit}
         activity={null}
-        activitiesList={activitiesList}
         engineerId={engineer_id}
       />
 
       <EditDailyEntryModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSubmit={handleEditSubmit}
+        isOpen={isEditEntryModalOpen}
+        onClose={() => setIsEditEntryModalOpen(false)}
+        onSubmit={handleEditEntrySubmit}
         entry={selectedEntry}
       />
 
       <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={handleDeleteEntry}
+        isOpen={isDeleteEntryModalOpen}
+        onClose={() => setIsDeleteEntryModalOpen(false)}
+        onConfirm={handleDeleteEntrySubmit}
         title="Delete Daily Entry"
-        message="Are you sure you want to delete this progress entry? This action is permanent and cannot be undone."
-        confirmText="Delete Entry"
+        message="Are you sure you want to delete this daily progress entry? This action cannot be undone."
+        confirmText="Delete"
         type="danger"
-        isLoading={isDeleting}
       />
     </>
   );
 };
 
 export default DailyProgressEntryPage;
+

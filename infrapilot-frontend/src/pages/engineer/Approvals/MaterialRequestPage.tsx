@@ -272,20 +272,25 @@ const MaterialRequestPage = () => {
         <>
             <Navbar title="Material Requests" breadcrumb={["Engineer", "Approvals", "Material Requisition"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
-                    <div className="font-inter">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Material Request</h1>
-                        <p className="text-slate-500 text-sm font-inter">Formal procurement requests for structural and consumable site resources.</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Material Request
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Formal procurement requests for structural and consumable site resources.
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap gap-2">
                         <button
                             onClick={fetchRequests}
-                            className="p-2 text-slate-400 hover:text-primary transition-colors bg-white rounded-xl border border-slate-200 shadow-sm font-inter active:scale-95"
+                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
                             title="Refetch Intelligence"
                         >
-                            <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                            <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                            Refresh
                         </button>
                         <button
                             onClick={() => {
@@ -298,7 +303,7 @@ const MaterialRequestPage = () => {
                                 setErrors({});
                                 setIsFormModalOpen(true);
                             }}
-                            className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
                             <Plus className="w-4 h-4" />
                             New Material Entry
@@ -306,37 +311,54 @@ const MaterialRequestPage = () => {
                     </div>
                 </div>
 
-                {/* â”€â”€ Interactive Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                {/* â”€â”€ Scrollable Content Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-                    <div onClick={() => setActiveFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl hover:scale-[1.01]`}>
-                        <StatCard
-                            title="Total Logs"
-                            value={stats.total.toString()}
-                            sub="All Requests"
-                            accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => setActiveFilter("Approved")} className={`cursor-pointer group transition-all rounded-xl hover:scale-[1.01]`}>
-                        <StatCard
-                            title="Approved"
-                            value={stats.approved.toString()}
-                            sub="Released for Site"
-                            accent="text-emerald-500" />
-                    </div>
-                    <div onClick={() => setActiveFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl hover:scale-[1.01]`}>
-                        <StatCard
-                            title="Pending Review"
-                            value={stats.pending.toString()}
-                            sub="PM Validation"
-                            accent="text-amber-500" />
-                    </div>
-                    <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-                        <StatCard
-                            title="Fulfillment"
-                            value={`${stats.fulfillment}%`}
-                            sub="Procurement Yield"
-                            accent="text-blue-500" />
-                    </div>
+                {/* ── Interactive Stats ────────────────────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {[
+                        {
+                            title: "Total Logs",
+                            value: stats.total.toString(),
+                            sub: "All Requests",
+                            accent: "text-slate-800",
+                            status: "Select",
+                        },
+                        {
+                            title: "Approved",
+                            value: stats.approved.toString(),
+                            sub: "Released for Site",
+                            accent: "text-emerald-500",
+                            status: "Approved",
+                        },
+                        {
+                            title: "Pending Review",
+                            value: stats.pending.toString(),
+                            sub: "PM Validation",
+                            accent: "text-amber-500",
+                            status: "Pending",
+                        },
+                        {
+                            title: "Fulfillment",
+                            value: `${stats.fulfillment}%`,
+                            sub: "Procurement Yield",
+                            accent: "text-blue-500",
+                            status: null,
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => s.status && setActiveFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? 'hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20' : 'cursor-default'} group`}
+                        >
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            {s.sub && (
+                                <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                    {s.sub}
+                                </p>
+                            )}
+                        </div>
+                    ))}
                 </div>
 
                 {/* â”€â”€ Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}

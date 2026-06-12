@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import StatCard from "../../components/common/StatCard";
 import NewDSREntryModal from "../../components/dashboard/NewDSREntryModal";
 import EditDSRModal from "../../components/dashboard/EditDSRModal";
 import Modal from "../../components/common/Modal";
@@ -25,7 +24,7 @@ import {
     CheckCircle,
     Trash2
 } from "lucide-react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
 import { dsrService } from "../../services/dsrService";
 import { sitePhotoService } from "../../services/sitePhotoService";
@@ -99,14 +98,13 @@ const DSRPage = () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
-            const offset = (currentPage - 1) * itemsPerPage;
             const response = await dsrService.getDsrByProject(projectId, {
-                limit: itemsPerPage,
-                offset
+                limit: 100,
+                offset: 0
             });
             // Strictly enforce project isolation on the frontend
             const apiData = response.items.filter((item: any) => Number(item.project_id) === Number(projectId));
-            setTotalItems(response.meta.total);
+            setTotalItems(apiData.length);
 
             // Resolve photos for each item
             const itemsWithPhotos = await Promise.all(apiData.map(async (item: any) => {
@@ -138,7 +136,7 @@ const DSRPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [projectId, currentPage, itemsPerPage]);
+    }, [projectId]);
 
     useEffect(() => {
         fetchDsr();
@@ -147,8 +145,12 @@ const DSRPage = () => {
     const fetchAnalytics = useCallback(async () => {
         if (!projectId) return;
         try {
+            const startDate = new Date();
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            const endDate = new Date();
+            
             const [labour, contractor, issues] = await Promise.all([
-                dsrService.getLabourTrend(projectId).catch(() => []),
+                dsrService.getLabourTrend(projectId, startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]).catch(() => []),
                 dsrService.getContractorAnalytics(projectId).catch(() => []),
                 dsrService.getIssueAnalytics(projectId).catch(() => null)
             ]);
@@ -242,7 +244,7 @@ const DSRPage = () => {
         try {
             await dsrService.deleteDsrPhoto(photoId);
             toast.success("Photo deleted successfully", { id: tid });
-            
+
             if (selectedDsr && selectedDsr.photos) {
                 const updatedPhotos = selectedDsr.photos.filter((p: any) => p.id !== photoId);
                 setSelectedDsr({ ...selectedDsr, photos: updatedPhotos });
@@ -279,20 +281,20 @@ const DSRPage = () => {
         }
 
         return data.filter(dsr => {
-            const matchesSearch = dsr.work_done.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (dsr.business_id && dsr.business_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                dsr.site_location.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = (dsr.work_done?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+                (dsr.business_id?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+                (dsr.site_location?.toLowerCase() || "").includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === "All" || dsr.status === statusFilter || (statusFilter === "Approved" && dsr.status === "Verified");
             return matchesSearch && matchesStatus;
         });
     }, [dsrList, searchTerm, statusFilter, activeStatFilter]);
 
     const stats = useMemo(() => {
-        const total = totalItems;
-        const draftCount = dsrList.filter(d => d.status === "Draft").length;
-        const submittedCount = dsrList.filter(d => d.status === "Submitted").length;
-        const approvedCount = dsrList.filter(d => d.status === "Approved" || d.status === "Verified").length;
-        const totalLabour = dsrList.reduce((sum, d) => sum + (d.total_labour || 0), 0);
+        const total = filteredList.length;
+        const draftCount = filteredList.filter(d => d.status === "Draft").length;
+        const submittedCount = filteredList.filter(d => d.status === "Submitted").length;
+        const approvedCount = filteredList.filter(d => d.status === "Approved" || d.status === "Verified").length;
+        const totalLabour = filteredList.reduce((sum, d) => sum + (d.total_labour || 0), 0);
 
         return {
             total,
@@ -307,19 +309,46 @@ const DSRPage = () => {
         setCurrentPage(1);
     }, [searchTerm, statusFilter, activeStatFilter, projectId]);
 
+    const aggregatedLabourTrend = useMemo(() => {
+        const grouped = labourTrend.reduce((acc, curr) => {
+            const date = new Date(curr.date);
+            const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear().toString().slice(-2)}`;
+            if (!acc[monthYear]) {
+                acc[monthYear] = { date: monthYear, labour: 0, count: 0 };
+            }
+            acc[monthYear].labour += curr.labour;
+            acc[monthYear].count += 1;
+            return acc;
+        }, {} as Record<string, { date: string, labour: number, count: number }>);
+        
+        return Object.values(grouped).map(item => ({
+            date: item.date,
+            labour: Math.round(item.labour / item.count)
+        }));
+    }, [labourTrend]);
+
+    const paginatedList = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredList.slice(start, start + itemsPerPage);
+    }, [filteredList, currentPage, itemsPerPage]);
+
 
     return (
         <>
             <Navbar title="Daily Site Reports" breadcrumb={["Engineer", "Site Records", "DSR Vault"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* ── Header ──────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Daily Ledger</h1>
-                        <p className="text-slate-500 text-sm">Historical record of activities, labour, and material movements.</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Project Daily Ledger
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Historical record of activities, labour, and material movements.
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
                         <button
                             onClick={fetchDsr}
                             className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
@@ -341,14 +370,14 @@ const DSRPage = () => {
                                         }
                                     });
                             }}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95 font-inter"
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95"
                         >
                             <FileDown className="w-4 h-4" />
                             Export
                         </button>
                         <button
                             onClick={() => setIsCreateOpen(true)}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
                             <Plus className="w-4 h-4" />
                             New Entry
@@ -357,384 +386,418 @@ const DSRPage = () => {
                 </div>
 
                 {/* ── Summary Stats with Interactive Filtering ───────────────────────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-                    <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "All" ? "ring-2 ring-primary/20 rounded-xl" : ""}`}>
-                        <StatCard
-                            title="Total Logs"
-                            value={stats.total.toString()}
-                            sub="All Time Records"
-                            accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Draft")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "Draft" ? "ring-2 ring-slate-400/20 rounded-xl" : ""}`}>
-                        <StatCard
-                            title="Draft Reports"
-                            value={stats.draftCount.toString()}
-                            sub="Pending Submission"
-                            accent="text-slate-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Submitted")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "Submitted" ? "ring-2 ring-blue-500/20 rounded-xl" : ""}`}>
-                        <StatCard
-                            title="Submitted Reports"
-                            value={stats.submittedCount.toString()}
-                            sub="Pending Audit"
-                            accent="text-blue-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Approved")} className={`cursor-pointer hover:scale-[1.02] active:scale-95 transition-all ${activeStatFilter === "Approved" ? "ring-2 ring-emerald-500/20 rounded-xl" : ""}`}>
-                        <StatCard
-                            title="Approved Reports"
-                            value={stats.approvedCount.toString()}
-                            sub="Verified & Approved"
-                            accent="text-emerald-500" />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    {[
+                        {
+                            title: "Total Logs",
+                            value: stats.total.toString(),
+                            sub: "All Time Records",
+                            accent: "text-slate-800",
+                            status: "All",
+                        },
+                        {
+                            title: "Draft Reports",
+                            value: stats.draftCount.toString(),
+                            sub: "Pending Submission",
+                            accent: "text-slate-500",
+                            status: "Draft",
+                        },
+                        {
+                            title: "Submitted Reports",
+                            value: stats.submittedCount.toString(),
+                            sub: "Pending Audit",
+                            accent: "text-blue-500",
+                            status: "Submitted",
+                        },
+                        {
+                            title: "Approved Reports",
+                            value: stats.approvedCount.toString(),
+                            sub: "Verified & Approved",
+                            accent: "text-emerald-500",
+                            status: "Approved",
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => setActiveStatFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:border-primary/20 hover:scale-[1.02] active:scale-95 group ${activeStatFilter === s.status ? "ring-2 ring-primary/20" : ""}`}
+                        >
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                {s.sub}
+                            </p>
+                        </div>
+                    ))}
                 </div>
 
                 {/* ── Tabs ───────────────────────────────────────────── */}
-                <div className="flex items-center gap-6 border-b border-slate-200 mb-6 px-2">
+                <div className="flex p-1 bg-slate-200/50 rounded-xl w-fit mb-6 md:mb-8 border border-slate-200/50">
                     <button
                         onClick={() => setActiveTab("list")}
-                        className={`pb-3 text-sm font-bold transition-all relative ${
-                            activeTab === "list" 
-                            ? "text-primary border-b-2 border-primary" 
-                            : "text-slate-500 hover:text-slate-800"
-                        }`}
+                        className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === "list"
+                            ? "bg-white text-primary shadow-sm border border-slate-200/50"
+                            : "text-slate-500 hover:text-slate-700"
+                            }`}
                     >
                         DSR Ledger
                     </button>
                     <button
                         onClick={() => setActiveTab("analytics")}
-                        className={`pb-3 text-sm font-bold transition-all relative ${
-                            activeTab === "analytics" 
-                            ? "text-primary border-b-2 border-primary" 
-                            : "text-slate-500 hover:text-slate-800"
-                        }`}
+                        className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === "analytics"
+                            ? "bg-white text-primary shadow-sm border border-slate-200/50"
+                            : "text-slate-500 hover:text-slate-700"
+                            }`}
                     >
-                        Analytics Dashboard
+                        Analytics Overview
                     </button>
                 </div>
 
-                {/* ── Tab Content ───────────────────────────────────────────── */}
-                
                 {activeTab === "analytics" && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                    {/* Labour Trend Graph */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-primary" />
-                            Labour Trend
-                        </h3>
-                        {labourTrend.length > 0 ? (
-                            <div className="h-48 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={labourTrend}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                        <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                        <Line type="monotone" dataKey="labour" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 6 }} name="Labour Count" />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                    <div className="mb-8">
+                        {/* ── Analytics Overview ───────────────────────────────────────────── */}
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Analytics Overview</h2>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                            {/* Labour Trend Graph */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
+                                <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <Activity className="w-4 h-4 text-primary" />
+                                    Labour Trend
+                                </h3>
+                                {labourTrend.length > 0 ? (
+                                    <div className="h-48 w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={aggregatedLabourTrend}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                                <Line type="monotone" dataKey="labour" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 6 }} name="Labour Count" />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Labour Data</p>
+                                )}
                             </div>
-                        ) : (
-                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Labour Data</p>
-                        )}
-                    </div>
 
-                    {/* Contractor Analytics Graph */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <Briefcase className="w-4 h-4 text-emerald-500" />
-                            Contractor Performance
-                        </h3>
-                        {contractorAnalytics.length > 0 ? (
-                            <div className="h-48 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={contractorAnalytics} layout="vertical" margin={{ left: 20 }}>
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                                        <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                        <YAxis type="category" dataKey="contractor" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} width={80} />
-                                        <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                        <Bar dataKey="entries" fill="#10b981" radius={[0, 4, 4, 0]} name="Entries" />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                            {/* Contractor Analytics Graph */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
+                                <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <Briefcase className="w-4 h-4 text-emerald-500" />
+                                    Contractor Performance
+                                </h3>
+                                {contractorAnalytics.length > 0 ? (
+                                    <div className="overflow-y-auto max-h-48 custom-scrollbar">
+                                        <table className="w-full text-left text-xs">
+                                            <thead className="bg-slate-50 sticky top-0">
+                                                <tr>
+                                                    <th className="px-3 py-2 font-bold text-slate-500 uppercase">Contractor</th>
+                                                    <th className="px-3 py-2 font-bold text-slate-500 uppercase text-right">Entries</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {contractorAnalytics.map((c, i) => (
+                                                    <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                                        <td className="px-3 py-2 font-medium text-slate-700">{c.contractor}</td>
+                                                        <td className="px-3 py-2 font-bold text-emerald-600 text-right">{c.entries}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Contractor Data</p>
+                                )}
                             </div>
-                        ) : (
-                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Contractor Data</p>
-                        )}
-                    </div>
 
-                    {/* Issue Analytics */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-rose-500" />
-                            Issue Analytics
-                        </h3>
-                        {issueAnalytics ? (
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 flex flex-col items-center justify-center text-center">
-                                    <span className="text-2xl font-black text-rose-600">{issueAnalytics.total_reports}</span>
-                                    <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mt-1">Total Reports</span>
-                                </div>
-                                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex flex-col items-center justify-center text-center">
-                                    <span className="text-2xl font-black text-amber-600">{issueAnalytics.reports_with_issues}</span>
-                                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">Reports with Issues</span>
-                                </div>
-                                <div className="col-span-2 bg-emerald-50 p-3 rounded-xl border border-emerald-100 flex justify-between items-center">
-                                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Issue Frequency</span>
-                                    <span className="text-sm font-black text-emerald-600">
-                                        {issueAnalytics.total_reports > 0 
-                                            ? Math.round((issueAnalytics.reports_with_issues / issueAnalytics.total_reports) * 100) 
-                                            : 0}%
-                                    </span>
-                                </div>
+                            {/* Issue Analytics */}
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 font-inter">
+                                <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 text-rose-500" />
+                                    Issue Analytics
+                                </h3>
+                                {issueAnalytics ? (
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 flex flex-col items-center justify-center text-center shadow-sm">
+                                            <span className="text-2xl font-black text-rose-600">{issueAnalytics.total_reports}</span>
+                                            <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest mt-1">Total Reports</span>
+                                        </div>
+                                        <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 flex flex-col items-center justify-center text-center shadow-sm">
+                                            <span className="text-2xl font-black text-amber-600">{issueAnalytics.reports_with_issues}</span>
+                                            <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-1">With Issues</span>
+                                        </div>
+                                        <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100 flex flex-col items-center justify-center text-center shadow-sm">
+                                            <span className="text-2xl font-black text-emerald-600">
+                                                {issueAnalytics.total_reports > 0
+                                                    ? Math.round((issueAnalytics.reports_with_issues / issueAnalytics.total_reports) * 100)
+                                                    : 0}%
+                                            </span>
+                                            <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Frequency</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Issue Data</p>
+                                )}
                             </div>
-                        ) : (
-                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest text-center py-6">No Issue Data</p>
-                        )}
+                        </div>
                     </div>
-                </div>
                 )}
 
                 {activeTab === "list" && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
-                    {/* Integrated Filter Bar */}
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                        <div className="relative flex-1 max-w-md font-inter">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                                <Search className="w-4 h-4" />
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Search by activity, location or ID..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
-                            />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 font-inter">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status:</span>
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
-                            >
-                                <option value="All">All Status</option>
-                                <option value="Draft">Draft</option>
-                                <option value="Submitted">Submitted</option>
-                                <option value="Approved">Approved</option>
-                            </select>
+                    <div className="mb-8">
+                        {/* ── DSR Ledger ───────────────────────────────────────────── */}
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">DSR Ledger</h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter flex flex-col">
+                            {/* Integrated Filter Bar */}
+                            <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                                <div className="relative flex-1 max-w-md font-inter">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                        <Search className="w-4 h-4" />
+                                    </span>
+                                    <input
+                                        type="text"
+                                        placeholder="Search by activity, location or ID..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                    />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3 font-inter">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status:</span>
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest"
+                                    >
+                                        <option value="All">All Status</option>
+                                        <option value="Draft">Draft</option>
+                                        <option value="Submitted">Submitted</option>
+                                        <option value="Approved">Approved</option>
+                                    </select>
 
-                            {activeStatFilter !== "All" && (
-                                <button
-                                    onClick={() => {
-                                        setActiveStatFilter("All");
-                                    }}
-                                    className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
-                                    title="Reset Filters"
-                                >
-                                    <RotateCcw className="w-4 h-4" />
-                                </button>
+                                    {activeStatFilter !== "All" && (
+                                        <button
+                                            onClick={() => {
+                                                setActiveStatFilter("All");
+                                            }}
+                                            className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                            title="Reset Filters"
+                                        >
+                                            <RotateCcw className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                                {isLoading ? (
+                                    <div className="p-20 text-center text-slate-400 font-inter">
+                                        <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest">Syncing DSR vault...</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-left font-inter min-w-[1000px]">
+                                        <thead>
+                                            <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                                <th className="px-6 py-4 font-inter">Report Details</th>
+                                                <th className="px-6 py-4 font-inter">Work Summary</th>
+                                                <th className="px-6 py-4 font-inter">Personnel</th>
+                                                <th className="px-6 py-4 font-inter">Status</th>
+                                                <th className="px-6 py-4 font-inter">Site Media</th>
+                                                <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50 font-inter">
+                                            {paginatedList.length > 0 ? (
+                                                paginatedList.map((dsr) => (
+                                                    <tr key={dsr.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex flex-col font-inter">
+                                                                <span className="text-sm font-bold text-slate-800 font-inter">{dsr.report_date}</span>
+                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{dsr.report_type || "Daily Ledger"}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex flex-col max-w-xs font-inter">
+                                                                <span className="text-xs font-bold text-slate-700 truncate font-inter">{dsr.work_done}</span>
+                                                                <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
+                                                                    <MapPin className="w-3 h-3" />
+                                                                    <span className="truncate font-inter">{dsr.site_location}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex flex-col font-inter">
+                                                                <span className="text-[11px] font-bold text-slate-700 font-inter truncate max-w-[150px]">Contractor: <span className="text-primary">{dsr.contractor_name || '-'}</span></span>
+                                                                <span className="text-[10px] text-slate-400 font-bold font-inter truncate max-w-[150px] mt-0.5">By: {dsr.created_by_name || '-'}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${dsr.status ? statusBadge[dsr.status] : "bg-slate-100 text-slate-500"} font-inter`}>
+                                                                {dsr.status}
+                                                            </span>
+                                                        </td>
+
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex -space-x-3 hover:space-x-1 transition-all">
+                                                                {dsr.photos && dsr.photos.length > 0 ? (
+                                                                    dsr.photos.slice(0, 3).map((photo) => (
+                                                                        <div key={photo.id} className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm hover:z-10 transition-transform hover:scale-110">
+                                                                            <img
+                                                                                src={sitePhotoService.resolveUrl(photo.url) || ""}
+                                                                                alt="Site"
+                                                                                className="w-full h-full object-cover"
+                                                                            />
+                                                                        </div>
+                                                                    ))
+                                                                ) : dsr.dsr_image ? (
+                                                                    <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm">
+                                                                        <img src={sitePhotoService.resolveUrl(dsr.dsr_image) || ""} alt="Site" className="w-full h-full object-cover" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300">
+                                                                        <ImageIcon className="w-4 h-4" />
+                                                                    </div>
+                                                                )}
+                                                                {dsr.photos && dsr.photos.length > 3 && (
+                                                                    <div className="w-12 h-12 rounded-xl bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500 z-0">
+                                                                        +{dsr.photos.length - 3}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex items-center justify-end gap-2 font-inter">
+                                                                {dsr.status === 'Draft' && (
+                                                                    <div className="flex items-center gap-1.5 mr-2">
+                                                                        <button
+                                                                            onClick={() => handleSubmitDsr(dsr.id)}
+                                                                            className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 active:scale-95 flex items-center justify-center font-inter"
+                                                                            title="Submit DSR"
+                                                                        >
+                                                                            <CheckCircle className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => handleView(dsr.id)}
+                                                                    className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                                    disabled={loadingId === dsr.id}
+                                                                    title="View Details"
+                                                                >
+                                                                    {loadingId === dsr.id ? (
+                                                                        <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                                                    ) : (
+                                                                        <Eye className="w-4 h-4" />
+                                                                    )}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleEdit(dsr.id)}
+                                                                    className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all font-inter"
+                                                                    title="Modify Record"
+                                                                >
+                                                                    <Edit2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-inter">
+                                                        No daily reports found in the project vault.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+
+                            {/* ── Pagination Controls ──────────────────────────── */}
+                            {!isLoading && dsrList.length > 0 && (
+                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                                    {/* Left: Items per page */}
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                        <select
+                                            value={itemsPerPage}
+                                            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                            className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                        >
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={50}>50</option>
+                                            <option value={100}>100</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Center: Showing info */}
+                                    <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                        Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} records
+                                    </div>
+
+                                    {/* Right: Pagination */}
+                                    <div className="flex items-center gap-1.5">
+                                        <button
+                                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                            disabled={currentPage === 1}
+                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+
+                                        {(() => {
+                                            const totalPages = Math.max(1, Math.ceil(filteredList.length / itemsPerPage));
+                                            const pages = [];
+                                            if (totalPages <= 5) {
+                                                for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                            } else {
+                                                if (currentPage <= 3) {
+                                                    pages.push(1, 2, 3, 4, '...', totalPages);
+                                                } else if (currentPage >= totalPages - 2) {
+                                                    pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                                } else {
+                                                    pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                                }
+                                            }
+
+                                            return pages.map((page, index) => {
+                                                if (page === '...') {
+                                                    return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                                }
+                                                const pageNum = page as number;
+                                                const isActive = currentPage === pageNum;
+                                                return (
+                                                    <button
+                                                        key={`page-${pageNum}`}
+                                                        onClick={() => setCurrentPage(pageNum)}
+                                                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                            }`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                );
+                                            });
+                                        })()}
+
+                                        <button
+                                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalItems / itemsPerPage), prev + 1))}
+                                            disabled={currentPage === Math.max(1, Math.ceil(totalItems / itemsPerPage)) || totalItems === 0}
+                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
-
-                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                        {isLoading ? (
-                            <div className="p-20 text-center text-slate-400 font-inter">
-                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest">Syncing DSR vault...</p>
-                            </div>
-                        ) : (
-                            <table className="w-full text-left font-inter min-w-[1000px]">
-                                <thead>
-                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                        <th className="px-6 py-4 font-inter">Report Details</th>
-                                        <th className="px-6 py-4 font-inter">Work Summary</th>
-                                        <th className="px-6 py-4 font-inter">Status</th>
-                                        <th className="px-6 py-4 font-inter">Site Media</th>
-                                        <th className="px-6 py-4 text-right font-inter">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50 font-inter">
-                                    {filteredList.length > 0 ? (
-                                        filteredList.map((dsr) => (
-                                            <tr key={dsr.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col font-inter">
-                                                        <span className="text-sm font-bold text-slate-800 font-inter">{dsr.report_date}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-inter">{dsr.report_type || "Daily Ledger"}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col max-w-xs font-inter">
-                                                        <span className="text-xs font-bold text-slate-700 truncate font-inter">{dsr.work_done}</span>
-                                                        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
-                                                            <MapPin className="w-3 h-3" />
-                                                            <span className="truncate font-inter">{dsr.site_location}</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${dsr.status ? statusBadge[dsr.status] : "bg-slate-100 text-slate-500"} font-inter`}>
-                                                        {dsr.status}
-                                                    </span>
-                                                </td>
-
-                                                <td className="px-6 py-4">
-                                                    <div className="flex -space-x-3 hover:space-x-1 transition-all">
-                                                        {dsr.photos && dsr.photos.length > 0 ? (
-                                                            dsr.photos.slice(0, 3).map((photo) => (
-                                                                <div key={photo.id} className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm hover:z-10 transition-transform hover:scale-110">
-                                                                    <img
-                                                                        src={sitePhotoService.resolveUrl(photo.url) || ""}
-                                                                        alt="Site"
-                                                                        className="w-full h-full object-cover"
-                                                                    />
-                                                                </div>
-                                                            ))
-                                                        ) : dsr.dsr_image ? (
-                                                            <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-white shadow-sm">
-                                                                <img src={sitePhotoService.resolveUrl(dsr.dsr_image) || ""} alt="Site" className="w-full h-full object-cover" />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-300">
-                                                                <ImageIcon className="w-4 h-4" />
-                                                            </div>
-                                                        )}
-                                                        {dsr.photos && dsr.photos.length > 3 && (
-                                                            <div className="w-12 h-12 rounded-xl bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-slate-500 z-0">
-                                                                +{dsr.photos.length - 3}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2 font-inter">
-                                                        {dsr.status === 'Draft' && (
-                                                            <div className="flex items-center gap-1.5 mr-2">
-                                                                <button
-                                                                    onClick={() => handleSubmitDsr(dsr.id)}
-                                                                    className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all border border-blue-100 active:scale-95 flex items-center justify-center font-inter"
-                                                                    title="Submit DSR"
-                                                                >
-                                                                    <CheckCircle className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                        <button
-                                                            onClick={() => handleView(dsr.id)}
-                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
-                                                            disabled={loadingId === dsr.id}
-                                                            title="View Details"
-                                                        >
-                                                            {loadingId === dsr.id ? (
-                                                                <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-                                                            ) : (
-                                                                <Eye className="w-4 h-4" />
-                                                            )}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleEdit(dsr.id)}
-                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all font-inter"
-                                                            title="Modify Record"
-                                                        >
-                                                            <Edit2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-inter">
-                                                No daily reports found in the project vault.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-
-                    {/* ── Pagination Controls ──────────────────────────── */}
-                    {!isLoading && dsrList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-                            {/* Left: Items per page */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                                <select
-                                    value={itemsPerPage}
-                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
-                                >
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
-                            </div>
-
-                            {/* Center: Showing info */}
-                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} records
-                            </div>
-
-                            {/* Right: Pagination */}
-                            <div className="flex items-center gap-1.5">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-
-                                {(() => {
-                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                                    const pages = [];
-                                    if (totalPages <= 5) {
-                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
-                                    } else {
-                                        if (currentPage <= 3) {
-                                            pages.push(1, 2, 3, 4, '...', totalPages);
-                                        } else if (currentPage >= totalPages - 2) {
-                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                                        } else {
-                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-                                        }
-                                    }
-
-                                    return pages.map((page, index) => {
-                                        if (page === '...') {
-                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                                        }
-                                        const pageNum = page as number;
-                                        const isActive = currentPage === pageNum;
-                                        return (
-                                            <button
-                                                key={`page-${pageNum}`}
-                                                onClick={() => setCurrentPage(pageNum)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                    }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    });
-                                })()}
-
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalItems / itemsPerPage), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(totalItems / itemsPerPage)) || totalItems === 0}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
                 )}
             </PageTransition>
 
@@ -849,19 +912,23 @@ const DSRPage = () => {
                                     </div>
                                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Operational Intelligence</p>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-6">
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Weather Condition</p>
                                         <p className="text-sm font-bold text-slate-800">{selectedDsr.weather}</p>
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Personnel</p>
-                                        <p className="text-sm font-bold text-slate-800 mb-1">{selectedDsr.total_labour || 0} Units</p>
-                                        <p className="text-[10px] font-bold text-slate-500">{selectedDsr.skilled_labour || 0} Skilled • {selectedDsr.unskilled_labour || 0} Unskilled</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Contractor</p>
+                                        <p className="text-sm font-bold text-primary">{selectedDsr.contractor_name || "N/A"}</p>
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Registry ID</p>
-                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.business_id || `DSR-${selectedDsr.id}`}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Created By</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.created_by_name || "N/A"}</p>
+                                    </div>
+                                    <div className="sm:col-span-2 lg:col-span-1">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Personnel</p>
+                                        <p className="text-sm font-bold text-slate-800 mb-1">{selectedDsr.total_labour || 0}</p>
+                                        <p className="text-[10px] font-bold text-slate-500">{selectedDsr.skilled_labour || 0} Skilled • {selectedDsr.unskilled_labour || 0} Unskilled</p>
                                     </div>
                                 </div>
                             </div>
@@ -881,6 +948,12 @@ const DSRPage = () => {
                                             "{selectedDsr.work_done}"
                                         </div>
                                     </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Work Planned</p>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-medium">
+                                            "{selectedDsr.work_planned || "No upcoming plans reported"}"
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -892,10 +965,14 @@ const DSRPage = () => {
                                     </div>
                                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Resource Logistics</p>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-6">
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Material Received</p>
                                         <p className="text-sm font-bold text-slate-800">{selectedDsr.material_received || "Nil"}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Material Used</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedDsr.material_used || "Nil"}</p>
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Machinery Used</p>
@@ -912,8 +989,25 @@ const DSRPage = () => {
                                     </div>
                                     <p className="text-[11px] font-bold text-rose-500 uppercase tracking-widest">Constraints & Observations</p>
                                 </div>
-                                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 text-sm text-rose-600 font-medium">
-                                    {selectedDsr.issues || "No operational constraints reported today."}
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Issues</p>
+                                        <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 text-sm text-rose-600 font-medium">
+                                            {selectedDsr.issues || "No operational constraints reported today."}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Safety Observations</p>
+                                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-sm text-amber-600 font-medium">
+                                            {selectedDsr.safety_observations || "No safety observations."}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Remarks</p>
+                                        <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 text-sm text-blue-600 font-medium">
+                                            {selectedDsr.remarks || "No additional remarks."}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
-import StatCard from "../../../components/common/StatCard";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import {
@@ -216,25 +215,23 @@ const ActivityListPage = () => {
     }
   };
 
-  const getProgressColor = (percent: number) => {
-    if (percent >= 75) return "bg-emerald-500";
-    if (percent >= 40) return "bg-blue-500";
-    if (percent > 0) return "bg-amber-500";
-    return "bg-slate-200";
-  };
 
   return (
     <>
       <Navbar title="Activity List" breadcrumb={["InfraPilot", "Engineer", "Work Progress"]} />
-      <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
-        {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ─── Header ──────────────────────────────────────────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Work Progress</h1>
-            <p className="text-slate-500 text-sm">Historical record of project activities and BOQ execution momentum.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              Project Work Progress
+            </h1>
+            <p className="text-slate-500 text-sm">
+              Historical record of project activities and BOQ execution momentum.
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={loadActivities}
               className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
@@ -244,7 +241,7 @@ const ActivityListPage = () => {
             </button>
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
               Add Activity
@@ -252,36 +249,52 @@ const ActivityListPage = () => {
           </div>
         </div>
 
-        {/* â”€â”€ Summary Stats with Interactive Filtering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ─── Summary Stats with Interactive Filtering ───────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div onClick={() => setActiveStatFilter("All")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Total Tasks"
-              value={stats.total.toString()}
-              sub="Active Ledger"
-              accent="text-slate-800" />
-          </div>
-          <div onClick={() => setActiveStatFilter("Compliance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Compliance" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Compliance"
-              value={stats.complianceRate}
-              sub="Completion Rate"
-              accent="text-blue-500" />
-          </div>
-          <div onClick={() => setActiveStatFilter("Delayed")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Delayed" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Behind Schedule"
-              value={stats.delayed.toString()}
-              sub="Action Required"
-              accent="text-rose-500" />
-          </div>
-          <div onClick={() => setActiveStatFilter("Execution")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Execution" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-            <StatCard
-              title="Execution"
-              value={stats.onTrack.toString()}
-              sub="On Track Items"
-              accent="text-emerald-500" />
-          </div>
+          {[
+            {
+              title: "Total Tasks",
+              value: stats.total.toString(),
+              sub: "Active Ledger",
+              accent: "text-slate-800",
+              status: "All",
+            },
+            {
+              title: "Compliance",
+              value: stats.complianceRate,
+              sub: "Completion Rate",
+              accent: "text-blue-500",
+              status: "Compliance",
+            },
+            {
+              title: "Behind Schedule",
+              value: stats.delayed.toString(),
+              sub: "Action Required",
+              accent: "text-rose-500",
+              status: "Delayed",
+            },
+            {
+              title: "Execution",
+              value: stats.onTrack.toString(),
+              sub: "On Track Items",
+              accent: "text-emerald-500",
+              status: "Execution",
+            },
+          ].map((s) => (
+            <div
+              key={s.title}
+              onClick={() => setActiveStatFilter(s.status as any)}
+              className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:border-primary/20 hover:scale-[1.02] active:scale-95 group ${activeStatFilter === s.status ? "ring-2 ring-primary/20" : ""}`}
+            >
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary transition-colors">
+                {s.title}
+              </p>
+              <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+              <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                {s.sub}
+              </p>
+            </div>
+          ))}
         </div>
 
         {/* â”€â”€ Filter Bar & Registry Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -389,8 +402,13 @@ const ActivityListPage = () => {
                         </button>
                         <button
                           onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }}
-                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
-                          title="Archive Entry"
+                          disabled={a.status === "ON_TRACK" || a.status === "COMPLETED"}
+                          className={`p-2 rounded-xl transition-all font-inter ${
+                            a.status === "ON_TRACK" || a.status === "COMPLETED" 
+                              ? "text-slate-300 opacity-50 cursor-not-allowed" 
+                              : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                          }`}
+                          title={a.status === "ON_TRACK" || a.status === "COMPLETED" ? "Cannot delete active or completed activities" : "Archive Entry"}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

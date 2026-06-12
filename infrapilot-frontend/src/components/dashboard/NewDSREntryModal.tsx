@@ -137,17 +137,7 @@ const NewDSREntryModal = ({
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!formData.report_date) errs.report_date = "Report Date is required";
-    if (!formData.site_location || !formData.site_location.trim()) errs.site_location = "Site Location is required";
     if (!formData.work_done || !formData.work_done.trim()) errs.work_done = "Work Done is required";
-    if (!formData.work_planned || !formData.work_planned.trim()) errs.work_planned = "Work Planned is required";
-    if (!formData.weather) errs.weather = "Weather condition is required";
-    if (!formData.contractor_id) errs.contractor_id = "Contractor ID is required";
-    if (!formData.machinery_used || !formData.machinery_used.trim()) errs.machinery_used = "Machinery Used is required";
-    if (!formData.material_received || !formData.material_received.trim()) errs.material_received = "Material Received is required";
-    if (!formData.material_used || !formData.material_used.trim()) errs.material_used = "Material Consumed is required";
-    if (!formData.issues || !formData.issues.trim()) errs.issues = "Issues / Delays is required";
-    if (!formData.safety_observations || !formData.safety_observations.trim()) errs.safety_observations = "Safety Observations is required";
-    if (!formData.remarks || !formData.remarks.trim()) errs.remarks = "Engineer Remarks is required";
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -164,7 +154,7 @@ const NewDSREntryModal = ({
     try {
       // Create the DSR entry (JSON body)
       const newDsr = await dsrService.createDsr(formData);
-      
+
       // Upload photo if selected
       if (photoFile) {
         toast.loading("Uploading photo...", { id: tid });
@@ -206,7 +196,7 @@ const NewDSREntryModal = ({
       }
     >
       <form id="dsr-form" onSubmit={handleSubmit} noValidate className="space-y-6">
-        
+
         {/* Basic Info */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
@@ -225,17 +215,17 @@ const NewDSREntryModal = ({
               {errors.report_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.report_date}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Contractor ID <span className="text-rose-500">*</span></label>
-              <input required type="number" name="contractor_id" value={formData.contractor_id} onChange={handleChange} className={inputClasses(errors.contractor_id)} />
+              <label className={labelClasses}>Contractor ID</label>
+              <input type="number" name="contractor_id" value={formData.contractor_id} onChange={handleChange} className={inputClasses(errors.contractor_id)} />
               {errors.contractor_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.contractor_id}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Site Location <span className="text-rose-500">*</span></label>
-              <input required type="text" name="site_location" value={formData.site_location} onChange={handleChange} placeholder="e.g. Pune Site A - Phase 1" className={inputClasses(errors.site_location)} />
+              <label className={labelClasses}>Site Location</label>
+              <input type="text" name="site_location" value={formData.site_location} onChange={handleChange} placeholder="e.g. Pune Site A - Phase 1" className={inputClasses(errors.site_location)} />
               {errors.site_location && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.site_location}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Weather Condition <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Weather Condition</label>
               <select name="weather" value={formData.weather} onChange={handleChange} className={inputClasses(errors.weather)}>
                 <option value="Sunny">Sunny</option>
                 <option value="Rainy">Rainy</option>
@@ -246,7 +236,7 @@ const NewDSREntryModal = ({
               </select>
             </div>
           </div>
-          
+
           <div className="mt-4 flex flex-col gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -283,8 +273,8 @@ const NewDSREntryModal = ({
               <textarea required name="work_done" value={formData.work_done} onChange={handleChange} placeholder="Describe work completed today..." rows={3} className={`${inputClasses(errors.work_done)} resize-none`} />
             </div>
             <div>
-              <label className={labelClasses}>Work Planned for Tomorrow <span className="text-rose-500">*</span></label>
-              <textarea required name="work_planned" value={formData.work_planned} onChange={handleChange} placeholder="Describe work planned for tomorrow..." rows={2} className={`${inputClasses(errors.work_planned)} resize-none`} />
+              <label className={labelClasses}>Work Planned for Tomorrow</label>
+              <textarea name="work_planned" value={formData.work_planned} onChange={handleChange} placeholder="Describe work planned for tomorrow..." rows={2} className={`${inputClasses(errors.work_planned)} resize-none`} />
             </div>
           </div>
         </div>
@@ -294,18 +284,18 @@ const NewDSREntryModal = ({
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Resources Used</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Machinery Used <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Machinery Used</label>
               <input type="text" name="machinery_used" value={formData.machinery_used} onChange={handleChange} placeholder="e.g. 2 Excavators, 1 Crane" className={inputClasses(errors.machinery_used)} />
               {errors.machinery_used && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.machinery_used}</p>}
             </div>
             <div className="hidden md:block"></div>
             <div>
-              <label className={labelClasses}>Material Received <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Material Received</label>
               <textarea name="material_received" value={formData.material_received} onChange={handleChange} placeholder="Details of materials received today" rows={2} className={`${inputClasses(errors.material_received)} resize-none`} />
               {errors.material_received && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.material_received}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Material Consumed <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Material Consumed</label>
               <textarea name="material_used" value={formData.material_used} onChange={handleChange} placeholder="Details of materials consumed today" rows={2} className={`${inputClasses(errors.material_used)} resize-none`} />
               {errors.material_used && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.material_used}</p>}
             </div>
@@ -317,17 +307,17 @@ const NewDSREntryModal = ({
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Issues & Safety</h3>
           <div className="space-y-4">
             <div>
-              <label className={labelClasses}>Issues / Delays <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Issues / Delays</label>
               <textarea name="issues" value={formData.issues} onChange={handleChange} placeholder="Report any issues or delays..." rows={2} className={`${inputClasses(errors.issues)} resize-none`} />
               {errors.issues && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.issues}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Safety Observations <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Safety Observations</label>
               <textarea name="safety_observations" value={formData.safety_observations} onChange={handleChange} placeholder="Any safety concerns or observations..." rows={2} className={`${inputClasses(errors.safety_observations)} resize-none`} />
               {errors.safety_observations && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.safety_observations}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Engineer Remarks <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>Engineer Remarks</label>
               <textarea name="remarks" value={formData.remarks} onChange={handleChange} placeholder="Additional notes..." rows={2} className={`${inputClasses(errors.remarks)} resize-none`} />
               {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.remarks}</p>}
             </div>

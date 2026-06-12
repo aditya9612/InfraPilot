@@ -78,6 +78,15 @@ export const dashboardService = {
   },
 
   /**
+   * Get Engineer Dashboard stats
+   * GET /api/v1/dashboard/engineer/{project_id}
+   */
+  async getEngineerDashboard(projectId: number): Promise<any> {
+    const response = await api.get(`/dashboard/engineer/${projectId}`);
+    return response.data;
+  },
+
+  /**
    * Get Admin Dashboard stats
    * GET /api/v1/dashboard/admin
    */

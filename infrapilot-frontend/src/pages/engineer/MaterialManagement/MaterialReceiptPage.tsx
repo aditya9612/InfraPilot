@@ -3,15 +3,15 @@ import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
-import StatCard from "../../../components/common/StatCard";
 import toast from "react-hot-toast";
 import {
     Plus, ShoppingCart, Eye, Edit2, Trash2, Search, RotateCcw,
     ChevronLeft, ChevronRight, TrendingUp, Activity,
     AlertTriangle
 } from "lucide-react";
-import { materialService, type MaterialItem, type SupplierItem, type PurchaseOrder, type MaterialSummary, type PriceHistory, type MaterialLog } from "../../../services/materialService";
+import { materialService, type MaterialItem, type Supplier, type PurchaseOrder, type InventorySummary, type PriceHistory, type MaterialLog, type IssueType, type RateType } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
+import { masterService } from "../../../services/masterService";
 
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
@@ -33,12 +33,13 @@ const MaterialReceiptPage = () => {
 
     // Data States
     const [materials, setMaterials] = useState<MaterialItem[]>([]);
-    const [suppliers, setSuppliers] = useState<SupplierItem[]>([]);
+    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
-    const [summary, setSummary] = useState<MaterialSummary | null>(null);
+    const [summary, setSummary] = useState<InventorySummary | null>(null);
     const [alerts, setAlerts] = useState<MaterialItem[]>([]);
     const [inventoryValue, setInventoryValue] = useState(0);
     const [projectsList, setProjectsList] = useState<any[]>([]);
+    const [masterUnits, setMasterUnits] = useState<any[]>([]);
 
     // Modal Specific Data
     const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
@@ -70,6 +71,14 @@ const MaterialReceiptPage = () => {
             } catch (err) {}
         };
         fetchProjects();
+
+        const fetchUnits = async () => {
+            try {
+                const res = await masterService.getEntities("units");
+                setMasterUnits(Array.isArray(res) ? res : ((res as any).items || (res as any).data || []));
+            } catch (err) {}
+        };
+        fetchUnits();
     }, []);
 
     const handleProjectChange = (newProjectId: number) => {
@@ -102,14 +111,14 @@ const MaterialReceiptPage = () => {
 
     // Selected Items for Modals
     const [selectedMaterial, setSelectedMaterial] = useState<MaterialItem | null>(null);
-    const [selectedSupplier, setSelectedSupplier] = useState<SupplierItem | null>(null);
+    const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<{ type: 'material' | 'supplier' | 'po', id: number } | null>(null);
 
     // Forms
     const [materialForm, setMaterialForm] = useState<Partial<MaterialItem>>({ category: "Construction", unit: "Bags", rate_type: "FIXED" });
-    const [purchaseForm, setPurchaseForm] = useState({ quantity: 0, rate: 0, amount_paid: 0, project_id: 1, issue_type: "SYSTEM" });
-    const [supplierForm, setSupplierForm] = useState<Partial<SupplierItem>>({});
+    const [purchaseForm, setPurchaseForm] = useState({ quantity: 0, rate: 0, amount_paid: 0, project_id: 1, issue_type: "SYSTEM" as IssueType });
+    const [supplierForm, setSupplierForm] = useState<Partial<Supplier>>({});
     const [poForm, setPoForm] = useState<Partial<PurchaseOrder>>({});
 
     // Fetch Methods
@@ -122,7 +131,7 @@ const MaterialReceiptPage = () => {
 
     const fetchSuppliers = async () => {
         setIsLoading(true);
-        try { const data = await materialService.listSuppliers(500); setSuppliers(data); }
+        try { const data = await materialService.getSuppliers(); setSuppliers(data); }
         catch (e) { toast.error("Failed to load suppliers"); }
         finally { setIsLoading(false); }
     };
@@ -138,9 +147,9 @@ const MaterialReceiptPage = () => {
         setIsLoading(true);
         try {
             const [sum, val, al] = await Promise.all([
-                materialService.getSummary(),
-                materialService.getInventoryValuation(),
-                materialService.getAlerts(200)
+                materialService.getMaterialSummary(projectId),
+                materialService.getInventoryValuation(projectId),
+                materialService.getMaterialAlerts(200, projectId)
             ]);
             setSummary(sum);
             setInventoryValue(val.total_value);
@@ -161,7 +170,7 @@ const MaterialReceiptPage = () => {
     const filteredMaterials = useMemo(() => materials.filter(m => m.material_name.toLowerCase().includes(searchTerm.toLowerCase()) || m.material_code?.toLowerCase().includes(searchTerm.toLowerCase())), [materials, searchTerm]);
     const paginatedMaterials = useMemo(() => filteredMaterials.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredMaterials, currentPage, itemsPerPage]);
 
-    const filteredSuppliers = useMemo(() => suppliers.filter(s => s.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())), [suppliers, searchTerm]);
+    const filteredSuppliers = useMemo(() => suppliers.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())), [suppliers, searchTerm]);
     const paginatedSuppliers = useMemo(() => filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredSuppliers, currentPage, itemsPerPage]);
 
     const filteredPOs = useMemo(() => purchaseOrders.filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [purchaseOrders, searchTerm]);
@@ -193,13 +202,46 @@ const MaterialReceiptPage = () => {
     };
 
     const handleSupplierSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsSubmitting(true);
+        e.preventDefault(); 
+        
+        // Front-end validations
+        const nameRegex = /^[a-zA-Z\s]+$/;
+        if (!nameRegex.test(supplierForm.name || "")) {
+            return toast.error("Supplier name must contain only letters and spaces.");
+        }
+        if (!nameRegex.test(supplierForm.contactPerson || "")) {
+            return toast.error("Contact person must contain only letters and spaces.");
+        }
+        if (!/^[0-9]{10}$/.test(supplierForm.contact || "")) {
+            return toast.error("Phone number must be exactly 10 digits.");
+        }
+        const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
+        if (!gstRegex.test(supplierForm.gst || "")) {
+            return toast.error("Invalid GST Number format. e.g. 27ABCDE1234F1Z5");
+        }
+
+        setIsSubmitting(true);
         try {
-            if (selectedSupplier) await materialService.updateSupplier(selectedSupplier.id, supplierForm);
-            else await materialService.createSupplier(supplierForm);
+            const payload = {
+                name: supplierForm.name,
+                contactPerson: supplierForm.contactPerson,
+                contact: supplierForm.contact,
+                gst: supplierForm.gst,
+                address: supplierForm.address || ""
+            };
+
+            if (selectedSupplier) {
+                await materialService.updateSupplier(selectedSupplier.id, payload);
+            } else {
+                await materialService.createSupplier(payload);
+            }
             toast.success(selectedSupplier ? "Supplier updated!" : "Supplier added!");
-            setIsSupplierModalOpen(false); fetchSuppliers();
-        } catch (e) { toast.error("Operation failed"); }
+            setIsSupplierModalOpen(false); 
+            fetchSuppliers();
+        } catch (error: any) { 
+            console.error("Supplier submit error:", error.response?.data || error.message);
+            toast.error(error.response?.data?.detail?.[0]?.msg || error.response?.data?.message || "Operation failed"); 
+        }
         finally { setIsSubmitting(false); }
     };
 
@@ -207,7 +249,7 @@ const MaterialReceiptPage = () => {
         e.preventDefault(); setIsSubmitting(true);
         try {
             if (selectedPO) await materialService.updatePurchaseOrder(selectedPO.id, poForm);
-            else await materialService.createPurchaseOrder({ ...poForm, project_id: projectId });
+            else await materialService.createPurchaseOrder({ ...poForm, project_id: projectId, supplier_id: poForm.supplier_id!, material_id: poForm.material_id!, quantity: poForm.quantity!, rate: poForm.rate! });
             toast.success(selectedPO ? "PO updated!" : "Purchase Order created!");
             setIsPOModalOpen(false); fetchPOs();
         } catch (e) { toast.error("Operation failed"); }
@@ -229,33 +271,61 @@ const MaterialReceiptPage = () => {
         finally { setIsSubmitting(false); }
     };
 
-    const renderPagination = (total: number) => (
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
-            <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
-                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
-                    <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-                </select>
+    const renderPagination = (total: number) => {
+        const totalPages = Math.max(1, Math.ceil(total / itemsPerPage));
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+        const pages = [];
+        for (let i = startPage; i <= endPage; i++) {
+            pages.push(i);
+        }
+
+        return (
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky bottom-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                    <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-slate-200 rounded-lg text-[11px] font-medium px-2 py-1 outline-none bg-white">
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                    </select>
+                </div>
+                <div className="text-[11px] font-medium text-slate-500">
+                    Showing {total === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total} records
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
+                    {pages.map(page => (
+                        <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors ${currentPage === page ? 'bg-blue-600 text-white border border-blue-600 shadow-sm' : 'border border-slate-200 text-slate-600 hover:bg-slate-50 bg-white'}`}
+                        >
+                            {page}
+                        </button>
+                    ))}
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || total === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
+                </div>
             </div>
-            <div className="text-[11px] font-medium text-slate-500">
-                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, total)} of {total}
-            </div>
-            <div className="flex items-center gap-1.5">
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronLeft className="w-4 h-4" /></button>
-                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(total / itemsPerPage), p + 1))} disabled={currentPage === Math.max(1, Math.ceil(total / itemsPerPage)) || total === 0} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50 bg-white"><ChevronRight className="w-4 h-4" /></button>
-            </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <>
             <Navbar title="Material Receipt" breadcrumb={["Engineer", "Material Management", "Receipt & Masters"]} />
-            <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] flex flex-col pb-8">
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+                {/* ─── Header ──────────────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Material Management</h1>
-                        <p className="text-slate-500 text-sm">Manage materials, suppliers, purchase orders and inventory</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Material Management
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Manage materials, suppliers, purchase orders and inventory
+                        </p>
                     </div>
                     {activeTab === "Materials" && (
                         <button onClick={() => { setSelectedMaterial(null); setMaterialForm({ category: "Construction", unit: "Bags", rate_type: "FIXED", quantity_purchased: 0, payment_given: 0 }); setIsMaterialModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
@@ -276,9 +346,9 @@ const MaterialReceiptPage = () => {
 
                 {/* Tabs & Project Filter */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit">
+                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit max-w-full overflow-x-auto scrollbar-none">
                         {(["Dashboard", "Materials", "Suppliers", "Purchase Orders"] as TabType[]).map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
+                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
                                 {tab}
                             </button>
                         ))}
@@ -295,15 +365,55 @@ const MaterialReceiptPage = () => {
 
                 {/* Dashboard Tab */}
                 {activeTab === "Dashboard" && (
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <StatCard title="Total Materials" value={summary?.total_materials.toString() || "0"} sub="Registered items" accent="text-slate-500" />
-                            <StatCard title="Inventory Value" value={formatINR(inventoryValue)} sub="Total stock valuation" accent="text-blue-500" />
-                            <StatCard title="Pending Payments" value={formatINR(summary?.total_pending_payments)} sub="Amount due" accent="text-rose-500" />
-                            <StatCard title="Low Stock Alerts" value={alerts.length.toString()} sub="Items below threshold" accent="text-amber-500" />
+                    <div className="space-y-8">
+                        <div>
+                            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Quick Stats</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                                {[
+                                    {
+                                        title: "Total Materials",
+                                        value: summary?.total_materials.toString() || "0",
+                                        sub: "Registered items",
+                                        accent: "text-slate-800",
+                                    },
+                                    {
+                                        title: "Inventory Value",
+                                        value: formatINR(inventoryValue),
+                                        sub: "Total stock valuation",
+                                        accent: "text-blue-500",
+                                    },
+                                    {
+                                        title: "Pending Payments",
+                                        value: formatINR(summary?.total_pending_payments),
+                                        sub: "Amount due",
+                                        accent: "text-rose-500",
+                                    },
+                                    {
+                                        title: "Low Stock Alerts",
+                                        value: alerts.length.toString(),
+                                        sub: "Items below threshold",
+                                        accent: "text-amber-500",
+                                    },
+                                ].map((s) => (
+                                    <div
+                                        key={s.title}
+                                        className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default hover:scale-[1.01]`}
+                                    >
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                                            {s.title}
+                                        </p>
+                                        <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                            {s.sub}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-500" /> Material Alerts</h3>
+                        <div>
+                            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Alerts</h2>
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-500" /> Material Alerts</h3>
                             {isLoading ? <p className="text-sm text-slate-400">Loading...</p> : alerts.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {alerts.map(a => (
@@ -319,14 +429,17 @@ const MaterialReceiptPage = () => {
                                     ))}
                                 </div>
                             ) : <p className="text-sm text-slate-400">No active alerts.</p>}
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {/* Lists with Search */}
                 {activeTab !== "Dashboard" && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
-                        <div className="p-4 border-b border-slate-50 flex items-center gap-4">
+                    <div className="space-y-4 h-full flex flex-col min-h-0">
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Data Register</h2>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
+                            <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                             <div className="relative flex-1 max-w-md">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                 <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
@@ -368,7 +481,7 @@ const MaterialReceiptPage = () => {
                                                 <td className="px-6 py-4 text-sm text-slate-500 text-center">{m.minimum_stock_level}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(m.purchase_rate)}</td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${m.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : m.alert_type === 'LOW_STOCK' || m.alert_type === 'OUT_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{m.alert_type.replace(/_/g, ' ')}</span>
+                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${m.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : m.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{m.alert_type.replace(/_/g, ' ')}</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-sm text-slate-600">{m.supplier_name}</td>
                                                 <td className="px-6 py-4 text-right">
@@ -392,7 +505,7 @@ const MaterialReceiptPage = () => {
                                                         <button onClick={async () => {
                                                             try {
                                                                 setSelectedMaterial(m);
-                                                                const res = await materialService.getMaterialTransactions(m.id);
+                                                                const res = await materialService.getTransactions(m.id);
                                                                 setTransactions(res || []);
                                                                 setIsTransactionsOpen(true);
                                                             } catch (e) { toast.error("Failed to load transactions"); }
@@ -411,10 +524,10 @@ const MaterialReceiptPage = () => {
                                             </tr>
                                         )) : activeTab === "Suppliers" ? paginatedSuppliers.map(s => (
                                             <tr key={s.id} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{s.supplier_name}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{s.contact_person}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{s.phone_email}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{s.gst_number || '-'}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{s.name}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{s.contactPerson}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{s.contact}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{s.gst || '-'}</td>
                                                 <td className="px-6 py-4 text-sm text-slate-600">{s.address || '-'}</td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex justify-end gap-1">
@@ -439,7 +552,7 @@ const MaterialReceiptPage = () => {
                                                 <td className="px-6 py-4 text-sm text-slate-800 text-right">{formatINR(p.rate)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(p.total_amount)}</td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${p.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p.status === 'CREATED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{p.status}</span>
+                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${p.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p.status === 'CREATED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{p.status}</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <div className="flex justify-end gap-1">
@@ -462,6 +575,7 @@ const MaterialReceiptPage = () => {
                         </div>
                         {renderPagination(activeTab === "Materials" ? filteredMaterials.length : activeTab === "Suppliers" ? filteredSuppliers.length : filteredPOs.length)}
                     </div>
+                </div>
                 )}
             </PageTransition>
 
@@ -475,15 +589,15 @@ const MaterialReceiptPage = () => {
                             {!selectedMaterial && <div><label className={labelClasses}>Project *</label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
                             <div><label className={labelClasses}>Material Name *</label><input required value={materialForm.material_name || ""} onChange={e => setMaterialForm({ ...materialForm, material_name: e.target.value })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>Category *</label><select required value={materialForm.category} onChange={e => setMaterialForm({ ...materialForm, category: e.target.value })} className={inputClasses}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
-                            <div><label className={labelClasses}>Unit *</label><select required value={materialForm.unit} onChange={e => setMaterialForm({ ...materialForm, unit: e.target.value })} className={inputClasses}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></div>
-                            <div><label className={labelClasses}>Supplier *</label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.supplier_name}</option>)}</select></div>
+                            <div><label className={labelClasses}>Unit *</label><select required value={materialForm.unit} onChange={e => setMaterialForm({ ...materialForm, unit: e.target.value })} className={inputClasses}>{(masterUnits.length > 0 ? masterUnits.map(u => u.name) : UNITS).map(u => <option key={u}>{u}</option>)}</select></div>
+                            <div><label className={labelClasses}>Supplier *</label><select required value={materialForm.supplier_id || ""} onChange={e => setMaterialForm({ ...materialForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
                         </div>
                     </div>
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Pricing & Inventory</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelClasses}>Purchase Rate *</label><input type="number" required value={materialForm.purchase_rate || ""} onChange={e => setMaterialForm({ ...materialForm, purchase_rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Rate Type *</label><select required value={materialForm.rate_type} onChange={e => setMaterialForm({ ...materialForm, rate_type: e.target.value })} className={inputClasses}>{RATE_TYPES.map(r => <option key={r}>{r}</option>)}</select></div>
+                            <div><label className={labelClasses}>Rate Type *</label><select required value={materialForm.rate_type} onChange={e => setMaterialForm({ ...materialForm, rate_type: e.target.value as RateType })} className={inputClasses}>{RATE_TYPES.map(r => <option key={r}>{r}</option>)}</select></div>
                             {!selectedMaterial && (
                                 <>
                                     <div><label className={labelClasses}>Qty Purchased *</label><input type="number" required value={materialForm.quantity_purchased || ""} onChange={e => setMaterialForm({ ...materialForm, quantity_purchased: Number(e.target.value) })} className={inputClasses} /></div>
@@ -505,7 +619,7 @@ const MaterialReceiptPage = () => {
                                 <h3 className="text-2xl font-black text-slate-800">{selectedMaterial.material_name}</h3>
                                 <p className="text-sm font-bold text-slate-500">{selectedMaterial.material_code} • {selectedMaterial.category}</p>
                             </div>
-                            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase border ${selectedMaterial.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedMaterial.alert_type === 'LOW_STOCK' || selectedMaterial.alert_type === 'OUT_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase border ${selectedMaterial.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedMaterial.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
                                 {selectedMaterial.alert_type?.replace(/_/g, ' ')}
                             </span>
                         </div>
@@ -514,7 +628,7 @@ const MaterialReceiptPage = () => {
                             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                 <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">General Info</h4>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project ID</p><p className="font-bold text-slate-700">{selectedMaterial.project_id}</p></div>
+                                    <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="font-bold text-slate-700">{projectsList.find(p => p.id === selectedMaterial.project_id)?.project_name || `Project #${selectedMaterial.project_id}`}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Supplier</p><p className="font-bold text-slate-700">{selectedMaterial.supplier_name || `ID: ${selectedMaterial.supplier_id}`}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit</p><p className="font-bold text-slate-700">{selectedMaterial.unit}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Min. Stock</p><p className="font-bold text-slate-700">{selectedMaterial.minimum_stock_level}</p></div>
@@ -553,7 +667,7 @@ const MaterialReceiptPage = () => {
                             <div><label className={labelClasses}>rate *</label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>amount_paid *</label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>project_id *</label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div className="md:col-span-2"><label className={labelClasses}>issue_type *</label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div className="md:col-span-2"><label className={labelClasses}>issue_type *</label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
                         </div>
                     </div>
                 </form>
@@ -589,10 +703,10 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Supplier Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.supplier_name || ""} onChange={e => setSupplierForm({ ...supplierForm, supplier_name: e.target.value })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contact_person || ""} onChange={e => setSupplierForm({ ...supplierForm, contact_person: e.target.value })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Phone/Email *</label><input required value={supplierForm.phone_email || ""} onChange={e => setSupplierForm({ ...supplierForm, phone_email: e.target.value })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>GST Number</label><input value={supplierForm.gst_number || ""} onChange={e => setSupplierForm({ ...supplierForm, gst_number: e.target.value })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
+                            <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
+                            <div><label className={labelClasses}>Phone / Email *</label><input required value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={inputClasses} placeholder="Mobile number or Email" /></div>
+                            <div><label className={labelClasses}>GST Number *</label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
                     </div>
@@ -605,16 +719,16 @@ const MaterialReceiptPage = () => {
                     <div className="p-6 space-y-6">
                         <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center">
                             <div>
-                                <h3 className="text-2xl font-black text-slate-800">{selectedSupplier.supplier_name}</h3>
-                                <p className="text-sm font-bold text-slate-500">ID: {selectedSupplier.id} • {selectedSupplier.gst_number ? `GST: ${selectedSupplier.gst_number}` : 'No GST'}</p>
+                                <h3 className="text-2xl font-black text-slate-800">{selectedSupplier.name}</h3>
+                                <p className="text-sm font-bold text-slate-500">GST: {selectedSupplier.gst || "N/A"}</p>
                             </div>
                         </div>
 
                         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                             <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">Contact Information</h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contact Person</p><p className="font-bold text-slate-700">{selectedSupplier.contact_person || '-'}</p></div>
-                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Phone / Email</p><p className="font-bold text-slate-700">{selectedSupplier.phone_email || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contact Person</p><p className="font-bold text-slate-700">{selectedSupplier.contactPerson || '-'}</p></div>
+                                <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Phone / Email</p><p className="font-bold text-slate-700">{selectedSupplier.contact || '-'}</p></div>
                                 <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Address</p><p className="font-bold text-slate-700">{selectedSupplier.address || '-'}</p></div>
                             </div>
                         </div>
@@ -639,7 +753,7 @@ const MaterialReceiptPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Purchase Order Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelClasses}>Project *</label><select required value={poForm.project_id || projectId} onChange={e => setPoForm({ ...poForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>Supplier *</label><select required value={poForm.supplier_id || ""} onChange={e => setPoForm({ ...poForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.supplier_name}</option>)}</select></div>
+                            <div><label className={labelClasses}>Supplier *</label><select required value={poForm.supplier_id || ""} onChange={e => setPoForm({ ...poForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
                             <div><label className={labelClasses}>Material *</label><select required value={poForm.material_id || ""} onChange={e => setPoForm({ ...poForm, material_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material</option>{materials.map(m => <option key={m.id} value={m.id}>{m.material_name}</option>)}</select></div>
                             <div><label className={labelClasses}>Quantity *</label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>Rate *</label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
@@ -660,10 +774,10 @@ const MaterialReceiptPage = () => {
                         <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center">
                             <div>
                                 <h3 className="text-2xl font-black text-slate-800">PO-{selectedPO.id}</h3>
-                                <p className="text-sm font-bold text-slate-500">Project: Proj-{selectedPO.project_id} • Supplier: Supp-{selectedPO.supplier_id}</p>
+                                <p className="text-sm font-bold text-slate-500">Project: {projectsList.find(p => p.id === selectedPO.project_id)?.project_name || `Proj-${selectedPO.project_id}`} &bull; Supplier: {suppliers.find(s => s.id === selectedPO.supplier_id)?.name || `Supp-${selectedPO.supplier_id}`}</p>
                             </div>
                             <div className="text-right">
-                                <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border ${selectedPO.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedPO.status === 'CREATED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                                <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest uppercase border ${selectedPO.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedPO.status === 'CREATED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
                                     {selectedPO.status}
                                 </span>
                             </div>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
-import StatCard from '../../../components/common/StatCard';
 import {
     Search,
     Filter,
@@ -179,9 +178,9 @@ const PaymentPage: React.FC = () => {
         <>
             <Navbar title="Financial Operations" breadcrumb={["Engineer", "Human Resources", "Payroll Management"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
-                {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
+                {/* ─── Header ──────────────────────────────────────────────────────── */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 font-inter">
                     <div className="font-inter">
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Workforce Disbursement Terminal</h1>
                         <p className="text-slate-500 text-sm font-inter">Secure wage distribution and advance request management with full audit trails.</p>
@@ -195,35 +194,51 @@ const PaymentPage: React.FC = () => {
                 </div>
 
                 {/* ── Interactive Stats ───────────────────────── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-                    <div onClick={() => setActiveStatFilter("Paid")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Paid" ? "ring-2 ring-emerald-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Paid This Month"
-                            value={formatCurrency(stats.paid_this_month || 0)}
-                            sub="Disbursed Capital"
-                            accent="text-emerald-500" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Pending")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Pending" ? "ring-2 ring-rose-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Pending Due"
-                            value={formatCurrency(stats.pending_due || 0)}
-                            sub="Outstanding Liability"
-                            accent="text-rose-500" />
-                    </div>
-                    <div className="cursor-default group transition-all rounded-xl hover:scale-[1.01]">
-                        <StatCard
-                            title="Monthly Budget"
-                            value={formatCurrency(stats.monthly_budget || 0)}
-                            sub="Allocated Liquidity"
-                            accent="text-primary" />
-                    </div>
-                    <div onClick={() => setActiveStatFilter("Advance")} className={`cursor-pointer group transition-all rounded-xl ${activeStatFilter === "Advance" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard
-                            title="Advance Logs"
-                            value={(stats.advance_logs || 0).toString().padStart(2, '0')}
-                            sub="Pending Review"
-                            accent="text-amber-500" />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
+                    {[
+                        {
+                            title: "Paid This Month",
+                            value: formatCurrency(stats.paid_this_month || 0),
+                            sub: "Disbursed Capital",
+                            accent: "text-emerald-500",
+                            status: "Paid",
+                        },
+                        {
+                            title: "Pending Due",
+                            value: formatCurrency(stats.pending_due || 0),
+                            sub: "Outstanding Liability",
+                            accent: "text-rose-500",
+                            status: "Pending",
+                        },
+                        {
+                            title: "Monthly Budget",
+                            value: formatCurrency(stats.monthly_budget || 0),
+                            sub: "Allocated Liquidity",
+                            accent: "text-primary",
+                            status: "Budget",
+                        },
+                        {
+                            title: "Advance Logs",
+                            value: (stats.advance_logs || 0).toString().padStart(2, '0'),
+                            sub: "Pending Review",
+                            accent: "text-amber-500",
+                            status: "Advance",
+                        },
+                    ].map((s) => (
+                        <div
+                            key={s.title}
+                            onClick={() => s.status !== "Budget" && setActiveStatFilter(s.status as any)}
+                            className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status !== "Budget" ? "cursor-pointer hover:shadow-md hover:border-primary/20 hover:scale-[1.02] active:scale-95 group" : ""} ${activeStatFilter === s.status ? "ring-2 ring-primary/20" : ""}`}
+                        >
+                            <p className={`text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 ${s.status !== "Budget" ? "group-hover:text-primary transition-colors" : ""}`}>
+                                {s.title}
+                            </p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
+                                {s.sub}
+                            </p>
+                        </div>
+                    ))}
                 </div>
 
                 {/* ───────────────────────────────────────────────────────────── */}

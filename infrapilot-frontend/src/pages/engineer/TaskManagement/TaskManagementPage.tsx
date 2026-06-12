@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
     Filter, Search, Plus, Eye, Calendar, User,
     CheckCircle, Clock, AlertCircle, XCircle, List, Grid,
-    ChevronDown, ChevronUp, Folder,
+    ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
     Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward
 } from 'lucide-react';
 import ConfirmModal from "../../../components/common/ConfirmModal";
@@ -75,6 +75,9 @@ const AudioButton = ({ audioData }: { audioData: string }) => {
 const TaskManagementPage = () => {
     const [projectId, setProjectId] = useState<number | null>(null);
     const [tasks, setTasks] = useState<FrontendTask[]>([]);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
 
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -456,23 +459,36 @@ const TaskManagementPage = () => {
         });
     }, [tasks, searchQuery, statusFilter, ownershipFilter]);
 
+    const paginatedTasks = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredTasks.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredTasks, currentPage, itemsPerPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, statusFilter, ownershipFilter, activeTab, departmentFilter]);
+
     return (
         <>
             <Navbar title="Task Management" breadcrumb={["Engineer", "Task Management"]} />
 
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter flex flex-col">
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
                 {/* ─── Header Section ──────────────────────────────────────────────────────── */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight mb-1">Task Management</h1>
-                        <p className="text-slate-500 text-sm">Efficiently organize, track, and manage all your tasks in one place</p>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                            Task Management
+                        </h1>
+                        <p className="text-slate-500 text-sm">
+                            Efficiently organize, track, and manage all your tasks in one place.
+                        </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap gap-2">
                         {activeTab !== "Project Tasks" && (
                             <button
                                 onClick={() => setIsCreateDrawerOpen(true)}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500 text-white font-bold rounded-xl text-sm shadow-sm hover:bg-indigo-600 transition-colors whitespace-nowrap"
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                             >
                                 <Plus className="w-4 h-4" />
                                 Create Task
@@ -482,21 +498,21 @@ const TaskManagementPage = () => {
                 </div>
 
                 {/* ─── Tabs Section ──────────────────────────────────────────────────────── */}
-                <div className="bg-slate-100 p-1.5 rounded-xl flex gap-1 mb-6 border border-slate-200">
+                <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 md:mb-8 max-w-full overflow-x-auto scrollbar-none font-inter">
                     <button
                         onClick={() => setActiveTab("All Tasks")}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "All Tasks"
-                            ? "bg-indigo-500 text-white shadow-sm"
-                            : "text-slate-500 hover:bg-slate-200"
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "All Tasks"
+                            ? "bg-slate-100 text-slate-800 shadow-sm"
+                            : "text-slate-500 hover:bg-slate-50"
                             }`}
                     >
                         All Tasks
                     </button>
                     <button
                         onClick={() => setActiveTab("Project Tasks")}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "Project Tasks"
-                            ? "bg-indigo-500 text-white shadow-sm"
-                            : "text-slate-500 hover:bg-slate-200"
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "Project Tasks"
+                            ? "bg-slate-100 text-slate-800 shadow-sm"
+                            : "text-slate-500 hover:bg-slate-50"
                             }`}
                     >
                         Project Tasks
@@ -617,16 +633,16 @@ const TaskManagementPage = () => {
                                         <span className="font-bold text-sm">All Tasks Filters</span>
                                     </div>
 
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Search className="h-4 w-4 text-slate-400" />
+                                    <div className="relative font-inter flex-1 max-w-md">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                            <Search className="h-4 w-4" />
                                         </div>
                                         <input
                                             type="text"
                                             placeholder="Search tasks..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-64 bg-slate-50 hover:bg-white"
+                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                                         />
                                     </div>
                                 </div>
@@ -637,7 +653,7 @@ const TaskManagementPage = () => {
                                         <select
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                         >
                                             <option>All Status</option>
                                             <option>Planned</option>
@@ -649,7 +665,7 @@ const TaskManagementPage = () => {
 
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Filter</span>
-                                        <select className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors">
+                                        <select className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
                                             <option>All Tasks</option>
                                             <option>Created Tasks</option>
                                             <option>Received Tasks</option>
@@ -661,7 +677,7 @@ const TaskManagementPage = () => {
                                         <select
                                             value={departmentFilter}
                                             onChange={(e) => setDepartmentFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                         >
                                             <option>All Departments</option>
                                             <option>Engineering</option>
@@ -689,7 +705,7 @@ const TaskManagementPage = () => {
                             <div className="p-6 bg-slate-50 flex-1">
                                 {viewMode === 'grid' ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                        {filteredTasks.map(task => (
+                                        {paginatedTasks.map(task => (
                                             <div key={task.id} className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col ${task.status === 'Cancelled' ? 'border-rose-200' : 'border-slate-200'}`}>
                                                 <div className="p-5 flex-1">
                                                     <div className="flex items-center justify-between mb-4">
@@ -796,10 +812,10 @@ const TaskManagementPage = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="overflow-x-auto custom-scrollbar bg-white rounded-xl border border-slate-200">
-                                        <table className="w-full text-left border-collapse block md:table">
+                                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                                        <table className="w-full text-left font-inter min-w-[1000px] block md:table">
                                             <thead className="hidden md:table-header-group">
-                                                <tr className="border-b border-slate-200 bg-slate-50/50">
+                                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Task</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Project</th>
                                                     <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned By</th>
@@ -812,7 +828,7 @@ const TaskManagementPage = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="block md:table-row-group">
-                                                {filteredTasks.map((task) => (
+                                                {paginatedTasks.map((task) => (
                                                     <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors block md:table-row">
                                                         <td className="p-4 block md:table-cell">
                                                             <p className="text-sm font-bold text-slate-800">{task.title}</p>
@@ -937,6 +953,74 @@ const TaskManagementPage = () => {
                                     </div>
                                 )}
                             </div>
+                            
+                            {/* Pagination Block */}
+                            {filteredTasks.length > 0 && (
+                                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter rounded-b-2xl mt-auto">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                        <select
+                                            value={itemsPerPage}
+                                            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                            className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                        >
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={50}>50</option>
+                                            <option value={100}>100</option>
+                                        </select>
+                                    </div>
+                                    <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                        Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredTasks.length)} of {filteredTasks.length} records
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <button
+                                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                            disabled={currentPage === 1}
+                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </button>
+                                        {(() => {
+                                            const totalItems = filteredTasks.length;
+                                            const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                            const pages = [];
+                                            if (totalPages <= 5) {
+                                                for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                            } else {
+                                                if (currentPage <= 3) {
+                                                    pages.push(1, 2, 3, 4, '...', totalPages);
+                                                } else if (currentPage >= totalPages - 2) {
+                                                    pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                                } else {
+                                                    pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                                }
+                                            }
+                                            return pages.map((page, index) => {
+                                                if (page === '...') return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                                const pageNum = page as number;
+                                                const isActive = currentPage === pageNum;
+                                                return (
+                                                    <button
+                                                        key={`page-${pageNum}`}
+                                                        onClick={() => setCurrentPage(pageNum)}
+                                                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'}`}
+                                                    >
+                                                        {pageNum}
+                                                    </button>
+                                                );
+                                            });
+                                        })()}
+                                        <button
+                                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredTasks.length / itemsPerPage), prev + 1))}
+                                            disabled={currentPage === Math.max(1, Math.ceil(filteredTasks.length / itemsPerPage)) || filteredTasks.length === 0}
+                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     ) : (
                         <>
@@ -950,16 +1034,16 @@ const TaskManagementPage = () => {
                                         <span className="font-bold text-sm">Filter Projects</span>
                                     </div>
 
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <Search className="h-4 w-4 text-slate-400" />
+                                    <div className="relative font-inter flex-1 max-w-md">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                            <Search className="h-4 w-4" />
                                         </div>
                                         <input
                                             type="text"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             placeholder="Search projects or task..."
-                                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-64 bg-slate-50 hover:bg-white"
+                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                                         />
                                     </div>
                                 </div>
@@ -970,7 +1054,7 @@ const TaskManagementPage = () => {
                                         <select
                                             value={statusFilter}
                                             onChange={(e) => setStatusFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                         >
                                             <option value="All Status">All Status</option>
                                             <option value="Planned">Planned</option>
@@ -985,7 +1069,7 @@ const TaskManagementPage = () => {
                                         <select
                                             value={ownershipFilter}
                                             onChange={(e) => setOwnershipFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer bg-slate-50 hover:bg-white transition-colors"
+                                            className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                         >
                                             <option value="Entire View">Entire View</option>
                                             <option value="My Projects">My Projects</option>
@@ -1152,14 +1236,30 @@ const TaskManagementPage = () => {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
                         {/* Modal Header */}
-                        <div className="bg-sky-200 p-6 flex items-start justify-between relative border-b border-sky-300">
-                            <div>
-                                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">{selectedTask.title}</h2>
-                                <p className="text-slate-600 text-sm mt-1">Detailed view of task assignments and progress</p>
+                        <div className="bg-primary p-6 md:p-8 flex items-start justify-between relative overflow-hidden font-inter border-b border-primary/20">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4 pointer-events-none"></div>
+
+                            <div className="relative z-10 flex items-center gap-4 md:gap-6">
+                                <div className="relative">
+                                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary text-2xl font-bold border border-white/20">
+                                        <FileText className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+                                    </div>
+                                    <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center animate-pulse">
+                                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-none">{selectedTask.title}</h2>
+                                    </div>
+                                    <p className="text-primary-50 text-xs md:text-sm font-medium tracking-wide">Detailed view of task assignments and progress</p>
+                                </div>
                             </div>
+
                             <button
                                 onClick={() => setSelectedTask(null)}
-                                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-black/5 rounded-full transition-colors"
+                                className="relative z-10 p-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-xl transition-colors backdrop-blur-sm"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -1321,9 +1421,12 @@ const TaskManagementPage = () => {
                                                     const attachmentName = attachmentMatch ? attachmentMatch[1] : null;
                                                     const cleanText = messageContent.replace(/\[Attached:\s*(.*?)\]/g, '').trim();
 
+                                                    const member = projectMembers.find(m => m.user_id === c.author_user_id);
+                                                    const authorName = c.author_name || member?.full_name || "User";
+
                                                     return (
                                                         <div key={i} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 w-max max-w-[80%]">
-                                                            <p className="text-xs font-bold text-slate-700 mb-1">{c.author_name || "User"}</p>
+                                                            <p className="text-xs font-bold text-slate-700 mb-1">{authorName}</p>
 
                                                             {cleanText && (
                                                                 <p className="text-sm text-slate-600 whitespace-pre-wrap">{cleanText}</p>
@@ -1426,7 +1529,7 @@ const TaskManagementPage = () => {
                                                             <h4 className="text-sm font-bold text-slate-800">{activity.action || "Progress Updated"}</h4>
                                                             <span className="text-[10px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</span>
                                                         </div>
-                                                        <p className="text-sm text-slate-600">{activity.description || `Progress moved to ${activity.progress_percentage || 0}%`}</p>
+                                                        <p className="text-sm text-slate-600">{activity.description || activity.remarks || `Progress moved to ${activity.percentage ?? activity.progress_percentage ?? 0}%`}</p>
                                                     </div>
                                                 </div>
                                             ))}
@@ -1473,39 +1576,36 @@ const TaskManagementPage = () => {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                    Task Title <span className="text-rose-500">*</span>
+                                    Task Title
                                 </label>
                                 <input
                                     type="text"
                                     name="title"
                                     defaultValue={selectedEditTask?.title}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                    required
                                 />
                             </div>
 
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                    Description <span className="text-rose-500">*</span>
+                                    Description
                                 </label>
                                 <textarea
                                     name="description"
                                     rows={4}
                                     defaultValue={selectedEditTask?.description}
                                     className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
-                                    required
                                 />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Assign To <span className="text-rose-500">*</span>
+                                        Assign To
                                     </label>
                                     <select
                                         name="assigned_user_id"
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                        required
                                     >
                                         <option value={selectedEditTask?.assigned_user_id || 1}>{selectedEditTask?.assignedTo?.name || "Select User"}</option>
                                         <option value="1">Suresh Chaudhari</option>
@@ -1516,13 +1616,12 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Priority <span className="text-rose-500">*</span>
+                                        Priority
                                     </label>
                                     <select
                                         name="priority"
                                         defaultValue={selectedEditTask?.priority}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                        required
                                     >
                                         <option value="High">High</option>
                                         <option value="Medium">Medium</option>
@@ -1552,13 +1651,12 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Status <span className="text-rose-500">*</span>
+                                        Status
                                     </label>
                                     <select
                                         name="status"
                                         defaultValue={selectedEditTask?.status}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                        required
                                     >
                                         <option value="Planned">Planned</option>
                                         <option value="In Progress">In Progress</option>
@@ -1569,27 +1667,25 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Start Date <span className="text-rose-500">*</span>
+                                        Start Date
                                     </label>
                                     <input
                                         type="date"
                                         name="start_date"
                                         defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                        required
                                     />
                                 </div>
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Deadline <span className="text-rose-500">*</span>
+                                        Deadline
                                     </label>
                                     <input
                                         type="date"
                                         name="end_date"
                                         defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                        required
                                     />
                                 </div>
                             </div>
@@ -1662,7 +1758,10 @@ const TaskManagementPage = () => {
                             max="100"
                             value={progressPercentage}
                             onChange={(e) => setProgressPercentage(Number(e.target.value))}
-                            className="w-full accent-emerald-500"
+                            className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:rounded-full"
+                            style={{
+                                background: `linear-gradient(to right, #3b82f6 ${progressPercentage}%, #e2e8f0 ${progressPercentage}%)`
+                            }}
                         />
                         <div className="flex justify-between text-xs text-slate-500 mt-1 font-medium">
                             <span>0%</span>
@@ -1671,14 +1770,13 @@ const TaskManagementPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Remarks <span className="text-rose-500">*</span></label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Remarks</label>
                         <textarea
                             value={progressRemark}
                             onChange={(e) => setProgressRemark(e.target.value)}
                             placeholder="e.g. 10 percent remaining"
                             rows={3}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
-                            required
                         />
                     </div>
                 </div>
@@ -1730,7 +1828,7 @@ const TaskManagementPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Reason / Remarks <span className="text-rose-500">*</span></label>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Reason / Remarks</label>
                         <textarea
                             value={passRemark}
                             onChange={(e) => setPassRemark(e.target.value)}

@@ -23,7 +23,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const [filterDepartment, setFilterDepartment] = useState('All Departments');
     const [showAllDepartments, setShowAllDepartments] = useState(false);
     const [searchEmployee, setSearchEmployee] = useState('');
-    
+
     const [employees, setEmployees] = useState<any[]>([]);
 
     // Audio Recording State
@@ -44,7 +44,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
             try {
                 const user = JSON.parse(userStr);
                 localProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
-            } catch (e) {}
+            } catch (e) { }
         }
 
         if (isOpen) {
@@ -100,7 +100,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     };
 
     const toggleEmployee = (id: number) => {
-        setSelectedEmployees(prev => 
+        setSelectedEmployees(prev =>
             prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
         );
     };
@@ -155,7 +155,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
     const togglePlay = () => {
         if (!audioRef.current || !audioBlob) return;
-        
+
         if (isPlaying) {
             audioRef.current.pause();
             setIsPlaying(false);
@@ -186,7 +186,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         const targetProjectId = project !== 'None' ? Number(project) : projectId;
         if (!targetProjectId) {
             toast.error("Please select a project");
@@ -195,12 +195,12 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
         try {
             const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1 };
-            
+
             let audio_data = undefined;
             if (audioBlob) {
                 audio_data = await blobToBase64(audioBlob);
             }
-            
+
             await projectService.createTask(targetProjectId, {
                 title,
                 description,
@@ -251,17 +251,17 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
             maxWidth="max-w-3xl"
         >
             <form id="create-task-form" onSubmit={handleSubmit} className="space-y-6">
-                
+
                 {/* Task Details Section */}
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                     <h3 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2 mb-4">Task Information</h3>
-                    
+
                     <div>
                         <label className={labelClasses}>
                             Task Title <span className="text-rose-500">*</span>
                         </label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             placeholder="Enter task title"
                             className={inputClasses}
                             value={title}
@@ -274,7 +274,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                         <label className={labelClasses}>
                             Description <span className="text-rose-500">*</span>
                         </label>
-                        <textarea 
+                        <textarea
                             placeholder="Enter task description"
                             rows={3}
                             className={`${inputClasses} resize-none`}
@@ -291,7 +291,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                             </label>
                             <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                                 {!isRecording && !audioBlob && (
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={startRecording}
                                         className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors"
@@ -299,10 +299,10 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                         <Mic className="w-5 h-5" />
                                     </button>
                                 )}
-                                
+
                                 {isRecording && (
                                     <>
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={stopRecording}
                                             className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors animate-pulse"
@@ -318,7 +318,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
                                 {audioBlob && !isRecording && (
                                     <>
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={togglePlay}
                                             className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors"
@@ -328,7 +328,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                         <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
                                             <div className="h-full bg-blue-500 w-full opacity-30"></div>
                                         </div>
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={deleteRecording}
                                             className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
@@ -352,7 +352,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 <Briefcase className="w-3 h-3 text-primary" />
                                 Priority
                             </label>
-                            <select 
+                            <select
                                 className={inputClasses}
                                 value={priority}
                                 onChange={(e) => setPriority(e.target.value)}
@@ -362,13 +362,13 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 <option value="High">High</option>
                             </select>
                         </div>
-                        
+
                         <div>
                             <label className={labelClasses}>
                                 <FileText className="w-3 h-3 text-primary" />
                                 Project
                             </label>
-                            <select 
+                            <select
                                 className={inputClasses}
                                 value={project}
                                 onChange={(e) => setProject(e.target.value)}
@@ -385,7 +385,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 <Calendar className="w-3 h-3 text-primary" />
                                 Start Date
                             </label>
-                            <input 
+                            <input
                                 type="date"
                                 className={inputClasses}
                                 value={startDate}
@@ -398,7 +398,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 <Calendar className="w-3 h-3 text-primary" />
                                 Deadline <span className="text-rose-500">*</span>
                             </label>
-                            <input 
+                            <input
                                 type="date"
                                 className={inputClasses}
                                 value={deadline}
@@ -412,14 +412,14 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                 {/* Assignment Section */}
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                     <h3 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2 mb-4">Task Assignment</h3>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className={labelClasses}>
                                 <FilterIcon className="w-3 h-3 text-primary" />
                                 Filter Role
                             </label>
-                            <select 
+                            <select
                                 className={inputClasses}
                                 value={filterRole}
                                 onChange={(e) => setFilterRole(e.target.value)}
@@ -434,7 +434,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 <Building2 className="w-3 h-3 text-primary" />
                                 Filter Department
                             </label>
-                            <select 
+                            <select
                                 className={inputClasses}
                                 value={filterDepartment}
                                 onChange={(e) => setFilterDepartment(e.target.value)}
@@ -462,12 +462,12 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 <span className="text-xs font-medium text-slate-500">Show All Departments</span>
                             </div>
                         </div>
-                        
+
                         <div className="relative mb-3">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <Search className="w-4 h-4 text-slate-400" />
                             </div>
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Search employees by name, ID or email..."
                                 className={`${inputClasses} pl-9`}
@@ -477,7 +477,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                         </div>
 
                         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                            <div 
+                            <div
                                 className="flex items-center justify-between p-3 border-b border-slate-100 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors"
                                 onClick={handleSelectAll}
                             >
@@ -496,37 +496,37 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
                             <div className="max-h-48 overflow-y-auto">
                                 {employees
-                                    .filter(emp => 
-                                        !searchEmployee || 
-                                        emp.labour_name?.toLowerCase().includes(searchEmployee.toLowerCase()) || 
+                                    .filter(emp =>
+                                        !searchEmployee ||
+                                        emp.labour_name?.toLowerCase().includes(searchEmployee.toLowerCase()) ||
                                         emp.worker_code?.toLowerCase().includes(searchEmployee.toLowerCase())
                                     )
                                     .map(emp => (
-                                    <div 
-                                        key={emp.id}
-                                        className="flex items-center justify-between p-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors"
-                                        onClick={() => toggleEmployee(emp.id)}
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedEmployees.includes(emp.id) ? 'bg-primary border-primary text-white' : 'border-slate-300 text-transparent'}`}>
-                                                <Check className="w-3 h-3" />
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="text-sm font-bold text-slate-800">{emp.labour_name || emp.name}</span>
+                                        <div
+                                            key={emp.id}
+                                            className="flex items-center justify-between p-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors"
+                                            onClick={() => toggleEmployee(emp.id)}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedEmployees.includes(emp.id) ? 'bg-primary border-primary text-white' : 'border-slate-300 text-transparent'}`}>
+                                                    <Check className="w-3 h-3" />
                                                 </div>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold border border-slate-200">
-                                                        {emp.worker_code}
-                                                    </span>
+                                                <div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-sm font-bold text-slate-800">{emp.labour_name || emp.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold border border-slate-200">
+                                                            {emp.worker_code}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
+                                            <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">
+                                                {emp.skill_type || 'Labour'}
+                                            </span>
                                         </div>
-                                        <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">
-                                            {emp.skill_type || 'Labour'}
-                                        </span>
-                                    </div>
-                                ))}
+                                    ))}
                             </div>
                         </div>
                     </div>

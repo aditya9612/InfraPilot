@@ -173,10 +173,10 @@ export const equipmentService = {
     // 2. Allocation
     // ==========================================
     async allocateEquipment(id: number, project_id: number, allocated: boolean = true): Promise<AllocationStatus> {
-        const response = await api.post<AllocationStatus>(`/equipment/${id}/allocate?project_id=${project_id}`, { 
+        const response = await api.post<AllocationStatus>(`/equipment/${id}/allocate?project_id=${project_id}`, {
             equipment_id: id,
             project_id: project_id,
-            allocated: allocated 
+            allocated: allocated
         });
         return response.data;
     },
