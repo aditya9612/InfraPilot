@@ -437,8 +437,8 @@ const DocumentsPage = () => {
                     <button
                       onClick={() => setCurrentPage(i)}
                       className={`w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition-all ${i === currentPage
-                          ? "border-slate-200 text-slate-700 bg-white font-inter"
-                          : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                        ? "border-slate-200 text-slate-700 bg-white font-inter"
+                        : "border-slate-200 text-slate-500 hover:bg-slate-50"
                         }`}
                     >
                       {i + 1}

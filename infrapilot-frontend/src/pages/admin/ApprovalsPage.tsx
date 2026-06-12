@@ -24,6 +24,7 @@ const ApprovalsPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [usersMap, setUsersMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 8;
 
@@ -60,10 +61,10 @@ const ApprovalsPage = () => {
     setCurrentPage(0);
   }, [location.pathname]);
 
-  // Reset to page 0 on search changes
+  // Reset to page 0 on filter changes
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   const filteredApprovals = Array.isArray(approvals) ? approvals.filter(a => {
     // 1. Route-based Category Filtering
@@ -89,7 +90,10 @@ const ApprovalsPage = () => {
 
     if (!matchesCategory) return false;
 
-    // 2. Search Term Filtering
+    // 2. Status filter
+    if (statusFilter !== "all" && (a.status || "").toLowerCase() !== statusFilter) return false;
+
+    // 3. Search Term Filtering
     const searchStr = searchTerm.toLowerCase();
     return (
       a.entity_type?.toLowerCase().includes(searchStr) ||
@@ -253,6 +257,16 @@ const ApprovalsPage = () => {
                 />
               </div>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 pr-8"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
             </div>
           </div>
 

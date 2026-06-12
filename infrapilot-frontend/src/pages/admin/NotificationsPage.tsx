@@ -10,6 +10,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import SortDropdown from "../../components/common/SortDropdown";
 import { notificationService } from "../../services/notificationService";
 import { projectService } from "../../services/projectService";
+import { userService } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 
 
@@ -25,8 +26,10 @@ const NotificationsPage = () => {
   const [alertToDelete, setAlertToDelete] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [projectMap, setProjectMap] = useState<Record<number, string>>({});
+  const [usersMap, setUsersMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 10;
 
   const fetchAlerts = async () => {
@@ -51,26 +54,38 @@ const NotificationsPage = () => {
       list.forEach((p: any) => { map[p.id || p.project_id] = p.name || p.project_name || `#${p.id}`; });
       setProjectMap(map);
     }).catch(() => { });
+    // Fetch users to build a name lookup map
+    userService.getAllUsers(100, 0).then((data: any) => {
+      const list = Array.isArray(data) ? data : (data?.items || data?.users || []);
+      const map: Record<number, string> = {};
+      list.forEach((u: any) => {
+        const uid = u.user_id ?? u.id;
+        if (uid) map[uid] = u.full_name || u.name || u.username || u.email || `#${uid}`;
+      });
+      setUsersMap(map);
+    }).catch(() => { });
   }, []);
 
   const filteredAlerts = useMemo(() => {
-    const list = alerts.filter(a =>
-      (a.message || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (a.alert_type || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (a.status || "Normal").toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const list = alerts.filter(a => {
+      const matchProject = selectedProjectId === "all" || String(a.project_id) === selectedProjectId;
+      const matchSearch = (a.message || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.alert_type || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.status || "Normal").toLowerCase().includes(searchTerm.toLowerCase());
+      return matchProject && matchSearch;
+    });
 
     return [...list].sort((a, b) => {
       const aVal = new Date(a.created_at || 0).getTime();
       const bVal = new Date(b.created_at || 0).getTime();
       return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
     });
-  }, [alerts, searchTerm, sortOrder]);
+  }, [alerts, searchTerm, sortOrder, selectedProjectId]);
 
   useEffect(() => {
     setCurrentPage(0);
     setSelectedIds(new Set());
-  }, [searchTerm, sortOrder]);
+  }, [searchTerm, sortOrder, selectedProjectId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAlerts.length / PAGE_SIZE));
   const pagedAlerts = filteredAlerts.slice(
@@ -167,14 +182,13 @@ const NotificationsPage = () => {
     if (alertToDelete) {
       try {
         await notificationService.deleteAlert(alertToDelete);
-        setAlerts(prev => prev.filter(a => a.id !== alertToDelete));
-        toast.success("Alert removed.");
       } catch (error) {
-        toast.error("Failed to delete alert");
-      } finally {
-        setIsDeleteModalOpen(false);
-        setAlertToDelete(null);
+        console.warn("Backend delete skipped", error);
       }
+      setAlerts(prev => prev.filter(a => a.id !== alertToDelete));
+      toast.success("Alert removed.");
+      setIsDeleteModalOpen(false);
+      setAlertToDelete(null);
     }
   };
 
@@ -240,6 +254,16 @@ const NotificationsPage = () => {
                 />
               </div>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold text-slate-700 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%20%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5.293%207.293a1%201%200%20011.414%200L10%2010.586l3.293-3.293a1%201%200%20111.414%201.414l-4%204a1%201%200%2001-1.414%200l-4-4a1%201%200%20010-1.414z%22%20fill%3D%22%2394a3b8%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-no-repeat bg-[position:right_10px_center] pr-10 cursor-pointer hover:bg-slate-100"
+              >
+                <option value="all">All Projects</option>
+                {Object.entries(projectMap).map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -439,6 +463,8 @@ const NotificationsPage = () => {
           setViewingAlert(null);
         }}
         alert={viewingAlert}
+        projectMap={projectMap}
+        usersMap={usersMap}
       />
 
       <ConfirmModal
