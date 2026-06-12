@@ -1,13 +1,15 @@
 import api from "./api";
 
 export interface Alert {
-  id: number;
+  id: string | number;
   project_id: number;
   alert_type: string;
   message: string;
   user_id: number;
   status: string;
   created_at: string;
+  project_name?: string;
+  end_date?: string;
 }
 
 export const alertService = {
