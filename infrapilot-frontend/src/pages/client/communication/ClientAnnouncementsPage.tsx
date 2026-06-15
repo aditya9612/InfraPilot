@@ -12,7 +12,7 @@ const ClientAnnouncementsPage = () => {
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   const { projectId } = useClientProjectId();
 
   const fetchAlerts = async () => {
@@ -29,7 +29,7 @@ const ClientAnnouncementsPage = () => {
         id: `p-${p.project_id}`,
         project_id: p.project_id,
         alert_type: p.status, // e.g. "Delayed", "Ongoing" (In Progress), "Planned"
-        message: p.project_name || "Project Update", 
+        message: p.project_name || "Project Update",
         project_name: p.project_name,
         end_date: p.end_date,
         user_id: 0,
@@ -52,7 +52,7 @@ const ClientAnnouncementsPage = () => {
 
       const combined = [...generalData, ...mappedProjectAlerts, ...mappedTaskAlerts];
 
-      const filtered = projectId 
+      const filtered = projectId
         ? combined.filter(a => Number(a.project_id) === Number(projectId))
         : combined;
       setAlerts(filtered);
@@ -87,9 +87,9 @@ const ClientAnnouncementsPage = () => {
   const handleDelete = async (id: string | number) => {
     if (!confirm("Delete this notification?")) return;
     if (typeof id === 'string' && (id.startsWith('p-') || id.startsWith('t-'))) {
-        setAlerts(prev => prev.filter(a => a.id !== id));
-        toast.success("Removed");
-        return;
+      setAlerts(prev => prev.filter(a => a.id !== id));
+      toast.success("Removed");
+      return;
     }
     try {
       await alertService.deleteAlert(id as number);
@@ -104,8 +104,8 @@ const ClientAnnouncementsPage = () => {
   const displayableAlerts = alerts.filter(a => {
     // Show only specific types: Delay, Planning, In Progress, New Alerts, Safety, Quality, etc.
     const allowedTypes = [
-      "Delay", "MaterialDelay", "Planning", "InProgress", "In Progress", "In-Progress", 
-      "Announcement", "NewAlert", "New Alert", "Safety", "Quality", "Material", 
+      "Delay", "MaterialDelay", "Planning", "InProgress", "In Progress", "In-Progress",
+      "Announcement", "NewAlert", "New Alert", "Safety", "Quality", "Material",
       "Task", "Milestone", "Alert", "Warning", "Critical", "Info", "Approval"
     ];
     return allowedTypes.some(t => a.alert_type.toLowerCase().replace(/[^a-z]/g, '') === t.toLowerCase().replace(/[^a-z]/g, ''));
@@ -113,7 +113,7 @@ const ClientAnnouncementsPage = () => {
 
   // 2. Then, apply status filtering for the actual list display
   const filteredAlerts = displayableAlerts.filter(a => {
-    const statusMatch = statusFilter === "All" 
+    const statusMatch = statusFilter === "All"
       || (statusFilter === "Read" && a.status === 'read')
       || (statusFilter === "Unread" && (a.status === 'active' || !a.status));
     return statusMatch;
@@ -157,8 +157,8 @@ const ClientAnnouncementsPage = () => {
             { label: "Read Notifications", value: displayableAlerts.filter(a => a.status === 'read').length, sub: "Acknowledged", color: "text-emerald-500", icon: "✅", filter: "Read" },
             { label: "Unread Notifications", value: displayableAlerts.filter(a => a.status === 'active' || !a.status).length, sub: "Action Required", color: "text-blue-500", icon: "🔔", filter: "Unread" },
           ].map((card, i) => (
-            <div 
-              key={i} 
+            <div
+              key={i}
               onClick={() => setStatusFilter(card.filter)}
               className={`bg-white p-6 rounded-3xl border transition-all h-full flex flex-col justify-between cursor-pointer ${statusFilter === card.filter ? 'border-blue-500 shadow-xl shadow-blue-500/10 ring-1 ring-blue-500' : 'border-slate-100 shadow-sm hover:shadow-md'}`}
             >
@@ -174,24 +174,24 @@ const ClientAnnouncementsPage = () => {
 
         <div className="space-y-6">
           {loading ? (
-             <div className="flex flex-col items-center justify-center py-32 space-y-4">
-                <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">establishing secure channel...</p>
-             </div>
+            <div className="flex flex-col items-center justify-center py-32 space-y-4">
+              <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">establishing secure channel...</p>
+            </div>
           ) : filteredAlerts.length > 0 ? (
             filteredAlerts.map((ann) => (
               <div key={ann.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-blue-500/5 group relative flex flex-col md:flex-row gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-500">
-                
+
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-4 mb-4">
                     <div className="flex items-center gap-2">
-                       {ann.status === 'active' && (
-                         <div className="relative flex items-center justify-center mr-1">
-                            <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-blue-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></span>
-                         </div>
-                       )}
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{ann.id.toString().startsWith('t-') ? "Task Alert" : "Project Update"}</p>
+                      {ann.status === 'active' && (
+                        <div className="relative flex items-center justify-center mr-1">
+                          <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-blue-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></span>
+                        </div>
+                      )}
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{ann.id.toString().startsWith('t-') ? "Task Alert" : "Project Update"}</p>
                     </div>
                     <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${getPriorityColor(ann.alert_type)}`}>
                       {ann.alert_type}
@@ -202,22 +202,22 @@ const ClientAnnouncementsPage = () => {
                   <h2 className="text-xl font-black text-slate-800 tracking-tight leading-tight mb-3">
                     {ann.project_name ? ann.project_name : ann.message}
                   </h2>
-                  
+
                   {ann.end_date && (
                     <div className="flex items-center gap-3 mb-3 bg-slate-50 w-fit px-4 py-2 rounded-xl border border-slate-100">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">End Date:</span>
-                        <span className="text-[10px] font-black text-slate-700">{formatDate(ann.end_date)}</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">End Date:</span>
+                      <span className="text-[10px] font-black text-slate-700">{formatDate(ann.end_date)}</span>
                     </div>
                   )}
 
                   {ann.project_name && (
                     <p className="text-[12px] font-bold text-slate-500 mb-4 italic">
-                        Current Status: <span className="text-slate-800 not-italic">{ann.alert_type}</span>
+                      Current Status: <span className="text-slate-800 not-italic">{ann.alert_type}</span>
                     </p>
                   )}
 
                   {!ann.project_name && (
-                     <p className="text-[13px] font-bold text-slate-600 mb-4 leading-relaxed">{ann.message}</p>
+                    <p className="text-[13px] font-bold text-slate-600 mb-4 leading-relaxed">{ann.message}</p>
                   )}
 
                   <div className="flex items-center gap-2">
@@ -227,7 +227,7 @@ const ClientAnnouncementsPage = () => {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <button 
+                  <button
                     onClick={() => {
                       setSelectedAlert(ann);
                       setIsModalOpen(true);
@@ -237,19 +237,18 @@ const ClientAnnouncementsPage = () => {
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                   </button>
-                  <button 
+                  <button
                     onClick={() => ann.status !== 'read' && handleMarkRead(ann.id)}
                     disabled={ann.status === 'read'}
-                    className={`transition-all transform ${
-                      ann.status === 'read' 
-                      ? 'text-slate-300 cursor-default' 
+                    className={`transition-all transform ${ann.status === 'read'
+                      ? 'text-slate-300 cursor-default'
                       : 'text-slate-400 hover:text-emerald-600 hover:scale-110 active:scale-95'
-                    }`}
+                      }`}
                     title={ann.status === 'read' ? "Acknowledged" : "Mark as Read"}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleDelete(ann.id)}
                     className="text-slate-400 hover:text-red-600 transition-all transform hover:scale-110"
                     title="Delete Notification"
@@ -268,9 +267,9 @@ const ClientAnnouncementsPage = () => {
       </div>
 
       {/* Detail Modal */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         title="Notification Intelligence"
         maxWidth="max-w-xl"
       >
@@ -308,21 +307,21 @@ const ClientAnnouncementsPage = () => {
 
               {selectedAlert.project_name && (
                 <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl flex items-center justify-between">
-                   <div>
-                      <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Project Context</p>
-                      <p className="text-xs font-black text-blue-700">{selectedAlert.project_name}</p>
-                   </div>
-                   {selectedAlert.end_date && (
-                     <div className="text-right">
-                        <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Target End Date</p>
-                        <p className="text-xs font-black text-blue-700">{formatDate(selectedAlert.end_date)}</p>
-                     </div>
-                   )}
+                  <div>
+                    <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Project Context</p>
+                    <p className="text-xs font-black text-blue-700">{selectedAlert.project_name}</p>
+                  </div>
+                  {selectedAlert.end_date && (
+                    <div className="text-right">
+                      <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Target End Date</p>
+                      <p className="text-xs font-black text-blue-700">{formatDate(selectedAlert.end_date)}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            <button 
+            <button
               onClick={() => setIsModalOpen(false)}
               className="w-full mt-8 py-4 bg-slate-800 hover:bg-slate-900 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl transition-all shadow-lg"
             >

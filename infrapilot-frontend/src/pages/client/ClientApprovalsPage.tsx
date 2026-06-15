@@ -293,7 +293,7 @@ const ClientApprovalsPage = () => {
                           <div className="flex items-center gap-2 mb-0.5">
                             <h3 className="text-sm font-black text-slate-800 tracking-tight truncate">{apr.description}</h3>
                           </div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">ARCHIVED RECORD • APR-{apr.id}</p>
+
                       </div>
 
                       {/* Category Pill */}

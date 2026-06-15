@@ -64,10 +64,10 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           // Use project-aware fetching for Clients
           const projectIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("mock_settings") ? JSON.parse(localStorage.getItem("mock_settings") || "{}").project_id : null;
           const projectId = projectIdStr ? Number(projectIdStr) : null;
-          
+
           const { alertService } = await import("../../services/alertService");
           const { projectService } = await import("../../services/projectService");
-          
+
           const [generalData, projectAlertsRaw, taskAlertsRaw] = await Promise.all([
             alertService.getAlerts(),
             projectService.getProjectAlerts(),
@@ -114,7 +114,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
             ...mappedTaskAlerts
           ];
 
-          data = projectId 
+          data = projectId
             ? combined.filter(a => Number(a.project_id) === Number(projectId))
             : combined;
         } else {

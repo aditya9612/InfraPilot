@@ -16,6 +16,7 @@ interface DrawingDoc {
   file_url: string;
   approval_status: string;
   approval_id: number | null;
+  is_folder: boolean;
 }
 
 const tabs = ["All", "Document", "Drawing"];
@@ -44,6 +45,8 @@ const ClientDocumentsPage = () => {
   const [selectedPreview, setSelectedPreview] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [fetchingDetail, setFetchingDetail] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
+  const [currentFolderName, setCurrentFolderName] = useState<string | null>(null);
 
   const { projectId } = useClientProjectId();
 
@@ -66,7 +69,7 @@ const ClientDocumentsPage = () => {
     const toastId = toast.loading(`Preparing ${doc.name || doc.title}...`);
     try {
       let file_url = doc.file_url;
-      
+
       // Always try to get a fresh download URL from the new API if ID is available
       if (doc.id) {
         try {
@@ -164,6 +167,11 @@ const ClientDocumentsPage = () => {
     }
   };
 
+  const handleBack = () => {
+    setCurrentFolderId(null);
+    setCurrentFolderName(null);
+  };
+
   const fetchDrawingHistory = useCallback(async () => {
     if (!projectId) return;
     try {
@@ -171,7 +179,10 @@ const ClientDocumentsPage = () => {
       const [versionsResult, latestResult, docsResult] = await Promise.allSettled([
         drawingService.getVersions(projectId),
         drawingService.getLatest(projectId),
-        documentService.listDocuments({ project_id: projectId })
+        documentService.listDocuments({ 
+            project_id: projectId,
+            parent_id: currentFolderId
+        })
       ]);
 
       if (versionsResult.status === 'fulfilled') {
@@ -199,7 +210,7 @@ const ClientDocumentsPage = () => {
       fetchDrawingHistory();
       setCurrentPage(1);
     }
-  }, [projectId, fetchDrawingHistory]);
+  }, [projectId, currentFolderId, fetchDrawingHistory]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -215,6 +226,7 @@ const ClientDocumentsPage = () => {
     file_url: d.file_url || "",
     approval_status: d.approval_status,
     approval_id: d.approval_id,
+    is_folder: false,
   }));
 
   const otherDocs = apiDocs
@@ -230,6 +242,7 @@ const ClientDocumentsPage = () => {
         file_url: d.file_url || "",
         approval_status: d.status || d.approval_status || "Archived",
         approval_id: null,
+        is_folder: d.is_folder || d.document_type === 'folder'
       };
     });
 
@@ -243,8 +256,21 @@ const ClientDocumentsPage = () => {
     <>
       <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Documents & Drawings"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Project Document Vault</h1>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight">
+                {currentFolderName ? `Vault: ${currentFolderName}` : 'Project Document Vault'}
+            </h1>
+          </div>
+          {currentFolderId && (
+            <button 
+                onClick={handleBack}
+                className="px-6 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg flex items-center gap-2 hover:bg-slate-800 transition-all"
+            >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Back to Documents
+            </button>
+          )}
         </div>
 
 
@@ -321,8 +347,36 @@ const ClientDocumentsPage = () => {
                       </td>
                       <td className="p-6 pr-10">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleView(doc)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors transform active:scale-95" title="View Document"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
-                          <button onClick={() => handleDownload(doc)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors transform active:scale-95" title="Download Document"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
+                          <button 
+                            onClick={() => {
+                                if (doc.is_folder) {
+                                    setCurrentFolderId(doc.id);
+                                    setCurrentFolderName(doc.name);
+                                } else {
+                                    handleView(doc);
+                                }
+                            }} 
+                            className="p-2 text-slate-400 hover:text-blue-600 transition-colors transform active:scale-95" 
+                            title={doc.is_folder ? "Open Folder" : "View Document"}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          </button>
+                          
+                          <button 
+                            onClick={() => {
+                                if (doc.is_folder) {
+                                    setCurrentFolderId(doc.id);
+                                    setCurrentFolderName(doc.name);
+                                    toast.success(`Opening ${doc.name}...`);
+                                } else {
+                                    handleDownload(doc);
+                                }
+                            }} 
+                            className="p-2 text-slate-400 hover:text-blue-600 transition-colors transform active:scale-95" 
+                            title="Download"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -415,12 +469,12 @@ const ClientDocumentsPage = () => {
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">Size: {(selectedPreview.file_size / 1024).toFixed(1)} KB</span>
             )}
           </div>
-          
+
           {selectedPreview?.remarks && (
-             <div className="w-full bg-amber-50/50 p-4 rounded-xl border border-amber-100/50">
-                <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Remarks & Annotations</p>
-                <p className="text-[11px] font-bold text-slate-600 leading-relaxed">{selectedPreview.remarks}</p>
-             </div>
+            <div className="w-full bg-amber-50/50 p-4 rounded-xl border border-amber-100/50">
+              <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-1">Remarks & Annotations</p>
+              <p className="text-[11px] font-bold text-slate-600 leading-relaxed">{selectedPreview.remarks}</p>
+            </div>
           )}
 
           <div className="flex gap-3 ml-auto">

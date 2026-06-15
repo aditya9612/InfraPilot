@@ -33,12 +33,12 @@ const ClientSettingsPage = () => {
             compact_view: true,
             show_weather: true,
             auto_gps: true,
-            notif_email: true,
-            notif_sms: false,
-            notif_push: true,
-            notif_dsr: true,
-            notif_issue: false,
-            notif_material: true
+            notif_email: localStorage.getItem("client_notif_email") !== "false",
+            notif_sms: localStorage.getItem("client_notif_sms") !== "false",
+            notif_push: localStorage.getItem("client_notif_push") !== "false",
+            notif_dsr: localStorage.getItem("client_notif_dsr") !== "false",
+            notif_issue: localStorage.getItem("client_notif_issue") !== "false",
+            notif_material: localStorage.getItem("client_notif_material") !== "false"
         },
         financial_year: "2025-26",
         currency: "INR",
@@ -64,8 +64,8 @@ const ClientSettingsPage = () => {
                 setProjects(projectsList);
                 setMasterUnits(unitsData);
 
-                const massToUse = settingsData.preferences?.mass_unit || localStorage.getItem("client_mass_unit") || "Kg";
-                const lengthToUse = settingsData.preferences?.length_unit || localStorage.getItem("client_length_unit") || "Meter";
+                const massToUse = localStorage.getItem("client_mass_unit") || settingsData.preferences?.mass_unit || "Kg";
+                const lengthToUse = localStorage.getItem("client_length_unit") || settingsData.preferences?.length_unit || "Meter";
                 setMassUnit(massToUse);
                 setLengthUnit(lengthToUse);
 
@@ -78,7 +78,8 @@ const ClientSettingsPage = () => {
                 setPreviewUrl(null);
                 setSelectedFile(null);
 
-                const unitToUse = settingsData?.unit || localStorage.getItem("client_unit_system") || "Metric";
+                const savedUnit = localStorage.getItem("client_unit_system");
+                const unitToUse = savedUnit || settingsData?.unit || "Metric";
 
                 setSettings({
                     ...settingsData,
@@ -95,12 +96,12 @@ const ClientSettingsPage = () => {
                         compact_view: settingsData?.preferences?.compact_view ?? true,
                         show_weather: settingsData?.preferences?.show_weather ?? true,
                         auto_gps: settingsData?.preferences?.auto_gps ?? true,
-                        notif_email: settingsData?.preferences?.notif_email ?? true,
-                        notif_sms: settingsData?.preferences?.notif_sms ?? false,
-                        notif_push: settingsData?.preferences?.notif_push ?? true,
-                        notif_dsr: settingsData?.preferences?.notif_dsr ?? true,
-                        notif_issue: settingsData?.preferences?.notif_issue ?? false,
-                        notif_material: settingsData?.preferences?.notif_material ?? true
+                        notif_email: localStorage.getItem("client_notif_email") !== null ? localStorage.getItem("client_notif_email") === "true" : (settingsData?.preferences?.notif_email ?? true),
+                        notif_sms: localStorage.getItem("client_notif_sms") !== null ? localStorage.getItem("client_notif_sms") === "true" : (settingsData?.preferences?.notif_sms ?? true),
+                        notif_push: localStorage.getItem("client_notif_push") !== null ? localStorage.getItem("client_notif_push") === "true" : (settingsData?.preferences?.notif_push ?? true),
+                        notif_dsr: localStorage.getItem("client_notif_dsr") !== null ? localStorage.getItem("client_notif_dsr") === "true" : (settingsData?.preferences?.notif_dsr ?? true),
+                        notif_issue: localStorage.getItem("client_notif_issue") !== null ? localStorage.getItem("client_notif_issue") === "true" : (settingsData?.preferences?.notif_issue ?? true),
+                        notif_material: localStorage.getItem("client_notif_material") !== null ? localStorage.getItem("client_notif_material") === "true" : (settingsData?.preferences?.notif_material ?? true)
                     }
                 });
             } catch (err) {
@@ -113,13 +114,20 @@ const ClientSettingsPage = () => {
     }, []);
 
     const togglePreference = (key: string) => {
+        const newValue = !settings.preferences?.[key];
+        
         setSettings(prev => ({
             ...prev,
             preferences: {
                 ...prev.preferences,
-                [key]: !prev.preferences?.[key]
+                [key]: newValue
             }
         }));
+
+        // Persist immediately to localStorage to handle page refreshes even before save
+        if (["notif_email", "notif_sms", "notif_push", "notif_dsr", "notif_issue", "notif_material"].includes(key)) {
+            localStorage.setItem(`client_${key}`, String(newValue));
+        }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,6 +176,14 @@ const ClientSettingsPage = () => {
                 await settingsService.updateSettings(finalSettings);
                 localStorage.setItem("client_mass_unit", massUnit);
                 localStorage.setItem("client_length_unit", lengthUnit);
+                
+                // Persist notification preferences locally to ensure consistency across refreshes
+                localStorage.setItem("client_notif_email", String(settings.preferences?.notif_email ?? true));
+                localStorage.setItem("client_notif_sms", String(settings.preferences?.notif_sms ?? true));
+                localStorage.setItem("client_notif_push", String(settings.preferences?.notif_push ?? true));
+                localStorage.setItem("client_notif_dsr", String(settings.preferences?.notif_dsr ?? true));
+                localStorage.setItem("client_notif_issue", String(settings.preferences?.notif_issue ?? true));
+                localStorage.setItem("client_notif_material", String(settings.preferences?.notif_material ?? true));
             } catch (err: any) {
                 console.error("Settings update failed:", err.response?.data || err.message);
                 settingsError = err;
@@ -264,7 +280,7 @@ const ClientSettingsPage = () => {
                         {[
                             { label: "Active Project", value: getActiveProjectName(), sub: "Primary project workspace", color: "text-blue-600" },
                             { label: "Unit System", value: settings.unit, sub: "Feet · Meter", color: "text-emerald-500" },
-                            { label: "Notifications", value: "4 / 6", sub: "Channels enabled", color: "text-amber-500" },
+                            { label: "Notifications", value: `${[settings.preferences?.notif_email, settings.preferences?.notif_sms, settings.preferences?.notif_push, settings.preferences?.notif_dsr, settings.preferences?.notif_issue, settings.preferences?.notif_material].filter(Boolean).length} / 6`, sub: "Channels enabled", color: "text-amber-500" },
                             { label: "Language", value: settings.preferences?.language || "English", sub: settings.preferences?.timezone || "IST (UTC+5:30)", color: "text-slate-800" },
                         ].map((card, i) => (
                             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md">
@@ -440,7 +456,7 @@ const ClientSettingsPage = () => {
                                                     setSettings(s => ({ ...s, unit: u }));
                                                     localStorage.setItem("client_unit_system", u);
                                                 }}
-                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${settings.unit?.toLowerCase() === u.toLowerCase() ? 'bg-[#1e293b] text-white border-[#1e293b] shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
+                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${settings.unit?.toLowerCase() === u.toLowerCase() ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
                                             >
                                                 {u}
                                             </button>
@@ -526,7 +542,7 @@ const ClientSettingsPage = () => {
                                     { label: "Issue Alerts", sub: "Notify on new high-priority issues", icon: "⚠️", key: "notif_issue" },
                                     { label: "Material Alerts", sub: "Low stock threshold notifications", icon: "🏗️", key: "notif_material" },
                                 ].map((n, i) => {
-                                    const isActive = settings.preferences?.[n.key] ?? false;
+                                    const isActive = settings.preferences?.[n.key] ?? true;
                                     return (
                                         <div key={i} className="group p-4 bg-slate-50/20 hover:bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between transition-all">
                                             <div className="flex items-center gap-4">
