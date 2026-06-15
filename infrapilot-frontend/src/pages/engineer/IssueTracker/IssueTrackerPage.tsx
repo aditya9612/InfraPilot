@@ -55,6 +55,7 @@ const IssueTrackerPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [priorityFilter, setPriorityFilter] = useState("All");
+    const [categoryFilter, setCategoryFilter] = useState("All");
     const [projectId, setProjectId] = useState<number | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
@@ -76,7 +77,6 @@ const IssueTrackerPage = () => {
         if (!formData.title.trim()) newErrors.title = "Required";
         if (!formData.category) newErrors.category = "Required";
         if (!formData.priority) newErrors.priority = "Required";
-        if (!formData.description.trim()) newErrors.description = "Required";
         if (!formData.reported_date) newErrors.reported_date = "Required";
 
 
@@ -120,6 +120,7 @@ const IssueTrackerPage = () => {
                 project_id: projectId,
                 status: statusFilter,
                 priority: priorityFilter,
+                category: categoryFilter === "All" ? undefined : categoryFilter,
                 search: searchTerm,
                 limit: 1000
             });
@@ -133,7 +134,7 @@ const IssueTrackerPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [projectId, statusFilter, priorityFilter, searchTerm]);
+    }, [projectId, statusFilter, priorityFilter, categoryFilter, searchTerm]);
 
     useEffect(() => {
         fetchIssues();
@@ -189,13 +190,14 @@ const IssueTrackerPage = () => {
                 i.description.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === "All" || i.status === statusFilter;
             const matchesPriority = priorityFilter === "All" || i.priority === priorityFilter;
-            return matchesSearch && matchesStatus && matchesPriority;
+            const matchesCategory = categoryFilter === "All" || i.category === categoryFilter;
+            return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
         });
-    }, [issueData, searchTerm, statusFilter, priorityFilter, activeStatFilter]);
+    }, [issueData, searchTerm, statusFilter, priorityFilter, categoryFilter, activeStatFilter]);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, statusFilter, priorityFilter, activeStatFilter]);
+    }, [searchTerm, statusFilter, priorityFilter, categoryFilter, activeStatFilter]);
 
     const paginatedIssues = filteredIssues.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -323,6 +325,12 @@ const IssueTrackerPage = () => {
                                 <option value="High">High</option>
                                 <option value="Medium">Medium</option>
                                 <option value="Low">Low</option>
+                            </select>
+                            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter">
+                                <option value="All">All Categories</option>
+                                <option value="Material">Material</option>
+                                <option value="Safety">Safety</option>
+                                <option value="Delay">Delay</option>
                             </select>
                             {activeStatFilter !== "All" && (
                                 <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
@@ -535,10 +543,18 @@ const IssueTrackerPage = () => {
                                     </div>
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] font-inter">Issue Parameters</p>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6 font-inter">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-6 font-inter">
+                                    <div>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Project</p>
+                                        <p className="text-sm font-bold text-slate-800 uppercase tracking-widest truncate">
+                                            {projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.project_name || 
+                                             projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.name || 
+                                             `Project #${selectedIssue.project_id}`}
+                                        </p>
+                                    </div>
                                     <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Category</p><p className="text-sm font-bold text-slate-800 uppercase tracking-widest">{selectedIssue.category}</p></div>
                                     <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Priority</p><p className="text-sm font-bold text-rose-500 uppercase tracking-widest">{selectedIssue.priority}</p></div>
-                                    <div className="col-span-2">
+                                    <div className="col-span-1 sm:col-span-3">
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Description</p>
                                         <div className="p-5 bg-slate-50 rounded-xl border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed shadow-inner">"{selectedIssue.description}"</div>
                                     </div>
@@ -638,7 +654,7 @@ const IssueTrackerPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Description</h3>
                         <div>
-                            <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
+                            <label className={labelClasses}>Description</label>
                             <textarea name="description" rows={4} value={formData.description} onChange={handleInputChange} placeholder="Describe the issue in detail..." className={`${inputClasses(errors.description)} resize-none`} />
                             {errors.description && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.description}</p>}
                         </div>

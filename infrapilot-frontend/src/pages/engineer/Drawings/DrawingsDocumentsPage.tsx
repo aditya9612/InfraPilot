@@ -84,6 +84,7 @@ const DrawingsDocumentsPage = () => {
 
     // Type filter tabs: All / Documents / Drawings
     const [typeFilter, setTypeFilter] = useState<"All" | "Documents" | "Drawings">("All");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
 
     // Resolve Project ID and fetch projects list
@@ -228,9 +229,6 @@ const DrawingsDocumentsPage = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.drawing_name?.trim()) newErrors.drawing_name = "Required";
         if (!formData.version?.trim()) newErrors.version = "Required";
-        if (!formData.approved_by?.trim()) newErrors.approved_by = "Required";
-        if (!formData.date) newErrors.date = "Required";
-        if (!formData.remarks?.trim()) newErrors.remarks = "Required";
         if (!formData.project_id) newErrors.project_id = "Required";
         if (!isEditMode && !formData.file) newErrors.file = "Blueprint file is required";
         setErrors(newErrors);
@@ -412,11 +410,26 @@ const DrawingsDocumentsPage = () => {
         }
 
         // Apply search
-        return data.filter(d =>
+        let result = data.filter(d =>
             (d.drawing_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
             String(d.id).toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [drawingData, searchTerm, typeFilter]);
+
+        // Apply sorting
+        result = [...result].sort((a, b) => {
+            const dateA = new Date(a.date || 0).getTime();
+            const dateB = new Date(b.date || 0).getTime();
+            if (dateA !== dateB) {
+                return sortOrder === "latest" ? dateB - dateA : dateA - dateB;
+            }
+            // Fallback to ID sorting
+            const idA = typeof a.id === "string" ? parseInt(a.id.replace(/\D/g, "") || "0") : Number(a.id);
+            const idB = typeof b.id === "string" ? parseInt(b.id.replace(/\D/g, "") || "0") : Number(b.id);
+            return sortOrder === "latest" ? idB - idA : idA - idB;
+        });
+
+        return result;
+    }, [drawingData, searchTerm, typeFilter, sortOrder]);
 
     const paginatedDrawings = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -529,6 +542,18 @@ const DrawingsDocumentsPage = () => {
                                     {tab}
                                 </button>
                             ))}
+                        </div>
+
+                        {/* Sort Filter */}
+                        <div className="flex items-center gap-1 font-inter">
+                            <select
+                                value={sortOrder}
+                                onChange={(e) => { setSortOrder(e.target.value as "latest" | "oldest"); setCurrentPage(1); }}
+                                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter cursor-pointer"
+                            >
+                                <option value="latest">Latest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
                         </div>
 
                     </div>
@@ -975,14 +1000,12 @@ const DrawingsDocumentsPage = () => {
                                 {errors.version && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.version}</p>}
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Authorized Approver <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Authorized Approver</label>
                                 <input name="approved_by" value={formData.approved_by} onChange={handleInputChange} placeholder="e.g. Chief Architect" className={inputClasses(errors.approved_by)} />
-                                {errors.approved_by && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.approved_by}</p>}
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Registration Sequence (Date) <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Registration Sequence (Date)</label>
                                 <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
-                                {errors.date && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.date}</p>}
                             </div>
                         </div>
                     </div>
@@ -993,9 +1016,8 @@ const DrawingsDocumentsPage = () => {
                             Technical Specifications
                         </h3>
                         <div className="md:col-span-2 font-inter">
-                            <label className={labelClasses}>Lead Engineer Remarks <span className="text-rose-500">*</span></label>
+                            <label className={labelClasses}>Lead Engineer Remarks</label>
                             <textarea name="remarks" rows={3} value={formData.remarks} onChange={handleInputChange} placeholder="Describe technical scope or revision details..." className={`${inputClasses(errors.remarks)} resize-none font-bold`} />
-                            {errors.remarks && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.remarks}</p>}
                         </div>
                     </div>
 

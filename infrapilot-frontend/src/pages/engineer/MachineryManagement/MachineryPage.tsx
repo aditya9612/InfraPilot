@@ -36,7 +36,7 @@ const TABS = ["Dashboard", "Machinery & Equipment List", "Usage", "Maintenance",
 
 const MachineryPage = () => {
     // ─── Project Context ──────────────────────────────────────────────
-    const selectedProjectId = (() => {
+    const getProjectIdFromStorage = (): number | null => {
         try {
             const userStr = localStorage.getItem("infrapilot_user");
             if (userStr) {
@@ -45,8 +45,19 @@ const MachineryPage = () => {
                 if (pId) return Number(pId);
             }
         } catch (e) { }
-        return 92;
-    })();
+        return null;
+    };
+
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(getProjectIdFromStorage);
+
+    // Re-sync when Settings page changes the active project (storage event)
+    useEffect(() => {
+        const onStorageChange = () => {
+            setSelectedProjectId(getProjectIdFromStorage());
+        };
+        window.addEventListener('storage', onStorageChange);
+        return () => window.removeEventListener('storage', onStorageChange);
+    }, []);
 
     // ─── Main States ──────────────────────────────────────────────────
     const [activeTab, setActiveTab] = useState(TABS[0]);
@@ -101,19 +112,45 @@ const MachineryPage = () => {
     const [projects, setProjects] = useState<any[]>([]);
 
     useEffect(() => {
-        if (isAllocateModalOpen) {
-            const fetchProjects = async () => {
-                try {
-                    const res = await projectService.getProjects(100, 0);
-                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
-                    setProjects(projectsList);
-                } catch (err) {
-                    console.error("Failed to fetch projects", err);
+        const fetchProjects = async () => {
+            try {
+                const res = await projectService.getProjects(100, 0);
+                const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                setProjects(projectsList);
+            } catch (err) {
+                console.error("Failed to fetch projects", err);
+            }
+        };
+        fetchProjects();
+    }, []);
+
+    const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newProjectId = e.target.value ? Number(e.target.value) : null;
+        setSelectedProjectId(newProjectId);
+        if (newProjectId) {
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    const selectedProjObj = projects.find(p => Number(p.id) === newProjectId);
+
+                    parsed.project_id = newProjectId;
+                    parsed.default_project_id = newProjectId;
+                    if (selectedProjObj) {
+                        parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                    }
+                    if (parsed.user) {
+                        parsed.user.project_id = newProjectId;
+                        if (selectedProjObj) {
+                            parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                        }
+                    }
+                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    window.dispatchEvent(new Event('storage'));
                 }
-            };
-            fetchProjects();
+            } catch(e) {}
         }
-    }, [isAllocateModalOpen]);
+    };
 
     // ─── Data Fetching ─────────────────────────────────────────────────
 
@@ -127,14 +164,16 @@ const MachineryPage = () => {
 
     // Load data based on active tab
     useEffect(() => {
+        const eqParams = selectedProjectId ? { limit: 100, project_id: selectedProjectId } : { limit: 100 };
+        const pIdObj = selectedProjectId ? { project_id: selectedProjectId } : undefined;
         withLoading(async () => {
             if (activeTab === "Dashboard") {
                 const [eqRes, avail, mAlerts, eAlerts, cost] = await Promise.all([
-                    equipmentService.listEquipment({ limit: 100 }),
-                    equipmentService.getAvailabilityReport(),
-                    equipmentService.getMaintenanceAlerts(),
-                    equipmentService.getEquipmentAlerts(),
-                    equipmentService.getCostReport()
+                    equipmentService.listEquipment(eqParams),
+                    equipmentService.getAvailabilityReport(pIdObj),
+                    equipmentService.getMaintenanceAlerts(pIdObj),
+                    equipmentService.getEquipmentAlerts(pIdObj),
+                    equipmentService.getCostReport(pIdObj)
                 ]);
                 setEquipmentList(eqRes.items || []);
                 setAvailability(avail);
@@ -143,13 +182,13 @@ const MachineryPage = () => {
                 setCostReport(cost);
             }
             else if (activeTab === "Machinery & Equipment List") {
-                const res = await equipmentService.listEquipment({ limit: 100 });
+                const res = await equipmentService.listEquipment(eqParams);
                 setEquipmentList(res.items || []);
             }
             else if (activeTab === "Usage") {
                 const [res, report] = await Promise.all([
-                    equipmentService.listEquipment({ limit: 100 }),
-                    equipmentService.getUsageReport()
+                    equipmentService.listEquipment(eqParams),
+                    equipmentService.getUsageReport(pIdObj)
                 ]);
                 const eqList = res.items || [];
                 setEquipmentList(eqList);
@@ -158,8 +197,8 @@ const MachineryPage = () => {
             }
             else if (activeTab === "Maintenance") {
                 const [res, mAlerts] = await Promise.all([
-                    equipmentService.listEquipment({ limit: 100 }),
-                    equipmentService.getMaintenanceAlerts()
+                    equipmentService.listEquipment(eqParams),
+                    equipmentService.getMaintenanceAlerts(pIdObj)
                 ]);
                 const eqList = res.items || [];
                 setEquipmentList(eqList);
@@ -168,8 +207,8 @@ const MachineryPage = () => {
             }
             else if (activeTab === "Rental") {
                 const [res, cost] = await Promise.all([
-                    equipmentService.listEquipment({ limit: 100 }),
-                    equipmentService.getCostReport()
+                    equipmentService.listEquipment(eqParams),
+                    equipmentService.getCostReport(pIdObj)
                 ]);
                 const eqList = res.items || [];
                 setEquipmentList(eqList);
@@ -185,9 +224,9 @@ const MachineryPage = () => {
             }
             else if (activeTab === "Reports & Alerts") {
                 const [avail, util, eqRes] = await Promise.all([
-                    equipmentService.getAvailabilityReport(),
-                    equipmentService.getUtilizationReport(),
-                    equipmentService.listEquipment({ limit: 100 })
+                    equipmentService.getAvailabilityReport(pIdObj),
+                    equipmentService.getUtilizationReport(pIdObj),
+                    equipmentService.listEquipment(eqParams)
                 ]);
                 setAvailability(avail);
                 setUtilizationReport(util);
@@ -298,7 +337,7 @@ const MachineryPage = () => {
             toast.success("Usage logged successfully!");
             setIsUsageModalOpen(false);
             if (activeTab === "Usage") {
-                const report = await equipmentService.getUsageReport();
+                const report = await equipmentService.getUsageReport({ project_id: selectedProjectId || undefined });
                 setUsageReport(report);
                 const eq = equipmentList.find(e => e.id === formData.equipment_id);
                 if (eq) {
@@ -322,7 +361,7 @@ const MachineryPage = () => {
             toast.success("Maintenance scheduled!");
             setIsMaintenanceModalOpen(false);
             if (activeTab === "Maintenance") {
-                const alerts = await equipmentService.getMaintenanceAlerts();
+                const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
                 setMaintenanceAlerts(alerts);
                 const eq = equipmentList.find(e => e.id === formData.equipment_id);
                 if (eq) {
@@ -351,7 +390,7 @@ const MachineryPage = () => {
             toast.success("Rental added successfully!");
             setIsRentalModalOpen(false);
             if (activeTab === "Rental") {
-                const report = await equipmentService.getCostReport();
+                const report = await equipmentService.getCostReport({ project_id: selectedProjectId || undefined });
                 setCostReport(report);
                 const eq = equipmentList.find(e => e.id === formData.equipment_id);
                 if (eq) {
@@ -402,6 +441,14 @@ const MachineryPage = () => {
                 item.operator_name.toLowerCase().includes(term);
             const matchesCondition = conditionFilter === "All" || item.condition === conditionFilter;
 
+            // Strict project filter: if a project is selected, show ONLY that project's equipment
+            // (no unallocated, no other project's equipment)
+            let matchesProject = true;
+            if (selectedProjectId) {
+                matchesProject = Number(item.project_id) === Number(selectedProjectId);
+            }
+
+            // Within already-project-filtered items, apply allocation filter if needed
             let matchesAllocation = true;
             if (allocationFilter === "Allocated") {
                 matchesAllocation = item.project_id != null;
@@ -409,9 +456,9 @@ const MachineryPage = () => {
                 matchesAllocation = item.project_id == null;
             }
 
-            return matchesSearch && matchesCondition && matchesAllocation;
+            return matchesSearch && matchesCondition && matchesProject && matchesAllocation;
         });
-    }, [equipmentList, searchTerm, conditionFilter, allocationFilter]);
+    }, [equipmentList, searchTerm, conditionFilter, allocationFilter, selectedProjectId]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -561,6 +608,9 @@ const MachineryPage = () => {
                                     <td className="px-6 py-3">
                                         <p className="font-bold text-sm text-slate-800">{item.equipment_name}</p>
                                         <p className="text-xs text-slate-500">{item.equipment_code}</p>
+                                        <p className="text-[10px] font-bold text-primary mt-0.5">
+                                            {item.project_id ? (projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || `PRJ-${item.project_id}`) : 'Not Allocated'}
+                                        </p>
                                     </td>
                                     <td className="px-6 py-3 text-sm text-slate-700">{item.operator_name}</td>
                                     <td className="px-6 py-3 text-sm text-slate-700">
@@ -1097,6 +1147,19 @@ const MachineryPage = () => {
                             Complete lifecycle tracking — allocation, usage, maintenance, cost
                         </p>
                     </div>
+                    <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-xl shadow-sm">
+                        <span className="text-xs font-bold text-slate-500 uppercase">Active Project:</span>
+                        <select
+                            value={selectedProjectId || ""}
+                            onChange={handleProjectChange}
+                            className="bg-transparent border-none text-sm font-bold text-slate-800 focus:outline-none cursor-pointer"
+                        >
+                            <option value="" disabled>Select Project</option>
+                            {projects.map(p => (
+                                <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
                 {/* ─── Tab Bar ─── */}
@@ -1160,7 +1223,9 @@ const MachineryPage = () => {
 
                         <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Operator</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.operator_name}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">PRJ-{selectedEquipment.project_id || selectedProjectId}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">
+                                {selectedEquipment.project_id ? (projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.project_name || projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.name || `PRJ-${selectedEquipment.project_id}`) : 'Not Allocated'}
+                            </p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Working Hours</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.working_hours} Hrs</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Fuel Used</p><p className="text-sm font-bold text-blue-600">{selectedEquipment.fuel_used} L</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost.toLocaleString()}</p></div>
@@ -1334,48 +1399,155 @@ const MachineryPage = () => {
             </Modal>
 
             {/* 8. Audit Logs Modal */}
-            <Modal isOpen={isLogsModalOpen} onClose={() => setIsLogsModalOpen(false)} title={`Audit Logs — ${selectedEquipment?.equipment_name}`} maxWidth="max-w-[1200px]">
-                <div className="p-6 font-inter">
-                    <div className="overflow-auto max-h-[600px] border border-slate-200 rounded-xl">
-                        <table className="w-full text-left text-sm min-w-[1000px]">
-                            <thead className="bg-slate-50 sticky top-0 font-bold text-slate-500 text-[10px] uppercase whitespace-nowrap z-10">
-                                <tr>
-                                    <th className="p-4">Action</th>
-                                    <th className="p-4">Old Values</th>
-                                    <th className="p-4">New Values</th>
-                                    <th className="p-4">Created At</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {auditLogs.length > 0 ? auditLogs.map(log => (
-                                    <tr key={log.id} className="hover:bg-slate-50">
-                                        <td className="p-4 whitespace-nowrap">
-                                            <span className="px-2 py-1 bg-blue-50 text-blue-700 font-bold text-[10px] uppercase rounded">{log.action}</span>
-                                        </td>
-                                        <td className="p-4 align-top">
-                                            {log.old_values ? (
-                                                <pre className="text-[10px] font-mono text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100 whitespace-pre-wrap break-words max-w-[250px]">
-                                                    {JSON.stringify(log.old_values, null, 2)}
-                                                </pre>
-                                            ) : (
-                                                <span className="text-slate-400 font-mono text-xs">null</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 align-top">
-                                            {log.new_values ? (
-                                                <pre className="text-[10px] font-mono text-emerald-700 bg-emerald-50 p-2 rounded-lg border border-emerald-100 whitespace-pre-wrap break-words max-w-[250px]">
-                                                    {JSON.stringify(log.new_values, null, 2)}
-                                                </pre>
-                                            ) : (
-                                                <span className="text-slate-400 font-mono text-xs">null</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 text-xs text-slate-500 whitespace-nowrap">{new Date(log.created_at).toLocaleString()}</td>
-                                    </tr>
-                                )) : <tr><td colSpan={4} className="p-8 text-center text-slate-400">No logs found</td></tr>}
-                            </tbody>
-                        </table>
-                    </div>
+            <Modal isOpen={isLogsModalOpen} onClose={() => setIsLogsModalOpen(false)} title={`Audit Logs — ${selectedEquipment?.equipment_name}`} maxWidth="max-w-2xl">
+                <div className="p-6 font-inter space-y-3 max-h-[600px] overflow-y-auto">
+                    {auditLogs.length > 0 ? auditLogs.map(log => {
+                        const actionColors: Record<string, string> = {
+                            ALLOCATE: 'bg-blue-100 text-blue-700',
+                            DEALLOCATE: 'bg-amber-100 text-amber-700',
+                            CREATE: 'bg-emerald-100 text-emerald-700',
+                            UPDATE: 'bg-purple-100 text-purple-700',
+                            DELETE: 'bg-rose-100 text-rose-700',
+                            RENTAL_CREATE: 'bg-violet-100 text-violet-700',
+                            MAINTENANCE_CREATE: 'bg-orange-100 text-orange-700',
+                            USAGE_CREATE: 'bg-cyan-100 text-cyan-700',
+                        };
+                        const colorClass = actionColors[log.action] || 'bg-slate-100 text-slate-600';
+
+                        // Helper: get project name from projects list by id
+                        const getProjectName = (id: any) => {
+                            if (!id) return 'Not Allocated';
+                            const p = projects.find(p => Number(p.id) === Number(id));
+                            return p ? (p.project_name || p.name) : `Project #${id}`;
+                        };
+
+                        // Render meaningful summary based on action type
+                        const renderDetails = () => {
+                            const ov = log.old_values;
+                            const nv = log.new_values;
+
+                            if (log.action === 'ALLOCATE') {
+                                return (
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-slate-400 uppercase font-bold">From</span>
+                                            <span className="text-sm font-semibold text-slate-600">{getProjectName(ov?.project_id)}</span>
+                                        </div>
+                                        <span className="text-slate-400 text-lg">→</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-slate-400 uppercase font-bold">To</span>
+                                            <span className="text-sm font-bold text-blue-700">{getProjectName(nv?.project_id)}</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            if (log.action === 'DEALLOCATE') {
+                                return (
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Released From</span>
+                                            <span className="text-sm font-semibold text-slate-600">{getProjectName(ov?.project_id)}</span>
+                                        </div>
+                                        <span className="text-slate-400 text-lg">→</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Status</span>
+                                            <span className="text-sm font-bold text-amber-600">Not Allocated</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            if (log.action === 'CREATE') {
+                                const vals = nv || {};
+                                return (
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                        {vals.equipment_name && <div><span className="text-slate-400 text-xs">Name: </span><span className="font-semibold text-slate-700">{vals.equipment_name}</span></div>}
+                                        {vals.equipment_code && <div><span className="text-slate-400 text-xs">Code: </span><span className="font-semibold text-slate-700">{vals.equipment_code}</span></div>}
+                                        {vals.operator_name && <div><span className="text-slate-400 text-xs">Operator: </span><span className="font-semibold text-slate-700">{vals.operator_name}</span></div>}
+                                        {vals.condition && <div><span className="text-slate-400 text-xs">Condition: </span><span className="font-semibold text-slate-700">{vals.condition}</span></div>}
+                                        {vals.project_id && <div><span className="text-slate-400 text-xs">Project: </span><span className="font-semibold text-slate-700">{getProjectName(vals.project_id)}</span></div>}
+                                        {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Rental Cost: </span><span className="font-semibold text-slate-700">₹{vals.rental_cost}</span></div>}
+                                    </div>
+                                );
+                            }
+
+                            if (log.action === 'RENTAL_CREATE') {
+                                const vals = nv || {};
+                                return (
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                        {vals.client_name && <div><span className="text-slate-400 text-xs">Client: </span><span className="font-semibold text-slate-700">{vals.client_name}</span></div>}
+                                        {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.rental_cost}</span></div>}
+                                        {vals.start_date && <div><span className="text-slate-400 text-xs">Start: </span><span className="font-semibold text-slate-700">{vals.start_date}</span></div>}
+                                        {vals.end_date && <div><span className="text-slate-400 text-xs">End: </span><span className="font-semibold text-slate-700">{vals.end_date}</span></div>}
+                                    </div>
+                                );
+                            }
+
+                            if (log.action === 'MAINTENANCE_CREATE') {
+                                const vals = nv || {};
+                                return (
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                        {vals.description && <div className="col-span-2"><span className="text-slate-400 text-xs">Description: </span><span className="font-semibold text-slate-700">{vals.description}</span></div>}
+                                        {vals.maintenance_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.maintenance_date}</span></div>}
+                                        {vals.cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.cost}</span></div>}
+                                    </div>
+                                );
+                            }
+
+                            if (log.action === 'USAGE_CREATE') {
+                                const vals = nv || {};
+                                return (
+                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                        {vals.working_hours !== undefined && <div><span className="text-slate-400 text-xs">Working Hours: </span><span className="font-semibold text-slate-700">{vals.working_hours} hrs</span></div>}
+                                        {vals.fuel_used !== undefined && <div><span className="text-slate-400 text-xs">Fuel Used: </span><span className="font-semibold text-slate-700">{vals.fuel_used} L</span></div>}
+                                        {vals.usage_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.usage_date}</span></div>}
+                                        {vals.notes && <div className="col-span-2"><span className="text-slate-400 text-xs">Notes: </span><span className="font-semibold text-slate-700">{vals.notes}</span></div>}
+                                    </div>
+                                );
+                            }
+
+                            if (log.action === 'UPDATE') {
+                                // Show what changed: old vs new for changed keys
+                                const allKeys = Array.from(new Set([...Object.keys(ov || {}), ...Object.keys(nv || {})]));
+                                const changedKeys = allKeys.filter(k => JSON.stringify((ov || {})[k]) !== JSON.stringify((nv || {})[k]));
+                                if (changedKeys.length === 0) return <span className="text-xs text-slate-400">No meaningful changes</span>;
+                                return (
+                                    <div className="space-y-1">
+                                        {changedKeys.map(k => (
+                                            <div key={k} className="flex items-center gap-2 text-sm flex-wrap">
+                                                <span className="text-slate-500 text-xs capitalize">{k.replace(/_/g, ' ')}:</span>
+                                                <span className="text-slate-500 line-through text-xs">{k === 'project_id' ? getProjectName((ov || {})[k]) : String((ov || {})[k] ?? '—')}</span>
+                                                <span className="text-slate-400">→</span>
+                                                <span className="font-semibold text-slate-700 text-xs">{k === 'project_id' ? getProjectName((nv || {})[k]) : String((nv || {})[k] ?? '—')}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            }
+
+                            return <span className="text-xs text-slate-400">Action recorded</span>;
+                        };
+
+                        return (
+                            <div key={log.id} className="bg-white border border-slate-200 rounded-xl p-4 flex gap-4 items-start shadow-sm hover:shadow-md transition-shadow">
+                                <div className="shrink-0">
+                                    <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg ${colorClass}`}>{log.action.replace(/_/g, ' ')}</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    {renderDetails()}
+                                </div>
+                                <div className="shrink-0 text-right">
+                                    <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleDateString()}</p>
+                                    <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleTimeString()}</p>
+                                </div>
+                            </div>
+                        );
+                    }) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                            <p className="text-sm font-medium">No audit logs found</p>
+                        </div>
+                    )}
                 </div>
             </Modal>
 
