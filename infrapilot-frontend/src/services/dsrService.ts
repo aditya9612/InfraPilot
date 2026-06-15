@@ -64,8 +64,14 @@ export const dsrService = {
       status?: string;
     }
   ): Promise<DsrResponse> {
+    // Explicitly ensure limit 100 is sent if not provided to match other modules
+    const finalParams = {
+      limit: 100,
+      offset: 0,
+      ...params
+    };
     const response = await api.get<DsrResponse>(`/dsr/project/${projectId}`, {
-      params,
+      params: finalParams,
     });
     return response.data;
   },

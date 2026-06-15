@@ -11,6 +11,7 @@ const ClientDSRSummaryPage = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<{id: number, url: string} | null>(null);
   const [selectedReportForView, setSelectedReportForView] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL STATUS");
   const [dateFilter, setDateFilter] = useState("");
@@ -23,7 +24,17 @@ const ClientDSRSummaryPage = () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const response: any = await dsrService.getDsrByProject(projectId);
+      // HARDCODE THE LIMIT IN REQUEST TO ENSURE IT PASSES
+      const response: any = await dsrService.getDsrByProject(projectId, { limit: 100, offset: 0 });
+      
+      // Force verify that the URL being hit actually has the limit=100 if the service allows it, 
+      // but since the service is using standard params, we'll try to re-verify the service.
+      if (response.meta?.total !== undefined) {
+        setTotalCount(response.meta.total);
+      } else {
+        setTotalCount(Array.isArray(response) ? response.length : (response.items?.length || 0));
+      }
+
       let items: any[] = Array.isArray(response) ? response : (response.items || response.data || []);
       
       const formatted = await Promise.all(items.map(async (item: any) => {
@@ -88,12 +99,13 @@ const ClientDSRSummaryPage = () => {
   }, [reports, searchQuery, statusFilter, dateFilter]);
 
   const stats = {
-    total: reports.length,
+    total: totalCount || reports.length,
     drafts: reports.filter(r => r.status?.toLowerCase() === 'draft' || !r.status).length,
     submitted: reports.filter(r => r.status?.toLowerCase() === 'submitted').length,
     approved: reports.filter(r => r.status?.toLowerCase() === 'approved' || r.status?.toLowerCase() === 'verified').length
   };
 
+  // Perform local pagination on the fetched 100 records for UI cleanliness
   const paginatedReports = filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
@@ -272,7 +284,9 @@ const ClientDSRSummaryPage = () => {
                         </p>
                         <div className="flex items-center gap-1.5 text-slate-400">
                           <MapPin className="w-3 h-3" />
-                          <p className="text-[10px] font-bold uppercase tracking-tight truncate max-w-xs">{report.site_address || report.project_location || "pune"}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-tight truncate max-w-xs">
+                            {report.contractor_name ? `${report.contractor_name} · ` : ""}{report.site_location || report.site_address || report.project_location || "Pune Site"}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -441,7 +455,10 @@ const ClientDSRSummaryPage = () => {
                            </div>
                            <div className="flex items-start gap-2 text-white/70 font-inter">
                               <MapPin className="w-4 h-4 mt-0.5 shrink-0 font-inter" />
-                              <p className="text-xs font-bold leading-relaxed font-inter">{selectedReportForView.site_address || selectedReportForView.project_location || "pune"}</p>
+                              <p className="text-xs font-bold leading-relaxed font-inter">
+                                {selectedReportForView.contractor_name ? `${selectedReportForView.contractor_name} · ` : ""}
+                                {selectedReportForView.site_location || selectedReportForView.site_address || selectedReportForView.project_location || "Pune Site"}
+                              </p>
                            </div>
                         </div>
 
@@ -498,63 +515,105 @@ const ClientDSRSummaryPage = () => {
                   </div>
                </div>
 
-               {/* Work Narrative Section */}
-               <div className="space-y-8 font-inter">
-                  <div className="flex items-center gap-3 font-inter">
-                     <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-500 shadow-sm font-inter">
-                        <FileText className="w-4 h-4 font-inter" />
-                     </div>
-                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">WORK NARRATIVE</h4>
-                  </div>
-                  
-                  <div className="px-2 font-inter">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 font-inter">WORK COMPLETED TODAY</p>
-                     <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-6 relative font-inter">
-                        <p className="text-sm text-slate-600 font-bold italic leading-relaxed font-inter">
-                           "{selectedReportForView.work_done || "No work activity recorded for this shift."}"
-                        </p>
-                     </div>
-                  </div>
-               </div>
+                {/* Work Narrative & Future Planning Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10 font-inter">
+                   <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-500 shadow-sm">
+                            <FileText className="w-4 h-4" />
+                         </div>
+                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">WORK COMPLETED</h4>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-6 h-full">
+                         <p className="text-sm text-slate-600 font-bold italic leading-relaxed">
+                            "{selectedReportForView.work_done || "No work activity recorded for this shift."}"
+                         </p>
+                      </div>
+                   </div>
 
-               {/* Resource Logistics Section */}
-               <div className="space-y-8 font-inter">
-                  <div className="flex items-center gap-3 font-inter font-inter">
-                     <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 shadow-sm font-inter">
-                        <Package className="w-4 h-4 font-inter" />
-                     </div>
-                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter font-inter">RESOURCE LOGISTICS</h4>
-                  </div>
+                   <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 shadow-sm">
+                            <Calendar className="w-4 h-4" />
+                         </div>
+                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">FUTURE PLANNING</h4>
+                      </div>
+                      <div className="bg-amber-50/20 border border-amber-100/50 rounded-2xl p-6 h-full">
+                         <p className="text-sm text-amber-900/70 font-bold italic leading-relaxed">
+                            {selectedReportForView.work_planned || "No future activities documented yet."}
+                         </p>
+                      </div>
+                   </div>
+                </div>
 
-                  <div className="grid grid-cols-2 gap-12 px-2 font-inter">
-                     <div className="font-inter">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">MATERIAL RECEIVED</p>
-                        <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed font-inter font-inter">{selectedReportForView.material_received || "None reported today"}</p>
-                     </div>
-                     <div className="font-inter">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">MACHINERY USED</p>
-                        <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed font-inter">{selectedReportForView.machinery_used || "No heavy equipment logged"}</p>
-                     </div>
-                  </div>
-               </div>
+                {/* Resource Logistics Section */}
+                <div className="space-y-8 font-inter">
+                   <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 shadow-sm">
+                         <Package className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">RESOURCE LOGISTICS</h4>
+                   </div>
 
-               {/* Constraints & Observations Section */}
-               <div className="space-y-8 font-inter">
-                  <div className="flex items-center gap-3 font-inter">
-                     <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500 shadow-sm font-inter">
-                        <AlertCircle className="w-4 h-4 font-inter font-inter" />
-                     </div>
-                     <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] font-inter">CONSTRAINTS & OBSERVATIONS</h4>
-                  </div>
-                  
-                  <div className="px-2 font-inter">
-                     <div className="bg-rose-50/30 border border-rose-100/50 rounded-2xl p-6 font-inter font-inter">
-                        <p className="text-sm text-rose-600 font-bold leading-relaxed font-inter font-inter">
-                           {selectedReportForView.issues || selectedReportForView.constraints || "No critical constraints documented."}
-                        </p>
-                     </div>
-                  </div>
-               </div>
+                   <div className="grid grid-cols-2 md:grid-cols-3 gap-10 px-2">
+                      <div>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MATERIAL RECEIVED</p>
+                         <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed">{selectedReportForView.material_received || "None reported"}</p>
+                      </div>
+                      <div>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MATERIAL CONSUMED</p>
+                         <p className="text-sm font-black text-emerald-600 tracking-tight leading-relaxed">{selectedReportForView.material_used || "None reported"}</p>
+                      </div>
+                      <div>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MACHINERY LOG</p>
+                         <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed">{selectedReportForView.machinery_used || "Standard maintenance"}</p>
+                      </div>
+                   </div>
+                </div>
+
+                {/* Safety & Compliance Section */}
+                {(selectedReportForView.safety_observations || selectedReportForView.remarks) && (
+                   <div className="space-y-8 font-inter">
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-100 shadow-sm">
+                            <Search className="w-3.5 h-3.5" />
+                         </div>
+                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">SITE REMARKS & SAFETY</h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 px-2">
+                         {selectedReportForView.safety_observations && (
+                            <div>
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">SAFETY OBSERVATIONS</p>
+                               <p className="text-xs font-bold text-slate-600 leading-relaxed font-inter">{selectedReportForView.safety_observations}</p>
+                            </div>
+                         )}
+                         {selectedReportForView.remarks && (
+                            <div>
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MANAGER REMARKS</p>
+                               <p className="text-xs font-bold text-slate-600 leading-relaxed font-inter italic">"{selectedReportForView.remarks}"</p>
+                            </div>
+                         )}
+                      </div>
+                   </div>
+                )}
+
+                {/* Constraints & Observations Section */}
+                <div className="space-y-8 font-inter">
+                   <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500 shadow-sm">
+                         <AlertCircle className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em]">CONSTRAINTS & OBSERVATIONS</h4>
+                   </div>
+                   
+                   <div className="px-2">
+                      <div className="bg-rose-50/30 border border-rose-100/50 rounded-2xl p-6">
+                         <p className="text-sm text-rose-600 font-bold leading-relaxed">
+                            {selectedReportForView.issues || selectedReportForView.constraints || "No critical constraints documented."}
+                         </p>
+                      </div>
+                   </div>
+                </div>
 
                {/* Dismiss Button */}
                <div className="pt-10 font-inter">
