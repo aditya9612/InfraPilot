@@ -25,10 +25,10 @@ import type { ChecklistItem, ChecklistLog } from "../../../services/checklistSer
 import { projectService } from "../../../services/projectService";
 
 const typeColors: Record<string, string> = {
-    "Daily Checklist": "bg-blue-50 text-blue-600 border-blue-100",
-    "Safety": "bg-rose-50 text-rose-600 border-rose-100",
-    "Quality": "bg-emerald-50 text-emerald-600 border-emerald-100",
-    "Activity Checklist": "bg-purple-50 text-purple-600 border-purple-100",
+    "daily checklist": "bg-blue-50 text-blue-600 border-blue-100",
+    "safety": "bg-rose-50 text-rose-600 border-rose-100",
+    "quality": "bg-emerald-50 text-emerald-600 border-emerald-100",
+    "activity checklist": "bg-purple-50 text-purple-600 border-purple-100",
 };
 
 const ChecklistsPage = () => {
@@ -265,7 +265,7 @@ const ChecklistsPage = () => {
     };
 
     const stats = useMemo(() => {
-        const activeChecklists = checklists.filter(c => c.type === activeTab);
+        const activeChecklists = checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase());
         const total = activeChecklists.length;
 
         const latestLogsMap = new Map();
@@ -310,7 +310,7 @@ const ChecklistsPage = () => {
     }, [checklists, logs, activeTab]);
 
     const filteredChecklists = useMemo(() => {
-        let cls = checklists;
+        let cls = checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase());
 
         return cls.filter(cl => {
             const latestLog = [...logs].sort((a, b) => b.id - a.id).find(l => l.checklist_id === cl.id);
@@ -456,14 +456,14 @@ const ChecklistsPage = () => {
                     {/* â”€â”€ Protocols Registry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                     <div className="mb-12 font-inter">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 font-inter">
-                            {checklists.filter(c => c.type === activeTab).map((cl) => (
+                            {checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase()).map((cl) => (
                                 <div key={cl.id} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-500 group relative overflow-hidden font-inter">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-colors" />
 
                                     <div className="flex items-start justify-between mb-8 relative z-10 font-inter">
                                         <div className="flex-1 font-inter">
                                             <h3 className="text-lg font-bold text-slate-800 group-hover:text-primary transition-colors leading-tight mb-2 font-inter">{cl.name}</h3>
-                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${typeColors[cl.type] || "bg-slate-50 text-slate-400"}`}>
+                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border font-inter ${(cl.type && typeColors[cl.type.toLowerCase()]) || "bg-slate-50 text-slate-400"}`}>
                                                 {cl.type}
                                             </span>
                                         </div>
@@ -508,7 +508,7 @@ const ChecklistsPage = () => {
                                     </div>
                                 </div>
                             ))}
-                            {checklists.filter(c => c.type === activeTab).length === 0 && (
+                            {checklists.filter(c => c.type?.toLowerCase() === activeTab.toLowerCase()).length === 0 && (
                                 <div className="col-span-full py-32 text-center bg-white rounded-2xl border-4 border-dashed border-slate-50 font-inter">
                                     <Layout className="w-16 h-16 mx-auto mb-6 text-slate-200" />
                                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No technical protocols discovered in the {activeTab} domain.</p>

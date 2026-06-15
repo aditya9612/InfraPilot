@@ -1,219 +1,233 @@
-import React, { useState, useEffect } from 'react';
-import Modal from '../common/Modal';
-import type { Project } from '../../types/project';
-import type { Material, MaterialCreate } from '../../types/material';
+import React, { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import Modal from "../common/Modal";
 
 interface CreateMaterialModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: MaterialCreate) => Promise<void>;
-  projects: Project[];
-  suppliers: { id: number; name: string }[];
-  initialData?: Material | null;
+  onSubmit: (data: any) => void;
+  initialData?: any;
 }
 
-const CATEGORIES = [
-  'Construction',
-  'Civil',
-  'Electrical',
-  'Plumbing',
-  'Landscaping',
-  'Structure',
-  'Finishing',
-];
-
-const UNITS = ['Bags', 'Cum', 'Sqm', 'MT', 'Kg', 'Ft', 'Nos', 'Ltr'];
-
-const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  projects, 
-  suppliers,
-  initialData 
+const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  initialData,
 }) => {
-  const [formData, setFormData] = useState<MaterialCreate>({
-    project_id: 0,
-    material_name: '',
-    category: '',
-    unit: '',
-    supplier_id: 0,
-    purchase_rate: 0,
-    rate_type: 'FIXED',
-    quantity_purchased: 0,
-    payment_given: 0,
+  const [formData, setFormData] = useState({
+    name: "",
+    unique_code: "",
+    category: "",
+    unit: "",
+    brand: "",
+    specification: "",
+    hsn_code: "",
+    default_rate: 0,
     minimum_stock_level: 0,
+    is_active: true,
+    type: "Material"
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (initialData) {
       setFormData({
-        project_id: initialData.project_id || 0,
-        material_name: initialData.material_name || '',
-        category: initialData.category || '',
-        unit: initialData.unit || '',
-        supplier_id: initialData.supplier_id || 0,
-        purchase_rate: initialData.purchase_rate || 0,
-        rate_type: initialData.rate_type || 'FIXED',
-        quantity_purchased: initialData.quantity_purchased || 0,
-        payment_given: initialData.payment_given || 0,
-        minimum_stock_level: initialData.minimum_stock_level || 0,
+        ...initialData,
+        type: "Material"
       });
     } else {
       setFormData({
-        project_id: 0,
-        material_name: '',
-        category: '',
-        unit: '',
-        supplier_id: 0,
-        purchase_rate: 0,
-        rate_type: 'FIXED',
-        quantity_purchased: 0,
-        payment_given: 0,
+        name: "",
+        unique_code: "",
+        category: "",
+        unit: "",
+        brand: "",
+        specification: "",
+        hsn_code: "",
+        default_rate: 0,
         minimum_stock_level: 0,
+        is_active: true,
+        type: "Material"
       });
     }
+    setErrors({});
   }, [initialData, isOpen]);
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
-
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.project_id) newErrors.project_id = "Project is required.";
-    if (!formData.material_name.trim()) newErrors.material_name = "Material name is required.";
-    if (!formData.category) newErrors.category = "Category is required.";
-    if (!formData.unit) newErrors.unit = "Unit is required.";
-    if (!formData.supplier_id) newErrors.supplier_id = "Supplier is required.";
-    if (formData.purchase_rate <= 0) newErrors.purchase_rate = "Rate must be > 0.";
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ 
-        ...prev, 
-        [name]: name.includes('_id') || name.includes('rate') || name.includes('quantity') || name.includes('level') || name.includes('payment') 
-            ? Number(value) 
-            : value 
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
-    
-    setIsLoading(true);
-    try {
-      await onSubmit(formData);
-      onClose();
-    } catch (error) {
-      // Parent handles error toast
-    } finally {
-      setIsLoading(false);
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) newErrors.name = "Material name is required.";
+    if (!formData.unique_code.trim()) newErrors.unique_code = "Unique code is required.";
+    if (!formData.category.trim()) newErrors.category = "Category is required.";
+    if (!formData.unit.trim()) newErrors.unit = "Unit is required.";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fill in all required fields.");
+      return;
     }
+
+    setErrors({});
+    onSubmit(formData);
   };
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-  const inputClasses = (error?: string) => `
-    w-full px-4 py-2.5 bg-white border 
-    ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
-    rounded-xl text-sm outline-none transition-all placeholder:text-slate-300
-  `;
+  const modalFooter = (
+    <div className="flex justify-end gap-3 pt-2">
+      <button
+        type="button"
+        onClick={onClose}
+        className="px-6 py-2.5 text-sm font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        form="material-master-form"
+        type="submit"
+        className="px-8 py-2.5 text-sm font-bold text-white bg-primary rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95"
+      >
+        {initialData ? "Save changes" : "Create material"}
+      </button>
+    </div>
+  );
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialData ? "Update Material" : "Add New Material"}
-      maxWidth="max-w-4xl"
-      footer={
-        <>
-          <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
-            Cancel
-          </button>
-          <button
-            form="material-form"
-            type="submit"
-            disabled={isLoading}
-            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95"
-          >
-            {isLoading ? "Saving..." : initialData ? "Update Material" : "Add Material"}
-          </button>
-        </>
-      }
+      title={initialData ? "Edit Material Master" : "Create Material Master"}
+      footer={modalFooter}
     >
-      <form id="material-form" onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Material Identity</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="md:col-span-2">
-              <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
-              <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
-                <option value={0}>Select a Project</option>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelClasses}>Material Name <span className="text-rose-500">*</span></label>
-              <input name="material_name" value={formData.material_name} onChange={handleChange} placeholder="e.g. Cement" className={inputClasses(errors.material_name)} />
-            </div>
-            <div>
-              <label className={labelClasses}>Category <span className="text-rose-500">*</span></label>
-              <select name="category" value={formData.category} onChange={handleChange} className={inputClasses(errors.category)}>
-                <option value="">Select Category</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+      <form id="material-master-form" onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Material Name <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. UltraTech Cement"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.name ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+              {errors.name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.name}</p>}
             </div>
           </div>
-        </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Procurement Details</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="md:col-span-2">
-              <label className={labelClasses}>Supplier <span className="text-rose-500">*</span></label>
-              <select name="supplier_id" value={formData.supplier_id} onChange={handleChange} className={inputClasses(errors.supplier_id)}>
-                <option value={0}>Select Supplier</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Unique Code <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. MAT-CEMENT-001"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.unique_code ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
+                value={formData.unique_code}
+                onChange={(e) => setFormData({ ...formData, unique_code: e.target.value })}
+              />
+              {errors.unique_code && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.unique_code}</p>}
             </div>
-            <div>
-              <label className={labelClasses}>Unit <span className="text-rose-500">*</span></label>
-              <select name="unit" value={formData.unit} onChange={handleChange} className={inputClasses(errors.unit)}>
-                <option value="">Unit</option>
-                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelClasses}>Purchase Rate (₹) <span className="text-rose-500">*</span></label>
-              <input type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} name="purchase_rate" value={formData.purchase_rate} onChange={handleChange} className={inputClasses(errors.purchase_rate)} />
-            </div>
-            <div>
-              <label className={labelClasses}>Initial Quantity</label>
-              <input type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} name="quantity_purchased" value={formData.quantity_purchased} onChange={handleChange} className={inputClasses()} />
-            </div>
-            <div>
-              <label className={labelClasses}>Min Stock Level</label>
-              <input type="number" min="0" onKeyDown={(e) => { if (e.key === '-') e.preventDefault(); }} name="minimum_stock_level" value={formData.minimum_stock_level} onChange={handleChange} className={inputClasses()} />
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Category <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Cement"
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.category ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              />
+              {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
             </div>
           </div>
-        </div>
 
-        <div className="md:col-span-2 p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Initial Inventory Value</p>
-              <p className="text-lg font-black text-slate-800">
-                ₹{(formData.quantity_purchased * formData.purchase_rate).toLocaleString('en-IN')}
-              </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Unit <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Bag, Kg, Meter"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                value={formData.unit}
+                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              />
             </div>
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">Brand</label>
+              <input
+                type="text"
+                placeholder="e.g. UltraTech"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                value={formData.brand}
+                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+              />
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-600 mb-1">Specification</label>
+            <textarea
+              placeholder="e.g. OPC 53 Grade"
+              rows={2}
+              className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+              value={formData.specification}
+              onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">HSN Code</label>
+              <input
+                type="text"
+                placeholder="e.g. 25232930"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                value={formData.hsn_code}
+                onChange={(e) => setFormData({ ...formData, hsn_code: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">Default Rate (₹)</label>
+              <input
+                type="number"
+                placeholder="0"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                value={formData.default_rate}
+                onChange={(e) => setFormData({ ...formData, default_rate: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">Min Stock Level</label>
+              <input
+                type="number"
+                placeholder="0"
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+                value={formData.minimum_stock_level}
+                onChange={(e) => setFormData({ ...formData, minimum_stock_level: Number(e.target.value) })}
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-8">
+              <input
+                type="checkbox"
+                id="material-active"
+                className="rounded border-gray-300 text-primary focus:ring-primary"
+                checked={formData.is_active}
+                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+              />
+              <label htmlFor="material-active" className="text-sm font-medium text-gray-600">Is Active</label>
+            </div>
+          </div>
         </div>
       </form>
     </Modal>

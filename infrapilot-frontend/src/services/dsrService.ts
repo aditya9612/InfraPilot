@@ -107,8 +107,8 @@ export const dsrService = {
       }
     });
 
-    // PUT /dsr/{id} expects query parameters, NOT a JSON body
-    const response = await api.put<DsrItem>(`/dsr/${id}`, null, { params: finalPayload });
+    // PUT /dsr/{id} expects a JSON body
+    const response = await api.put<DsrItem>(`/dsr/${id}`, finalPayload);
     return response.data;
   },
 
@@ -164,7 +164,7 @@ export const dsrService = {
     const formData = new FormData();
     formData.append("file", file);
     const response = await api.post<{ status: string; uploaded: string[] }>(
-      `/dsr/${dsr_id}/photos`,
+      `/dsr/${dsr_id}/photo`,
       formData,
       {
         headers: { "Content-Type": "multipart/form-data" },

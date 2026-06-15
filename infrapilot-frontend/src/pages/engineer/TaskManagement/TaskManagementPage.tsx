@@ -1529,7 +1529,16 @@ const TaskManagementPage = () => {
                                                             <h4 className="text-sm font-bold text-slate-800">{activity.action || "Progress Updated"}</h4>
                                                             <span className="text-[10px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</span>
                                                         </div>
-                                                        <p className="text-sm text-slate-600">{activity.description || activity.remarks || `Progress moved to ${activity.percentage ?? activity.progress_percentage ?? 0}%`}</p>
+                                                        <div className="space-y-1.5">
+                                                            <p className="text-sm text-slate-800 font-medium">
+                                                                {activity.description || `Progress moved to ${activity.percentage ?? activity.progress_percentage ?? 0}%`}
+                                                            </p>
+                                                            {activity.remarks && (
+                                                                <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 shadow-sm">
+                                                                    <span className="font-bold text-slate-700 block mb-0.5">Remarks:</span> {activity.remarks}
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -1758,9 +1767,9 @@ const TaskManagementPage = () => {
                             max="100"
                             value={progressPercentage}
                             onChange={(e) => setProgressPercentage(Number(e.target.value))}
-                            className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-blue-500 [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:rounded-full"
+                            className="w-full h-3.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-md hover:[&::-webkit-slider-thumb]:scale-110 transition-all [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:bg-blue-600 [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:shadow-md"
                             style={{
-                                background: `linear-gradient(to right, #3b82f6 ${progressPercentage}%, #e2e8f0 ${progressPercentage}%)`
+                                background: `linear-gradient(to right, #2563eb ${progressPercentage}%, #e2e8f0 ${progressPercentage}%)`
                             }}
                         />
                         <div className="flex justify-between text-xs text-slate-500 mt-1 font-medium">

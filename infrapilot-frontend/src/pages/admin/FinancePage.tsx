@@ -333,6 +333,7 @@ const FinancePage = () => {
           .includes(searchTerm.toLowerCase()) ||
         exp.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchCategory = categoryFilter === "all" || exp.category === categoryFilter;
+      const matchProject = projectIdFilter === "all" || exp.project_id === Number(projectIdFilter);
 
       let matchDate = true;
       if (dateFrom || dateTo) {
@@ -341,9 +342,9 @@ const FinancePage = () => {
         if (dateTo && expDate > dateTo) matchDate = false;
       }
 
-      return matchSearch && matchCategory && matchDate;
+      return matchSearch && matchCategory && matchDate && matchProject;
     });
-  }, [expenses, searchTerm, categoryFilter, dateFrom, dateTo, projects]);
+  }, [expenses, searchTerm, categoryFilter, dateFrom, dateTo, projects, projectIdFilter]);
 
   // Totals — prefer invoice data; fall back to expense data if invoices are empty
   const totals = useMemo(() => {

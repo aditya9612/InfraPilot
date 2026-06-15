@@ -112,6 +112,8 @@ export interface POCreate {
   rate: number;
 }
 
+export type TransferStatus = "PENDING" | "COMPLETED" | "CANCELLED" | "IN_TRANSIT" | "DELIVERED";
+
 export interface Transfer {
   id: number;
   material: {
@@ -127,8 +129,9 @@ export interface Transfer {
     name: string;
   };
   quantity: number;
-  status: "PENDING" | "COMPLETED" | "CANCELLED";
+  status: TransferStatus;
   created_at: string;
+  remarks?: string;
 }
 
 export interface TransferCreate {
@@ -141,6 +144,7 @@ export interface TransferCreate {
 export interface InventoryLog {
   id: number;
   material_id: number;
+  material_name?: string;
   type: string;
   quantity: number;
   rate: number;

@@ -5,9 +5,9 @@ import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
     Search, RotateCcw, ChevronLeft, ChevronRight,
-    ArrowRightLeft
+    ArrowRightLeft, Eye
 } from "lucide-react";
-import { materialService, type InventoryItem, type TransferItem, type MaterialLog, type IssueType, type TransferStatus } from "../../../services/materialService";
+import { materialService, type InventoryItem, type Transfer, type MaterialLog, type IssueType, type TransferStatus } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
 
 type TabType = "Usage" | "Transfers" | "Transactions";
@@ -27,7 +27,7 @@ const MaterialConsumptionPage = () => {
 
     // Data
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
-    const [transfers, setTransfers] = useState<TransferItem[]>([]);
+    const [transfers, setTransfers] = useState<Transfer[]>([]);
     const [transactions, setTransactions] = useState<MaterialLog[]>([]);
     const [projectsList, setProjectsList] = useState<any[]>([]);
 
@@ -40,6 +40,8 @@ const MaterialConsumptionPage = () => {
     const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [isUpdateTransferOpen, setIsUpdateTransferOpen] = useState(false);
+    const [isViewTransferModalOpen, setIsViewTransferModalOpen] = useState(false);
+    const [viewTransferDetails, setViewTransferDetails] = useState<Transfer | null>(null);
 
     // Forms & Selected Items
     const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
@@ -70,10 +72,10 @@ const MaterialConsumptionPage = () => {
             } catch (e) { }
         }
     };
-    const [selectedTransfer, setSelectedTransfer] = useState<TransferItem | null>(null);
+    const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
     const [usageForm, setUsageForm] = useState({ quantity: 0, project_id: projectId, issue_type: "SITE" });
-    const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; status: string; remarks: string }>>({ from_project_id: projectId, status: "PENDING" });
+    const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; remarks: string }>>({ from_project_id: projectId });
     const [updateTransferForm, setUpdateTransferForm] = useState({ status: "DELIVERED" as TransferStatus, remarks: "" });
 
     // Fetch methods
@@ -141,7 +143,7 @@ const MaterialConsumptionPage = () => {
     const handleTransferSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); setIsSubmitting(true);
         try {
-            await materialService.createTransfer({ ...transferForm, from_project_id: projectId } as any);
+            await materialService.createTransfer({ ...transferForm } as any);
             toast.success("Transfer initiated!"); setIsTransferModalOpen(false); fetchTransfers();
         } catch (e) { toast.error("Failed to create transfer"); }
         finally { setIsSubmitting(false); }
@@ -154,6 +156,16 @@ const MaterialConsumptionPage = () => {
             toast.success("Transfer updated!"); setIsUpdateTransferOpen(false); fetchTransfers();
         } catch (e) { toast.error("Failed to update transfer"); }
         finally { setIsSubmitting(false); }
+    };
+
+    const handleViewTransfer = async (id: number) => {
+        setIsLoading(true);
+        try {
+            const data = await materialService.getTransfer(id);
+            setViewTransferDetails(data);
+            setIsViewTransferModalOpen(true);
+        } catch (e) { toast.error("Failed to fetch transfer details"); }
+        finally { setIsLoading(false); }
     };
 
     const renderPagination = (total: number) => {
@@ -213,7 +225,7 @@ const MaterialConsumptionPage = () => {
                         </p>
                     </div>
                     {activeTab === "Transfers" && (
-                        <button onClick={() => { setTransferForm({ from_project_id: projectId, status: "PENDING" }); setIsTransferModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all active:scale-95">
+                        <button onClick={() => { setTransferForm({ from_project_id: projectId }); setIsTransferModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all active:scale-95">
                             <ArrowRightLeft className="w-4 h-4" /> Initiate Transfer
                         </button>
                     )}
@@ -261,6 +273,8 @@ const MaterialConsumptionPage = () => {
                                 {activeTab === "Transfers" && (
                                     <tr>
                                         <th className="px-6 py-4">Material</th>
+                                        <th className="px-6 py-4">From Project</th>
+                                        <th className="px-6 py-4">To Project</th>
                                         <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Transfer Date</th><th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 )}
@@ -286,12 +300,15 @@ const MaterialConsumptionPage = () => {
                                     )) : activeTab === "Transfers" ? paginatedTransfers.map(t => (
                                         <tr key={t.id} className="hover:bg-slate-50/50">
                                             <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material?.name}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">{t.from_project?.name || `Project #${t.from_project?.id}`}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">{t.to_project?.name || `Project #${t.to_project?.id}`}</td>
                                             <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{t.quantity}</td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${t.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : t.status === 'IN_TRANSIT' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{t.status}</span>
                                             </td>
                                             <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at || Date.now()).toLocaleDateString()}</td>
-                                            <td className="px-6 py-4 text-right">
+                                            <td className="px-6 py-4 text-right flex justify-end gap-2">
+                                                <button onClick={() => { handleViewTransfer(t.id); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View"><Eye className="w-4 h-4" /></button>
                                                 <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update Status</button>
                                             </td>
                                         </tr>
@@ -337,10 +354,10 @@ const MaterialConsumptionPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Transfer Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Material ID *</label><input type="number" required value={transferForm.material_id || ""} onChange={e => setTransferForm({ ...transferForm, material_id: Number(e.target.value) })} className={inputClasses} placeholder="e.g. 1" /></div>
+                            <div><label className={labelClasses}>Material *</label><select required value={transferForm.material_id || ""} onChange={e => setTransferForm({ ...transferForm, material_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Material</option>{inventory.map(i => <option key={i.material_id} value={i.material_id}>{i.material_name}</option>)}</select></div>
+                            <div><label className={labelClasses}>From Project *</label><select required value={transferForm.from_project_id || ""} onChange={e => setTransferForm({ ...transferForm, from_project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Origin</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
                             <div><label className={labelClasses}>To Project *</label><select required value={transferForm.to_project_id || ""} onChange={e => setTransferForm({ ...transferForm, to_project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Destination</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
                             <div><label className={labelClasses}>Quantity *</label><input type="number" required value={transferForm.quantity || ""} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>Status *</label><select required value={transferForm.status} onChange={e => setTransferForm({ ...transferForm, status: e.target.value as TransferStatus })} className={inputClasses}>{TRANSFER_STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Remarks</label><textarea value={transferForm.remarks || ""} onChange={e => setTransferForm({ ...transferForm, remarks: e.target.value })} className={inputClasses} rows={2} /></div>
                         </div>
                     </div>
@@ -353,11 +370,28 @@ const MaterialConsumptionPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Status Details</h3>
                         <div className="space-y-4">
+                            <div><label className={labelClasses}>Transfer ID *</label><input type="text" readOnly value={selectedTransfer?.id || ""} className={`${inputClasses} bg-slate-50 text-slate-500 font-medium`} /></div>
                             <div><label className={labelClasses}>Status *</label><select required value={updateTransferForm.status} onChange={e => setUpdateTransferForm({ ...updateTransferForm, status: e.target.value as TransferStatus })} className={inputClasses}>{TRANSFER_STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
-                            <div><label className={labelClasses}>Remarks</label><textarea value={updateTransferForm.remarks} onChange={e => setUpdateTransferForm({ ...updateTransferForm, remarks: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
                     </div>
                 </form>
+            </Modal>
+
+            {/* View Transfer Modal */}
+            <Modal isOpen={isViewTransferModalOpen} onClose={() => setIsViewTransferModalOpen(false)} title="Transfer Details" maxWidth="max-w-xl" footer={<button type="button" onClick={() => setIsViewTransferModalOpen(false)} className="px-6 py-2.5 bg-blue-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all">Close</button>}>
+                {viewTransferDetails && (
+                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Transfer ID</p><p className="text-sm font-bold text-slate-800">#{viewTransferDetails.id}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date</p><p className="text-sm font-bold text-slate-800">{new Date(viewTransferDetails.created_at || Date.now()).toLocaleString()}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Material</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.material?.name}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.quantity}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">From Project</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.from_project?.name}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">To Project</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.to_project?.name}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p><span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border inline-block ${viewTransferDetails.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : viewTransferDetails.status === 'IN_TRANSIT' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{viewTransferDetails.status}</span></div>
+                        </div>
+                    </div>
+                )}
             </Modal>
         </>
     );

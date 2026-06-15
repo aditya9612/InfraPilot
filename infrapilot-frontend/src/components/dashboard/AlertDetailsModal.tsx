@@ -6,12 +6,16 @@ interface AlertDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   alert: any | null;
+  projectMap?: Record<number, string>;
+  usersMap?: Record<number, string>;
 }
 
 const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
   isOpen,
   onClose,
   alert,
+  projectMap = {},
+  usersMap = {},
 }) => {
   if (!alert) return null;
 
@@ -35,8 +39,8 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
       <div className="space-y-8 pb-4">
         {/* Dynamic Header based on Status */}
         <div className={`relative overflow-hidden rounded-2xl p-8 shadow-xl transition-all ${alert.status === "Critical" ? "bg-gradient-to-br from-rose-600 to-rose-700 text-white" :
-            alert.status === "Warning" ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white" :
-              "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
+          alert.status === "Warning" ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white" :
+            "bg-gradient-to-br from-emerald-500 to-teal-600 text-white"
           }`}>
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
 
@@ -78,20 +82,24 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-slate-400">
                 <Briefcase size={16} strokeWidth={2.5} />
-                <h4 className="text-[11px] font-black uppercase tracking-widest">Project ID</h4>
+                <h4 className="text-[11px] font-black uppercase tracking-widest">Project</h4>
               </div>
               <p className="text-sm font-bold text-slate-700 pl-6">
-                {alert.project_id ? `#${alert.project_id}` : "—"}
+                {alert.project_id
+                  ? (projectMap[alert.project_id] || `#${alert.project_id}`)
+                  : "—"}
               </p>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-slate-400">
                 <User size={16} strokeWidth={2.5} />
-                <h4 className="text-[11px] font-black uppercase tracking-widest">User ID</h4>
+                <h4 className="text-[11px] font-black uppercase tracking-widest">Requested By</h4>
               </div>
               <p className="text-sm font-bold text-slate-700 pl-6">
-                {alert.user_id ? `#${alert.user_id}` : "—"}
+                {alert.user_id
+                  ? (usersMap[alert.user_id] || `#${alert.user_id}`)
+                  : "—"}
               </p>
             </div>
 
