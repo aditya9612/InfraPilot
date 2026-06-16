@@ -565,6 +565,7 @@ const QCInspectionPage = () => {
                             <table className="w-full text-left font-inter min-w-[1000px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                        <th className="px-6 py-4">Project</th>
                                         <th className="px-6 py-4">Audit Details</th>
                                         <th className="px-6 py-4">Test Description</th>
                                         <th className="px-6 py-4">Status</th>
@@ -577,6 +578,13 @@ const QCInspectionPage = () => {
                                     {paginatedList.length > 0 ? (
                                         paginatedList.map((qc) => (
                                             <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                <td className="px-6 py-4">
+                                                    <span className="text-sm font-bold text-slate-700 font-inter">
+                                                        {projects.find(p => Number(p.id) === Number(qc.project_id))?.project_name || 
+                                                         projects.find(p => Number(p.id) === Number(qc.project_id))?.name || 
+                                                         `Project #${qc.project_id}`}
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
                                                         <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
@@ -640,7 +648,7 @@ const QCInspectionPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
+                                            <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
                                                 No quality audits found in the project vault.
                                             </td>
                                         </tr>

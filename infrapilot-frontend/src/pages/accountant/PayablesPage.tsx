@@ -1,243 +1,833 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import CreateBillModal from "../../components/forms/CreateBillModal";
-import ViewBillModal from "../../components/forms/ViewBillModal";
-import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const MOCK_PAYABLES = [
-  { 
-    id: 1, 
-    vendor_name: "Mahaveer Cements", 
-    bill_number: "BILL/2024/401", 
-    category: "vendor",
-    item: "OPC 53 Grade Cement", 
-    quantity: 500, 
-    rate: 380, 
-    total_amount: 190000, 
-    gst: 34200, 
-    payable_amount: 224200, 
-    status: "pending", 
-    due_date: "2024-04-10" 
-  },
-  { 
-    id: 2, 
-    vendor_name: "Ganesh Earthmovers", 
-    bill_number: "EXP/MAR/022", 
-    category: "contractor",
-    item: "Excavation & Shifting", 
-    quantity: 1, 
-    rate: 45000, 
-    total_amount: 45000, 
-    gst: 8100, 
-    payable_amount: 53100, 
-    status: "paid", 
-    due_date: "2024-03-25" 
-  },
-  { 
-    id: 3, 
-    vendor_name: "TATA Steel Distribution", 
-    bill_number: "TATA/FE500/109", 
-    category: "vendor",
-    item: "Reinforcement Steel", 
-    quantity: 5000, 
-    rate: 62, 
-    total_amount: 310000, 
-    gst: 55800, 
-    payable_amount: 365800, 
-    status: "partial", 
-    due_date: "2024-04-15" 
-  }
+// --- MOCK DATA ---
+const fmt = (num: number) => `₹${num.toLocaleString("en-IN")}`;
+const statusBadge = (s: string) => {
+  if (s === "Paid" || s === "Approved") return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+  if (s === "Partial" || s === "Pending") return "bg-amber-100 text-amber-700 border border-amber-200";
+  return "bg-rose-100 text-rose-700 border border-rose-200";
+};
+
+const MOCK_VENDOR_BILLS = [
+  { id: 1, vendor: "Mahaveer Cements", bill_no: "BILL/24/401", po: "PO-2024-001", date: "2024-04-01", due: "2024-04-10", amt: 190000, gst: 34200, payable: 224200, paid: 224200, status: "Paid" },
+  { id: 2, vendor: "TATA Steel Dist.", bill_no: "TATA/FE/109", po: "PO-2024-005", date: "2024-04-05", due: "2024-04-15", amt: 310000, gst: 55800, payable: 365800, paid: 165800, status: "Partial" },
+  { id: 3, vendor: "Shree Bricks", bill_no: "SB-102", po: "PO-2024-012", date: "2024-04-20", due: "2024-05-05", amt: 85000, gst: 4250, payable: 89250, paid: 0, status: "Pending" },
+];
+
+const MOCK_CONTRACTOR_BILLS = [
+  { id: 1, contractor: "Ganesh Earthmovers", bill_no: "EXP/MAR/022", wo: "WO-24-01", date: "2024-03-20", due: "2024-03-25", amt: 450000, gst: 81000, tds: 4500, payable: 526500, paid: 526500, status: "Paid" },
+  { id: 2, contractor: "Apex Civil Works", bill_no: "ACW/005", wo: "WO-24-05", date: "2024-04-10", due: "2024-04-20", amt: 1200000, gst: 216000, tds: 12000, payable: 1404000, paid: 0, status: "Pending" },
+  { id: 3, contractor: "Skyline Electricals", bill_no: "SE/RA-1", wo: "WO-24-12", date: "2024-04-15", due: "2024-04-25", amt: 350000, gst: 63000, tds: 3500, payable: 409500, paid: 0, status: "Pending" },
+];
+
+const TREND_DATA = [
+  { month: "Jan", Billed: 120, Paid: 100 },
+  { month: "Feb", Billed: 180, Paid: 160 },
+  { month: "Mar", Billed: 250, Paid: 210 },
+  { month: "Apr", Billed: 190, Paid: 120 },
+];
+
+// --- SECTIONS ---
+
+// 1. Dashboard
+const DashboardSection = () => {
+  const kpis = [
+    { label: "Total Payables", value: "₹45.5L", icon: "🧾", accent: "from-indigo-500 to-blue-500", sub: "Total outstanding" },
+    { label: "Vendor Outstanding", value: "₹12.2L", icon: "🚛", accent: "from-amber-500 to-orange-500", sub: "Material suppliers" },
+    { label: "Contractor Outstanding", value: "₹33.3L", icon: "👷", accent: "from-emerald-500 to-teal-500", sub: "Service providers" },
+    { label: "Overdue Payments", value: "₹5.8L", icon: "🚨", accent: "from-rose-500 to-pink-500", sub: "Past due date" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map((k, i) => (
+          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm`}>{k.icon}</div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
+            <p className="text-xl font-bold text-slate-800">{k.value}</p>
+            <p className="text-[10px] text-slate-400 mt-1">{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+        <div className="flex justify-between items-start mb-5">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Payables Trend</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Billed vs Paid – Monthly (₹ Lakh)</p>
+          </div>
+        </div>
+        <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={TREND_DATA} barCategoryGap="30%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 700 }} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 700 }} tickFormatter={v => `₹${v}L`} dx={-10} />
+              <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} />
+              <Bar dataKey="Billed" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Paid" fill="#10b981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 2. Vendor Bills
+const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
+  const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval" | "payments">(
+    (initialSubTab as any) || "list"
+  );
+  const [vendorBills, setVendorBills] = useState<any[]>(MOCK_VENDOR_BILLS);
+  const [search, setSearch] = useState("");
+  const [editingBill, setEditingBill] = useState<any>(null);
+
+  const handleDelete = (id: number) => {
+    setVendorBills(prev => prev.filter(b => b.id !== id));
+    toast.success("Vendor bill deleted!");
+  };
+
+  const handleApprove = (id: number) => {
+    setVendorBills(prev => prev.map(b => b.id === id ? { ...b, status: "Approved" } : b));
+    toast.success("Vendor bill approved!");
+  };
+
+  const handlePay = (id: number) => {
+    setVendorBills(prev => prev.map(b => b.id === id ? { ...b, status: "Paid", paid: b.payable } : b));
+    toast.success("Payment recorded!");
+  };
+
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newBill: any = {};
+    formData.forEach((value, key) => { newBill[key] = value; });
+
+    if (editingBill) {
+      setVendorBills(prev => prev.map(b => b.id === editingBill.id ? { ...b, ...newBill } : b));
+      toast.success("Vendor bill updated successfully!");
+    } else {
+      newBill.id = Date.now();
+      newBill.bill_no = newBill.bill_no || `VB-${Math.floor(Math.random() * 1000)}`;
+      newBill.amt = Number(newBill.amt || 0);
+      newBill.gst = newBill.amt * 0.18;
+      newBill.payable = newBill.amt + newBill.gst;
+      newBill.paid = 0;
+      newBill.status = newBill.status || "Pending";
+      newBill.vendor = newBill.vendor || "Unknown Vendor";
+      setVendorBills(prev => [newBill, ...prev]);
+      toast.success("Vendor bill created successfully!");
+    }
+    setActiveSubTab("list");
+  };
+
+  const filtered = vendorBills.filter(b => 
+    b.vendor.toLowerCase().includes(search.toLowerCase()) || 
+    b.bill_no.toLowerCase().includes(search.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (initialSubTab) setActiveSubTab(initialSubTab as any);
+  }, [initialSubTab]);
+
+  const subTabs = [
+    { key: "list", label: "Bill List" },
+    { key: "create", label: "Create Bill" },
+    { key: "approval", label: "Bill Approval" },
+    { key: "payments", label: "Bill Payment" },
+  ] as const;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
+          {subTabs.map(t => (
+            <button key={t.key} onClick={() => setActiveSubTab(t.key)}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <input 
+            type="text" 
+            placeholder="Search bills or vendors..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" 
+          />
+        </div>
+      </div>
+
+      {activeSubTab === "list" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-slate-800">Vendor Bills</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Manage material supplier bills</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Vendor", "Bill No", "PO No", "Date", "Due", "Amount", "GST", "Total", "Status", "Actions"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filtered.map(b => (
+                  <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700">{b.vendor}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{b.po}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{b.date}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{b.due}</td>
+                    <td className="px-4 py-3 text-xs text-slate-700 text-right">{fmt(b.amt)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 text-right">{fmt(b.gst)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(b.payable)}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(b.status)}`}>{b.status}</span></td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
+                        <button onClick={() => { setEditingBill(b); setActiveSubTab("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
+                        <button onClick={() => handleDelete(b.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "create" && (
+        <form onSubmit={handleFormSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-5">
+            {/* Vendor Details */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+                Vendor Details
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Name</label><input type="text" name="vendor" defaultValue={editingBill?.vendor || ""} placeholder="Select vendor…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Code</label><input type="text" placeholder="Auto" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GSTIN</label><input type="text" placeholder="Auto" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact / Mobile</label><input type="text" placeholder="Auto" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed" /></div>
+              </div>
+            </div>
+
+            {/* Bill Details */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
+                Bill Details
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Number</label><input type="text" name="bill_no" defaultValue={editingBill?.bill_no || ""} placeholder="Enter vendor bill no." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Order</label><input type="text" name="po" defaultValue={editingBill?.po || ""} placeholder="Select PO…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Date</label><input type="date" name="date" defaultValue={editingBill?.date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Due Date</label><input type="date" name="due" defaultValue={editingBill?.due || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+                <div className="space-y-1.5 col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GRN Number</label><input type="text" placeholder="Select GRN…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-primary/20" /></div>
+              </div>
+            </div>
+
+            {/* Material Details */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
+                Material Details
+              </h3>
+              <div className="grid grid-cols-4 gap-4">
+                <div className="space-y-1.5 col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Material</label><input type="text" placeholder="Material Name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><input type="text" placeholder="Cat" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit</label><input type="text" placeholder="Unit" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rate (₹)</label><input type="number" name="amt" defaultValue={editingBill?.amt || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-slate-700" /></div>
+                <div className="space-y-1.5 col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total</label><input type="text" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400" /></div>
+              </div>
+            </div>
+
+            {/* Tax Details */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">4</span>
+                Tax Details
+              </h3>
+              <div className="grid grid-cols-4 gap-4">
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST (%)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Amt</label><input type="number" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS (%)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Amt</label><input type="number" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
+              </div>
+            </div>
+
+            {/* Attachments */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">6</span>
+                Attachments
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {["Vendor Invoice", "PO Copy", "GRN Copy", "Supporting Docs"].map(att => (
+                  <label key={att} className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-blue-50/30 transition-all group">
+                    <div className="text-xl mb-1">📎</div>
+                    <p className="text-[10px] font-semibold text-slate-500 group-hover:text-primary">{att}</p>
+                    <input type="file" className="hidden" />
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Summary */}
+          <div className="space-y-5">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">5</span>
+                Payment Summary
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-xs text-slate-500"><span>Gross Amount</span><span className="font-semibold text-slate-700">{editingBill ? fmt(editingBill.amt) : "—"}</span></div>
+                <div className="flex justify-between text-xs text-slate-500"><span>GST</span><span className="font-semibold text-emerald-600">{editingBill ? fmt(editingBill.gst) : "—"}</span></div>
+                <div className="flex justify-between text-xs text-slate-500"><span>TDS</span><span className="font-semibold text-rose-600">—</span></div>
+                <div className="flex justify-between text-xs font-bold text-slate-800 border-t border-slate-100 pt-2"><span>Payable Amount</span><span>{editingBill ? fmt(editingBill.payable) : "—"}</span></div>
+                
+                <div className="pt-2">
+                  <div className="flex justify-between text-xs text-slate-500 mb-2"><span>Advance Paid</span><span className="font-semibold text-slate-700">{editingBill ? fmt(editingBill.paid) : "—"}</span></div>
+                  <div className="flex justify-between text-sm font-bold text-primary border-t border-slate-100 pt-2"><span>Balance Amount</span><span>{editingBill ? fmt(editingBill.payable - editingBill.paid) : "—"}</span></div>
+                </div>
+
+                <div className="pt-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status</label>
+                  <select name="status" defaultValue={editingBill?.status || "Pending"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                    <option value="Pending">Pending</option><option value="Partial">Partial</option><option value="Paid">Paid</option><option value="Approved">Approved</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" className="w-full mt-6 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-md active:scale-95">
+                {editingBill ? "Update Vendor Bill" : "Save Vendor Bill"}
+              </button>
+              <button type="button" onClick={() => setActiveSubTab("list")} className="w-full mt-2 bg-slate-50 text-slate-500 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-100 border border-slate-200 transition-all active:scale-95">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+      
+      {/* Approval & Payments placeholders */}
+      {activeSubTab === "approval" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-slate-800">Bill Approval Queue</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Bills pending manager or finance approval</p>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {vendorBills.filter(b => b.status === "Pending").map(b => (
+              <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{b.vendor} — {b.bill_no}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">PO: {b.po} · Date: {b.date}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-slate-800">{fmt(b.payable)}</span>
+                  <button onClick={() => handleApprove(b.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all">Approve</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "payments" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-slate-800">Bill Payments Queue</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Approved bills pending payment</p>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {vendorBills.filter(b => b.status === "Approved" || b.status === "Partial").map(b => (
+              <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{b.vendor} — {b.bill_no}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Due: {b.due}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-slate-800">{fmt(b.payable - b.paid)} Due</span>
+                  <button onClick={() => handlePay(b.id)} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-all">Record Payment</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// 3. Contractor Bills
+const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
+  const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval" | "payments">(
+    (initialSubTab as any) || "list"
+  );
+  const [contractorBills, setContractorBills] = useState<any[]>(MOCK_CONTRACTOR_BILLS);
+  const [search, setSearch] = useState("");
+  const [editingBill, setEditingBill] = useState<any>(null);
+
+  const handleDelete = (id: number) => {
+    setContractorBills(prev => prev.filter(b => b.id !== id));
+    toast.success("Contractor bill deleted!");
+  };
+
+  const handleApprove = (id: number) => {
+    setContractorBills(prev => prev.map(b => b.id === id ? { ...b, status: "Approved" } : b));
+    toast.success("Contractor bill approved!");
+  };
+
+  const handlePay = (id: number) => {
+    setContractorBills(prev => prev.map(b => b.id === id ? { ...b, status: "Paid", paid: b.payable } : b));
+    toast.success("Payment recorded!");
+  };
+
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newBill: any = {};
+    formData.forEach((value, key) => { newBill[key] = value; });
+
+    if (editingBill) {
+      setContractorBills(prev => prev.map(b => b.id === editingBill.id ? { ...b, ...newBill } : b));
+      toast.success("Contractor bill updated successfully!");
+    } else {
+      newBill.id = Date.now();
+      newBill.bill_no = newBill.bill_no || `CB-${Math.floor(Math.random() * 1000)}`;
+      newBill.amt = Number(newBill.amt || 0);
+      newBill.gst = newBill.amt * 0.18;
+      newBill.tds = newBill.amt * 0.01;
+      newBill.payable = newBill.amt + newBill.gst - newBill.tds;
+      newBill.paid = 0;
+      newBill.status = newBill.status || "Pending";
+      newBill.contractor = newBill.contractor || "Unknown Contractor";
+      setContractorBills(prev => [newBill, ...prev]);
+      toast.success("Contractor bill created successfully!");
+    }
+    setActiveSubTab("list");
+  };
+
+  const filtered = contractorBills.filter(b => 
+    b.contractor.toLowerCase().includes(search.toLowerCase()) || 
+    b.bill_no.toLowerCase().includes(search.toLowerCase())
+  );
+
+  useEffect(() => {
+    if (initialSubTab) setActiveSubTab(initialSubTab as any);
+  }, [initialSubTab]);
+
+  const subTabs = [
+    { key: "list", label: "Bill List" },
+    { key: "create", label: "Create Bill" },
+    { key: "approval", label: "Bill Approval" },
+    { key: "payments", label: "Bill Payment" },
+  ] as const;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
+          {subTabs.map(t => (
+            <button key={t.key} onClick={() => setActiveSubTab(t.key)}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <input 
+            type="text" 
+            placeholder="Search bills or contractors..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" 
+          />
+        </div>
+      </div>
+
+      {activeSubTab === "list" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800">Contractor Bills</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Manage civil, mechanical & labour contractor bills</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Contractor", "Bill No", "WO No", "Date", "Gross Amt", "TDS/Ret.", "Net Payable", "Status", "Actions"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filtered.map(b => (
+                  <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700">{b.contractor}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{b.wo}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{b.date}</td>
+                    <td className="px-4 py-3 text-xs text-slate-700 text-right">{fmt(b.amt + b.gst)}</td>
+                    <td className="px-4 py-3 text-xs text-rose-600 text-right">-{fmt(b.tds)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(b.payable)}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(b.status)}`}>{b.status}</span></td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
+                        <button onClick={() => { setEditingBill(b); setActiveSubTab("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
+                        <button onClick={() => handleDelete(b.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "create" && (
+        <form onSubmit={handleFormSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-5">
+            {/* Contractor Info */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+                Contractor Information
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Name</label><input type="text" name="contractor" defaultValue={editingBill?.contractor || ""} placeholder="Select contractor…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Type</label><input type="text" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name</label><input type="text" placeholder="Select project…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Order Number</label><input type="text" name="wo" defaultValue={editingBill?.wo || ""} placeholder="Select WO…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Number</label><input type="text" name="bill_no" defaultValue={editingBill?.bill_no || ""} placeholder="Enter Bill No…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Date</label><input type="date" name="date" defaultValue={editingBill?.date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+              </div>
+            </div>
+
+            {/* Work Details */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
+                Work Details
+              </h3>
+              <div className="space-y-4">
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Description</label><textarea rows={3} placeholder="Describe work done…" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 resize-none" /></div>
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit</label><input type="text" placeholder="Unit" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rate (₹)</label><input type="number" name="amt" defaultValue={editingBill?.amt || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                  <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Amt</label><input type="text" readOnly placeholder="Auto" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tax & Deduction */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
+                Tax & Deductions
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST (₹)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS (₹)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Retention Amt (₹)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Security Deposit Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+              </div>
+            </div>
+
+            {/* Attachments */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">5</span>
+                Attachments
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {["Contractor Invoice", "Completion Sheet", "Measurement Sheet", "Supporting Docs"].map(att => (
+                  <label key={att} className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-blue-50/30 transition-all group">
+                    <div className="text-xl mb-1">📎</div>
+                    <p className="text-[10px] font-semibold text-slate-500 group-hover:text-primary">{att}</p>
+                    <input type="file" className="hidden" />
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Sidebar */}
+          <div className="space-y-5">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">4</span>
+                Payment Information
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-xs text-slate-500"><span>Bill Amount</span><span className="font-semibold text-slate-700">{editingBill ? fmt(editingBill.amt) : "—"}</span></div>
+                <div className="flex justify-between text-xs text-slate-500"><span>GST</span><span className="font-semibold text-emerald-600">{editingBill ? fmt(editingBill.gst) : "—"}</span></div>
+                <div className="flex justify-between text-xs font-bold text-slate-800 border-t border-slate-100 pt-2"><span>Gross Amount</span><span>{editingBill ? fmt(editingBill.amt + editingBill.gst) : "—"}</span></div>
+                
+                <div className="pt-2">
+                  <div className="flex justify-between text-xs text-slate-500 mb-1"><span>Total Deductions</span><span className="font-semibold text-rose-600">{editingBill ? "-" + fmt(editingBill.tds) : "—"}</span></div>
+                  <div className="flex justify-between text-sm font-bold text-primary border-t border-slate-100 pt-2"><span>Net Payable</span><span>{editingBill ? fmt(editingBill.payable) : "—"}</span></div>
+                </div>
+
+                <div className="pt-4 space-y-3">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Payment Date</label>
+                    <input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status</label>
+                    <select name="status" defaultValue={editingBill?.status || "Pending"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+                      <option value="Pending">Pending</option><option value="Approved">Approved</option><option value="Paid">Paid</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <button type="submit" className="w-full mt-6 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-md active:scale-95">
+                {editingBill ? "Update Contractor Bill" : "Submit Contractor Bill"}
+              </button>
+              <button type="button" onClick={() => setActiveSubTab("list")} className="w-full mt-2 bg-slate-50 text-slate-500 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-100 border border-slate-200 transition-all active:scale-95">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* Approval & Payments placeholders */}
+      {activeSubTab === "approval" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-slate-800">Bill Approval Queue</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Contractor bills pending manager approval</p>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {contractorBills.filter(b => b.status === "Pending").map(b => (
+              <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{b.contractor} — {b.bill_no}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">WO: {b.wo} · Date: {b.date}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-slate-800">{fmt(b.payable)}</span>
+                  <button onClick={() => handleApprove(b.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all">Approve</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === "payments" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-slate-800">Bill Payments Queue</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Approved contractor bills pending payment</p>
+            </div>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {contractorBills.filter(b => b.status === "Approved" || b.status === "Partial").map(b => (
+              <div key={b.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">{b.contractor} — {b.bill_no}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Due: {b.due || b.date}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-slate-800">{fmt(b.payable - b.paid)} Due</span>
+                  <button onClick={() => handlePay(b.id)} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-all">Record Payment</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+
+    </div>
+  );
+};
+
+// 4. Payment Requests
+const PaymentRequestsSection = () => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
+    <div className="text-4xl mb-4">💳</div><h3 className="text-lg font-bold text-slate-800">Payment Requests</h3>
+    <p className="text-slate-500 text-sm mt-1">Approve or reject pending payment requests.</p>
+  </div>
+);
+
+// 5. Outstanding Payables
+const OutstandingPayablesSection = () => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div className="p-5 border-b border-slate-100">
+      <h3 className="font-bold text-slate-800">Outstanding Payables</h3>
+      <p className="text-xs text-slate-400 mt-0.5">All pending vendor and contractor bills</p>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead className="bg-slate-50/60 border-b border-slate-100">
+          <tr>
+            {["Party Name", "Type", "Bill No", "Bill Date", "Due Date", "Amount", "Paid", "Balance"].map(h => (
+              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {[...MOCK_VENDOR_BILLS.map(b => ({...b, name: b.vendor, type: "Vendor"})), ...MOCK_CONTRACTOR_BILLS.map(b => ({...b, name: b.contractor, type: "Contractor"}))]
+            .filter(b => b.payable > b.paid)
+            .map(b => (
+            <tr key={b.id + b.type} className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 text-xs font-bold text-slate-700">{b.name}</td>
+              <td className="px-4 py-3"><span className="px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest bg-slate-100 text-slate-600">{b.type}</span></td>
+              <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
+              <td className="px-4 py-3 text-xs text-slate-500">{b.date}</td>
+              <td className="px-4 py-3 text-xs font-semibold text-rose-500">{b.due}</td>
+              <td className="px-4 py-3 text-xs text-slate-700 text-right">{fmt(b.payable)}</td>
+              <td className="px-4 py-3 text-xs text-emerald-600 text-right">{fmt(b.paid)}</td>
+              <td className="px-4 py-3 text-xs font-bold text-rose-600 text-right">{fmt(b.payable - b.paid)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+// 6 & 7. Ledger Section (reused)
+const LedgerSection = ({ title, type }: { title: string, type: "Vendor" | "Contractor" }) => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
+    <div className="text-4xl mb-4">📖</div><h3 className="text-lg font-bold text-slate-800">{title}</h3>
+    <p className="text-slate-500 text-sm mt-1">Detailed transaction ledger for {type.toLowerCase()}s.</p>
+  </div>
+);
+
+// 8. Reports Section
+const ReportsSection = () => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
+    <div className="text-4xl mb-4">📈</div><h3 className="text-lg font-bold text-slate-800">Payables Reports</h3>
+    <p className="text-slate-500 text-sm mt-1">Generate comprehensive liability and payment reports.</p>
+  </div>
+);
+
+
+// --- MAIN COMPONENT ---
+
+type TabKey = "dashboard" | "vendor-bills" | "contractor-bills" | "payment-requests" | "outstanding" | "vendor-ledger" | "contractor-ledger" | "reports";
+
+const TABS: { key: TabKey; label: string; icon: string }[] = [
+  { key: "dashboard",         label: "Dashboard",            icon: "📊" },
+  { key: "vendor-bills",      label: "Vendor Bills",         icon: "🚛" },
+  { key: "contractor-bills",  label: "Contractor Bills",     icon: "👷" },
+  { key: "payment-requests",  label: "Payment Requests",     icon: "💳" },
+  { key: "outstanding",       label: "Outstanding Payables", icon: "🚨" },
+  { key: "vendor-ledger",     label: "Vendor Ledger",        icon: "📖" },
+  { key: "contractor-ledger", label: "Contractor Ledger",    icon: "📘" },
+  { key: "reports",           label: "Reports",              icon: "📈" },
 ];
 
 const PayablesPage = () => {
-  const { category } = useParams<{ category: string }>();
-  const [bills, setBills] = useState(MOCK_PAYABLES);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedBill, setSelectedBill] = useState<any>(null);
-  const [billToDelete, setBillToDelete] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("All");
+  const { category } = useParams<{ category?: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const subTab = searchParams.get("sub") || undefined;
+
+  const resolveTab = (): TabKey => {
+    const pathParts = location.pathname.split("/").filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1];
+    const currentSub = category || lastPart;
+
+    const map: Record<string, TabKey> = {
+      "vendor-bills": "vendor-bills",
+      "contractor-bills": "contractor-bills",
+      "payment-requests": "payment-requests",
+      "outstanding": "outstanding",
+      "vendor-ledger": "vendor-ledger",
+      "contractor-ledger": "contractor-ledger",
+      "reports": "reports",
+      "dashboard": "dashboard",
+    };
+    return map[currentSub || ""] || "dashboard";
+  };
+
+  const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
 
   useEffect(() => {
-    if (category) {
-        setActiveTab(category.charAt(0).toUpperCase() + category.slice(1));
-    } else {
-        setActiveTab("All");
-    }
-  }, [category]);
+    setActiveTab(resolveTab());
+  }, [category, location.pathname]);
 
-  const handleCreateBill = (data: any) => {
-    if (selectedBill && !isViewModalOpen) {
-        setBills(prev => prev.map(b => b.id === selectedBill.id ? { ...b, ...data } : b));
-        toast.success("Bill updated successfully!");
-    } else {
-        const newBill = {
-            ...data,
-            id: bills.length + 1,
-        };
-        setBills(prev => [newBill, ...prev]);
-        toast.success("Bill recorded successfully!");
-    }
-    setIsModalOpen(false);
-    setSelectedBill(null);
+  const handleTabChange = (key: TabKey) => {
+    setActiveTab(key);
+    navigate(`/accountant/payables/${key}`, { replace: true });
   };
-
-  const handleViewBill = (bill: any) => {
-    setSelectedBill(bill);
-    setIsViewModalOpen(true);
-  };
-
-  const handleEditBill = (bill: any) => {
-    setSelectedBill(bill);
-    setIsModalOpen(true);
-  };
-
-  const handleDeleteBill = (id: number) => {
-    setBillToDelete(id);
-    setIsDeleteModalOpen(true);
-  };
-
-  const confirmDelete = () => {
-    if (billToDelete) {
-      setBills(prev => prev.filter(b => b.id !== billToDelete));
-      toast.success("Bill deleted successfully");
-      setIsDeleteModalOpen(false);
-      setBillToDelete(null);
-    }
-  };
-
-  const filteredBills = activeTab === "All" 
-    ? bills 
-    : bills.filter(b => b.category === activeTab.toLowerCase());
 
   return (
     <>
-      <Navbar title="Payables (Vendors)" breadcrumb={["Accountant", "Finance", "Payables"]} />
-      
+      <Navbar title="Payables (Vendors / Contractors)" breadcrumb={["Accountant", "Payables"]} />
+
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant</p>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">
-              {activeTab === "All" ? "Outgoing Payables" : `${activeTab} Obligations`}
-            </h1>
-            <p className="text-slate-500 text-sm mt-1">Track supplier invoices and contractor payment obligations.</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Finance</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Payables (Vendors / Contractors)</h1>
+            <p className="text-slate-500 text-sm mt-1">Manage vendor bills, contractor payments, and outstanding liabilities.</p>
           </div>
-          <button
-            onClick={() => { setSelectedBill(null); setIsModalOpen(true); }}
-            className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
-          >
-            <span className="text-base leading-none">+</span> Add New Bill
-          </button>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-
-          {/* Card Header */}
-          <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Vendor & Contractor Bills</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Outstanding dues and payment obligations</p>
-            </div>
-            <button
-              onClick={() => {
-                const rows = filteredBills.map(b => [
-                  `"${b.vendor_name}"`, b.bill_number, `"${b.item}"`, b.quantity, b.rate, b.payable_amount, b.status, b.due_date
-                ].join(','));
-                const csv = ['Vendor,Bill No,Item,Qty,Rate,Payable (INR),Status,Due Date', ...rows].join('\n');
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-                a.download = `Payables_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`;
-                a.click();
-              }}
-              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2 rounded-xl shadow-sm hover:border-primary/30 hover:text-primary transition-all"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-              Download
+        {/* Tab Navigation */}
+        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+          {TABS.map(tab => (
+            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                activeTab === tab.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              }`}>
+              <span>{tab.icon}</span>{tab.label}
             </button>
-          </div>
-
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50 whitespace-nowrap">
-                            <th className="px-6 py-4">Vendor Name</th>
-                            <th className="px-6 py-4">Bill Number</th>
-                            <th className="px-6 py-4">Material / Service</th>
-                            <th className="px-6 py-4 text-right">Quantity</th>
-                            <th className="px-6 py-4 text-right">Rate</th>
-                            <th className="px-6 py-4 text-right">Total Amount</th>
-                            <th className="px-6 py-4 text-right">GST</th>
-                            <th className="px-6 py-4 text-right font-bold text-slate-800">Payable Amount</th>
-                            <th className="px-6 py-4">Payment Status</th>
-                            <th className="px-6 py-4">Due Date</th>
-                            <th className="px-6 py-4 text-right sticky right-0 bg-slate-50/50 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                        {filteredBills.map(bill => (
-                            <tr key={bill.id} className="hover:bg-slate-50/70 transition-colors whitespace-nowrap">
-                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{bill.vendor_name}</td>
-                                <td className="px-6 py-4 text-sm font-bold text-slate-700">{bill.bill_number}</td>
-                                <td className="px-6 py-4 text-sm text-slate-600 truncate max-w-[200px]" title={bill.item}>{bill.item}</td>
-                                <td className="px-6 py-4 text-sm text-slate-600 text-right">{bill.quantity}</td>
-                                <td className="px-6 py-4 text-sm text-slate-600 text-right">₹{bill.rate.toLocaleString("en-IN")}</td>
-                                <td className="px-6 py-4 text-sm text-slate-600 text-right">₹{bill.total_amount.toLocaleString("en-IN")}</td>
-                                <td className="px-6 py-4 text-sm text-slate-600 text-right">₹{bill.gst.toLocaleString("en-IN")}</td>
-                                <td className="px-6 py-4 text-sm font-black text-slate-800 text-right">₹{bill.payable_amount.toLocaleString("en-IN")}</td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${
-                                        bill.status === "paid" ? "bg-emerald-100 text-emerald-700" :
-                                        bill.status === "partial" ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"
-                                    }`}>{bill.status}</span>
-                                </td>
-                                <td className="px-6 py-4 text-sm text-slate-600">{bill.due_date}</td>
-                                <td className="px-6 py-4 text-right sticky right-0 bg-white/80 backdrop-blur-sm shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)] group-hover:bg-slate-50/90 transition-colors">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <button onClick={() => handleViewBill(bill)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                        </button>
-                                        <button onClick={() => handleEditBill(bill)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                        </button>
-                                        <button onClick={() => handleDeleteBill(bill.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+          ))}
         </div>
+
+        {/* Breadcrumb Label */}
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Payables</span>
+          <span className="text-slate-300">/</span>
+          <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{TABS.find(t => t.key === activeTab)?.label}</span>
+        </div>
+
+        {/* Content Rendering */}
+        {activeTab === "dashboard"         && <DashboardSection />}
+        {activeTab === "vendor-bills"      && <VendorBillsSection key={subTab || "list"} initialSubTab={subTab} />}
+        {activeTab === "contractor-bills"  && <ContractorBillsSection key={subTab || "list"} initialSubTab={subTab} />}
+        {activeTab === "payment-requests"  && <PaymentRequestsSection />}
+        {activeTab === "outstanding"       && <OutstandingPayablesSection />}
+        {activeTab === "vendor-ledger"     && <LedgerSection title="Vendor Ledger" type="Vendor" />}
+        {activeTab === "contractor-ledger" && <LedgerSection title="Contractor Ledger" type="Contractor" />}
+        {activeTab === "reports"           && <ReportsSection />}
       </PageTransition>
-
-      <CreateBillModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateBill}
-      />
-
-      <ViewBillModal
-        isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
-        bill={selectedBill}
-      />
-
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={confirmDelete}
-        title="Delete Bill"
-        message="Are you sure you want to delete this bill? This action cannot be undone."
-        confirmText="Delete Bill"
-        type="danger"
-      />
     </>
   );
 };

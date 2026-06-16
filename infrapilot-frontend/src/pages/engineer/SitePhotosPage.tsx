@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { sitePhotoService } from "../../services/sitePhotoService";
+import { projectService } from "../../services/projectService";
 import type { SitePhoto } from "../../types/sitePhoto";
 
 // â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -54,6 +55,7 @@ const SitePhotosPage = () => {
     const [filterActivity, setFilterActivity] = useState("All Activities");
     const [filterLocation, setFilterLocation] = useState("All Locations");
     const [projectId, setProjectId] = useState<number | null>(null);
+    const [projects, setProjects] = useState<any[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(12); // Grid friendly number
 
@@ -91,8 +93,13 @@ const SitePhotosPage = () => {
         if (!projectId) return;
         setIsLoading(true);
         try {
-            const response = await sitePhotoService.getPhotos({ project_id: projectId });
+            const [response, projRes] = await Promise.all([
+                sitePhotoService.getPhotos({ project_id: projectId }),
+                projectService.getProjects(100, 0).catch(() => [])
+            ]);
             setPhotos(response.items || []);
+            const projList = Array.isArray(projRes) ? projRes : (projRes?.items || projRes?.data || []);
+            setProjects(projList);
         } catch (error) {
             console.error("Failed to fetch photos:", error);
             toast.error("Failed to sync evidence logs");
@@ -429,6 +436,7 @@ const SitePhotosPage = () => {
                                             <thead>
                                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                                     <th className="px-6 py-4 font-inter">Evidence</th>
+                                                    <th className="px-6 py-4 font-inter">Project</th>
                                                     <th className="px-6 py-4 font-inter">Audit Details</th>
                                                     <th className="px-6 py-4 font-inter">Category & Domain</th>
                                                     <th className="px-6 py-4 font-inter">Technical Auditor</th>
@@ -446,6 +454,13 @@ const SitePhotosPage = () => {
                                                                     className="w-full h-full object-cover font-inter"
                                                                 />
                                                             </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 font-inter">
+                                                            <span className="text-sm font-bold text-slate-800 uppercase tracking-widest">
+                                                                {projects.find(p => Number(p.id) === Number(photo.project_id))?.project_name || 
+                                                                 projects.find(p => Number(p.id) === Number(photo.project_id))?.name || 
+                                                                 `Project #${photo.project_id}`}
+                                                            </span>
                                                         </td>
                                                         <td className="px-6 py-4 font-inter">
                                                             <div className="flex flex-col font-inter">

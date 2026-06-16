@@ -414,22 +414,30 @@ const InventoryPage = () => {
 
   const handleTransferSubmit = async (data: any) => {
     try {
-      const material = inventory.find(i => i.id === data.material_id);
-      if (!material) return;
+      const materialId = Number(data.materialId || data.material_id);
+      const fromProjectId = Number(data.fromProjectId || data.from_project_id);
+      const toProjectId = Number(data.toProjectId || data.to_project_id);
+      const quantity = Number(data.quantity);
+
+      const material = inventory.find(i => i.id === materialId);
+      if (!material) {
+        toast.error("Material not found in inventory");
+        return;
+      }
 
       setInventory((prev) =>
         prev.map((m) =>
-          m.id === data.material_id
-            ? { ...m, remaining_stock: m.remaining_stock - data.quantity }
+          m.id === materialId
+            ? { ...m, remaining_stock: m.remaining_stock - quantity }
             : m,
         ),
       );
 
       const newTransfer = await materialService.createTransfer({
         material_id: material.id,
-        from_project_id: data.from_project_id,
-        to_project_id: data.to_project_id,
-        quantity: data.quantity
+        from_project_id: fromProjectId,
+        to_project_id: toProjectId,
+        quantity: quantity
       });
 
       setTransfers((prev) => [newTransfer, ...prev]);
@@ -983,7 +991,9 @@ const InventoryPage = () => {
           name: i.material_name,
           stock: i.remaining_stock,
           unit: i.unit,
+          project_id: i.project_id
         }))}
+        projects={projectList}
       />
 
       <EditPOModal

@@ -8,7 +8,7 @@ interface EquipmentFormModalProps {
     onClose: () => void;
     onSave: (formData: any) => Promise<void>;
     initialData?: any;
-    selectedProjectId: number;
+    selectedProjectId?: number | null;
 }
 
 const conditionDisplay: Record<string, string> = {
@@ -25,7 +25,11 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
 
     useEffect(() => {
         if (isOpen) {
-            setFormData(initialData || {});
+            // If adding new equipment, default the project_id to the currently selected project
+            const defaultData = initialData && Object.keys(initialData).length > 0
+                ? initialData
+                : { project_id: selectedProjectId || undefined };
+            setFormData(defaultData);
 
             const fetchProjects = async () => {
                 try {

@@ -69,9 +69,6 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         const errs: Record<string, string> = {};
         if (!selectedFile) errs.photo = "Required";
         if (!formData.project_id) errs.project_id = "Required";
-        if (!formData.activity_tag) errs.activity_tag = "Required";
-        if (!formData.location_tag) errs.location_tag = "Required";
-        if (!formData.description.trim()) errs.description = "Required";
         setErrors(errs);
         return Object.keys(errs).length === 0;
     };
@@ -174,21 +171,21 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                             </select>
                         </div>
                         <div>
-                            <label className={labelClasses}>Observed Date *</label>
+                            <label className={labelClasses}>Observed Date</label>
                             <input type="date" name="date" value={formData.date} onChange={handleChange} className={inputClasses(errors.date)} />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
                         <div>
-                            <label className={labelClasses}>Activity Tag *</label>
+                            <label className={labelClasses}>Activity Tag</label>
                             <select name="activity_tag" value={formData.activity_tag} onChange={handleChange} className={inputClasses(errors.activity_tag)}>
                                 <option value="">Select Activity</option>
                                 {ACTIVITY_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className={labelClasses}>Location Zone *</label>
+                            <label className={labelClasses}>Location Zone</label>
                             <select name="location_tag" value={formData.location_tag} onChange={handleChange} className={inputClasses(errors.location_tag)}>
                                 <option value="">Select Location</option>
                                 {LOCATION_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
@@ -200,7 +197,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Observation Narrative</h3>
                     <div>
-                        <label className={labelClasses}>Narrative Insight *</label>
+                        <label className={labelClasses}>Narrative Insight</label>
                         <textarea name="description" rows={4} value={formData.description} onChange={handleChange} placeholder="Capture milestones or quality observations..." className={`${inputClasses(errors.description)} resize-none`} />
                     </div>
                 </div>

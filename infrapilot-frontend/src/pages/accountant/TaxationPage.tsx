@@ -1,260 +1,521 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import CreateTaxRecordModal from "../../components/forms/CreateTaxRecordModal";
-import ViewTaxRecordModal from "../../components/forms/ViewTaxRecordModal";
-import ConfirmModal from "../../components/common/ConfirmModal";
+import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 
-const MOCK_TAX_RECORDS = [
-  { 
-    id: 1, 
-    type: "gst-invoices", 
-    gstin: "27AADCB2230M1Z2",
-    invoice_number: "INV-2024-001", 
-    taxable_amount: 100000, 
-    cgst: 9000,
-    sgst: 9000,
-    igst: 0,
-    tds: 0,
-    status: "Filed",
-    date: "2024-03-31"
-  },
-  { 
-    id: 2, 
-    type: "tds", 
-    gstin: "29BBENP1234N1Z5",
-    invoice_number: "BILL/2024/401", 
-    taxable_amount: 500000, 
-    cgst: 0,
-    sgst: 0,
-    igst: 90000,
-    tds: 10000,
-    status: "Pending",
-    date: "2024-04-05"
-  },
-  { 
-    id: 3, 
-    type: "gst-returns", 
-    gstin: "27AADCB2230M1Z2",
-    invoice_number: "GSTR-3B-MAR", 
-    taxable_amount: 1500000, 
-    cgst: 135000,
-    sgst: 135000,
-    igst: 50000,
-    tds: 0,
-    status: "Draft",
-    date: "2024-04-15"
-  }
-];
+// --- SECTIONS ---
 
-const TaxationPage = () => {
-  const { category } = useParams<{ category: string }>();
-  const [records, setRecords] = useState(MOCK_TAX_RECORDS);
+// 1. Dashboard
+const DashboardSection = () => {
+  const kpis = [
+    { label: "GST Payable", value: "₹4.5L", icon: "📈", accent: "from-rose-500 to-pink-500", sub: "Output GST" },
+    { label: "GST Receivable (ITC)", value: "₹6.2L", icon: "📉", accent: "from-emerald-500 to-teal-500", sub: "Input GST" },
+    { label: "TDS Payable", value: "₹1.8L", icon: "✂️", accent: "from-amber-500 to-orange-500", sub: "Due by 7th" },
+    { label: "Net GST Liability", value: "₹0", icon: "⚖️", accent: "from-indigo-500 to-blue-500", sub: "ITC > Payable" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map((k, i) => (
+          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm text-white`}>{k.icon}</div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
+            <p className="text-xl font-bold text-slate-800">{k.value}</p>
+            <p className="text-[10px] text-slate-400 mt-1">{k.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+          <h3 className="text-base font-bold text-slate-800 mb-5">Pending Returns & Deadlines</h3>
+          <div className="space-y-3">
+            {[
+              { form: "GSTR-1", desc: "Outward Supplies", due: "11th May 2024", status: "Due in 3 Days", color: "text-rose-500" },
+              { form: "GSTR-3B", desc: "Summary Return", due: "20th May 2024", status: "Pending", color: "text-amber-500" },
+              { form: "TDS Payment", desc: "Non-Salary (Sec 194C)", due: "7th May 2024", status: "Overdue", color: "text-rose-600 font-bold" },
+            ].map((t, i) => (
+              <div key={i} className="flex justify-between items-center p-3 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100">
+                <div className="flex gap-3 items-center">
+                  <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center font-bold text-xs">{t.form}</div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">{t.desc}</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">Due: {t.due}</p>
+                  </div>
+                </div>
+                <p className={`text-[10px] uppercase tracking-wider ${t.color}`}>{t.status}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+          <h3 className="text-base font-bold text-slate-800 mb-5">Recent Tax Entries</h3>
+          <div className="space-y-3">
+            {[
+              { type: "ITC Claimed", party: "UltraTech Cement", amt: "₹45,000", date: "Today" },
+              { type: "TDS Deducted", party: "Ramesh Contractor", amt: "₹10,000", date: "Yesterday" },
+              { type: "Output GST", party: "Apex Developers", amt: "₹1,80,000", date: "2 Days Ago" },
+            ].map((t, i) => (
+              <div key={i} className="flex justify-between items-center p-3 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800">{t.party}</h4>
+                  <p className="text-xs font-semibold text-primary mt-0.5">{t.type}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-slate-800">{t.amt}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{t.date}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 2. GST Invoices
+const GSTInvoiceModal = ({ isOpen, onClose, type }: { isOpen: boolean; onClose: () => void; type: string }) => {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Create ${type} Invoice`}
+      maxWidth="max-w-4xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+            Cancel
+          </button>
+          <button onClick={() => { toast.success(`${type} Invoice Recorded!`); onClose(); }} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">
+            Save Record
+          </button>
+        </>
+      }
+    >
+      <form onSubmit={(e) => { e.preventDefault(); toast.success(`${type} Invoice Recorded!`); onClose(); }} className="space-y-6">
+    <div className="lg:col-span-2 space-y-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+          Basic Information
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client / Vendor Name *</label><input type="text" placeholder="Select Party" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party GSTIN *</label><input type="text" placeholder="27ABCDE1234F1Z5" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Number *</label><input type="text" placeholder="INV-001" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label><input type="text" placeholder="Select Project" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
+          Tax Details
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Taxable Amount (₹) *</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
+          <div className="md:col-span-2 space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Rate (%) *</label>
+            <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <option>18%</option><option>12%</option><option>5%</option><option>28%</option><option>Exempt</option>
+            </select>
+          </div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">CGST</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">SGST</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IGST</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total GST</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-indigo-50 text-indigo-700 font-bold" /></div>
+        </div>
+      </div>
+        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
+          <h3 className="text-sm font-bold text-slate-800 mb-3">Invoice Summary</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between text-xs text-slate-500"><span>Taxable Amount</span><span className="font-semibold text-slate-700">—</span></div>
+            <div className="flex justify-between text-xs text-indigo-500"><span>Total GST</span><span className="font-semibold">—</span></div>
+            <div className="flex justify-between text-sm font-bold text-slate-800 border-t border-slate-200 pt-3"><span>Invoice Total</span><span>—</span></div>
+          </div>
+        </div>
+      </div>
+      </form>
+    </Modal>
+  );
+};
+
+const GSTInvoicesWrapperSection = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<any>(null);
-  const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("All");
+  const [modalType, setModalType] = useState<"Sales" | "Purchase">("Sales");
 
-  useEffect(() => {
-    if (category) {
-        setActiveTab(category.toLowerCase());
-    } else {
-        setActiveTab("All");
-    }
-  }, [category]);
-
-  const handleCreateRecord = (data: any) => {
-    if (selectedRecord) {
-        setRecords(prev => prev.map(r => r.id === selectedRecord.id ? { ...r, ...data } : r));
-        toast.success("Tax record updated!");
-    } else {
-        const newRecord = {
-            ...data,
-            id: records.length + 1,
-        };
-        setRecords(prev => [newRecord, ...prev]);
-        toast.success("Tax record added successfully!");
-    }
-    setIsModalOpen(false);
-    setSelectedRecord(null);
-  };
-
-  const handleViewRecord = (record: any) => {
-    setSelectedRecord(record);
-    setIsViewModalOpen(true);
-  };
-
-  const handleEditRecord = (record: any) => {
-    setSelectedRecord(record);
+  const openModal = (type: "Sales" | "Purchase") => {
+    setModalType(type);
     setIsModalOpen(true);
   };
 
-  const handleDeleteRecord = (id: number) => {
-    setRecordToDelete(id);
-    setIsDeleteModalOpen(true);
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <div>
+          <h2 className="text-base font-bold text-slate-800">Invoice Register</h2>
+          <p className="text-xs text-slate-500">View and manage all GST invoices</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={() => openModal("Purchase")} className="px-4 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-all">
+            + Purchase Invoice
+          </button>
+          <button onClick={() => openModal("Sales")} className="px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-all shadow-sm">
+            + Sales Invoice
+          </button>
+        </div>
+      </div>
+
+      <div className="p-10 bg-white rounded-2xl shadow-sm border border-slate-100 text-center text-slate-500 font-bold">
+        Register View Coming Soon
+      </div>
+
+      <GSTInvoiceModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        type={modalType} 
+      />
+    </div>
+  );
+};
+
+// 3. GST Returns
+const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {
+  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "gstr1");
+
+  const tabs = [
+    { key: "gstr1", label: "GSTR-1" },
+    { key: "gstr3b", label: "GSTR-3B" },
+    { key: "gstr2a", label: "GSTR-2A Recon" },
+    { key: "gstr2b", label: "GSTR-2B Recon" }
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setActiveSubTab(t.key)}
+            className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+          File / Track {tabs.find(t=>t.key===activeSubTab)?.label}
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Return Type</label><input type="text" value={tabs.find(t=>t.key===activeSubTab)?.label} readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Period</label>
+            <input type="month" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Date</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+            <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold text-amber-600">
+              <option>Draft</option><option>Pending</option><option>Filed</option><option>Rejected</option><option>Revised</option>
+            </select>
+          </div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Taxable Value</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Liability</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ITC Available</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Payable</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-indigo-50 font-bold text-indigo-700" /></div>
+        </div>
+        <div className="mt-6 flex justify-end">
+          <button onClick={() => toast.success("Return status updated")} className="bg-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-primary/90 transition-all">Update Record</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 4. Input GST (Purchases)
+const InputGSTSection = () => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div className="p-5 border-b border-slate-100">
+      <h3 className="font-bold text-slate-800">Input GST (Purchase Side)</h3>
+      <p className="text-xs text-slate-400 mt-0.5">Material Purchases, Vendor Bills, Equipment</p>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead className="bg-slate-50/60 border-b border-slate-100">
+          <tr>
+            {["Date", "Vendor Name", "GSTIN", "Invoice No", "Taxable Amount", "GST Amount", "ITC Eligible", "ITC Claimed"].map(h => (
+              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          <tr className="hover:bg-slate-50/50 transition-colors">
+            <td className="px-4 py-3 text-xs text-slate-500">2024-05-10</td>
+            <td className="px-4 py-3 text-xs font-bold text-slate-800">UltraTech Cement</td>
+            <td className="px-4 py-3 text-xs font-mono text-slate-500">27ABCDE1234F1Z5</td>
+            <td className="px-4 py-3 text-xs font-semibold text-primary">INV-UTC-991</td>
+            <td className="px-4 py-3 text-xs text-right">₹5,00,000</td>
+            <td className="px-4 py-3 text-xs text-indigo-600 text-right font-bold">₹1,40,000</td>
+            <td className="px-4 py-3 text-xs text-emerald-600 text-center font-bold">Yes</td>
+            <td className="px-4 py-3 text-xs text-center"><input type="checkbox" defaultChecked className="rounded text-primary" /></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+// 5. Output GST (Sales)
+const OutputGSTSection = () => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div className="p-5 border-b border-slate-100">
+      <h3 className="font-bold text-slate-800">Output GST (Sales Side)</h3>
+      <p className="text-xs text-slate-400 mt-0.5">Client Invoices, RA Bills, Service Charges</p>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead className="bg-slate-50/60 border-b border-slate-100">
+          <tr>
+            {["Date", "Client Name", "GSTIN", "Invoice No", "Taxable Amount", "GST Collected", "Total Invoice"].map(h => (
+              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          <tr className="hover:bg-slate-50/50 transition-colors">
+            <td className="px-4 py-3 text-xs text-slate-500">2024-05-12</td>
+            <td className="px-4 py-3 text-xs font-bold text-slate-800">Apex Developers</td>
+            <td className="px-4 py-3 text-xs font-mono text-slate-500">27XYZAQ9876P1Z2</td>
+            <td className="px-4 py-3 text-xs font-semibold text-primary">RA-BILL-009</td>
+            <td className="px-4 py-3 text-xs text-right">₹10,00,000</td>
+            <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">₹1,80,000</td>
+            <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹11,80,000</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+// 6. TDS Management
+const TDSManagementSection = () => (
+  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <div className="xl:col-span-2 space-y-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+          <span className="w-6 h-6 bg-amber-500 text-white text-xs font-black rounded-lg flex items-center justify-center">✂️</span>
+          TDS Deduction Entry
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Party Name *</label><input type="text" placeholder="Contractor/Consultant Name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PAN Number *</label><input type="text" placeholder="ABCDE1234F" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Number</label><input type="text" placeholder="INV-001" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Amount (₹)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
+          
+          <div className="col-span-2 space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Section (Construction Specific) *</label>
+            <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <option>194C - Contractor Payments</option>
+              <option>194J - Professional / Consultancy Fees</option>
+              <option>194I - Equipment Rental</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Rate (%)</label><input type="number" placeholder="1 or 2 or 10" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Amount (₹)</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-amber-50 text-amber-700 font-bold" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deposit Date</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+        </div>
+      </div>
+    </div>
+    <div className="space-y-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
+        <h3 className="text-sm font-bold text-slate-800 mb-5">Summary</h3>
+        <button onClick={() => toast.success("TDS Entry Saved!")} className="w-full bg-amber-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-amber-600 transition-all shadow-md">
+          Record TDS Deduction
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// 7. GST Reconciliation
+const TaxReconciliationSection = () => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+      <div>
+        <h3 className="font-bold text-slate-800">GST Reconciliation</h3>
+        <p className="text-xs text-slate-500 mt-0.5">Match ERP data with Portal (2A/2B)</p>
+      </div>
+      <button className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-xs font-bold shadow-sm">Download Mismatch Report</button>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead className="bg-white border-b border-slate-100">
+          <tr>
+            {["Invoice No", "Vendor", "GST (ERP)", "GST (Portal)", "Difference", "Status", "Actions"].map(h => (
+              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50 bg-white">
+          <tr className="hover:bg-slate-50/50 transition-colors">
+            <td className="px-4 py-3 text-xs font-bold text-primary">INV-UTC-991</td>
+            <td className="px-4 py-3 text-xs text-slate-700">UltraTech Cement</td>
+            <td className="px-4 py-3 text-xs text-right font-mono">₹1,40,000</td>
+            <td className="px-4 py-3 text-xs text-right font-mono">₹1,40,000</td>
+            <td className="px-4 py-3 text-xs text-right font-mono text-emerald-500">₹0</td>
+            <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Matched</span></td>
+            <td className="px-4 py-3 text-xs"><button className="text-slate-400 hover:text-primary font-semibold">View</button></td>
+          </tr>
+          <tr className="hover:bg-slate-50/50 transition-colors">
+            <td className="px-4 py-3 text-xs font-bold text-primary">INV-STEEL-44</td>
+            <td className="px-4 py-3 text-xs text-slate-700">Jindal Steel</td>
+            <td className="px-4 py-3 text-xs text-right font-mono">₹85,000</td>
+            <td className="px-4 py-3 text-xs text-right font-mono">₹80,000</td>
+            <td className="px-4 py-3 text-xs text-right font-mono text-rose-500 font-bold">-₹5,000</td>
+            <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full font-bold text-[10px] uppercase">Mismatch</span></td>
+            <td className="px-4 py-3 text-xs"><button className="text-primary font-semibold hover:underline">Reconcile</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+// 8. Reports Wrapper
+const ReportsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {
+  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "summary");
+
+  const tabs = [
+    { key: "summary", label: "GST Summary" },
+    { key: "input", label: "Input GST Report" },
+    { key: "output", label: "Output GST Report" },
+    { key: "tds", label: "TDS Report" },
+    { key: "return", label: "GST Return Report" },
+    { key: "audit", label: "Tax Audit Report" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setActiveSubTab(t.key)}
+            className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <PlaceholderSection title={tabs.find(t=>t.key===activeSubTab)?.label || "Report"} />
+    </div>
+  );
+};
+
+// 9. Placeholder
+const PlaceholderSection = ({ title }: { title: string }) => (
+  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
+    <div className="text-4xl mb-4">🚧</div><h3 className="text-lg font-bold text-slate-800">{title}</h3>
+    <p className="text-slate-500 text-sm mt-1">This section is being built.</p>
+  </div>
+);
+
+// --- MAIN COMPONENT ---
+
+type TabKey = "dashboard" | "invoices" | "returns" | "input" | "output" | "tds" | "reconciliation" | "reports";
+
+const TABS: { key: TabKey; label: string; icon: string }[] = [
+  { key: "dashboard",      label: "Dashboard",       icon: "📊" },
+  { key: "invoices",       label: "GST Invoices",    icon: "📄" },
+  { key: "returns",        label: "GST Returns",     icon: "🔄" },
+  { key: "input",          label: "Input GST",       icon: "⬇️" },
+  { key: "output",         label: "Output GST",      icon: "⬆️" },
+  { key: "tds",            label: "TDS Mgmt",        icon: "✂️" },
+  { key: "reconciliation", label: "Reconciliation",  icon: "⚖️" },
+  { key: "reports",        label: "Reports",         icon: "📉" },
+];
+
+const TaxationPage = () => {
+  const { category } = useParams<{ category?: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const subTab = searchParams.get("sub") || undefined;
+
+  const resolveTab = (): TabKey => {
+    const pathParts = location.pathname.split("/").filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1];
+    const currentSub = category || lastPart;
+
+    const map: Record<string, TabKey> = {
+      "invoices": "invoices",
+      "returns": "returns",
+      "input": "input",
+      "output": "output",
+      "tds": "tds",
+      "reconciliation": "reconciliation",
+      "reports": "reports",
+      "dashboard": "dashboard",
+    };
+    return map[currentSub || ""] || "dashboard";
   };
 
-  const confirmDelete = () => {
-    if (recordToDelete) {
-      setRecords(prev => prev.filter(r => r.id !== recordToDelete));
-      toast.success("Record deleted successfully");
-      setIsDeleteModalOpen(false);
-      setRecordToDelete(null);
-    }
-  };
+  const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
 
-  const filtered = activeTab === "All" 
-    ? records 
-    : records.filter(t => t.type === activeTab);
+  useEffect(() => {
+    setActiveTab(resolveTab());
+  }, [category, location.pathname]);
 
-  const formatTitle = (tab: string) => {
-    switch(tab) {
-        case 'gst-invoices': return 'GST Invoices';
-        case 'gst-returns': return 'GST Returns';
-        case 'tds': return 'TDS Records';
-        default: return 'Taxation Records';
-    }
+  const handleTabChange = (key: TabKey) => {
+    setActiveTab(key);
+    navigate(`/accountant/taxation/${key}`, { replace: true });
   };
 
   return (
     <>
-      <Navbar title="GST & Taxation" breadcrumb={["Accountant", "Compliance", "Taxation"]} />
-      
+      <Navbar title="GST & Taxation" breadcrumb={["Accountant", "Taxation"]} />
+
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Compliance</p>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">{formatTitle(activeTab)}</h1>
-            <p className="text-slate-500 text-sm mt-1">Manage GST compliance, returns, and statutory deductions.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">GST & Taxation</h1>
+            <p className="text-slate-500 text-sm mt-1">Manage GST invoices, returns, TDS deductions, and reconciliations.</p>
           </div>
-          <button
-            onClick={() => { setSelectedRecord(null); setIsModalOpen(true); }}
-            className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
-          >
-            <span className="text-base leading-none">+</span> Add Tax Record
-          </button>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">{formatTitle(activeTab)}</h3>
-              <p className="text-xs text-slate-400 mt-0.5">GST invoices, returns and TDS deduction records</p>
-            </div>
-            <button
-              onClick={() => {
-                const rows = filtered.map(r => [r.invoice_number, r.date, r.gstin, r.taxable_amount, r.cgst, r.sgst, r.igst, r.tds, r.status].join(','));
-                const csv = ['Invoice/Ref,Date,GSTIN,Taxable,CGST,SGST,IGST,TDS,Status', ...rows].join('\n');
-                const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-                a.download = `Tax_${new Date().toISOString().split('T')[0]}.csv`; a.click();
-              }}
-              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2 rounded-xl shadow-sm hover:border-primary/30 hover:text-primary transition-all"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-              Download
+        {/* Tab Navigation */}
+        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+          {TABS.map(tab => (
+            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                activeTab === tab.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              }`}>
+              <span>{tab.icon}</span>{tab.label}
             </button>
-          </div>
-            <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-                    <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50 whitespace-nowrap">
-                  <th className="px-6 py-4">GSTIN</th>
-                  <th className="px-6 py-4">Invoice Number</th>
-                  <th className="px-6 py-4 text-right">Taxable Amount</th>
-                  <th className="px-6 py-4 text-right">CGST / SGST / IGST</th>
-                  <th className="px-6 py-4 text-right">TDS Deduction</th>
-                  <th className="px-6 py-4">Filing Status</th>
-                  <th className="px-6 py-4 text-right sticky right-0 bg-slate-50/50 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">Actions</th>
-                </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                        {filtered.map(record => (
-                  <tr key={record.id} className="hover:bg-slate-50/70 transition-colors whitespace-nowrap">
-                                <td className="px-6 py-4">
-                                    <span className="text-[11px] font-black bg-slate-100 text-slate-600 px-3 py-1 rounded-lg border border-slate-200 tracking-wider">
-                                        {record.gstin}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <p className="text-sm font-black text-slate-700">{record.invoice_number}</p>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{record.date}</p>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <p className="text-sm font-bold text-slate-700">₹{record.taxable_amount.toLocaleString("en-IN")}</p>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex flex-col items-end gap-0.5 text-[10px] font-black tabular-nums">
-                                        <span className="text-slate-500">C: ₹{record.cgst.toLocaleString("en-IN")}</span>
-                                        <span className="text-slate-500">S: ₹{record.sgst.toLocaleString("en-IN")}</span>
-                                        <span className="text-primary">I: ₹{record.igst.toLocaleString("en-IN")}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <p className="text-sm font-black text-rose-600 tabular-nums">
-                                        {record.tds > 0 ? `₹${record.tds.toLocaleString("en-IN")}` : "-"}
-                                    </p>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full shadow-sm ${
-                                            record.status === "Filed" ? "bg-emerald-500 shadow-emerald-500/50" : 
-                                            record.status === "Draft" ? "bg-amber-500 shadow-amber-500/50" : "bg-rose-500 shadow-rose-500/50"
-                                        }`} />
-                                        <span className={`text-[10px] font-black uppercase tracking-widest ${
-                                            record.status === "Filed" ? "text-emerald-600" : 
-                                            record.status === "Draft" ? "text-amber-600" : "text-rose-600"
-                                        }`}>
-                                            {record.status}
-                                        </span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-right sticky right-0 bg-white/80 backdrop-blur-sm shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)] group-hover:bg-slate-50/90 transition-colors">
-                                    <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => handleViewRecord(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                        </button>
-                        <button onClick={() => handleEditRecord(record)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                        </button>
-                        <button onClick={() => handleDeleteRecord(record.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Delete">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+          ))}
         </div>
+
+        {/* Breadcrumb Label */}
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Taxation</span>
+          <span className="text-slate-300">/</span>
+          <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{TABS.find(t => t.key === activeTab)?.label}</span>
+        </div>
+
+        {/* Content Rendering */}
+        {activeTab === "dashboard"      && <DashboardSection />}
+        {activeTab === "invoices"       && <GSTInvoicesWrapperSection key={subTab || "sales"} />}
+        {activeTab === "returns"        && <GSTReturnsWrapperSection initialSubTab={subTab} key={subTab || "gstr1"} />}
+        {activeTab === "input"          && <InputGSTSection />}
+        {activeTab === "output"         && <OutputGSTSection />}
+        {activeTab === "tds"            && <TDSManagementSection />}
+        {activeTab === "reconciliation" && <TaxReconciliationSection />}
+        {activeTab === "reports"        && <ReportsWrapperSection initialSubTab={subTab} key={subTab || "summary"} />}
       </PageTransition>
-
-      <CreateTaxRecordModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateRecord}
-        initialData={selectedRecord}
-      />
-
-      <ViewTaxRecordModal
-        isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
-        record={selectedRecord}
-      />
-
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={confirmDelete}
-        title="Delete Record"
-        message="Are you sure you want to delete this tax record? This action cannot be undone."
-        confirmText="Delete Record"
-        type="danger"
-      />
     </>
   );
 };

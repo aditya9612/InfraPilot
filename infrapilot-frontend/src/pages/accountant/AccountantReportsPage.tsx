@@ -1,185 +1,342 @@
-import { useParams, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 
-const REPORTS = [
-  { id: "pnl", title: "Profit & Loss", description: "View revenue, costs, and net profit over a specific period.", icon: "trending-up", color: "bg-emerald-50 text-emerald-600" },
-  { id: "balance-sheet", title: "Balance Sheet", description: "Snapshot of company's assets, liabilities, and equity.", icon: "layers", color: "bg-blue-50 text-primary" },
-  { id: "cash-flow", title: "Cash Flow", description: "Track the inflow and outflow of cash across operations.", icon: "activity", color: "bg-amber-50 text-amber-600" },
-  { id: "trial-balance", title: "Trial Balance", description: "Verify the mathematical accuracy of ledger accounts.", icon: "book-open", color: "bg-purple-50 text-purple-600" },
-  { id: "expense", title: "Expense Report", description: "Detailed breakdown of all direct and indirect expenses.", icon: "dollar-sign", color: "bg-rose-50 text-rose-600" },
-  { id: "vendor-ledger", title: "Vendor Ledger", description: "Account statements for all suppliers and contractors.", icon: "truck", color: "bg-slate-50 text-slate-600" },
-  { id: "client-ledger", title: "Client Ledger", description: "Account statements and outstanding balances for clients.", icon: "users", color: "bg-indigo-50 text-indigo-600" },
-  { id: "gst", title: "GST Report", description: "Consolidated report for GSTR-1 and GSTR-3B filings.", icon: "percent", color: "bg-teal-50 text-teal-600" },
-];
 
-const ReportIcon = ({ color }: { color: string }) => {
+// --- GENERIC COMPONENTS ---
+const GenericTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  const filteredData = data.filter(row => 
+    row.some(cell => String(cell).toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   return (
-    <div className={`w-14 h-14 rounded-2xl ${color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner`}>
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <h3 className="font-bold text-slate-800">{title}</h3>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
+            <input type="text" placeholder="Search report..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 text-xs border border-slate-200 rounded-lg w-full sm:w-48 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all" />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => toast.success("Downloading PDF...")} className="text-[10px] font-bold px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">PDF</button>
+          <button onClick={() => toast.success("Downloading Excel...")} className="text-[10px] font-bold px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">Excel</button>
+          <button onClick={() => toast.success("Downloading CSV...")} className="text-[10px] font-bold px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">CSV</button>
+          <button onClick={() => toast.success("Report emailed to configured address!")} className="text-[10px] font-bold px-3 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700">Email Report</button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>{columns.map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {filteredData.length > 0 ? filteredData.map((row, i) => (
+              <tr key={i} className="hover:bg-slate-50/50">
+                {row.map((cell, j) => <td key={j} className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{cell}</td>)}
+              </tr>
+            )) : (
+              <tr><td colSpan={columns.length} className="px-4 py-8 text-center text-xs text-slate-500">No results found for "{searchTerm}"</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
 
-const AccountantReportsPage = () => {
-  const { reportId } = useParams<{ reportId: string }>();
+const CommonFilters = () => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const handleGenerate = () => {
+    setIsGenerating(true);
+    setTimeout(() => {
+      setIsGenerating(false);
+      toast.success("Report Generated Successfully");
+    }, 1000);
+  };
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 mb-6 flex flex-wrap gap-4 items-end">
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date Range</label><input type="date" className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg" /></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All Projects</option></select></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Site</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All Sites</option></select></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All Clients</option></select></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All Vendors</option></select></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All Contractors</option></select></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
+      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
+      <button onClick={handleGenerate} disabled={isGenerating} className={`text-white px-5 py-2 rounded-xl text-xs font-bold shadow-lg transition-all ${isGenerating ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700 active:scale-95'}`}>
+        {isGenerating ? "Generating..." : "Generate"}
+      </button>
+    </div>
+  );
+};
 
-  if (reportId) {
-    const activeReport = REPORTS.find(r => r.id === reportId);
+// --- SECTIONS ---
+
+const DashboardSection = () => {
+  const kpis = [
+    { label: "Total Revenue", value: "₹24.5 Cr", icon: "💰", accent: "from-emerald-500 to-teal-500", sub: "YTD Revenue" },
+    { label: "Total Expenses", value: "₹18.2 Cr", icon: "📉", accent: "from-rose-500 to-pink-500", sub: "YTD Direct & Indirect" },
+    { label: "Net Profit", value: "₹6.3 Cr", icon: "📈", accent: "from-blue-500 to-indigo-500", sub: "25.7% Margin" },
+    { label: "O/S Receivables", value: "₹4.1 Cr", icon: "📥", accent: "from-amber-500 to-orange-500", sub: "From Clients" },
+    { label: "O/S Payables", value: "₹2.8 Cr", icon: "📤", accent: "from-purple-500 to-fuchsia-500", sub: "To Vendors/Contractors" },
+    { label: "Cash Balance", value: "₹1.5 Cr", icon: "🏦", accent: "from-emerald-500 to-green-500", sub: "All Bank Accounts" },
+    { label: "Project Cost", value: "₹16.5 Cr", icon: "🏗️", accent: "from-slate-500 to-gray-500", sub: "Allocated to Projects" },
+    { label: "GST Liability", value: "₹45.2 L", icon: "⚖️", accent: "from-red-500 to-orange-500", sub: "Net Payable" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map((k, i) => (
+          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm text-white`}>{k.icon}</div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
+            <p className="text-xl font-bold text-slate-800">{k.value}</p>
+            <p className="text-[10px] text-slate-400 mt-1">{k.sub}</p>
+          </div>
+        ))}
+      </div>
+      
+      <h3 className="font-bold text-slate-800 pt-4">Most Used Reports by Construction Company Management</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {["Profit & Loss", "Cash Flow", "Outstanding Receivables", "Outstanding Payables", "Project Profitability", "Budget vs Actual", "Material Cost Report", "Labor Cost Report", "GST Report", "Management MIS Report"].map((r, i) => (
+          <div key={i} className="bg-white border border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 cursor-pointer shadow-sm transition-all">
+            <span className="text-2xl mb-2 block">📊</span>
+            <p className="text-xs font-bold text-slate-700">{r}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Generic Wrapper Generator
+const createWrapper = (categoryTabs: {key: string, label: string}[], tableGenerators: Record<string, () => React.ReactNode>) => {
+  return ({ initialSubTab }: { initialSubTab?: string }) => {
+    const navigate = useNavigate();
+    const sub = initialSubTab || categoryTabs[0].key;
     
     return (
-        <>
-            <Navbar title={`${activeReport?.title || 'Report'}`} breadcrumb={["Accountant", "Reports", activeReport?.title || "View"]} />
-            <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
-                    <div>
-                        <Link to="/accountant/reports" className="inline-flex items-center gap-1.5 text-primary text-[10px] font-bold uppercase tracking-[0.2em] hover:translate-x-[-4px] transition-transform mb-2">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
-                            Back to Reports Hub
-                        </Link>
-                        <h2 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">{activeReport?.title} Statement</h2>
-                        <p className="text-slate-500 text-sm mt-1">For the period: <span className="font-bold text-slate-700 underline underline-offset-4 decoration-primary/30">01 April 2024</span> to <span className="font-bold text-slate-700 underline underline-offset-4 decoration-primary/30">30 April 2024</span></p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                            Export PDF
-                        </button>
-                        <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-                            Print Report
-                        </button>
-                    </div>
-                </div>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                    {[
-                        { label: "Opening Balance", value: "₹45,20,000", color: "text-slate-600", bg: "bg-slate-50/50" },
-                        { label: reportId === 'pnl' ? "Total Revenue" : "Total Assets", value: "₹1,25,80,000", color: "text-emerald-600", bg: "bg-emerald-50/30" },
-                        { label: reportId === 'pnl' ? "Total Expenses" : "Total Liabilities", value: "₹82,40,000", color: "text-rose-600", bg: "bg-rose-50/30" },
-                        { label: "Net Movement", value: "₹43,40,000", color: "text-primary", bg: "bg-blue-50/30" },
-                    ].map((card, i) => (
-                        <div key={i} className={`p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group ${card.bg}`}>
-                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" /></svg>
-                            </div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 relative z-10">{card.label}</p>
-                            <p className={`text-2xl font-black tracking-tight relative z-10 ${card.color}`}>{card.value}</p>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Report Table */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
-                    <div className="px-6 py-5 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div>
-                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Statement of Accounts</h3>
-                            <p className="text-[10px] text-slate-400 mt-0.5">GENERATED ON: {new Date().toLocaleString()}</p>
-                        </div>
-                        <span className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                            Currency: <span className="text-slate-800">INR (₹)</span>
-                        </span>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-50">
-                                    <th className="px-6 py-4">Particulars / Transaction</th>
-                                    <th className="px-6 py-4">Reference</th>
-                                    <th className="px-6 py-4 text-right">Debit</th>
-                                    <th className="px-6 py-4 text-right">Credit</th>
-                                    <th className="px-6 py-4 text-right">Balance</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {[
-                                    { p: "Opening Balance B/F", r: "-", d: "-", c: "-", b: "45,20,000.00", bold: true },
-                                    { p: "Project Revenue - Site Alpha", r: "INV/24/082", d: "-", c: "12,50,000.00", b: "57,70,000.00" },
-                                    { p: "Material Procurement - Steel", r: "PV/24/110", d: "4,20,000.00", c: "-", b: "53,50,000.00" },
-                                    { p: "Labor Wages - Week 14", r: "PR/24/014", d: "2,15,000.00", c: "-", b: "51,35,000.00" },
-                                    { p: "GST Liability Payment", r: "TAX/24/004", d: "1,85,000.00", c: "-", b: "49,50,000.00" },
-                                    { p: "Equipment Hire Charges", r: "EXP/24/442", d: "85,000.00", c: "-", b: "48,65,000.00" },
-                                    { p: "Retention Release - Client X", r: "RCT/24/005", d: "-", c: "5,00,000.00", b: "53,65,000.00" },
-                                ].map((row, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                                        <td className={`px-6 py-4 text-sm ${row.bold ? 'font-bold text-slate-800' : 'font-medium text-slate-700'}`}>{row.p}</td>
-                                        <td className="px-6 py-4 text-[11px] font-mono text-slate-500">{row.r}</td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-rose-500">{row.d}</td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-emerald-500">{row.c}</td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-800 tracking-tight">{row.b}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot>
-                                <tr className="bg-slate-50/50 text-slate-700 border-t border-slate-200">
-                                    <td colSpan={2} className="px-6 py-4 text-xs font-bold uppercase tracking-[0.2em] border-r border-slate-200">Closing Balance C/F</td>
-                                    <td className="px-6 py-4 text-right text-sm font-bold border-r border-slate-200">9,05,000.00</td>
-                                    <td className="px-6 py-4 text-right text-sm font-bold border-r border-slate-200">17,50,000.00</td>
-                                    <td className="px-6 py-4 text-right text-lg font-bold text-primary">53,65,000.00</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Footer Disclaimer */}
-                <div className="flex items-start gap-4 p-6 bg-blue-50/50 rounded-2xl border border-blue-100 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-5">
-                        <svg className="w-16 h-16 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-100 text-primary rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold text-slate-600 leading-relaxed max-w-3xl">
-                            This is an auto-generated <span className="text-primary">{activeReport?.title}</span> statement based on the ledger entries recorded in the InfraPilot system. 
-                            As per organizational policy, all financial statements generated here should be verified with physical vouchers and signed by the Chief Accountant before official audit submission.
-                        </p>
-                    </div>
-                </div>
-            </PageTransition>
-        </>
+      <div className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 overflow-x-auto">
+            {categoryTabs.map(t => (
+              <button key={t.key} onClick={() => navigate(`?sub=${t.key}`, { replace: true })}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  sub === t.key ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <CommonFilters />
+        {tableGenerators[sub] ? tableGenerators[sub]() : (
+          <div className="p-12 text-center bg-white rounded-2xl border border-slate-100">
+            <p className="text-slate-500">Report details for {categoryTabs.find(t=>t.key===sub)?.label} are generated here.</p>
+          </div>
+        )}
+      </div>
     );
-  }
+  };
+};
+
+const FinancialReportsWrapper = createWrapper([
+  { key: "pl", label: "Profit & Loss" }, { key: "bs", label: "Balance Sheet" }, { key: "cashflow", label: "Cash Flow Statement" }, 
+  { key: "trial", label: "Trial Balance" }, { key: "ledger", label: "General Ledger" }, { key: "journal", label: "Journal Report" }
+], {
+  "pl": () => (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 font-mono text-sm max-w-3xl">
+      <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Profit & Loss Statement</h3>
+      <div className="flex justify-between font-bold text-slate-800"><span>Revenue</span><span>₹24,50,00,000</span></div>
+      <div className="flex justify-between text-rose-600 pl-4 mt-2"><span>- Direct Expenses</span><span>₹14,00,00,000</span></div>
+      <div className="flex justify-between text-rose-600 pl-4"><span>- Indirect Expenses</span><span>₹4,20,00,000</span></div>
+      <div className="border-t border-slate-300 my-2"></div>
+      <div className="flex justify-between font-black text-emerald-600 text-base"><span>Net Profit</span><span>₹6,30,00,000</span></div>
+    </div>
+  ),
+  "bs": () => (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 font-mono text-sm max-w-3xl">
+      <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Balance Sheet</h3>
+      <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Assets</span><span>₹45,00,00,000</span></div>
+      <div className="flex justify-between text-slate-600 mb-2"><span>Liabilities</span><span>₹22,00,00,000</span></div>
+      <div className="flex justify-between text-slate-600"><span>Equity</span><span>₹23,00,00,000</span></div>
+    </div>
+  ),
+  "cashflow": () => (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 font-mono text-sm max-w-3xl">
+      <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Cash Flow</h3>
+      <div className="flex justify-between text-slate-600"><span>Opening Balance</span><span>₹1,10,00,000</span></div>
+      <div className="flex justify-between text-emerald-600 pl-4 mt-2"><span>+ Receipts</span><span>₹8,40,00,000</span></div>
+      <div className="flex justify-between text-rose-600 pl-4"><span>- Payments</span><span>₹8,00,00,000</span></div>
+      <div className="border-t border-slate-300 my-2"></div>
+      <div className="flex justify-between font-black text-slate-800 text-base"><span>Closing Balance</span><span>₹1,50,00,000</span></div>
+    </div>
+  )
+});
+
+const ReceivableReportsWrapper = createWrapper([
+  { key: "client", label: "Client Ledger" }, { key: "outstanding", label: "Outstanding Receivables" }, { key: "invoice", label: "Invoice Report" },
+  { key: "rabill", label: "RA Bill Report" }, { key: "collection", label: "Collection Report" }, { key: "credit", label: "Credit Note Report" }
+], {
+  "client": () => <GenericTableSection title="Client Ledger Report" columns={["Date", "Invoice", "Debit", "Credit", "Balance"]} data={[["2024-10-01", "INV-882", "₹5,00,000", "-", "₹5,00,000 Dr"], ["2024-10-15", "RCPT-102", "-", "₹3,00,000", "₹2,00,000 Dr"]]} />,
+  "outstanding": () => <GenericTableSection title="Outstanding Receivables" columns={["Client", "Project", "Invoice No", "Due Date", "Amount Due"]} data={[["Govt Infra Dept", "Metro Line 3", "INV-882", "2024-11-01", "₹2,00,000"]]} />
+});
+
+const PayableReportsWrapper = createWrapper([
+  { key: "vendor", label: "Vendor Ledger" }, { key: "contractor", label: "Contractor Ledger" }, { key: "outstanding", label: "Outstanding Payables" },
+  { key: "bill", label: "Vendor Bill Report" }, { key: "due", label: "Due Payment Report" }
+], {
+  "vendor": () => <GenericTableSection title="Vendor Ledger Report" columns={["Date", "Bill No", "Debit", "Credit", "Balance"]} data={[["2024-10-05", "BILL-V01", "-", "₹1,00,000", "₹1,00,000 Cr"], ["2024-10-20", "PMT-55", "₹1,00,000", "-", "Nil"]]} />,
+  "outstanding": () => <GenericTableSection title="Outstanding Payables" columns={["Vendor/Contractor", "Type", "Bill No", "Due Date", "Amount Due"]} data={[["ABC Cements", "Material", "BILL-V05", "2024-11-10", "₹4,50,000"]]} />
+});
+
+const ExpenseReportsWrapper = createWrapper([
+  { key: "summary", label: "Expense Summary" }, { key: "project", label: "Project Expense Report" }, { key: "category", label: "Category-wise Expense Report" },
+  { key: "monthly", label: "Monthly Expense Report" }, { key: "site", label: "Site Expense Report" }
+], {});
+
+const PayrollReportsWrapper = createWrapper([
+  { key: "salary", label: "Salary Report" }, { key: "wage", label: "Labor Wage Report" }, { key: "contractor", label: "Contractor Payment Report" },
+  { key: "attendance", label: "Attendance Report" }, { key: "overtime", label: "Overtime Report" }
+], {});
+
+const AssetReportsWrapper = createWrapper([
+  { key: "register", label: "Asset Register" }, { key: "valuation", label: "Asset Valuation" }, { key: "depreciation", label: "Depreciation Report" },
+  { key: "transfer", label: "Asset Transfer Report" }, { key: "maintenance", label: "Maintenance Cost Report" }
+], {});
+
+const TaxReportsWrapper = createWrapper([
+  { key: "gst", label: "GST Report" }, { key: "input", label: "Input GST Report" }, { key: "output", label: "Output GST Report" },
+  { key: "tds", label: "TDS Report" }, { key: "recon", label: "GST Reconciliation Report" }, { key: "filing", label: "Tax Filing Report" }
+], {});
+
+const ProjectCostReportsWrapper = createWrapper([
+  { key: "budget", label: "Budget vs Actual" }, { key: "profit", label: "Project Profitability" }, { key: "material", label: "Material Cost Report" },
+  { key: "labor", label: "Labor Cost Report" }, { key: "contractor", label: "Contractor Cost Report" }, { key: "equipment", label: "Equipment Cost Report" }, { key: "variance", label: "Cost Variance Report" }
+], {
+  "budget": () => <GenericTableSection title="Budget vs Actual" columns={["Project", "Budget", "Actual Cost", "Variance"]} data={[["Metro Line 3", "₹50,00,00,000", "₹45,00,00,000", "₹5,00,00,000 (10%)"]]} />,
+  "profit": () => <GenericTableSection title="Project Profitability" columns={["Project", "Revenue", "Expense", "Profit", "Margin"]} data={[["Highway Proj A", "₹10,00,00,000", "₹8,00,00,000", "₹2,00,00,000", "20%"]]} />,
+  "material": () => <GenericTableSection title="Material Cost Report" columns={["Material", "Quantity Used", "Total Cost", "Avg Cost/Unit"]} data={[["Cement (OPC 53)", "5000 Bags", "₹20,00,000", "₹400/Bag"]]} />,
+  "labor": () => <GenericTableSection title="Labor Cost Report" columns={["Project", "Skilled Labor Cost", "Unskilled Labor Cost", "Total Labor Cost"]} data={[["Metro Line 3", "₹12,00,000", "₹8,00,000", "₹20,00,000"]]} />
+});
+
+const BankingReportsWrapper = createWrapper([
+  { key: "cash", label: "Cash Book" }, { key: "bank", label: "Bank Book" }, { key: "recon", label: "Bank Reconciliation" },
+  { key: "transfer", label: "Fund Transfer Report" }, { key: "petty", label: "Petty Cash Report" }
+], {});
+
+const MISReportsWrapper = createWrapper([
+  { key: "dashboard", label: "Executive Dashboard" }, { key: "monthly", label: "Monthly Financial Summary" }, { key: "performance", label: "Project Performance Report" },
+  { key: "revexp", label: "Revenue vs Expense" }, { key: "management", label: "Management MIS" }
+], {});
+
+// --- MAIN PAGE ---
+type TabKey = "dashboard" | "financial" | "receivables" | "payables" | "expenses" | "payroll" | "assets" | "taxes" | "project" | "banking" | "mis";
+
+const TABS: { key: TabKey; label: string; icon: string }[] = [
+  { key: "dashboard",   label: "Dashboard",       icon: "📊" },
+  { key: "financial",   label: "Financial",       icon: "💵" },
+  { key: "receivables", label: "Receivables",     icon: "📥" },
+  { key: "payables",    label: "Payables",        icon: "📤" },
+  { key: "expenses",    label: "Expenses",        icon: "💳" },
+  { key: "payroll",     label: "Payroll",         icon: "👥" },
+  { key: "assets",      label: "Assets",          icon: "🏢" },
+  { key: "taxes",       label: "GST & Tax",       icon: "⚖️" },
+  { key: "project",     label: "Project Cost",    icon: "🏗️" },
+  { key: "banking",     label: "Bank & Cash",     icon: "🏦" },
+  { key: "mis",         label: "MIS",             icon: "📈" },
+];
+
+const AccountantReportsPage = () => {
+  const { category } = useParams<{ category?: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const subTab = searchParams.get("sub") || undefined;
+
+  const resolveTab = (): TabKey => {
+    const pathParts = location.pathname.split("/").filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1];
+    const currentSub = category || lastPart;
+
+    const map: Record<string, TabKey> = {
+      "financial": "financial",
+      "receivables": "receivables",
+      "payables": "payables",
+      "expenses": "expenses",
+      "payroll": "payroll",
+      "assets": "assets",
+      "taxes": "taxes",
+      "project": "project",
+      "banking": "banking",
+      "mis": "mis",
+      "dashboard": "dashboard",
+    };
+    return map[currentSub || ""] || "dashboard";
+  };
+
+  const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
+
+  useEffect(() => {
+    setActiveTab(resolveTab());
+  }, [category, location.pathname]);
+
+  const handleTabChange = (key: TabKey) => {
+    setActiveTab(key);
+    navigate(`/accountant/reports/${key}`, { replace: true });
+  };
 
   return (
     <>
-      <Navbar title="Financial Reports" breadcrumb={["Accountant", "Analytics", "Reports Hub"]} />
-      
+      <Navbar title="Financial & Project Reports" breadcrumb={["Accountant", "Reports"]} />
+
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Analytics</p>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight uppercase">Reports Hub</h1>
-            <p className="text-slate-500 text-sm mt-1">Generate comprehensive financial statements, ledger analytics, and compliance filings.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Enterprise Reports</h1>
+            <p className="text-slate-500 text-sm mt-1">Financial, Project Cost, Receivables, Payables, and MIS reporting.</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {REPORTS.map(report => (
-                <Link 
-                    key={report.id} 
-                    to={`/accountant/reports/${report.id}`}
-                    className="group bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-primary/20 transition-all cursor-pointer flex flex-col h-full relative overflow-hidden"
-                >
-                    <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-                        <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" /></svg>
-                    </div>
-                    
-                    <ReportIcon color={report.color} />
-                    
-                    <h3 className="text-xl font-black text-slate-900 mb-2 group-hover:text-primary transition-colors tracking-tight">{report.title}</h3>
-                    <p className="text-xs text-slate-500 font-bold leading-relaxed flex-grow">{report.description}</p>
-                    
-                    <div className="mt-8 flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
-                        Generate Statement 
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                    </div>
-                </Link>
-            ))}
+        {/* Tab Navigation */}
+        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+          {TABS.map(tab => (
+            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                activeTab === tab.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              }`}>
+              <span>{tab.icon}</span>{tab.label}
+            </button>
+          ))}
         </div>
+
+        {/* Breadcrumb Label */}
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase">Reports</span>
+          <span className="text-slate-300">/</span>
+          <span className="text-[10px] font-black text-primary tracking-[0.2em] uppercase">{TABS.find(t => t.key === activeTab)?.label}</span>
+        </div>
+
+        {/* Content Rendering */}
+        {activeTab === "dashboard"    && <DashboardSection />}
+        {activeTab === "financial"    && <FinancialReportsWrapper initialSubTab={subTab} key={subTab || "pl"} />}
+        {activeTab === "receivables"  && <ReceivableReportsWrapper initialSubTab={subTab} key={subTab || "client"} />}
+        {activeTab === "payables"     && <PayableReportsWrapper initialSubTab={subTab} key={subTab || "vendor"} />}
+        {activeTab === "expenses"     && <ExpenseReportsWrapper initialSubTab={subTab} key={subTab || "summary"} />}
+        {activeTab === "payroll"      && <PayrollReportsWrapper initialSubTab={subTab} key={subTab || "salary"} />}
+        {activeTab === "assets"       && <AssetReportsWrapper initialSubTab={subTab} key={subTab || "register"} />}
+        {activeTab === "taxes"        && <TaxReportsWrapper initialSubTab={subTab} key={subTab || "gst"} />}
+        {activeTab === "project"      && <ProjectCostReportsWrapper initialSubTab={subTab} key={subTab || "budget"} />}
+        {activeTab === "banking"      && <BankingReportsWrapper initialSubTab={subTab} key={subTab || "cash"} />}
+        {activeTab === "mis"          && <MISReportsWrapper initialSubTab={subTab} key={subTab || "dashboard"} />}
       </PageTransition>
     </>
   );

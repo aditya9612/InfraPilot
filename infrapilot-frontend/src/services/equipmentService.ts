@@ -210,8 +210,8 @@ export const equipmentService = {
         return response.data;
     },
 
-    async getUsageReport(): Promise<UsageReport[]> {
-        const response = await api.get<UsageReport[]>('/equipment/usage/report');
+    async getUsageReport(params?: { project_id?: number }): Promise<UsageReport[]> {
+        const response = await api.get<UsageReport[]>('/equipment/usage/report', { params });
         return response.data;
     },
 
@@ -254,31 +254,31 @@ export const equipmentService = {
         return response.data;
     },
 
-    async getCostReport(): Promise<CostReport[]> {
-        const response = await api.get<CostReport[]>('/equipment/cost/report');
+    async getCostReport(params?: { project_id?: number }): Promise<CostReport[]> {
+        const response = await api.get<CostReport[]>('/equipment/cost/report', { params });
         return response.data;
     },
 
     // ==========================================
     // 6. Reports & Alerts
     // ==========================================
-    async getUtilizationReport(): Promise<UtilizationReport[]> {
-        const response = await api.get<UtilizationReport[]>('/equipment/report/utilization');
+    async getUtilizationReport(params?: { project_id?: number }): Promise<UtilizationReport[]> {
+        const response = await api.get<UtilizationReport[]>('/equipment/report/utilization', { params });
         return response.data;
     },
 
-    async getAvailabilityReport(): Promise<AvailabilityReport[]> {
-        const response = await api.get<AvailabilityReport[]>('/equipment/eq/availability');
+    async getAvailabilityReport(params?: { project_id?: number }): Promise<AvailabilityReport[]> {
+        const response = await api.get<AvailabilityReport[]>('/equipment/eq/availability', { params });
         return response.data;
     },
 
-    async getMaintenanceAlerts(): Promise<MaintenanceAlert[]> {
-        const response = await api.get<MaintenanceAlert[]>('/equipment/alerts/maintenance');
+    async getMaintenanceAlerts(params?: { project_id?: number }): Promise<MaintenanceAlert[]> {
+        const response = await api.get<MaintenanceAlert[]>('/equipment/alerts/maintenance', { params });
         return response.data;
     },
 
-    async getEquipmentAlerts(): Promise<EquipmentAlert[]> {
-        const response = await api.get<EquipmentAlert[]>('/equipment/alerts/equipment');
+    async getEquipmentAlerts(params?: { project_id?: number }): Promise<EquipmentAlert[]> {
+        const response = await api.get<EquipmentAlert[]>('/equipment/alerts/equipment', { params });
         return response.data;
     },
 

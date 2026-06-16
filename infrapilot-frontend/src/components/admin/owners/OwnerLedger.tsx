@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ownerService } from "../../../services/ownerService";
 import type { Owner, OwnerLedgerResponse } from "../../../types/owner";
 import toast from "react-hot-toast";
+import { formatCurrency } from "../../../utils/currencyUtils";
 
 export default function OwnerLedger() {
   const [owners, setOwners] = useState<Owner[]>([]);
@@ -123,16 +124,16 @@ export default function OwnerLedger() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 bg-slate-50/30 border-b border-slate-100">
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Credit</p>
-          <p className="text-xl font-black text-emerald-600">₹{(ledgerData?.total_credit || 0).toLocaleString('en-IN')}</p>
+          <p className="text-xl font-black text-emerald-600">{formatCurrency(ledgerData?.total_credit || 0)}</p>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Debit</p>
-          <p className="text-xl font-black text-rose-600">₹{(ledgerData?.total_debit || 0).toLocaleString('en-IN')}</p>
+          <p className="text-xl font-black text-rose-600">{formatCurrency(ledgerData?.total_debit || 0)}</p>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Closing Balance</p>
           <p className={`text-xl font-black ${(ledgerData?.balance || 0) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-            ₹{(ledgerData?.balance || 0).toLocaleString('en-IN')}
+            {formatCurrency(ledgerData?.balance || 0)}
           </p>
         </div>
       </div>
@@ -188,7 +189,7 @@ export default function OwnerLedger() {
                   <td
                     className={`p-4 pr-6 text-sm font-black text-right ${txn.type.toLowerCase() === "credit" ? "text-emerald-700" : "text-rose-700"}`}
                   >
-                    {txn.type.toLowerCase() === "credit" ? "▲" : "▼"} ₹{txn.amount.toLocaleString('en-IN')}
+                    {txn.type.toLowerCase() === "credit" ? "▲" : "▼"} {formatCurrency(txn.amount)}
                   </td>
                 </tr>
               ))

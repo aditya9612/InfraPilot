@@ -13,7 +13,7 @@ export interface Agreement {
 
 export interface AgreementCreate {
     owner_id: number;
-    project_id: number;
+    project_id?: number | null;
     type: string;
     file: File;
 }

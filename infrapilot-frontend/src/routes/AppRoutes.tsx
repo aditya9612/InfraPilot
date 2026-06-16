@@ -112,8 +112,6 @@ import TaskManagementPage from "../pages/engineer/TaskManagement/TaskManagementP
 // Accountant Pages
 import ChartOfAccountsPage from "../pages/accountant/ChartOfAccountsPage";
 import ReceivablesPage from "../pages/accountant/ReceivablesPage";
-import ReceivablesRABillsPage from "../pages/accountant/ReceivablesRABillsPage";
-import ReceivablesCreditNotesPage from "../pages/accountant/ReceivablesCreditNotesPage";
 import PayablesPage from "../pages/accountant/PayablesPage";
 import ExpensesPage from "../pages/accountant/ExpensesPage";
 import PaymentsReceiptsPage from "../pages/accountant/PaymentsReceiptsPage";
@@ -482,66 +480,91 @@ function AppRoutes() {
               />
               <Route
                 path="/accountant/receivables"
-                element={
-                  <Navigate to="/accountant/receivables/invoices" replace />
-                }
+                element={<Navigate to="/accountant/receivables/dashboard" replace />}
               />
               <Route
-                path="/accountant/receivables/invoices"
+                path="/accountant/receivables/:subpage"
+                element={<ReceivablesPage />}
+              />
+              {/* Legacy direct routes — kept for back-compat */}
+              <Route
+                path="/accountant/receivables/ra-bills"
                 element={<ReceivablesPage />}
               />
               <Route
-                path="/accountant/receivables/ra-bills"
-                element={<ReceivablesRABillsPage />}
+                path="/accountant/receivables/credit-notes"
+                element={<ReceivablesPage />}
               />
               <Route
-                path="/accountant/receivables/credit-notes"
-                element={<ReceivablesCreditNotesPage />}
+                path="/accountant/expenses"
+                element={<Navigate to="/accountant/expenses/dashboard" replace />}
               />
-              <Route path="/accountant/expenses" element={<ExpensesPage />} />
               <Route
                 path="/accountant/expenses/:category"
                 element={<ExpensesPage />}
               />
-              <Route path="/accountant/payables" element={<PayablesPage />} />
+              <Route
+                path="/accountant/payables"
+                element={<Navigate to="/accountant/payables/dashboard" replace />}
+              />
               <Route
                 path="/accountant/payables/:category"
                 element={<PayablesPage />}
               />
               <Route
                 path="/accountant/payments"
-                element={<PaymentsReceiptsPage />}
+                element={<Navigate to="/accountant/payments/dashboard" replace />}
               />
               <Route
                 path="/accountant/payments/:category"
                 element={<PaymentsReceiptsPage />}
               />
-              <Route path="/accountant/taxation" element={<TaxationPage />} />
+              <Route
+                path="/accountant/taxation"
+                element={<Navigate to="/accountant/taxation/dashboard" replace />}
+              />
               <Route
                 path="/accountant/taxation/:category"
                 element={<TaxationPage />}
               />
-              <Route path="/accountant/payroll" element={<PayrollPage />} />
+              <Route
+                path="/accountant/payroll"
+                element={<Navigate to="/accountant/payroll/dashboard" replace />}
+              />
               <Route
                 path="/accountant/payroll/:category"
                 element={<PayrollPage />}
               />
-              <Route path="/accountant/banking" element={<BankingPage />} />
+              <Route
+                path="/accountant/banking"
+                element={<Navigate to="/accountant/banking/dashboard" replace />}
+              />
               <Route
                 path="/accountant/banking/:category"
                 element={<BankingPage />}
               />
               <Route
                 path="/accountant/journal"
+                element={<Navigate to="/accountant/journal/dashboard" replace />}
+              />
+              <Route
+                path="/accountant/journal/:category"
                 element={<JournalEntriesPage />}
               />
-              <Route path="/accountant/assets" element={<FixedAssetsPage />} />
+              <Route
+                path="/accountant/assets"
+                element={<Navigate to="/accountant/assets/dashboard" replace />}
+              />
               <Route
                 path="/accountant/assets/:category"
                 element={<FixedAssetsPage />}
               />
               <Route
                 path="/accountant/reports"
+                element={<Navigate to="/accountant/reports/dashboard" replace />}
+              />
+              <Route
+                path="/accountant/reports/:category"
                 element={<AccountantReportsPage />}
               />
               <Route
@@ -550,6 +573,10 @@ function AppRoutes() {
               />
               <Route
                 path="/accountant/settings"
+                element={<Navigate to="/accountant/settings/company" replace />}
+              />
+              <Route
+                path="/accountant/settings/:category"
                 element={<AccountantSettingsPage />}
               />
             </Route>
