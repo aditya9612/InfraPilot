@@ -193,11 +193,11 @@ export const ownerService = {
       const response = await api.get(`/owners/${ownerId}/ledger/excel`, {
         responseType: "blob",
       });
-      const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
+      const blob = new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `Owner_Ledger_${ownerId}.csv`);
+      link.setAttribute("download", `Owner_Ledger_${ownerId}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();

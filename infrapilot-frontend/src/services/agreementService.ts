@@ -24,7 +24,9 @@ export const agreementService = {
         try {
             const formData = new FormData();
             formData.append("owner_id", data.owner_id.toString());
-            formData.append("project_id", data.project_id.toString());
+            if (data.project_id) {
+                formData.append("project_id", data.project_id.toString());
+            }
             formData.append("type", data.type);
             formData.append("file", data.file);
 

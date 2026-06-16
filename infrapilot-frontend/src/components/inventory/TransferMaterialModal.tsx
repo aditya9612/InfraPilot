@@ -5,6 +5,7 @@ interface TransferMaterialModalProps {
   onClose: () => void;
   onSubmit: (data: any) => void;
   inventory: any[];
+  projects: any[];
 }
 
 export default function TransferMaterialModal({
@@ -12,11 +13,12 @@ export default function TransferMaterialModal({
   onClose,
   onSubmit,
   inventory,
+  projects,
 }: TransferMaterialModalProps) {
   const [formData, setFormData] = useState({
     materialId: "",
-    fromProjectId: 1, // Defaulting for simple mock
-    toProjectId: 2,
+    fromProjectId: "",
+    toProjectId: "",
     quantity: 0,
     transportDetails: "",
   });
@@ -27,6 +29,7 @@ export default function TransferMaterialModal({
     (m) => m.id === Number(formData.materialId),
   );
   const availableStock = selectedMaterial ? selectedMaterial.stock : 0;
+  const sourceProject = projects.find((p) => String(p.id) === String(formData.fromProjectId));
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -34,16 +37,27 @@ export default function TransferMaterialModal({
     >,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        name === "quantity" ||
-        name === "materialId" ||
-        name === "toProjectId" ||
-        name === "fromProjectId"
-          ? Number(value)
-          : value,
-    }));
+
+    setFormData((prev) => {
+      // Auto-populate source project when material is selected
+      if (name === "materialId") {
+        const material = inventory.find((m) => m.id === Number(value));
+        return {
+          ...prev,
+          materialId: value, // keep as string
+          fromProjectId: material ? String(material.project_id) : "",
+          toProjectId: "" // reset destination site
+        };
+      }
+
+      return {
+        ...prev,
+        [name]:
+          name === "quantity"
+            ? Number(value)
+            : value, // keep IDs as strings in state
+      };
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -51,8 +65,8 @@ export default function TransferMaterialModal({
     onSubmit(formData);
     setFormData({
       materialId: "",
-      fromProjectId: 1,
-      toProjectId: 2,
+      fromProjectId: "",
+      toProjectId: "",
       quantity: 0,
       transportDetails: "",
     });
@@ -117,14 +131,14 @@ export default function TransferMaterialModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center bg-slate-50 p-4 rounded-[28px] border border-slate-100 relative">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Source Site</label>
-                <div className="p-3 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 shadow-sm truncate">
-                    Site A - City Center Complex
+                <div className="p-3 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-500 shadow-sm truncate h-[42px] flex items-center">
+                  {sourceProject ? (sourceProject.name || sourceProject.project_name) : "Select a material first"}
                 </div>
               </div>
-              
+
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:block">
                 <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white shadow-lg border-4 border-slate-50">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </div>
               </div>
 
@@ -135,10 +149,15 @@ export default function TransferMaterialModal({
                   name="toProjectId"
                   value={formData.toProjectId}
                   onChange={handleChange}
-                  className="w-full p-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-[11px] font-bold outline-none shadow-sm"
+                  disabled={!formData.fromProjectId}
+                  className="w-full p-3 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-[11px] font-bold outline-none shadow-sm disabled:bg-slate-50 disabled:text-slate-400 h-[42px]"
                 >
-                  <option value={2}>Site B - Riverside Apartments</option>
-                  <option value={3}>Site C - Highway Bridge</option>
+                  <option value="" disabled>Select Destination Site</option>
+                  {projects
+                    .filter(p => String(p.id) !== String(formData.fromProjectId))
+                    .map(p => (
+                      <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
+                    ))}
                 </select>
               </div>
             </div>
@@ -196,6 +215,8 @@ export default function TransferMaterialModal({
               type="submit"
               disabled={
                 !formData.materialId ||
+                !formData.toProjectId ||
+                !formData.fromProjectId ||
                 formData.quantity <= 0 ||
                 formData.quantity > availableStock
               }

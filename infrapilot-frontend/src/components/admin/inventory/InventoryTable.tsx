@@ -1,6 +1,6 @@
-import React from "react";
 import { Edit2, PlusCircle, MinusCircle, Trash2 } from "lucide-react";
 import type { Material } from "../../../types/material";
+import { formatCurrency } from "../../../utils/currencyUtils";
 
 interface InventoryTableProps {
   materials: Material[];
@@ -52,9 +52,8 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
               <td className="px-6 py-4">
                 <div className="flex items-center gap-2 mb-1">
                   <span
-                    className={`text-base font-bold ${
-                      item.remaining_stock < item.minimum_stock_level ? "text-rose-500" : "text-emerald-600"
-                    }`}
+                    className={`text-base font-bold ${item.remaining_stock < item.minimum_stock_level ? "text-rose-500" : "text-emerald-600"
+                      }`}
                   >
                     {item.remaining_stock.toLocaleString()} {item.unit}
                   </span>
@@ -73,19 +72,19 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
               </td>
               <td className="px-6 py-4">
                 <p className="font-bold text-slate-700">
-                  ₹{item.purchase_rate.toLocaleString()}{" "}
+                  {formatCurrency(item.purchase_rate)}{" "}
                   <span className="text-xs font-normal text-slate-400">/ {item.unit}</span>
                 </p>
                 <p className="text-xs font-semibold text-slate-500 mt-1">
-                  Total Value: ₹{(item.remaining_stock * item.purchase_rate).toLocaleString()}
+                  Total Value: {formatCurrency(item.remaining_stock * item.purchase_rate)}
                 </p>
               </td>
               <td className="px-6 py-4">
                 <p className="text-xs font-bold text-emerald-600 mb-1">
-                  Paid: ₹{item.payment_given.toLocaleString()}
+                  Paid: {formatCurrency(item.payment_given)}
                 </p>
                 <p className={`text-xs font-bold ${item.payment_pending > 0 ? "text-amber-500" : "text-slate-400"}`}>
-                  Pending: ₹{item.payment_pending.toLocaleString()}
+                  Pending: {formatCurrency(item.payment_pending)}
                 </p>
               </td>
               <td className="px-6 py-4 text-right">

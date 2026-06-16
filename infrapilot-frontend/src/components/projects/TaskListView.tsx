@@ -113,7 +113,7 @@ const TaskListView = ({ tasks, members, onEdit, onDelete, onView }: TaskListView
                 <td className="px-6 py-4">
                   <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${task.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' :
                     task.status === 'In Progress' ? 'bg-blue-100 text-primary' :
-                      task.status === 'Delayed' ? 'bg-rose-100 text-rose-600' :
+                      task.status === 'Cancelled' ? 'bg-rose-100 text-rose-600' :
                         'bg-slate-100 text-slate-500'
                     }`}>
                     {task.status}

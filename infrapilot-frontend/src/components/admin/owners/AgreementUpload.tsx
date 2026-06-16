@@ -88,8 +88,8 @@ export default function AgreementUpload({ onUploadSuccess }: AgreementUploadProp
     try {
       const newAgreement = await agreementService.uploadAgreement({
         owner_id: parseInt(selectedOwnerId),
-        project_id: parseInt(selectedProjectId),
-        type: docName || file.name.split('.').pop()?.toUpperCase() || "Other",
+        project_id: selectedProjectId ? parseInt(selectedProjectId) : null,
+        type: docName,
         file: file
       });
 
@@ -189,7 +189,7 @@ export default function AgreementUpload({ onUploadSuccess }: AgreementUploadProp
         {/* Project Selector */}
         <div className="relative">
           <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">
-            Associate Project <span className="text-rose-500 font-bold">*</span>
+            Associate Project <span className="text-slate-300 font-normal">(Optional)</span>
           </label>
           <div
             onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
@@ -247,7 +247,7 @@ export default function AgreementUpload({ onUploadSuccess }: AgreementUploadProp
 
         <div>
           <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">
-            Agreement Type / Custom Name <span className="text-slate-300 font-normal">(Optional)</span>
+            Agreement Type / Custom Name <span className="text-rose-500 font-bold">*</span>
           </label>
           <input
             type="text"
@@ -366,8 +366,8 @@ export default function AgreementUpload({ onUploadSuccess }: AgreementUploadProp
 
         <button
           onClick={handleUpload}
-          disabled={!file || !!error || !selectedOwnerId || !selectedProjectId || isUploading}
-          className={`w-full py-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 active:scale-95 ${file && !error && selectedOwnerId && selectedProjectId && !isUploading
+          disabled={!file || !!error || !selectedOwnerId || !docName.trim() || isUploading}
+          className={`w-full py-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 active:scale-95 ${file && !error && selectedOwnerId && docName.trim() && !isUploading
             ? "bg-primary text-white shadow-xl shadow-primary/20 hover:bg-blue-600"
             : "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
             }`}
