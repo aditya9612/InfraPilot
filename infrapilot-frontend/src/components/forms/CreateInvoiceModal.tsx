@@ -170,36 +170,56 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     expense: "Create Site Expense"
   };
 
+  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const inputClasses = (error?: string) => `
+    w-full px-4 py-2.5 bg-white border 
+    ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
+    rounded-xl text-sm outline-none transition-all placeholder:text-slate-300
+  `;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={initialData ? "Edit Invoice" : (titleMap[formData.type] || "Create Invoice")}
-      maxWidth="max-w-3xl"
+      maxWidth="max-w-4xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
+            Cancel
+          </button>
+          <button form="invoice-form" type="submit" className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 active:scale-95">
+            {initialData ? "Save Changes" : "Generate Invoice"}
+          </button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Column 1 */}
-          <div className="space-y-4">
+      <form id="invoice-form" onSubmit={handleSubmit} noValidate className="space-y-6">
+        
+        {/* Basic Information */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            
             {!isLabour && (
               <>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Invoice Number</label>
+                  <label className={labelClasses}>Invoice Number <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
                     required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    className={inputClasses()}
                     placeholder="INV-2024-001"
                     value={formData.invoice_number}
                     onChange={e => setFormData({ ...formData, invoice_number: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Client Name</label>
+                  <label className={labelClasses}>Client Name <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
                     required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    className={inputClasses()}
                     placeholder="e.g. Aditya Enterprises"
                     value={formData.client_name}
                     onChange={e => setFormData({ ...formData, client_name: e.target.value })}
@@ -209,10 +229,10 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             )}
 
             <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Project</label>
+              <label className={labelClasses}>Project <span className="text-rose-500">*</span></label>
               <select
                 required
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                className={inputClasses()}
                 value={formData.project_id}
                 onChange={e => setFormData({ ...formData, project_id: e.target.value })}
               >
@@ -226,10 +246,10 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
             {isLabour && (
               <>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Owner</label>
+                  <label className={labelClasses}>Owner <span className="text-rose-500">*</span></label>
                   <select
                     required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    className={inputClasses()}
                     value={formData.owner_id}
                     onChange={e => setFormData({ ...formData, owner_id: e.target.value })}
                   >
@@ -240,73 +260,75 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Reference ID</label>
+                  <label className={labelClasses}>Reference ID <span className="text-rose-500">*</span></label>
                   <input
                     type="number"
                     required
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    className={inputClasses()}
                     placeholder="e.g. 1"
                     value={formData.reference_id}
                     onChange={e => setFormData({ ...formData, reference_id: e.target.value })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Start Date</label>
-                    <input
-                      type="date"
-                      required
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      value={formData.start_date}
-                      onChange={e => setFormData({ ...formData, start_date: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">End Date</label>
-                    <input
-                      type="date"
-                      required
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      value={formData.end_date}
-                      onChange={e => setFormData({ ...formData, end_date: e.target.value })}
-                    />
-                  </div>
+                <div>
+                  <label className={labelClasses}>Start Date <span className="text-rose-500">*</span></label>
+                  <input
+                    type="date"
+                    required
+                    className={inputClasses()}
+                    value={formData.start_date}
+                    onChange={e => setFormData({ ...formData, start_date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className={labelClasses}>End Date <span className="text-rose-500">*</span></label>
+                  <input
+                    type="date"
+                    required
+                    className={inputClasses()}
+                    value={formData.end_date}
+                    onChange={e => setFormData({ ...formData, end_date: e.target.value })}
+                  />
                 </div>
               </>
             )}
 
             {!isLabour && (
-              <div className="grid grid-cols-2 gap-4">
+              <>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Billing Date</label>
+                  <label className={labelClasses}>Billing Date</label>
                   <input
                     type="date"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    className={inputClasses()}
                     value={formData.billing_date}
                     onChange={e => setFormData({ ...formData, billing_date: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Due Date</label>
+                  <label className={labelClasses}>Due Date</label>
                   <input
                     type="date"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    className={inputClasses()}
                     value={formData.due_date}
                     onChange={e => setFormData({ ...formData, due_date: e.target.value })}
                   />
                 </div>
-              </div>
+              </>
             )}
           </div>
+        </div>
 
-          {/* Column 2 */}
-          <div className="space-y-4">
-            <div>
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Description</label>
+        {/* Work & Billing Details */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Work & Billing Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <div className="md:col-span-2">
+              <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
               <textarea
                 rows={isLabour ? 3 : 2}
                 required={isLabour}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+                className={`${inputClasses()} resize-none`}
                 placeholder={isLabour ? "e.g. Construction invoice for Wing A" : "e.g. Civil construction work..."}
                 value={formData.work_description}
                 onChange={e => setFormData({ ...formData, work_description: e.target.value })}
@@ -315,86 +337,84 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
 
             {isLabour ? (
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Base Amount (₹)</label>
+                <label className={labelClasses}>Base Amount (₹) <span className="text-rose-500">*</span></label>
                 <input
                   type="number"
                   required
                   min="0"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none font-bold text-slate-800"
+                  className={`${inputClasses()} font-bold text-slate-800`}
                   value={formData.amount}
                   onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Quantity</label>
+                  <label className={labelClasses}>Quantity</label>
                   <input
                     type="number"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    className={inputClasses()}
                     value={formData.quantity}
                     onChange={e => setFormData({ ...formData, quantity: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Rate (₹)</label>
+                  <label className={labelClasses}>Rate (₹)</label>
                   <input
                     type="number"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    className={inputClasses()}
                     value={formData.rate}
                     onChange={e => setFormData({ ...formData, rate: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
+              </>
+            )}
+
+            <div>
+              <label className={labelClasses}>GST (%)</label>
+              <select
+                className={inputClasses()}
+                value={formData.gst_percent}
+                onChange={e => setFormData({ ...formData, gst_percent: parseInt(e.target.value) })}
+              >
+                <option value={0}>0%</option>
+                <option value={5}>5%</option>
+                <option value={12}>12%</option>
+                <option value={18}>18%</option>
+                <option value={28}>28%</option>
+              </select>
+            </div>
+
+            {isLabour ? (
+              <div>
+                <label className={labelClasses}>Tax (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  className={inputClasses()}
+                  value={formData.tax_percent}
+                  onChange={e => setFormData({ ...formData, tax_percent: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            ) : (
+              <div>
+                <label className={labelClasses}>Payment Status</label>
+                <select
+                  className={inputClasses()}
+                  value={formData.status}
+                  onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="partial">Partial</option>
+                  <option value="paid">Paid</option>
+                </select>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">GST (%)</label>
-                <select
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                  value={formData.gst_percent}
-                  onChange={e => setFormData({ ...formData, gst_percent: parseInt(e.target.value) })}
-                >
-                  <option value={0}>0%</option>
-                  <option value={5}>5%</option>
-                  <option value={12}>12%</option>
-                  <option value={18}>18%</option>
-                  <option value={28}>28%</option>
-                </select>
-              </div>
-
-              {isLabour ? (
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Tax (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                    value={formData.tax_percent}
-                    onChange={e => setFormData({ ...formData, tax_percent: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Payment Status</label>
-                  <select
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                    value={formData.status}
-                    onChange={e => setFormData({ ...formData, status: e.target.value as any })}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="partial">Partial</option>
-                    <option value="paid">Paid</option>
-                  </select>
-                </div>
-              )}
-            </div>
-
             {!isLabour && (
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Attachment (BOQ/PDF)</label>
+              <div className="md:col-span-2">
+                <label className={labelClasses}>Attachment (BOQ/PDF)</label>
                 <div className="flex items-center justify-center w-full">
                   <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-slate-200 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-all">
                     <div className="flex flex-col items-center justify-center pt-2 pb-2">
@@ -431,21 +451,6 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-6">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 px-6 py-2.5 border border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="flex-1 px-10 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-          >
-            {initialData ? "Save Changes" : "Generate Invoice"}
-          </button>
-        </div>
       </form>
     </Modal >
   );
