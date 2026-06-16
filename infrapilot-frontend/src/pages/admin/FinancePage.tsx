@@ -108,8 +108,8 @@ const FinancePage = () => {
 
   // Always fetch expenses
   useEffect(() => {
-    fetchExpenses(categoryFilter === "all" ? undefined : categoryFilter);
-  }, [categoryFilter, fetchExpenses]);
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   useEffect(() => {
     fetchProjects();
@@ -150,7 +150,7 @@ const FinancePage = () => {
       if (subPage === "invoices" || subPage === "payments") {
         await fetchInvoices();
       } else {
-        await fetchExpenses(categoryFilter === "all" ? undefined : categoryFilter);
+        await fetchExpenses();
       }
       toast.success("Ledger synchronized successfully!");
     } catch (error) {
@@ -346,6 +346,14 @@ const FinancePage = () => {
     });
   }, [expenses, searchTerm, categoryFilter, dateFrom, dateTo, projects, projectIdFilter]);
 
+  const uniqueCategories = useMemo(() => {
+    const cats = expenses.map(e => e.category);
+    // Combine with common categories from documentation/data preference
+    const defaults = ["Construction", "Contractor", "Material", "Labor", "Labour", "Labour Advance", "Utilities", "Administrative"];
+    const combined = Array.from(new Set([...cats, ...defaults]));
+    return combined.filter(Boolean).sort((a, b) => a.localeCompare(b));
+  }, [expenses]);
+
   // Totals — prefer invoice data; fall back to expense data if invoices are empty
   const totals = useMemo(() => {
     const hasInvoices = invoices.length > 0;
@@ -393,10 +401,20 @@ const FinancePage = () => {
 
   const usingExpenseFallback = invoices.length === 0 && expenses.length > 0;
 
-  const totalItems = subPage === "expenses" ? filteredExpenses.length : filteredInvoices.length;
-  const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+  const filteredProjectsForProfit = useMemo(() => {
+    return projects.filter(p => projectIdFilter === "all" || p.id === Number(projectIdFilter));
+  }, [projects, projectIdFilter]);
+
+  const totalItems = subPage === "expenses"
+    ? filteredExpenses.length
+    : subPage === "profit"
+      ? filteredProjectsForProfit.length
+      : filteredInvoices.length;
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   const paginatedInvoices = filteredInvoices.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
   const paginatedExpenses = filteredExpenses.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  const paginatedProjects = filteredProjectsForProfit.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   return (
     <>
@@ -565,11 +583,9 @@ const FinancePage = () => {
                   className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600"
                 >
                   <option value="all">All Categories</option>
-                  <option value="Construction">Construction</option>
-                  <option value="Contractor">Contractor</option>
-                  <option value="Material">Material</option>
-                  <option value="Labor">Labor</option>
-                  <option value="Administrative">Administrative</option>
+                  {uniqueCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
               ) : null}
 
@@ -801,7 +817,7 @@ const FinancePage = () => {
                     </tr>
                   ))
                 ) : subPage === "profit" ? (
-                  projects.filter(p => projectIdFilter === "all" || p.id === Number(projectIdFilter)).map((project) => {
+                  paginatedProjects.map((project) => {
                     const projectInvs = invoices.filter(inv => inv.project_id === project.id);
                     const projectExps = expenses.filter(exp => exp.project_id === project.id);
                     const revenue = projectInvs.reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
@@ -848,7 +864,7 @@ const FinancePage = () => {
           {totalPages > 1 && (
             <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalItems)} of {totalItems} {subPage === "expenses" ? "Records" : "Invoices"}
+                Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalItems)} of {totalItems} {subPage === "expenses" ? "Records" : subPage === "profit" ? "Projects" : "Invoices"}
               </p>
               <div className="flex items-center gap-2">
                 <button

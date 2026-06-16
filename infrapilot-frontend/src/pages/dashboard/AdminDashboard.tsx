@@ -459,7 +459,7 @@ const AdminDashboard = () => {
               <p className="text-xs text-slate-400 mt-1">Revenue last month</p>
             </div>
             <div className={`bg-white rounded-2xl p-5 shadow-sm border border-slate-100 border-l-4 ${kpiComparison.difference >= 0 ? 'border-l-emerald-400' : 'border-l-red-400'}`}>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">MoM Change</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Difference</p>
               <p className={`text-2xl font-black ${kpiComparison.difference >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                 {kpiComparison.difference >= 0 ? '+' : ''}{formatCompactCurrency(kpiComparison.difference)}
               </p>
