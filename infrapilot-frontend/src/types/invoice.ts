@@ -6,7 +6,7 @@ export interface Invoice {
   project_id: number;
   owner_id: number;
   type: InvoiceType;
-  reference_id: number;
+  reference_id?: number;
   amount: number;
   gst_percent: number;
   gst_amount: number;
@@ -30,7 +30,7 @@ export interface InvoiceCreateData {
   project_id: number;
   owner_id: number;
   type: InvoiceType;
-  reference_id: number;
+  reference_id?: number;
   amount: number;
   gst_percent: number;
   gst_amount: number;

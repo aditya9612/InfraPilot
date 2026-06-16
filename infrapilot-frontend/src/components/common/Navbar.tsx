@@ -64,13 +64,14 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           // Use project-aware fetching for Clients
           const projectIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("mock_settings") ? JSON.parse(localStorage.getItem("mock_settings") || "{}").project_id : null;
           const projectId = projectIdStr ? Number(projectIdStr) : null;
-          
+
           const { alertService } = await import("../../services/alertService");
           const { projectService } = await import("../../services/projectService");
-          
-          const [generalData, projectAlertsRaw] = await Promise.all([
+
+          const [generalData, projectAlertsRaw, taskAlertsRaw] = await Promise.all([
             alertService.getAlerts(),
-            projectService.getProjectAlerts()
+            projectService.getProjectAlerts(),
+            projectService.getTaskAlerts()
           ]);
 
           const mappedProjectAlerts = projectAlertsRaw.map((p: any) => ({
@@ -85,7 +86,20 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
             project_id: p.project_id
           }));
 
-          const combined = [...generalData.map((a: any) => ({
+          const mappedTaskAlerts = taskAlertsRaw.map((t: any) => ({
+            id: `t-${t.task_id}`,
+            title: `Task: ${t.title}`,
+            description: `Status: ${t.status || 'Delayed'}`,
+            details: `Due: ${t.end_date || 'N/A'}`,
+            type: "Alert",
+            timestamp: new Date().toISOString(),
+            read: false,
+            source: "task",
+            project_id: t.project_id
+          }));
+
+          const combined = [
+            ...generalData.map((a: any) => ({
               id: a.id,
               title: a.alert_type,
               description: a.message,
@@ -95,9 +109,12 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
               read: a.status === 'read',
               source: "general",
               project_id: a.project_id
-          })), ...mappedProjectAlerts];
+            })),
+            ...mappedProjectAlerts,
+            ...mappedTaskAlerts
+          ];
 
-          data = projectId 
+          data = projectId
             ? combined.filter(a => Number(a.project_id) === Number(projectId))
             : combined;
         } else {

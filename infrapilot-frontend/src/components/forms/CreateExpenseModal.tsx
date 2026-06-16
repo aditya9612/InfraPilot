@@ -73,8 +73,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     await onSubmit(submissionData);
   };
 
-  const categories = formData.expense_type === "Direct" 
-    ? ["Material", "Labor", "Subcontractor", "Equipment Rental", "Fuel"]
+  const categories = formData.expense_type === "Direct"
+    ? ["Material", "Construction", "Contractor", "Labor", "Labour Advance", "Subcontractor", "Equipment Rental", "Fuel"]
     : ["Office Rent", "Travel", "Salaries", "Utilities", "Stationery", "Marketing"];
 
   return (
@@ -92,7 +92,7 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
               <div className="w-1 h-6 bg-primary rounded-full"></div>
               <h3 className="font-semibold text-gray-700">Expense Classification</h3>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">Expense Type</label>
@@ -155,11 +155,10 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                 <label className="block text-sm font-medium text-gray-600 mb-1">Amount (₹) <span className="text-rose-500">*</span></label>
                 <input
                   type="number"
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none font-bold ${
-                    errors.amount
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none font-bold ${errors.amount
                       ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                       : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
+                    }`}
                   placeholder="0"
                   value={formData.amount}
                   onChange={e => {
@@ -184,11 +183,10 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                 <label className="block text-sm font-medium text-gray-600 mb-1">Paid By <span className="text-rose-500">*</span></label>
                 <input
                   type="text"
-                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none ${
-                    errors.paid_by
+                  className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none ${errors.paid_by
                       ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                       : "border-gray-200 focus:ring-primary/10 focus:border-primary"
-                  }`}
+                    }`}
                   placeholder="e.g. PM Name"
                   value={formData.paid_by}
                   onChange={e => {

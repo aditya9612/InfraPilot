@@ -2,7 +2,7 @@ import Navbar from "../../components/common/Navbar";
 import { useState, useEffect, useRef } from "react";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
-import { masterService } from "../../services/masterService";
+import { masterService, type MasterEntity } from "../../services/masterService";
 import { useAuth } from "../../context/AuthContext";
 import type { UserProfile, UserSettings } from "../../types/settings";
 import toast from "react-hot-toast";
@@ -33,12 +33,12 @@ const ClientSettingsPage = () => {
             compact_view: true,
             show_weather: true,
             auto_gps: true,
-            notif_email: true,
-            notif_sms: false,
-            notif_push: true,
-            notif_dsr: true,
-            notif_issue: false,
-            notif_material: true
+            notif_email: localStorage.getItem("client_notif_email") !== "false",
+            notif_sms: localStorage.getItem("client_notif_sms") !== "false",
+            notif_push: localStorage.getItem("client_notif_push") !== "false",
+            notif_dsr: localStorage.getItem("client_notif_dsr") !== "false",
+            notif_issue: localStorage.getItem("client_notif_issue") !== "false",
+            notif_material: localStorage.getItem("client_notif_material") !== "false"
         },
         financial_year: "2025-26",
         currency: "INR",
@@ -47,13 +47,14 @@ const ClientSettingsPage = () => {
         payment_terms: "30 days"
     });
     // Additional unit selections
+    const [masterUnits, setMasterUnits] = useState<MasterEntity[]>([]);
     const [massUnit, setMassUnit] = useState<string>("Kg");
     const [lengthUnit, setLengthUnit] = useState<string>("Meter");
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [profileData, settingsData, projectsResult] = await Promise.all([
+                const [profileData, settingsData, projectsResult, unitsData] = await Promise.all([
                     settingsService.getProfile(),
                     settingsService.getSettings(),
                     projectService.getProjects(50, 0).catch(() => []),
@@ -61,6 +62,12 @@ const ClientSettingsPage = () => {
                 ]);
                 const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
                 setProjects(projectsList);
+                setMasterUnits(unitsData);
+
+                const massToUse = localStorage.getItem("client_mass_unit") || settingsData.preferences?.mass_unit || "Kg";
+                const lengthToUse = localStorage.getItem("client_length_unit") || settingsData.preferences?.length_unit || "Meter";
+                setMassUnit(massToUse);
+                setLengthUnit(lengthToUse);
 
                 if (projectsList.length > 0) {
                     const localSavedId = localStorage.getItem("client_selected_project_id");
@@ -70,25 +77,31 @@ const ClientSettingsPage = () => {
                 setProfile(profileData);
                 setPreviewUrl(null);
                 setSelectedFile(null);
+
+                const savedUnit = localStorage.getItem("client_unit_system");
+                const unitToUse = savedUnit || settingsData?.unit || "Metric";
+
                 setSettings({
                     ...settingsData,
-                    unit: settingsData.unit || "Metric",
-                    currency: settingsData.currency || "INR",
+                    unit: unitToUse,
+                    currency: settingsData?.currency || "INR",
                     preferences: {
-                        ...settingsData.preferences,
-                        language: settingsData.preferences?.language || "English",
-                        timezone: settingsData.preferences?.timezone || "IST (UTC+5:30)",
-                        date_format: settingsData.preferences?.date_format || "DD/MM/YYYY",
-                        auto_save: settingsData.preferences?.auto_save ?? true,
-                        compact_view: settingsData.preferences?.compact_view ?? true,
-                        show_weather: settingsData.preferences?.show_weather ?? true,
-                        auto_gps: settingsData.preferences?.auto_gps ?? true,
-                        notif_email: settingsData.preferences?.notif_email ?? true,
-                        notif_sms: settingsData.preferences?.notif_sms ?? false,
-                        notif_push: settingsData.preferences?.notif_push ?? true,
-                        notif_dsr: settingsData.preferences?.notif_dsr ?? true,
-                        notif_issue: settingsData.preferences?.notif_issue ?? false,
-                        notif_material: settingsData.preferences?.notif_material ?? true
+                        ...settingsData?.preferences,
+                        mass_unit: massToUse,
+                        length_unit: lengthToUse,
+                        language: settingsData?.preferences?.language || "English",
+                        timezone: settingsData?.preferences?.timezone || "IST (UTC+5:30)",
+                        date_format: settingsData?.preferences?.date_format || "DD/MM/YYYY",
+                        auto_save: settingsData?.preferences?.auto_save ?? true,
+                        compact_view: settingsData?.preferences?.compact_view ?? true,
+                        show_weather: settingsData?.preferences?.show_weather ?? true,
+                        auto_gps: settingsData?.preferences?.auto_gps ?? true,
+                        notif_email: localStorage.getItem("client_notif_email") !== null ? localStorage.getItem("client_notif_email") === "true" : (settingsData?.preferences?.notif_email ?? true),
+                        notif_sms: localStorage.getItem("client_notif_sms") !== null ? localStorage.getItem("client_notif_sms") === "true" : (settingsData?.preferences?.notif_sms ?? true),
+                        notif_push: localStorage.getItem("client_notif_push") !== null ? localStorage.getItem("client_notif_push") === "true" : (settingsData?.preferences?.notif_push ?? true),
+                        notif_dsr: localStorage.getItem("client_notif_dsr") !== null ? localStorage.getItem("client_notif_dsr") === "true" : (settingsData?.preferences?.notif_dsr ?? true),
+                        notif_issue: localStorage.getItem("client_notif_issue") !== null ? localStorage.getItem("client_notif_issue") === "true" : (settingsData?.preferences?.notif_issue ?? true),
+                        notif_material: localStorage.getItem("client_notif_material") !== null ? localStorage.getItem("client_notif_material") === "true" : (settingsData?.preferences?.notif_material ?? true)
                     }
                 });
             } catch (err) {
@@ -101,13 +114,20 @@ const ClientSettingsPage = () => {
     }, []);
 
     const togglePreference = (key: string) => {
+        const newValue = !settings.preferences?.[key];
+        
         setSettings(prev => ({
             ...prev,
             preferences: {
                 ...prev.preferences,
-                [key]: !prev.preferences?.[key]
+                [key]: newValue
             }
         }));
+
+        // Persist immediately to localStorage to handle page refreshes even before save
+        if (["notif_email", "notif_sms", "notif_push", "notif_dsr", "notif_issue", "notif_material"].includes(key)) {
+            localStorage.setItem(`client_${key}`, String(newValue));
+        }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,7 +162,28 @@ const ClientSettingsPage = () => {
             let profileError: any = null;
 
             try {
-                await settingsService.updateSettings({ ...settings, default_project_id: activeProjectId });
+                // Prepare final settings with sub-units included in preferences
+                const finalSettings = {
+                    ...settings,
+                    default_project_id: activeProjectId,
+                    preferences: {
+                        ...settings.preferences,
+                        mass_unit: massUnit,
+                        length_unit: lengthUnit
+                    }
+                };
+
+                await settingsService.updateSettings(finalSettings);
+                localStorage.setItem("client_mass_unit", massUnit);
+                localStorage.setItem("client_length_unit", lengthUnit);
+                
+                // Persist notification preferences locally to ensure consistency across refreshes
+                localStorage.setItem("client_notif_email", String(settings.preferences?.notif_email ?? true));
+                localStorage.setItem("client_notif_sms", String(settings.preferences?.notif_sms ?? true));
+                localStorage.setItem("client_notif_push", String(settings.preferences?.notif_push ?? true));
+                localStorage.setItem("client_notif_dsr", String(settings.preferences?.notif_dsr ?? true));
+                localStorage.setItem("client_notif_issue", String(settings.preferences?.notif_issue ?? true));
+                localStorage.setItem("client_notif_material", String(settings.preferences?.notif_material ?? true));
             } catch (err: any) {
                 console.error("Settings update failed:", err.response?.data || err.message);
                 settingsError = err;
@@ -196,7 +237,7 @@ const ClientSettingsPage = () => {
         if (!dateStr) return "";
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) return dateStr;
-        
+
         const format = settings.preferences?.date_format || "DD/MM/YYYY";
         const d = date.getDate().toString().padStart(2, '0');
         const m = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -239,7 +280,7 @@ const ClientSettingsPage = () => {
                         {[
                             { label: "Active Project", value: getActiveProjectName(), sub: "Primary project workspace", color: "text-blue-600" },
                             { label: "Unit System", value: settings.unit, sub: "Feet · Meter", color: "text-emerald-500" },
-                            { label: "Notifications", value: "4 / 6", sub: "Channels enabled", color: "text-amber-500" },
+                            { label: "Notifications", value: `${[settings.preferences?.notif_email, settings.preferences?.notif_sms, settings.preferences?.notif_push, settings.preferences?.notif_dsr, settings.preferences?.notif_issue, settings.preferences?.notif_material].filter(Boolean).length} / 6`, sub: "Channels enabled", color: "text-amber-500" },
                             { label: "Language", value: settings.preferences?.language || "English", sub: settings.preferences?.timezone || "IST (UTC+5:30)", color: "text-slate-800" },
                         ].map((card, i) => (
                             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md">
@@ -402,7 +443,7 @@ const ClientSettingsPage = () => {
                                 </div>
                                 <h2 className="text-[13px] font-black text-slate-500 uppercase tracking-[0.2em]">Units</h2>
                             </div>
-                            
+
                             <div className="space-y-10">
                                 {/* Unit System */}
                                 <div className="space-y-4">
@@ -411,8 +452,11 @@ const ClientSettingsPage = () => {
                                         {["Metric", "Imperial"].map(u => (
                                             <button
                                                 key={u}
-                                                onClick={() => setSettings(s => ({ ...s, unit: u }))}
-                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${settings.unit === u ? 'bg-[#1e293b] text-white border-[#1e293b]' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
+                                                onClick={() => {
+                                                    setSettings(s => ({ ...s, unit: u }));
+                                                    localStorage.setItem("client_unit_system", u);
+                                                }}
+                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${settings.unit?.toLowerCase() === u.toLowerCase() ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
                                             >
                                                 {u}
                                             </button>
@@ -420,14 +464,21 @@ const ClientSettingsPage = () => {
                                     </div>
                                 </div>
 
-                                {/* Mass / Weight */}
+                                {/* Mass / Weight - Driven by API but UI preserved */}
                                 <div className="space-y-4">
                                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Mass / Weight</p>
                                     <div className="flex gap-4">
-                                        {["Kg", "Feet", "Meter"].map(u => (
+                                        {(masterUnits.filter(u => u.category === 'Mass').length > 0
+                                            ? masterUnits.filter(u => u.category === 'Mass').map(u => u.name)
+                                            : ["Kg", "Feet", "Meter"] // Exact fallback UI
+                                        ).map(u => (
                                             <button
                                                 key={u}
-                                                onClick={() => setMassUnit(u)}
+                                                onClick={() => {
+                                                    setMassUnit(u);
+                                                    localStorage.setItem("client_mass_unit", u);
+                                                    setSettings(s => ({ ...s, mass_unit: u }));
+                                                }}
                                                 className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${massUnit === u ? 'bg-[#2563eb] text-white border-[#2563eb] shadow-lg shadow-blue-500/20' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
                                             >
                                                 {u}
@@ -436,14 +487,21 @@ const ClientSettingsPage = () => {
                                     </div>
                                 </div>
 
-                                {/* Length / Distance */}
+                                {/* Length / Distance - Driven by API but UI preserved */}
                                 <div className="space-y-4">
                                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Length / Distance</p>
                                     <div className="flex gap-4">
-                                        {["Meter", "Feet", "Inch", "Cm"].map(u => (
+                                        {(masterUnits.filter(u => u.category === 'Length').length > 0
+                                            ? masterUnits.filter(u => u.category === 'Length').map(u => u.name)
+                                            : ["Meter", "Feet", "Inch", "Cm"] // Exact fallback UI
+                                        ).map(u => (
                                             <button
                                                 key={u}
-                                                onClick={() => setLengthUnit(u)}
+                                                onClick={() => {
+                                                    setLengthUnit(u);
+                                                    localStorage.setItem("client_length_unit", u);
+                                                    setSettings(s => ({ ...s, length_unit: u }));
+                                                }}
                                                 className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${lengthUnit === u ? 'bg-[#2563eb] text-white border-[#2563eb] shadow-lg shadow-blue-500/20' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
                                             >
                                                 {u}
@@ -484,7 +542,7 @@ const ClientSettingsPage = () => {
                                     { label: "Issue Alerts", sub: "Notify on new high-priority issues", icon: "⚠️", key: "notif_issue" },
                                     { label: "Material Alerts", sub: "Low stock threshold notifications", icon: "🏗️", key: "notif_material" },
                                 ].map((n, i) => {
-                                    const isActive = settings.preferences?.[n.key] ?? false;
+                                    const isActive = settings.preferences?.[n.key] ?? true;
                                     return (
                                         <div key={i} className="group p-4 bg-slate-50/20 hover:bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between transition-all">
                                             <div className="flex items-center gap-4">

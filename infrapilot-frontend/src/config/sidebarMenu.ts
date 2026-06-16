@@ -1022,6 +1022,15 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Issues & Risks", path: "/client/issues", icon: "alert-triangle" },
     { label: "Documents & Drawings", path: "/client/documents", icon: "folder" },
     { label: "Approvals", path: "/client/approvals", icon: "check-circle" },
+    {
+      label: "Payment",
+      path: "/client/payment",
+      icon: "credit-card",
+      subNav: [
+        { label: "Quotation approval", path: "/client/payment/quotation", icon: "file-text" },
+        { label: "Payment history", path: "/client/payment/history", icon: "clock" },
+      ],
+    },
     { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Notifications", path: "/client/communication/announcements", icon: "bell" },
     {

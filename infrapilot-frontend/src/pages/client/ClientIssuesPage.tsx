@@ -93,19 +93,24 @@ const ClientIssuesPage = () => {
     }
 
     if (statusFilter !== "ALL STATUS") {
-      // Handle "Open" as both "Open" and "In Progress/Pending" if desired, 
-      // but strictly following "Open and Closed" for now.
       result = result.filter(i => {
           const s = i.status?.toLowerCase();
-          if (statusFilter === "OPEN") {
+          if (statusFilter === "OPEN" || statusFilter === "PENDING") {
               return s === 'open' || s === 'in progress' || s === 'pending';
           }
-          return s === 'resolved' || s === 'closed';
+          if (statusFilter === "CLOSED" || statusFilter === "RESOLVED") {
+              return s === 'resolved' || s === 'closed';
+          }
+          return true;
       });
     }
 
     if (priorityFilter !== "ALL PRIORITY") {
-      result = result.filter(i => i.priority?.toUpperCase() === priorityFilter);
+      if (priorityFilter === "HIGH") {
+        result = result.filter(i => i.priority?.toLowerCase() === 'high' || i.priority?.toLowerCase() === 'critical');
+      } else {
+        result = result.filter(i => i.priority?.toUpperCase() === priorityFilter);
+      }
     }
 
     setFilteredIssues(result);
@@ -152,9 +157,9 @@ const ClientIssuesPage = () => {
 
   const stats = {
     total: issues.length,
-    pending: issues.filter(i => i.status !== 'Resolved').length,
-    highPriority: issues.filter(i => (i.priority === 'High' || i.priority === 'Critical') && i.status !== 'Resolved').length,
-    resolved: issues.filter(i => i.status === 'Resolved').length
+    pending: issues.filter(i => i.status?.toLowerCase() !== 'resolved' && i.status?.toLowerCase() !== 'closed').length,
+    highPriority: issues.filter(i => (i.priority === 'High' || i.priority === 'Critical') && i.status?.toLowerCase() !== 'resolved' && i.status?.toLowerCase() !== 'closed').length,
+    resolved: issues.filter(i => i.status?.toLowerCase() === 'resolved' || i.status?.toLowerCase() === 'closed').length
   };
 
   const totalPages = Math.ceil(filteredIssues.length / itemsPerPage);
@@ -191,7 +196,12 @@ const ClientIssuesPage = () => {
           ].map((card, i) => (
             <div 
                 key={i} 
-                onClick={() => i === 0 ? setStatusFilter("ALL STATUS") : i === 1 ? setStatusFilter("PENDING") : i === 2 ? setPriorityFilter("HIGH") : setStatusFilter("RESOLVED")}
+                onClick={() => {
+                  if (i === 0) { setStatusFilter("ALL STATUS"); setPriorityFilter("ALL PRIORITY"); }
+                  else if (i === 1) { setStatusFilter("PENDING"); setPriorityFilter("ALL PRIORITY"); }
+                  else if (i === 2) { setPriorityFilter("HIGH"); setStatusFilter("ALL STATUS"); }
+                  else { setStatusFilter("RESOLVED"); setPriorityFilter("ALL PRIORITY"); }
+                }}
                 className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 group font-inter font-inter"
             >
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 font-inter">{card.label}</p>
@@ -207,42 +217,43 @@ const ClientIssuesPage = () => {
           {/* Filter Bar */}
           <div className="px-8 py-6 border-b border-slate-50 mt-4">
             <div className="flex flex-col md:flex-row md:items-center gap-4">
-              {/* Search Bar */}
-              <div className="relative flex-1 group">
+              {/* Search Bar - Pill Shape */}
+              <div className="relative w-full max-w-[50%] group">
                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                 <input 
                   type="text"
                   placeholder="Search by title or description..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#f8fafc] border border-slate-100/50 rounded-2xl py-4 pl-14 pr-8 text-sm font-medium text-slate-600 outline-none focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400"
+                  className="w-full bg-[#f8fafc] border border-slate-100/50 rounded-full py-4 pl-14 pr-8 text-sm font-medium text-slate-600 outline-none focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-50 transition-all placeholder:text-slate-400"
                 />
               </div>
 
               {/* Action Filters */}
               <div className="flex items-center gap-3">
                 <div className="p-3.5 bg-white border border-slate-100 rounded-xl text-slate-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+                  {/* Funnel Icon to match image */}
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                 </div>
 
                 <div className="relative">
                   <select 
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="appearance-none bg-white border border-slate-100 rounded-xl py-3.5 pl-6 pr-12 text-[11px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-200 transition-all shadow-sm"
+                    className="appearance-none bg-white border border-slate-200 rounded-2xl py-3.5 pl-6 pr-14 text-[11px] font-black uppercase tracking-widest text-[#475569] outline-none cursor-pointer hover:border-slate-300 transition-all shadow-sm"
                   >
                     <option>ALL STATUS</option>
                     <option>OPEN</option>
                     <option>CLOSED</option>
                   </select>
-                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
 
                 <div className="relative">
                   <select 
                     value={priorityFilter}
                     onChange={(e) => setPriorityFilter(e.target.value)}
-                    className="appearance-none bg-white border border-slate-100 rounded-xl py-3.5 pl-6 pr-12 text-[11px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-200 transition-all shadow-sm"
+                    className="appearance-none bg-white border border-slate-200 rounded-2xl py-3.5 pl-6 pr-14 text-[11px] font-black uppercase tracking-widest text-[#475569] outline-none cursor-pointer hover:border-slate-300 transition-all shadow-sm"
                   >
                     <option>ALL PRIORITY</option>
                     <option value="CRITICAL">CRITICAL</option>
@@ -250,7 +261,7 @@ const ClientIssuesPage = () => {
                     <option value="MEDIUM">MEDIUM</option>
                     <option value="LOW">LOW</option>
                   </select>
-                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
               </div>
             </div>
@@ -260,64 +271,73 @@ const ClientIssuesPage = () => {
           <div className="overflow-x-auto flex-1 font-inter">
             <table className="w-full text-left border-collapse table-fixed">
               <thead>
-                <tr className="bg-slate-50/30">
-                  <th className="p-10 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] w-[35%] font-inter">Issue Identifier</th>
-                  <th className="p-10 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] w-[20%] font-inter">Status Profile</th>
-                  <th className="p-10 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] w-[20%] font-inter">Priority Level</th>
-                  <th className="p-10 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] w-[25%] text-right pr-14 font-inter">Timeline Audit</th>
+                <tr className="bg-slate-50/20">
+                  <th className="py-6 px-10 text-[10px] font-black text-slate-500 uppercase tracking-widest w-[30%] font-inter">ISSUE IDENTIFIER</th>
+                  <th className="py-6 px-10 text-[10px] font-black text-slate-500 uppercase tracking-widest w-[18%] font-inter">STATUS PROFILE</th>
+                  <th className="py-6 px-10 text-[10px] font-black text-slate-500 uppercase tracking-widest w-[18%] font-inter">PRIORITY LEVEL</th>
+                  <th className="py-6 px-10 text-[10px] font-black text-slate-500 uppercase tracking-widest w-[24%] font-inter">TIMELINE AUDIT</th>
+                  <th className="py-6 px-10 text-[10px] font-black text-slate-500 uppercase tracking-widest w-[10%] text-right pr-14 font-inter">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 font-inter">
                 {loading && issues.length === 0 ? (
                    <tr>
-                     <td colSpan={4} className="p-20 text-center font-inter">
+                     <td colSpan={5} className="p-20 text-center font-inter">
                         <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4 font-inter" />
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter font-inter">Synchronizing Vault Records...</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Synchronizing Vault Records...</p>
                      </td>
                    </tr>
                 ) : paginatedIssues.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-20 text-center font-inter">
+                    <td colSpan={5} className="p-20 text-center font-inter">
                       <p className="text-sm font-medium text-slate-400 font-inter">No site constraints detected.</p>
                     </td>
                   </tr>
                 ) : paginatedIssues.map((issue) => (
                   <tr 
                     key={issue.id} 
-                    onClick={() => handleViewIssue(issue.id)}
-                    className="group hover:bg-slate-50/50 transition-all cursor-pointer align-top font-inter"
+                    className="group hover:bg-slate-50/50 transition-all align-top font-inter border-b border-slate-50 last:border-0"
                   >
-                    <td className="p-10">
-                       <p className="text-sm font-black text-slate-800 tracking-tight mb-1 font-inter">{issue.title}</p>
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-inter">{issue.business_id || `ISS-${issue.id}`} • {issue.category}</p>
+                    <td className="py-6 px-10">
+                       <p className="text-sm font-black text-slate-800 tracking-tight mb-0.5 font-inter">{issue.title}</p>
+                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">{issue.category}</p>
                     </td>
-                    <td className="p-10">
-                      <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.15em] border font-inter ${
+                    <td className="py-6 px-10">
+                      <span className={`px-5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border font-inter ${
                         issue.status?.toLowerCase() === 'open' 
-                        ? 'bg-rose-50 text-rose-600 border-rose-100' 
+                        ? 'bg-transparent text-rose-500 border-rose-500/30' 
                         : issue.status?.toLowerCase() === 'in progress' || issue.status?.toLowerCase() === 'pending'
-                        ? 'bg-orange-50 text-orange-600 border-orange-100'
-                        : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        ? 'bg-transparent text-orange-500 border-orange-500/30'
+                        : 'bg-transparent text-emerald-500 border-emerald-500/30'
                       }`}>
                         {issue.status?.toUpperCase() || 'OPEN'}
                       </span>
                     </td>
-                    <td className="p-10">
-                       <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.15em] border font-inter ${
+                    <td className="py-6 px-10">
+                       <span className={`px-5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border font-inter ${
                         issue.priority?.toLowerCase() === 'critical' 
-                        ? 'bg-red-600 text-white border-red-600 shadow-lg shadow-red-500/20' 
+                        ? 'bg-[#E11D48] text-white border-[#E11D48] shadow-sm' 
                         : issue.priority?.toLowerCase() === 'high'
-                        ? 'bg-rose-50 text-rose-600 border-rose-100'
+                        ? 'bg-transparent text-[#E11D48] border-[#E11D48]/30'
                         : issue.priority?.toLowerCase() === 'medium'
-                        ? 'bg-amber-50 text-amber-600 border-amber-100'
-                        : 'bg-blue-50 text-blue-600 border-blue-100 font-inter'
+                        ? 'bg-transparent text-[#F59E0B] border-[#F59E0B]/30'
+                        : 'bg-transparent text-blue-500 border-blue-500/30 font-inter'
                       }`}>
                         {issue.priority?.toUpperCase() || 'MEDIUM'}
                       </span>
                     </td>
-                    <td className="p-10 text-right pr-14 font-inter">
+                    <td className="py-6 px-10 font-inter">
                         <p className="text-sm font-black text-slate-700 tracking-tight mb-0.5 font-inter">{issue.reported_date || new Date(issue.created_at).toLocaleDateString()}</p>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-inter font-inter">REPORTED</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">REPORTED</p>
+                    </td>
+                    <td className="py-6 px-10 text-right pr-14 font-inter">
+                       <button 
+                         onClick={() => handleViewIssue(issue.id)}
+                         className="p-2 text-slate-400 hover:text-blue-600 transition-colors inline-flex items-center justify-center font-inter"
+                       >
+                         {/* Eye Icon */}
+                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                       </button>
                     </td>
                   </tr>
                 ))}
@@ -543,7 +563,6 @@ const ClientIssuesPage = () => {
                               <option value="Material">Material</option>
                               <option value="Safety">Safety</option>
                               <option value="Delay">Delay</option>
-                              <option value="Quality">Quality</option>
                             </select>
                             <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                           </div>

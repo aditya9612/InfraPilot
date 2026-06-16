@@ -40,10 +40,10 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
     status: "pending" as InvoiceStatus | "partial",
     attachment: null as File | null,
     owner_id: "",
-    reference_id: "",
     tax_percent: 5,
     start_date: "",
     end_date: "",
+    reference_id: "",
   });
 
   const [calculated, setCalculated] = useState({
@@ -89,10 +89,10 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         status: initialData.status as any,
         attachment: null,
         owner_id: initialData.owner_id ? String(initialData.owner_id) : "",
-        reference_id: initialData.reference_id ? String(initialData.reference_id) : "",
         tax_percent: initialData.tax_percent || 5,
         start_date: initialData.start_date || "",
         end_date: initialData.end_date || "",
+        reference_id: (initialData as any).reference_id || "",
       });
     }
   }, [initialData, isOpen]);
@@ -126,15 +126,14 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.type === "labour") {
-      if (!formData.project_id || !formData.owner_id || !formData.reference_id || !formData.amount) {
-        toast.error("Please fill in required fields (Project, Owner, Ref ID, Amount)");
+      if (!formData.project_id || !formData.owner_id || !formData.amount) {
+        toast.error("Please fill in required fields (Project, Owner, Amount)");
         return;
       }
       const submissionData: InvoiceCreateData = {
         project_id: Number(formData.project_id),
         owner_id: Number(formData.owner_id),
         type: "labour",
-        reference_id: Number(formData.reference_id),
         amount: Number(formData.amount),
         gst_percent: formData.gst_percent,
         gst_amount: calculated.gst_amount,
