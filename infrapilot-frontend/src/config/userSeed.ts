@@ -47,7 +47,7 @@ export const INITIAL_USERS: User[] = [
     user_id: 999,
     full_name: "Gopal Yadav",
     email: "gopal.y@infrapilot.com",
-    mobile_number: "8888888888",
+    mobile_number: "8080808080",
     role: "Labour",
     designation: "Head Mason",
     pan_number: "ABCDE9999Z",

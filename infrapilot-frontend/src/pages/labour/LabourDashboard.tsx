@@ -15,7 +15,6 @@ import {
     Briefcase,
     User,
     TrendingUp,
-    Wallet,
     ArrowRight,
     Camera,
     Play
@@ -129,7 +128,7 @@ const LabourDashboard: React.FC = () => {
                 {/* ── Main Dashboard Layout ── */}
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
                     {/* Left Column: Tasks & Quick Actions */}
-                    <div className="xl:col-span-8 space-y-8">
+                    <div className="xl:col-span-12 space-y-8">
                         {/* Quick Action Grid */}
                         <div>
                             <div className="flex items-center gap-3 mb-6 px-1">
@@ -169,34 +168,7 @@ const LabourDashboard: React.FC = () => {
                     </div>
 
                     {/* Right Column: Activity & Payments */}
-                    <div className="xl:col-span-4 space-y-8">
-                        <div>
-                            <div className="flex items-center gap-3 mb-6 px-1">
-                                <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Recent Activity</h2>
-                                <div className="h-px flex-1 bg-slate-100" />
-                            </div>
-                            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
-                                {[
-                                    { title: 'Payment Received', subtitle: '₹2,500 credited for Foundation work', time: '2 hours ago', icon: Wallet, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-                                    { title: 'Task Completed', subtitle: 'Reinforcement work marked as finished', time: 'Yesterday', icon: CheckCircle, color: 'text-blue-500', bg: 'bg-blue-50' },
-                                    { title: 'New Task Assigned', subtitle: 'Concreting for Section B', time: '2 days ago', icon: Clipboard, color: 'text-amber-500', bg: 'bg-amber-50' },
-                                ].map((activity, i) => (
-                                    <div key={i} className="flex gap-4 group cursor-pointer hover:bg-slate-50 p-2 -m-2 rounded-2xl transition-colors">
-                                        <div className={`w-10 h-10 rounded-xl ${activity.bg} flex items-center justify-center shrink-0`}>
-                                            <activity.icon className={`w-5 h-5 ${activity.color}`} />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-black text-slate-800 truncate leading-none mb-1">{activity.title}</p>
-                                            <p className="text-xs text-slate-500 truncate mb-1">{activity.subtitle}</p>
-                                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{activity.time}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                                <button className="w-full py-3 bg-slate-50 hover:bg-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all">
-                                    Show More
-                                </button>
-                            </div>
-                        </div>
+                    <div className="xl:col-span-12 space-y-8">
                     </div>
                 </div>
 

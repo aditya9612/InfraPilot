@@ -52,7 +52,13 @@ api.interceptors.response.use(
         url.includes('/notifications');
 
       if (isIgnored) {
-        console.warn("Auth Interceptor: Ignoring 401 from endpoint to prevent logout:", url);
+        const userString = localStorage.getItem("infrapilot_user");
+        let isLabour = false;
+        try { if (userString) isLabour = JSON.parse(userString).role === 'Labour'; } catch { /* ignore */ }
+        
+        if (!isLabour) {
+          console.warn("Auth Interceptor: Ignoring 401 from endpoint to prevent logout:", url);
+        }
       } else {
         const userString = localStorage.getItem("infrapilot_user");
         let isLabour = false;

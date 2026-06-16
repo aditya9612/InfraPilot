@@ -129,6 +129,10 @@ import LabourDashboard from "../pages/labour/LabourDashboard";
 import MyTasksPage from "../pages/labour/MyTasksPage";
 import PaymentsPage from "../pages/labour/PaymentsPage";
 import LabourSettingsPage from "../pages/labour/LabourSettingsPage";
+import LabourAttendancePageSelf from "../pages/labour/AttendancePage";
+import WorkUpdatesPage from "../pages/labour/WorkUpdatesPage";
+import TaskRequestsPage from "../pages/labour/TaskRequestsPage";
+import LabourNotificationsPage from "../pages/labour/LabourNotificationsPage";
 
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
@@ -451,8 +455,11 @@ function AppRoutes() {
             {/* Labour Routes */}
             <Route element={<ProtectedRoute allowedRoles={["Labour"]} />}>
               <Route path="/labour" element={<LabourDashboard />} />
-              <Route path="/labour/attendance" element={<AttendancePage />} />
+              <Route path="/labour/attendance" element={<LabourAttendancePageSelf />} />
               <Route path="/labour/tasks" element={<MyTasksPage />} />
+              <Route path="/labour/work-updates" element={<WorkUpdatesPage />} />
+              <Route path="/labour/task-requests" element={<TaskRequestsPage />} />
+              <Route path="/labour/notifications" element={<LabourNotificationsPage />} />
               <Route path="/labour/payments" element={<PaymentsPage />} />
               <Route path="/labour/settings" element={<LabourSettingsPage />} />
             </Route>

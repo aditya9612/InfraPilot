@@ -198,12 +198,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const mergedData = mergeWithLocalStatuses(data);
             setConversations(mergedData);
         } catch (error: any) {
+            // Silence 401s for background tasks or for Labour role (mock session) to keep console clean
+            const isLabour = user?.role === 'Labour';
+            const is401 = error.response?.status === 401;
+
+            if (is401 && (isBackground || isLabour)) return;
             if (isBackground && (error.response?.status === 502 || error.code === 'ECONNABORTED')) return;
+            
             console.error("Failed to refresh chat list", error);
         } finally {
             if (!isBackground) setIsLoading(false);
         }
-    }, [isAuthenticated, mergeWithLocalStatuses]);
+    }, [isAuthenticated, user, mergeWithLocalStatuses]);
 
     // Recursive poll
     const startPolling = useCallback(() => {
@@ -216,7 +222,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         pollTimerRef.current = setTimeout(poll, 5000);
-    }, [isAuthenticated, refreshChatList]);
+    }, [isAuthenticated, user, refreshChatList]);
 
     useEffect(() => {
         const handleRefresh = () => refreshChatList();
