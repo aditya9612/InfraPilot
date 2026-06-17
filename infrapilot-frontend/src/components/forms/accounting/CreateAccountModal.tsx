@@ -103,8 +103,8 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   };
 
   // Flatten accounts for the dropdown based on selected account type
-  const flattenAccounts = (accounts: ChartAccount[], type: AccountType, level = 0): {id: string, name: string}[] => {
-    let result: {id: string, name: string}[] = [];
+  const flattenAccounts = (accounts: ChartAccount[], type: AccountType, level = 0): { id: string, name: string }[] => {
+    let result: { id: string, name: string }[] = [];
     accounts.forEach(acc => {
       // Only include accounts that match the selected type to be valid parents
       if (acc.account_type === type) {

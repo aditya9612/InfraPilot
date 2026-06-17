@@ -64,7 +64,7 @@ const DashboardSection = () => {
           <h3 className="text-base font-bold text-slate-800 mb-5">Pending Transactions</h3>
           <div className="space-y-3">
             {[
-              { id: "PAY-209", party: "UltraTech Cement", type: "Vendor Payment", amt: "₹5.5L", status: "Pending Approval" },
+              { id: "PAY-209", party: "UltraTech Cement", type: "Vendor Payment", amt: "₹5.5L", status: "Pending" },
               { id: "PAY-210", party: "Ramesh Labor Contractor", type: "Contractor Payment", amt: "₹2.2L", status: "Pending Transfer" },
               { id: "REC-105", party: "Apex Developers", type: "RA Bill Collection", amt: "₹15.0L", status: "Cheque Clearing" },
             ].map(t => (
@@ -98,14 +98,14 @@ const MOCK_RECEIPTS = [
 ];
 
 const MOCK_PAYMENTS = [
-  { id: "PAY-209", date: "2024-05-14", party: "UltraTech Cement", type: "Vendor Payment", amount: 550000, mode: "Bank Transfer", status: "Pending Approval" },
+  { id: "PAY-209", date: "2024-05-14", party: "UltraTech Cement", type: "Vendor Payment", amount: 550000, mode: "Bank Transfer", status: "Pending" },
   { id: "PAY-210", date: "2024-05-16", party: "Ramesh Labor Contractor", type: "Contractor Payment", amount: 220000, mode: "Cheque", status: "Paid" }
 ];
 
 // 2. Receipts Section (Receive Payment)
 const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval">(
-    (initialSubTab as any) || "list"
+    (initialSubTab as any) || "create"
   );
   
   const [receipts, setReceipts] = useState<any[]>(MOCK_RECEIPTS);
@@ -152,8 +152,8 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   );
 
   const subTabs = [
-    { key: "list", label: "Receipts List" },
     { key: "create", label: "Record Receipt" },
+    { key: "list", label: "Receipts List" },
     { key: "approval", label: "Clearance" },
   ] as const;
 
@@ -336,7 +336,7 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 // 3. Payments Section (Make Payment)
 const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval">(
-    (initialSubTab as any) || "list"
+    (initialSubTab as any) || "create"
   );
   
   const [payments, setPayments] = useState<any[]>(MOCK_PAYMENTS);
@@ -369,7 +369,7 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     } else {
       newPay.id = `PAY-${Math.floor(Math.random() * 1000)}`;
       newPay.amount = Number(newPay.amount || 0);
-      newPay.status = newPay.status || "Pending Approval";
+      newPay.status = newPay.status || "Pending";
       newPay.type = newPay.type || "Vendor Payment";
       setPayments(prev => [newPay, ...prev]);
       toast.success("Payment voucher submitted!");
@@ -383,9 +383,9 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   );
 
   const subTabs = [
-    { key: "list", label: "Payments List" },
     { key: "create", label: "Make Payment" },
-    { key: "approval", label: "Approval Queue" },
+    { key: "list", label: "Payments List" },
+    { key: "approval", label: "Clearance" },
   ] as const;
 
   return (
@@ -517,8 +517,8 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
               </div>
               <div className="mt-5 space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Initial Status *</label>
-                <select name="status" defaultValue={editingPayment?.status || "Pending Approval"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-semibold text-amber-600">
-                  <option value="Pending Approval">Pending Approval</option><option value="Processed">Processed</option><option value="Paid">Paid</option>
+                <select name="status" defaultValue={editingPayment?.status || "Pending"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-semibold text-amber-600">
+                  <option value="Pending">Pending</option><option value="Processed">Processed</option><option value="Paid">Paid</option><option value="Failed">Failed</option><option value="Cancelled">Cancelled</option>
                 </select>
               </div>
               <button type="submit" className="w-full mt-6 bg-rose-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-rose-600 transition-all shadow-md active:scale-95">
@@ -653,7 +653,134 @@ const TransactionLedgerSection = () => (
   </div>
 );
 
-// 6. Generic Placeholders
+// 6. Bank Transactions
+const BankTransactionsSection = () => {
+  const [activeSubTab, setActiveSubTab] = useState("deposits");
+  const subTabs = [
+    { key: "deposits", label: "Bank Deposits" },
+    { key: "withdrawals", label: "Bank Withdrawals" },
+    { key: "transfers", label: "Fund Transfers" },
+    { key: "history", label: "Transaction History" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 w-fit">
+        {subTabs.map(t => (
+          <button key={t.key} onClick={() => setActiveSubTab(t.key)}
+            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-indigo-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-5 border-b border-slate-100">
+          <h3 className="font-bold text-slate-800">{subTabs.find(t => t.key === activeSubTab)?.label}</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Manage and record bank transactions</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/60 border-b border-slate-100">
+              <tr>
+                {["Date", "Ref No", "Description", "Amount", "Status"].map(h => (
+                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              <tr className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-4 py-3 text-xs text-slate-500">2024-05-18</td>
+                <td className="px-4 py-3 text-xs font-bold text-indigo-600">TRX-001</td>
+                <td className="px-4 py-3 text-xs font-semibold text-slate-700">Sample {subTabs.find(t => t.key === activeSubTab)?.label}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800">₹1,50,000</td>
+                <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold">Completed</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 7. Approval Workflow
+const ApprovalWorkflowSection = () => {
+  const [activeSubTab, setActiveSubTab] = useState("pending");
+  const subTabs = [
+    { key: "pending", label: "Pending Approval" },
+    { key: "approved", label: "Approved" },
+    { key: "rejected", label: "Rejected" },
+  ];
+
+  const workflowSteps = [
+    "Create Transaction",
+    "Submit",
+    "Manager Approval",
+    "Accountant Verification",
+    "Payment Released",
+    "Completed"
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h3 className="font-bold text-slate-800 mb-6">5. Approval Workflow</h3>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-2 text-center relative">
+          <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-slate-100 -translate-y-1/2 z-0"></div>
+          {workflowSteps.map((step, i) => (
+            <div key={step} className="relative z-10 flex flex-col items-center bg-white px-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black mb-2 shadow-sm
+                ${i < 3 ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-400 border border-slate-200"}`}>
+                {i + 1}
+              </div>
+              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider max-w-[100px]">{step}</span>
+              {i < workflowSteps.length - 1 && <div className="md:hidden text-slate-300 my-2">↓</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 w-fit">
+          {subTabs.map(t => (
+            <button key={t.key} onClick={() => setActiveSubTab(t.key)}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-blue-500 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800">{subTabs.find(t => t.key === activeSubTab)?.label} Queue</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Date", "Voucher No", "Party", "Type", "Amount", "Current Step"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                <tr className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3 text-xs text-slate-500">2024-05-18</td>
+                  <td className="px-4 py-3 text-xs font-bold text-blue-600">VCH-202</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-700">Vendor XYZ</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">Payment</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">₹45,000</td>
+                  <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold ${activeSubTab === "pending" ? "bg-amber-100 text-amber-700" : activeSubTab === "approved" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>{subTabs.find(t => t.key === activeSubTab)?.label}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 8. Generic Placeholders
 const PlaceholderSection = ({ title }: { title: string }) => (
   <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
     <div className="text-4xl mb-4">🚧</div><h3 className="text-lg font-bold text-slate-800">{title}</h3>
@@ -742,8 +869,8 @@ const PaymentsReceiptsPage = () => {
         {activeTab === "receipts"          && <ReceiptsSection initialSubTab={subTab} key={subTab || "receive"} />}
         {activeTab === "payments"          && <PaymentsSection initialSubTab={subTab} key={subTab || "vendor"} />}
         {activeTab === "petty-cash"        && <PettyCashSection />}
-        {activeTab === "bank-transactions" && <PlaceholderSection title="Bank Transactions" />}
-        {activeTab === "approvals"         && <PlaceholderSection title="Approval Workflow" />}
+        {activeTab === "bank-transactions" && <BankTransactionsSection />}
+        {activeTab === "approvals"         && <ApprovalWorkflowSection />}
         {activeTab === "ledger"            && <TransactionLedgerSection />}
         {activeTab === "reports"           && <PlaceholderSection title="Reports" />}
       </PageTransition>

@@ -1,14 +1,30 @@
 export interface LabourItem {
   id: number;
   worker_code: string;
+  user_id: number | null;
+  role: string | null;
   aadhaar_number: string;
   labour_name: string;
-  skill_type: string;
-  daily_wage_rate: string | number;
-  contractor_id: number;
+  mobile_number: string | null;
+  pan_number: string | null;
+  address: string | null;
+  email: string | null;
+  profile_image: string | null;
+  labour_type_id: number | null;
+  labour_type_name: string | null;
+  skill_category: string | null;
+  default_daily_wage: number | null;
+  custom_daily_wage_rate: number | null;
+  custom_ot_rate_per_hour: number | null;
+  effective_daily_wage: number | null;
+  effective_ot_rate: number | null;
+  contractor_id: number | null;
+  contractor_name: string | null;
   status: string;
-  notes: string;
-  mobile_number?: string;
+  notes: string | null;
+  // legacy / UI helpers
+  skill_type?: string;
+  daily_wage_rate?: string | number;
   project_id?: number | null;
   projects?: any[];
 }

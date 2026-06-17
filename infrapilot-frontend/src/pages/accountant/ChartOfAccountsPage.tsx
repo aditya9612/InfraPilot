@@ -28,7 +28,7 @@ const MOCK_COA: ChartAccount[] = [
         current_balance: 0,
         is_active: true,
         children: [
-          { id: "AST001", account_name: "Cash In Hand", account_code: "AST001", account_type: "Asset", parent_account_id: "1-1", opening_balance: 50000, current_balance: 50000, is_active: true },
+          { id: "AST001", account_name: "Cash in Hand", account_code: "AST001", account_type: "Asset", parent_account_id: "1-1", opening_balance: 50000, current_balance: 50000, is_active: true },
           { id: "AST002", account_name: "Petty Cash", account_code: "AST002", account_type: "Asset", parent_account_id: "1-1", opening_balance: 10000, current_balance: 10000, is_active: true },
           { id: "AST003", account_name: "Bank Accounts", account_code: "AST003", account_type: "Asset", parent_account_id: "1-1", opening_balance: 200000, current_balance: 200000, is_active: true },
           { id: "AST004", account_name: "Client Receivables", account_code: "AST004", account_type: "Asset", parent_account_id: "1-1", opening_balance: 150000, current_balance: 150000, is_active: true },
@@ -46,7 +46,7 @@ const MOCK_COA: ChartAccount[] = [
         current_balance: 0,
         is_active: true,
         children: [
-          { id: "AST006", account_name: "Land / Land Purchase", account_code: "AST006", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true },
+          { id: "AST006", account_name: "Land", account_code: "AST006", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true },
           { id: "AST007", account_name: "Buildings", account_code: "AST007", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true },
           { id: "AST008", account_name: "Machinery", account_code: "AST008", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true },
           { id: "AST009", account_name: "Vehicles", account_code: "AST009", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true },
@@ -54,18 +54,18 @@ const MOCK_COA: ChartAccount[] = [
         ]
       },
       {
-         id: "1-3",
-         account_name: "Other Assets",
-         account_code: "AST-300",
-         account_type: "Asset",
-         parent_account_id: "1",
-         opening_balance: 0,
-         current_balance: 0,
-         is_active: true,
-         children: [
-           { id: "AST011", account_name: "Security Deposits", account_code: "AST011", account_type: "Asset", parent_account_id: "1-3", opening_balance: 0, current_balance: 0, is_active: true },
-           { id: "AST012", account_name: "Advances Given", account_code: "AST012", account_type: "Asset", parent_account_id: "1-3", opening_balance: 0, current_balance: 0, is_active: true }
-         ]
+        id: "1-3",
+        account_name: "Other Assets",
+        account_code: "AST-300",
+        account_type: "Asset",
+        parent_account_id: "1",
+        opening_balance: 0,
+        current_balance: 0,
+        is_active: true,
+        children: [
+          { id: "AST011", account_name: "Security Deposits", account_code: "AST011", account_type: "Asset", parent_account_id: "1-3", opening_balance: 0, current_balance: 0, is_active: true },
+          { id: "AST012", account_name: "Advances Given", account_code: "AST012", account_type: "Asset", parent_account_id: "1-3", opening_balance: 0, current_balance: 0, is_active: true }
+        ]
       }
     ]
   },
@@ -78,65 +78,65 @@ const MOCK_COA: ChartAccount[] = [
     current_balance: 0,
     is_active: true,
     children: [
-       {
-         id: "2-1",
-         account_name: "Current Liabilities",
-         account_code: "LIA-100",
-         account_type: "Liability",
-         parent_account_id: "2",
-         opening_balance: 0,
-         current_balance: 0,
-         is_active: true,
-         children: [
-           { id: "LIA001", account_name: "Vendor Payable", account_code: "LIA001", account_type: "Liability", parent_account_id: "2-1", opening_balance: 150000, current_balance: 150000, is_active: true },
-           { id: "LIA002", account_name: "Contractor Payable", account_code: "LIA002", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true },
-           { id: "LIA003", account_name: "Salary Payable", account_code: "LIA003", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true },
-           { id: "LIA004", account_name: "GST Payable", account_code: "LIA004", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true },
-           { id: "LIA005", account_name: "TDS Payable", account_code: "LIA005", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true }
-         ]
-       },
-       {
-         id: "2-2",
-         account_name: "Loans",
-         account_code: "LIA-200",
-         account_type: "Liability",
-         parent_account_id: "2",
-         opening_balance: 0,
-         current_balance: 0,
-         is_active: true,
-         children: [
-            { id: "LIA006", account_name: "Bank Loan", account_code: "LIA006", account_type: "Liability", parent_account_id: "2-2", opening_balance: 0, current_balance: 0, is_active: true },
-            { id: "LIA007", account_name: "Director Loan", account_code: "LIA007", account_type: "Liability", parent_account_id: "2-2", opening_balance: 0, current_balance: 0, is_active: true }
-         ]
-       },
-       {
-         id: "2-3",
-         account_name: "Other Liabilities",
-         account_code: "LIA-300",
-         account_type: "Liability",
-         parent_account_id: "2",
-         opening_balance: 0,
-         current_balance: 0,
-         is_active: true,
-         children: []
-       }
+      {
+        id: "2-1",
+        account_name: "Current Liabilities",
+        account_code: "LIA-100",
+        account_type: "Liability",
+        parent_account_id: "2",
+        opening_balance: 0,
+        current_balance: 0,
+        is_active: true,
+        children: [
+          { id: "LIA001", account_name: "Vendor Payables", account_code: "LIA001", account_type: "Liability", parent_account_id: "2-1", opening_balance: 150000, current_balance: 150000, is_active: true },
+          { id: "LIA002", account_name: "Contractor Payables", account_code: "LIA002", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true },
+          { id: "LIA003", account_name: "Salary Payable", account_code: "LIA003", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true },
+          { id: "LIA004", account_name: "GST Payable", account_code: "LIA004", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true },
+          { id: "LIA005", account_name: "TDS Payable", account_code: "LIA005", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true }
+        ]
+      },
+      {
+        id: "2-2",
+        account_name: "Loans",
+        account_code: "LIA-200",
+        account_type: "Liability",
+        parent_account_id: "2",
+        opening_balance: 0,
+        current_balance: 0,
+        is_active: true,
+        children: [
+          { id: "LIA006", account_name: "Bank Loan", account_code: "LIA006", account_type: "Liability", parent_account_id: "2-2", opening_balance: 0, current_balance: 0, is_active: true },
+          { id: "LIA007", account_name: "Director Loan", account_code: "LIA007", account_type: "Liability", parent_account_id: "2-2", opening_balance: 0, current_balance: 0, is_active: true }
+        ]
+      },
+      {
+        id: "2-3",
+        account_name: "Other Liabilities",
+        account_code: "LIA-300",
+        account_type: "Liability",
+        parent_account_id: "2",
+        opening_balance: 0,
+        current_balance: 0,
+        is_active: true,
+        children: []
+      }
     ]
   },
   {
-     id: "3",
-     account_name: "Income",
-     account_code: "INC",
-     account_type: "Income",
-     opening_balance: 0,
-     current_balance: 0,
-     is_active: true,
-     children: [
-       { id: "INC001", account_name: "Project Revenue", account_code: "INC001", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "INC002", account_name: "RA Bill Revenue", account_code: "INC002", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "INC003", account_name: "Material Sales", account_code: "INC003", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "INC004", account_name: "Equipment Rental Income", account_code: "INC004", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "INC006", account_name: "Other Income", account_code: "INC006", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true }
-     ]
+    id: "3",
+    account_name: "Income",
+    account_code: "INC",
+    account_type: "Income",
+    opening_balance: 0,
+    current_balance: 0,
+    is_active: true,
+    children: [
+      { id: "INC001", account_name: "Project Revenue", account_code: "INC001", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "INC002", account_name: "RA Bill Revenue", account_code: "INC002", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "INC003", account_name: "Material Sales", account_code: "INC003", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "INC004", account_name: "Equipment Rental Income", account_code: "INC004", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "INC006", account_name: "Other Income", account_code: "INC006", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true }
+    ]
   },
   {
     id: "4",
@@ -147,15 +147,15 @@ const MOCK_COA: ChartAccount[] = [
     current_balance: 0,
     is_active: true,
     children: [
-       { id: "EXP001", account_name: "Material Cost / Expenses", account_code: "EXP001", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "EXP002", account_name: "Labor Cost / Expenses", account_code: "EXP002", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "EXP003", account_name: "Contractor Cost / Expenses", account_code: "EXP003", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "EXP004", account_name: "Equipment Cost / Expenses", account_code: "EXP004", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "EXP005", account_name: "Fuel Cost / Expenses", account_code: "EXP005", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "EXP006", account_name: "Office Expenses", account_code: "EXP006", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "EXP007", account_name: "Travel Expenses", account_code: "EXP007", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "EXP008", account_name: "Legal Expenses", account_code: "EXP008", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-       { id: "EXP009", account_name: "Miscellaneous Expenses", account_code: "EXP009", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true }
+      { id: "EXP001", account_name: "Material Expenses", account_code: "EXP001", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "EXP002", account_name: "Labor Expenses", account_code: "EXP002", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "EXP003", account_name: "Contractor Expenses", account_code: "EXP003", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "EXP004", account_name: "Equipment Expenses", account_code: "EXP004", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "EXP005", account_name: "Fuel Expenses", account_code: "EXP005", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "EXP006", account_name: "Office Expenses", account_code: "EXP006", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "EXP007", account_name: "Travel Expenses", account_code: "EXP007", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "EXP008", account_name: "Legal Expenses", account_code: "EXP008", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
+      { id: "EXP009", account_name: "Miscellaneous Expenses", account_code: "EXP009", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true }
     ]
   }
 ];
@@ -191,7 +191,7 @@ const ChartOfAccountsPage = () => {
   const [editingAccount, setEditingAccount] = useState<ChartAccount | null>(null);
   const [activeTab, setActiveTab] = useState<AccountType | "All">("All");
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Left side selection
   const [selectedFolder, setSelectedFolder] = useState<ChartAccount | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["1", "2", "3", "4", "1-1", "1-2", "2-1"]));
@@ -226,7 +226,7 @@ const ChartOfAccountsPage = () => {
       current_balance: newAccountData.opening_balance || 0,
       is_active: newAccountData.status === "Active",
     };
-    
+
     // Recursive update/add logic
     const updateNode = (nodes: ChartAccount[]): ChartAccount[] => {
       // If editing
@@ -237,10 +237,10 @@ const ChartOfAccountsPage = () => {
           return node;
         });
       }
-      
+
       // If creating
       if (!newAccount.parent_account_id) {
-         return [...nodes, newAccount];
+        return [...nodes, newAccount];
       }
       return nodes.map(node => {
         if (node.id === newAccount.parent_account_id) {
@@ -252,7 +252,7 @@ const ChartOfAccountsPage = () => {
         return node;
       });
     };
-    
+
     setCoa(updateNode(coa));
     toast.success(editingAccount ? "Account updated successfully!" : "Account created successfully!");
     setIsModalOpen(false);
@@ -273,14 +273,14 @@ const ChartOfAccountsPage = () => {
   };
 
   const filteredCOA = activeTab === "All" ? coa : coa.filter((acc) => acc.account_type === activeTab);
-  
+
   // For the right side table, if a folder is selected, show its children, otherwise show flattened filtered COA
-  const rawTableData = selectedFolder 
-    ? (selectedFolder.children || []) 
+  const rawTableData = selectedFolder
+    ? (selectedFolder.children || [])
     : getFlatAccounts(filteredCOA);
 
-  const tableData = rawTableData.filter(acc => 
-    acc.account_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const tableData = rawTableData.filter(acc =>
+    acc.account_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     acc.account_code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -294,7 +294,7 @@ const ChartOfAccountsPage = () => {
 
           return (
             <div key={acc.id}>
-              <div 
+              <div
                 className={`flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer text-sm font-medium transition-colors ${isSelected ? 'bg-primary/10 text-primary' : 'text-slate-600 hover:bg-slate-50'}`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -303,7 +303,7 @@ const ChartOfAccountsPage = () => {
                 }}
               >
                 {hasChildren ? (
-                  <button 
+                  <button
                     className="p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none"
                     onClick={(e) => { e.stopPropagation(); toggleFolder(acc.id); }}
                   >
@@ -378,7 +378,7 @@ const ChartOfAccountsPage = () => {
             <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-50">
               <h2 className="text-sm font-bold text-slate-800">Account Hierarchy</h2>
               {selectedFolder && (
-                <button 
+                <button
                   onClick={() => setSelectedFolder(null)}
                   className="text-[10px] text-primary font-bold uppercase tracking-widest hover:underline"
                 >
@@ -468,7 +468,7 @@ const ChartOfAccountsPage = () => {
       <CreateAccountModal
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setEditingAccount(null); }}
-        onSuccess={() => {}}
+        onSuccess={() => { }}
         parentAccounts={coa}
         onSubmitMock={handleCreateAccount}
         initialData={editingAccount}

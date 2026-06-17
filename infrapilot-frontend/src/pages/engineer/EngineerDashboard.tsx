@@ -154,8 +154,8 @@ const EngineerDashboard = () => {
                 const colors = ["bg-blue-500", "bg-indigo-500", "bg-cyan-500", "bg-amber-500", "bg-rose-400", "bg-purple-500"];
                 const discipline_progress = (apiData.discipline_progress || []).map((d: any, index: number) => ({
                     label: d.discipline,
-                    planned: d.planned_percent || 0,
-                    actual: d.actual_percent || 0,
+                    planned: Number(Number(d.planned_percent || 0).toFixed(2)),
+                    actual: Number(Number(d.actual_percent || 0).toFixed(2)),
                     color: colors[index % colors.length]
                 }));
 
@@ -227,9 +227,9 @@ const EngineerDashboard = () => {
         fetchAllDashboardData();
     }, [projectId, projectName, engineer_id]);
 
-    const overallProgress = dashboardData.progress || 0;
-    const plannedPercent = dashboardData.planned_progress || 0;
-    const variance = dashboardData.variance || 0;
+    const overallProgress = Number(Number(dashboardData.progress || 0).toFixed(2));
+    const plannedPercent = Number(Number(dashboardData.planned_progress || 0).toFixed(2));
+    const variance = Number(Number(dashboardData.variance || 0).toFixed(2));
 
     const radius = 70;
     const circumference = 2 * Math.PI * radius;

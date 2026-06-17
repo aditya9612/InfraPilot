@@ -103,7 +103,7 @@ const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset ID *</label><input type="text" readOnly value="AST-2024-090" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-mono" /></div>
           <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Name *</label><input type="text" placeholder="e.g. CAT 320 Excavator" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Construction Machinery</option><option>Vehicles</option></select></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Construction Machinery</option><option>Vehicles</option><option>Land & Buildings</option><option>Equipment</option><option>Office Assets</option><option>IT Assets</option></select></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Type *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Owned</option><option>Leased</option></select></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           <div className="space-y-1.5 md:col-span-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Serial Number / VIN</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono uppercase" /></div>
@@ -147,6 +147,7 @@ const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Rate (%) *</label><input type="number" defaultValue="15" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Useful Life (Years) *</label><input type="number" defaultValue="10" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salvage Value (₹) *</label><input type="number" defaultValue="50000" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Value (₹) *</label><input type="number" defaultValue="6500000" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
         </div>
       </div>
     </form>
@@ -172,11 +173,17 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
       <AddAssetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       {activeSubTab === "list" && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-wrap gap-4 items-end">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2 mr-2">
+              <span className="w-6 h-6 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center">🔍</span>
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Filter By:</span>
+            </div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All</option></select></div>
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>Active</option></select></div>
-            <button className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold">Filter</button>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</label><input type="date" className="px-3 py-1 text-xs border border-slate-200 rounded-lg text-slate-600" /></div>
+            <button className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold mt-5">Apply</button>
           </div>
           <GenericTableSection title="Asset List" columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status"]} data={[
             ["AST-2024-001", "CAT 320 Excavator", "Machinery", "₹65,00,000", "₹55,25,000", "Metro Line 3", "Active"],
@@ -412,24 +419,19 @@ const ReportsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) =>
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
       </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex justify-between items-center"><h3 className="font-bold text-slate-800">{tabs.find(t=>t.key===activeSubTab)?.label}</h3><button className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg font-bold shadow-sm">Download PDF</button></div>
-        <div className="p-8 text-center bg-slate-50 border-b border-slate-100">
-          <div className="text-4xl mb-3">📊</div>
-          <h4 className="text-sm font-bold text-slate-800">Report Generated</h4>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex justify-between items-center mb-4">
+        <div>
+          <h3 className="font-bold text-slate-800">{tabs.find(t=>t.key===activeSubTab)?.label}</h3>
           <p className="text-xs text-slate-500 mt-1">Data from the current financial year is available in this view.</p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-white border-b border-slate-100">
-              <tr>{["Asset ID", "Name", "Category", "Cost", "Value"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 bg-white">
-              <tr className="hover:bg-slate-50/50"><td className="px-4 py-3 text-xs text-slate-500 font-mono">AST-2024-001</td><td className="px-4 py-3 text-xs font-semibold text-slate-800">CAT 320 Excavator</td><td className="px-4 py-3 text-xs text-slate-600">Machinery</td><td className="px-4 py-3 text-xs font-bold text-slate-600">₹65,00,000</td><td className="px-4 py-3 text-xs font-bold text-emerald-600">₹55,25,000</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <button className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg font-bold shadow-sm">Download PDF</button>
       </div>
+
+      {activeSubTab === "register" && <GenericTableSection title="Asset Register Report" columns={["Asset ID", "Name", "Category", "Cost", "Value"]} data={[["AST-2024-001", "CAT 320 Excavator", "Machinery", "₹65,00,000", "₹55,25,000"]]} />}
+      {activeSubTab === "depreciation" && <GenericTableSection title="Depreciation Report" columns={["Asset ID", "Name", "Depreciation Method", "YTD Depreciation", "Net Value"]} data={[["AST-2024-001", "CAT 320 Excavator", "SLM 15%", "₹9,75,000", "₹55,25,000"]]} />}
+      {activeSubTab === "valuation" && <GenericTableSection title="Asset Valuation Report" columns={["Category", "Total Assets", "Original Cost", "Accumulated Depr.", "Net Book Value"]} data={[["Machinery", "45", "₹2.5 Cr", "₹40 L", "₹2.1 Cr"]]} />}
+      {activeSubTab === "maintenance" && <GenericTableSection title="Maintenance Report" columns={["Asset ID", "Name", "Total Maintenance Cost", "Last Service Date"]} data={[["AST-2024-001", "CAT 320 Excavator", "₹45,000", "2024-10-15"]]} />}
+      {activeSubTab === "disposal" && <GenericTableSection title="Disposal Report" columns={["Asset ID", "Name", "Disposal Date", "Sale/Scrap Value", "Gain/Loss"]} data={[["AST-2018-012", "Old Concrete Mixer", "2024-05-10", "₹2,00,000", "₹50,000 Gain"]]} />}
     </div>
   );
 };
@@ -521,7 +523,7 @@ const FixedAssetsPage = () => {
         {/* Content Rendering */}
         {activeTab === "dashboard"      && <DashboardSection />}
         {activeTab === "register"       && <AssetRegisterWrapper initialSubTab={subTab} key={subTab || "add"} />}
-        {activeTab === "categories"     && <GenericTableSection title="Construction Asset Categories" columns={["Category", "Total Assets", "Gross Block Value", "Depreciation Method"]} data={[["Construction Machinery", "45", "₹2.1 Cr", "SLM 15%"], ["Vehicles", "20", "₹1.2 Cr", "SLM 15%"], ["Land & Buildings", "5", "₹80 L", "None/Varies"]]} />}
+        {activeTab === "categories"     && <GenericTableSection title="Construction Asset Categories" columns={["Category", "Total Assets", "Gross Block Value", "Depreciation Method"]} data={[["Construction Machinery", "45", "₹2.1 Cr", "SLM 15%"], ["Vehicles", "20", "₹1.2 Cr", "SLM 15%"], ["Land & Buildings", "5", "₹80 L", "None/Varies"], ["Equipment", "34", "₹55 L", "WDV 20%"], ["Office Assets", "120", "₹25 L", "WDV 10%"], ["IT Assets", "85", "₹40 L", "SLM 33%"]]} />}
         {activeTab === "depreciation"   && <DepreciationWrapper initialSubTab={subTab} key={subTab || "monthly"} />}
         {activeTab === "maintenance"    && <AssetMaintenanceWrapper initialSubTab={subTab} key={subTab || "schedule"} />}
         {activeTab === "transfers"      && <AssetTransfersWrapper initialSubTab={subTab} key={subTab || "site"} />}

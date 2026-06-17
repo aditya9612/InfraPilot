@@ -27,6 +27,7 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
           <button onClick={() => toast.success("Downloading PDF...")} className="text-[10px] font-bold px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">PDF</button>
           <button onClick={() => toast.success("Downloading Excel...")} className="text-[10px] font-bold px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">Excel</button>
           <button onClick={() => toast.success("Downloading CSV...")} className="text-[10px] font-bold px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">CSV</button>
+          <button onClick={() => window.print()} className="text-[10px] font-bold px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">Print</button>
           <button onClick={() => toast.success("Report emailed to configured address!")} className="text-[10px] font-bold px-3 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700">Email Report</button>
         </div>
       </div>

@@ -245,15 +245,15 @@ const InvoicesSection = ({
   }, [initialSubTab]);
 
   const subTabs = [
-    { key: "list",     label: "Invoice List" },
-    { key: "create",   label: "Create Invoice" },
+    { key: "create", label: "Create Invoice" },
+    { key: "list", label: "Invoice List" },
     { key: "approval", label: "Invoice Approval" },
   ] as const;
 
   const filtered = invoices.filter(inv =>
     (filter === "All" || inv.payment_status === filter) &&
     (inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
-     inv.client_name.toLowerCase().includes(search.toLowerCase()))
+      inv.client_name.toLowerCase().includes(search.toLowerCase()))
   );
 
   const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
@@ -265,7 +265,7 @@ const InvoicesSection = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
           {subTabs.map(t => (
-            <button key={t.key} onClick={() => { setActiveSubTab(t.key); if(t.key !== 'create') setEditingInvoice(null); }}
+            <button key={t.key} onClick={() => { setActiveSubTab(t.key); if (t.key !== 'create') setEditingInvoice(null); }}
               className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
               {t.label}
             </button>
@@ -366,13 +366,13 @@ const InvoicesSection = ({
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: "Invoice Number",  name: "invoice_number", placeholder: "Auto: INV-2026-005", readOnly: true, val: editingInvoice?.invoice_number },
-                  { label: "Invoice Date",    name: "billing_date", placeholder: "",                   type: "date", val: editingInvoice?.billing_date },
-                  { label: "Client Name",     name: "client_name", placeholder: "Select client…",     val: editingInvoice?.client_name },
-                  { label: "Project Name",    name: "project_name", placeholder: "Select project…",    val: editingInvoice?.project_name },
-                  { label: "Billing Date",    name: "billing_date", placeholder: "",                   type: "date", val: editingInvoice?.billing_date },
-                  { label: "Due Date",        name: "due_date", placeholder: "",                   type: "date", val: editingInvoice?.due_date },
-                  { label: "Payment Terms",   name: "payment_terms", placeholder: "e.g. Net 30 days",   val: editingInvoice ? "Net 30 days" : "" },
+                  { label: "Invoice Number", name: "invoice_number", placeholder: "Auto: INV-2026-005", readOnly: true, val: editingInvoice?.invoice_number },
+                  { label: "Invoice Date", name: "billing_date", placeholder: "", type: "date", val: editingInvoice?.billing_date },
+                  { label: "Client Name", name: "client_name", placeholder: "Select client…", val: editingInvoice?.client_name },
+                  { label: "Project Name", name: "project_name", placeholder: "Select project…", val: editingInvoice?.project_name },
+                  { label: "Billing Date", name: "billing_date", placeholder: "", type: "date", val: editingInvoice?.billing_date },
+                  { label: "Due Date", name: "due_date", placeholder: "", type: "date", val: editingInvoice?.due_date },
+                  { label: "Payment Terms", name: "payment_terms", placeholder: "e.g. Net 30 days", val: editingInvoice ? "Net 30 days" : "" },
                 ].map((f, i) => (
                   <div key={i} className={`${i === 6 ? "col-span-2" : ""}`}>
                     <label className={labelClasses}>{f.label}</label>
@@ -397,10 +397,10 @@ const InvoicesSection = ({
                 </div>
                 <div className="grid grid-cols-4 gap-4">
                   {[
-                    { label: "Quantity",     name: "quantity", placeholder: "e.g. 500",  type: "number", val: editingInvoice?.quantity },
-                    { label: "Unit",         name: "unit", placeholder: "e.g. CuM", val: editingInvoice?.unit },
-                    { label: "Rate (₹)",     name: "rate", placeholder: "e.g. 4500", type: "number", val: editingInvoice?.rate },
-                    { label: "Total Amount", name: "amount", placeholder: "Auto",      readOnly: true, val: editingInvoice?.amount },
+                    { label: "Quantity", name: "quantity", placeholder: "e.g. 500", type: "number", val: editingInvoice?.quantity },
+                    { label: "Unit", name: "unit", placeholder: "e.g. CuM", val: editingInvoice?.unit },
+                    { label: "Rate (₹)", name: "rate", placeholder: "e.g. 4500", type: "number", val: editingInvoice?.rate },
+                    { label: "Total Amount", name: "amount", placeholder: "Auto", readOnly: true, val: editingInvoice?.amount },
                   ].map((f, i) => (
                     <div key={i}>
                       <label className={labelClasses}>{f.label}</label>
@@ -420,9 +420,9 @@ const InvoicesSection = ({
               </h3>
               <div className="grid grid-cols-3 gap-4">
                 {[
-                  { label: "GST (%)",        name: "gst_percent", placeholder: "e.g. 18",  type: "number", val: editingInvoice?.gst_percent },
-                  { label: "GST Amount (₹)", name: "gst_amount", placeholder: "Auto",     readOnly: true, val: editingInvoice?.gst_amount },
-                  { label: "Total with GST", name: "total_with_gst", placeholder: "Auto",     readOnly: true, val: editingInvoice?.total_with_gst },
+                  { label: "GST (%)", name: "gst_percent", placeholder: "e.g. 18", type: "number", val: editingInvoice?.gst_percent },
+                  { label: "GST Amount (₹)", name: "gst_amount", placeholder: "Auto", readOnly: true, val: editingInvoice?.gst_amount },
+                  { label: "Total with GST", name: "total_with_gst", placeholder: "Auto", readOnly: true, val: editingInvoice?.total_with_gst },
                 ].map((f, i) => (
                   <div key={i}>
                     <label className={labelClasses}>{f.label}</label>
@@ -498,9 +498,16 @@ const InvoicesSection = ({
 
 // 3. RA Bills
 const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
+  const [, setSearchParams] = useSearchParams();
   const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval">(
     (initialSubTab as any) || "list"
   );
+
+  const handleTabChange = (key: "list" | "create" | "approval") => {
+    setActiveSubTab(key);
+    setSearchParams({ sub: key }, { replace: true });
+    if (key !== "create") setEditingRABill(null);
+  };
   const [raBills, setRaBills] = useState<any[]>(MOCK_RA_BILLS);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
@@ -539,7 +546,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
       setRaBills(prev => [newRb, ...prev]);
       toast.success("RA Bill created successfully!");
     }
-    setActiveSubTab("list");
+    handleTabChange("list");
   };
 
   // Sync when sidebar item changes (e.g., "RA Bill List" → "Create RA Bill")
@@ -551,15 +558,15 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   const inputClasses = (readOnly?: boolean) => `w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${readOnly ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"}`;
 
   const subTabs = [
-    { key: "list", label: "RA Bill List" },
     { key: "create", label: "Create RA Bill" },
+    { key: "list", label: "RA Bill List" },
     { key: "approval", label: "Bill Approval" },
   ] as const;
 
   const filtered = raBills.filter(rb =>
     (filter === "All" || rb.status === filter) &&
     (rb.bill_no.toLowerCase().includes(search.toLowerCase()) ||
-     rb.client.toLowerCase().includes(search.toLowerCase()))
+      rb.client.toLowerCase().includes(search.toLowerCase()))
   );
 
   const BOQ_ITEMS = [
@@ -579,7 +586,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
           {subTabs.map(t => (
-            <button key={t.key} onClick={() => { setActiveSubTab(t.key); if (t.key !== 'create') setEditingRABill(null); }}
+            <button key={t.key} onClick={() => handleTabChange(t.key)}
               className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
               {t.label}
             </button>
@@ -631,7 +638,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
-                        <button onClick={() => { setEditingRABill(rb); setActiveSubTab("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
+                        <button onClick={() => { setEditingRABill(rb); handleTabChange("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
                         <button onClick={() => toast.success("RA Bill PDF downloaded!")} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="PDF">📄</button>
                         <button onClick={() => handleDelete(rb.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
                       </div>
@@ -682,8 +689,17 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                 <table className="w-full text-left">
                   <thead className="bg-slate-50 border-b border-slate-100">
                     <tr>
-                      {["#", "BOQ Item", "Unit", "Rate (₹)", "Prev Qty", "Curr Qty", "Total Qty", "Amount (₹)"].map(h => (
-                        <th key={h} className="px-3 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      {[
+                        { label: "#", align: "text-left" },
+                        { label: "BOQ Item", align: "text-left" },
+                        { label: "Unit", align: "text-left" },
+                        { label: "Rate (₹)", align: "text-right" },
+                        { label: "Prev Qty", align: "text-right" },
+                        { label: "Curr Qty", align: "text-right" },
+                        { label: "Total Qty", align: "text-right" },
+                        { label: "Amount (₹)", align: "text-right" },
+                      ].map(h => (
+                        <th key={h.label} className={`px-3 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap ${h.align}`}>{h.label}</th>
                       ))}
                     </tr>
                   </thead>
@@ -698,7 +714,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                           <td className="px-3 py-2.5 text-xs text-slate-500">{item.unit}</td>
                           <td className="px-3 py-2.5 text-xs font-semibold text-slate-700 text-right">{item.rate.toLocaleString("en-IN")}</td>
                           <td className="px-3 py-2.5 text-xs text-slate-500 text-right">{item.prev_qty.toLocaleString("en-IN")}</td>
-                          <td className="px-3 py-2.5">
+                          <td className="px-3 py-2.5 text-right">
                             <input type="number" defaultValue={editingRABill ? item.curr_qty : ""}
                               className="w-20 px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-right" />
                           </td>
@@ -768,7 +784,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                 className="w-full mt-6 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all active:scale-95 shadow-md shadow-primary/20">
                 {editingRABill ? "Update RA Bill" : "Create RA Bill"}
               </button>
-              <button type="button" onClick={() => setActiveSubTab("list")}
+              <button type="button" onClick={() => handleTabChange("list")}
                 className="w-full mt-2 bg-slate-50 text-slate-500 py-2.5 rounded-xl text-sm font-bold border border-slate-200 hover:bg-slate-100 transition-all">
                 Cancel
               </button>
@@ -807,9 +823,16 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
 // 4. Credit Notes
 const CreditNotesSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"list" | "create">(
+  const [, setSearchParams] = useSearchParams();
+  const [activeSubTab, setActiveSubTab] = useState<"create" | "list">(
     (initialSubTab as any) || "list"
   );
+
+  const handleTabChange = (key: "create" | "list") => {
+    setActiveSubTab(key);
+    setSearchParams({ sub: key }, { replace: true });
+    if (key !== "create") setEditingCreditNote(null);
+  };
   const [creditNotes, setCreditNotes] = useState<any[]>(MOCK_CREDIT_NOTES);
   const [search, setSearch] = useState("");
   const [editingCreditNote, setEditingCreditNote] = useState<any>(null);
@@ -836,16 +859,21 @@ const CreditNotesSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
       setCreditNotes(prev => [newCn, ...prev]);
       toast.success("Credit note created successfully!");
     }
-    setActiveSubTab("list");
+    handleTabChange("list");
   };
 
   // Sync when sidebar item changes (e.g., "Credit Note List" → "Create Credit Note")
   useEffect(() => {
-    if (initialSubTab) setActiveSubTab(initialSubTab as "list" | "create");
+    if (initialSubTab) setActiveSubTab(initialSubTab as "create" | "list");
   }, [initialSubTab]);
 
   const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
   const inputClasses = (readOnly?: boolean) => `w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${readOnly ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"}`;
+
+  const subTabs = [
+    { key: "create", label: "Create Credit Note" },
+    { key: "list", label: "Credit Note List" },
+  ] as const;
 
   const filtered = creditNotes.filter(cn =>
     cn.cn_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -858,14 +886,12 @@ const CreditNotesSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
       {/* Header Row: Sub-tabs + Action Button — same layout as InvoicesSection */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
-          <button onClick={() => { setActiveSubTab("list"); setEditingCreditNote(null); }}
-            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === "list" ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-            Credit Note List
-          </button>
-          <button onClick={() => setActiveSubTab("create")}
-            className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === "create" ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-            Create Credit Note
-          </button>
+          {subTabs.map(t => (
+            <button key={t.key} onClick={() => handleTabChange(t.key)}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {t.label}
+            </button>
+          ))}
         </div>
         <div className="flex items-center gap-3">
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -905,7 +931,7 @@ const CreditNotesSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
-                        <button onClick={() => { setEditingCreditNote(cn); setActiveSubTab("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
+                        <button onClick={() => { setEditingCreditNote(cn); handleTabChange("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
                         <button onClick={() => toast.success("Credit note PDF downloaded!")} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all" title="PDF">📄</button>
                         <button onClick={() => handleDelete(cn.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
                       </div>
@@ -932,9 +958,9 @@ const CreditNotesSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { label: "Credit Note Number", name: "cn_number", placeholder: "Auto: CN-2026-003", readOnly: true, val: editingCreditNote?.cn_number },
-                  { label: "Related Invoice",    name: "related_invoice", placeholder: "Select invoice…", val: editingCreditNote?.related_invoice },
-                  { label: "Client Name",        name: "client_name", placeholder: "Auto-filled from invoice", readOnly: true, val: editingCreditNote?.client_name },
-                  { label: "Credit Date",        name: "credit_date", placeholder: "", type: "date", val: editingCreditNote?.credit_date },
+                  { label: "Related Invoice", name: "related_invoice", placeholder: "Select invoice…", val: editingCreditNote?.related_invoice },
+                  { label: "Client Name", name: "client_name", placeholder: "Auto-filled from invoice", readOnly: true, val: editingCreditNote?.client_name },
+                  { label: "Credit Date", name: "credit_date", placeholder: "", type: "date", val: editingCreditNote?.credit_date },
                 ].map((f, i) => (
                   <div key={i}>
                     <label className={labelClasses}>{f.label}</label>
@@ -1175,13 +1201,13 @@ const ReportsSection = () => {
 type TabKey = "dashboard" | "invoices" | "ra-bills" | "credit-notes" | "collections" | "client-ledger" | "reports";
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "dashboard",     label: "Dashboard",               icon: "📊" },
-  { key: "invoices",      label: "Invoices",                 icon: "🧾" },
-  { key: "ra-bills",      label: "Running Bills (RA Bills)", icon: "📋" },
-  { key: "credit-notes",  label: "Credit Notes",             icon: "📝" },
-  { key: "collections",   label: "Collections",              icon: "💰" },
-  { key: "client-ledger", label: "Client Ledger",            icon: "📒" },
-  { key: "reports",       label: "Reports",                  icon: "📈" },
+  { key: "dashboard", label: "Dashboard", icon: "📊" },
+  { key: "invoices", label: "Invoices", icon: "🧾" },
+  { key: "ra-bills", label: "Running Bills (RA Bills)", icon: "📋" },
+  { key: "credit-notes", label: "Credit Notes", icon: "📝" },
+  { key: "collections", label: "Collections", icon: "💰" },
+  { key: "client-ledger", label: "Client Ledger", icon: "📒" },
+  { key: "reports", label: "Reports", icon: "📈" },
 ];
 
 const ReceivablesPage = () => {
@@ -1242,11 +1268,10 @@ const ReceivablesPage = () => {
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === tab.key
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeTab === tab.key
                   ? "bg-primary text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
+                }`}
             >
               <span>{tab.icon}</span>
               {tab.label}
@@ -1266,13 +1291,13 @@ const ReceivablesPage = () => {
         </div>
 
         {/* Tab Content — key={subTab} forces remount when sidebar sub-item changes */}
-        {activeTab === "dashboard"     && <DashboardSection />}
-        {activeTab === "invoices"      && <InvoicesSection key={subTab || "list"} initialSubTab={subTab} />}
-        {activeTab === "ra-bills"      && <RABillsSection key={subTab || "list"} initialSubTab={subTab} />}
-        {activeTab === "credit-notes"  && <CreditNotesSection key={subTab || "list"} initialSubTab={subTab} />}
-        {activeTab === "collections"   && <CollectionsSection />}
+        {activeTab === "dashboard" && <DashboardSection />}
+        {activeTab === "invoices" && <InvoicesSection key={subTab || "list"} initialSubTab={subTab} />}
+        {activeTab === "ra-bills" && <RABillsSection key={subTab || "list"} initialSubTab={subTab} />}
+        {activeTab === "credit-notes" && <CreditNotesSection key={subTab || "list"} initialSubTab={subTab} />}
+        {activeTab === "collections" && <CollectionsSection />}
         {activeTab === "client-ledger" && <ClientLedgerSection />}
-        {activeTab === "reports"       && <ReportsSection />}
+        {activeTab === "reports" && <ReportsSection />}
       </PageTransition>
 
       <ConfirmModal

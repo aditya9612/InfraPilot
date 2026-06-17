@@ -116,15 +116,6 @@ const ExpenseSection = ({ type, initialSubTab }: { type: "Direct" | "Indirect", 
     toast.success("Expense deleted!");
   };
 
-  const handleApprove = (id: string) => {
-    setExpenses(prev => prev.map(e => e.id === id ? { ...e, status: "Approved" } : e));
-    toast.success("Expense approved!");
-  };
-
-  const handleReject = (id: string) => {
-    setExpenses(prev => prev.map(e => e.id === id ? { ...e, status: "Rejected" } : e));
-    toast.error("Expense rejected!");
-  };
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -153,9 +144,8 @@ const ExpenseSection = ({ type, initialSubTab }: { type: "Direct" | "Indirect", 
   );
 
   const subTabs = [
-    { key: "list", label: "Expense List" },
     { key: "create", label: "Create Expense" },
-    { key: "approval", label: "Approval Queue" },
+    { key: "list", label: "Expense List" },
   ] as const;
 
   return (
@@ -327,50 +317,62 @@ const ExpenseSection = ({ type, initialSubTab }: { type: "Direct" | "Indirect", 
           </div>
         </form>
       )}
-
-      {/* Approval Queue */}
-      {activeSubTab === "approval" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800">Expense Approval Queue</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Review and approve pending expenses</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/60 border-b border-slate-100">
-                <tr>
-                  {["Expense No", "Date", "Category", "Amount", "Requested By", "Status", "Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {expenses.filter(e => e.status === "Pending").map(e => (
-                  <tr key={e.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 text-xs font-bold text-primary">{e.id}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{e.date || "2024-06-01"}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-slate-700">{e.category}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(e.amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{e.reqBy}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(e.status)}`}>{e.status}</span></td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button onClick={() => handleApprove(e.id)} className="text-[10px] font-bold px-2 py-1 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100">Approve</button>
-                        <button onClick={() => handleReject(e.id)} className="text-[10px] font-bold px-2 py-1 bg-rose-50 text-rose-600 rounded hover:bg-rose-100">Reject</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-// 3. Expense Approval (Now handled inside ExpenseSection)
+// 3. Expense Approval
+const ExpenseApprovalSection = () => {
+  const [expenses, setExpenses] = useState(MOCK_EXPENSES);
+
+  const handleApprove = (id: string) => {
+    setExpenses(prev => prev.map(e => e.id === id ? { ...e, status: "Approved" } : e));
+    toast.success("Expense approved!");
+  };
+
+  const handleReject = (id: string) => {
+    setExpenses(prev => prev.map(e => e.id === id ? { ...e, status: "Rejected" } : e));
+    toast.error("Expense rejected!");
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-5 border-b border-slate-100">
+        <h3 className="font-bold text-slate-800">Expense Approval Queue</h3>
+        <p className="text-xs text-slate-400 mt-0.5">Review and approve pending expenses</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50/60 border-b border-slate-100">
+            <tr>
+              {["Expense No", "Date", "Category", "Amount", "Requested By", "Status", "Actions"].map(h => (
+                <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {expenses.filter(e => e.status === "Pending").map(e => (
+              <tr key={e.id} className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-4 py-3 text-xs font-bold text-primary">{e.id}</td>
+                <td className="px-4 py-3 text-xs text-slate-500">{e.date || "2024-06-01"}</td>
+                <td className="px-4 py-3 text-xs font-semibold text-slate-700">{e.category}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(e.amount)}</td>
+                <td className="px-4 py-3 text-xs text-slate-600">{e.reqBy}</td>
+                <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(e.status)}`}>{e.status}</span></td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    <button onClick={() => handleApprove(e.id)} className="text-[10px] font-bold px-2 py-1 bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100">Approve</button>
+                    <button onClick={() => handleReject(e.id)} className="text-[10px] font-bold px-2 py-1 bg-rose-50 text-rose-600 rounded hover:bg-rose-100">Reject</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
 
 // 4. Project Cost Allocation
 const ProjectCostAllocationSection = () => (
@@ -408,6 +410,55 @@ const ProjectCostAllocationSection = () => (
             <span className="font-black text-primary text-lg">₹8,50,000</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    {/* Allocation Details Table */}
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mt-6">
+      <div className="p-5 border-b border-slate-100">
+        <h3 className="font-bold text-slate-800">Recent Allocations</h3>
+        <p className="text-xs text-slate-400 mt-0.5">Detailed breakdown of project cost allocations</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50/60 border-b border-slate-100">
+            <tr>
+              {["Project Name", "Expense Category", "Amount", "Allocated Date", "Cost Center"].map(h => (
+                <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            <tr className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 text-xs font-bold text-primary">Skyline Towers</td>
+              <td className="px-4 py-3 text-xs font-semibold text-slate-700">Material Cost</td>
+              <td className="px-4 py-3 text-xs font-bold text-slate-800">₹5,00,000</td>
+              <td className="px-4 py-3 text-xs text-slate-500">2024-05-15</td>
+              <td className="px-4 py-3 text-xs text-slate-600">Site A - Main Tower</td>
+            </tr>
+            <tr className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 text-xs font-bold text-primary">Skyline Towers</td>
+              <td className="px-4 py-3 text-xs font-semibold text-slate-700">Labor Cost</td>
+              <td className="px-4 py-3 text-xs font-bold text-slate-800">₹2,50,000</td>
+              <td className="px-4 py-3 text-xs text-slate-500">2024-05-18</td>
+              <td className="px-4 py-3 text-xs text-slate-600">Contractor Pool 1</td>
+            </tr>
+            <tr className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 text-xs font-bold text-primary">Skyline Towers</td>
+              <td className="px-4 py-3 text-xs font-semibold text-slate-700">Equipment Cost</td>
+              <td className="px-4 py-3 text-xs font-bold text-slate-800">₹1,00,000</td>
+              <td className="px-4 py-3 text-xs text-slate-500">2024-05-20</td>
+              <td className="px-4 py-3 text-xs text-slate-600">Heavy Machinery Dept</td>
+            </tr>
+            <tr className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-4 py-3 text-xs font-bold text-primary">Apex Mall</td>
+              <td className="px-4 py-3 text-xs font-semibold text-slate-700">Site Prep</td>
+              <td className="px-4 py-3 text-xs font-bold text-slate-800">₹4,20,000</td>
+              <td className="px-4 py-3 text-xs text-slate-500">2024-05-22</td>
+              <td className="px-4 py-3 text-xs text-slate-600">Groundwork Division</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -522,6 +573,18 @@ const ExpensesPage = () => {
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Expenses</h1>
             <p className="text-slate-500 text-sm mt-1">Manage project costs, indirect overheads, approvals and ledgers.</p>
           </div>
+          <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-primary flex items-center justify-center">🏗</div>
+            <div className="flex flex-col pr-2">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select Project</label>
+              <select className="text-sm font-bold text-slate-800 outline-none bg-transparent cursor-pointer">
+                <option value="all">All Projects</option>
+                <option value="skyline">Skyline Towers</option>
+                <option value="apex">Apex Mall</option>
+                <option value="greenvalley">Green Valley Phase II</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -547,7 +610,7 @@ const ExpensesPage = () => {
         {activeTab === "dashboard"   && <DashboardSection />}
         {activeTab === "direct"      && <ExpenseSection type="Direct" initialSubTab={subTab} key={subTab || "direct"} />}
         {activeTab === "indirect"    && <ExpenseSection type="Indirect" initialSubTab={subTab} key={subTab || "indirect"} />}
-        {activeTab === "approval"    && <ExpenseSection type="Direct" initialSubTab="approval" key="approval" />}
+        {activeTab === "approval"    && <ExpenseApprovalSection />}
         {activeTab === "claims"      && <PlaceholderSection title="Expense Claims" />}
         {activeTab === "allocation"  && <ProjectCostAllocationSection />}
         {activeTab === "ledger"      && <ExpenseLedgerSection />}
