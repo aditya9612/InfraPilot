@@ -1049,14 +1049,13 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       label: "Attendance",
       path: "/labour/attendance",
       icon: "calendar",
-      subNav: [
-        { label: "Check In/Out", path: "/labour/attendance", icon: "camera" },
-        { label: "Attendance History", path: "/labour/attendance#history", icon: "list" },
-      ],
     },
     { label: "My Tasks", path: "/labour/tasks", icon: "clipboard" },
+    { label: "Work Updates", path: "/labour/work-updates", icon: "activity" },
+    { label: "Task Requests", path: "/labour/task-requests", icon: "plus-circle" },
     { label: "Payments", path: "/labour/payments", icon: "wallet" },
-    { label: "Settings", path: "/labour/settings", icon: "settings" },
     { label: "Chat", path: "/chat", icon: "message-circle" },
+    { label: "Notifications", path: "/labour/notifications", icon: "bell" },
+    { label: "Settings", path: "/labour/settings", icon: "settings" },
   ],
 };

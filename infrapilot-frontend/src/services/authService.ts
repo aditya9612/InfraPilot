@@ -19,7 +19,7 @@ export const authService = {
    * POST /api/v1/auth/login
    */
   async login(mobile: string): Promise<LoginResponse> {
-    if (mobile === "8888888888") {
+    if (mobile === "8080808080") {
       return { message: "Mock OTP sent successfully (use 123456)", mobile };
     }
     const response = await api.post("/auth/login", { mobile });
@@ -31,7 +31,7 @@ export const authService = {
    * POST /api/v1/auth/verify_otp
    */
   async verifyOtp(mobile: string, otp: string): Promise<VerifyOtpResponse> {
-    if (mobile === "8888888888" && otp === "123456") {
+    if (mobile === "8080808080" && otp === "123456") {
       return {
         token: { access_token: "mock-token-labour", token_type: "Bearer" },
         user_id: 999
@@ -56,12 +56,12 @@ export const authService = {
       const userString = localStorage.getItem("infrapilot_user");
       if (userString) {
         const user = JSON.parse(userString);
-        if (user.mobile === "8888888888") {
+        if (user.mobile === "8080808080") {
           return {
             full_name: "Gopal Yadav",
             role: "Labour",
             email: "gopal.y@mock.com",
-            mobile_number: "8888888888",
+            mobile_number: "8080808080",
             profile_image: ""
           };
         }
