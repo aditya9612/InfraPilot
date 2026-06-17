@@ -130,6 +130,46 @@ const icons: Record<string, JSX.Element> = {
     </svg>
   ),
 
+  "plus-circle": (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <circle cx="12" cy="12" r="10" strokeWidth="1.8" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M12 8v8M8 12h8"
+      />
+    </svg>
+  ),
+
+  wallet: (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+        d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"
+      />
+      <circle cx="16" cy="14" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+
   package: (
     <svg
       className="w-4 h-4"

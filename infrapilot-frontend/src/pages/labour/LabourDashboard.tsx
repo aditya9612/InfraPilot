@@ -6,6 +6,7 @@ import TaskList from '../../components/labour/TaskList';
 import TaskDetailModal from '../../components/labour/TaskDetailModal';
 import PageTransition from '../../components/common/PageTransition';
 import Navbar from '../../components/common/Navbar';
+import { useNavigate } from 'react-router-dom';
 import {
     Clipboard,
     CheckCircle,
@@ -38,6 +39,7 @@ interface Task {
 const LabourDashboard: React.FC = () => {
     const { user } = useAuth();
     const { speak } = useTextToAudio();
+    const navigate = useNavigate();
     const [isCheckedIn, setIsCheckedIn] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -61,10 +63,10 @@ const LabourDashboard: React.FC = () => {
     ];
 
     const quickActions = [
-        { label: 'Check In', icon: Camera, color: 'bg-emerald-500', onClick: () => toast.success("Opening Check-in...") },
-        { label: 'Check Out', icon: Calendar, color: 'bg-rose-500', onClick: () => toast.success("Opening Check-out...") },
-        { label: 'View Tasks', icon: Clipboard, color: 'bg-blue-500', onClick: () => toast.success("Navigating to Tasks...") },
-        { label: 'Start Work', icon: Play, color: 'bg-indigo-500', onClick: () => toast.success("Select a task to start") },
+        { label: 'Check In', icon: Camera, color: 'bg-emerald-500', onClick: () => navigate('/labour/attendance') },
+        { label: 'Check Out', icon: Calendar, color: 'bg-rose-500', onClick: () => navigate('/labour/attendance') },
+        { label: 'View Tasks', icon: Clipboard, color: 'bg-blue-500', onClick: () => navigate('/labour/tasks') },
+        { label: 'Work Updates', icon: Play, color: 'bg-indigo-500', onClick: () => navigate('/labour/work-updates') },
     ];
 
     return (

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
-import { Send, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Send, Clock, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Request {
@@ -168,15 +168,6 @@ const TaskRequestsPage: React.FC = () => {
                                 </button>
                             </div>
 
-                            <div className="bg-indigo-900 p-10 rounded-[50px] text-white relative overflow-hidden group">
-                                <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <AlertCircle className="w-32 h-32" />
-                                </div>
-                                <h3 className="text-lg font-black mb-4 relative z-10">Pro Tip</h3>
-                                <p className="text-xs font-bold text-indigo-200 leading-loose relative z-10">
-                                    Include as much detail as possible in your requests. This helps engineers approve your tasks faster.
-                                </p>
-                            </div>
                         </div>
                     </div>
                 </div>
