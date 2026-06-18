@@ -10,20 +10,39 @@ import {
     FileSpreadsheet,
     FileMinus
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import toast from 'react-hot-toast';
 
 const PaymentsPage: React.FC = () => {
+    const { user } = useAuth();
     const [filterPeriod, setFilterPeriod] = useState("Daily Analysis");
     const [recordsPerPage, setRecordsPerPage] = useState(20);
 
+    const userName = user?.name || 'Gopal Yadav';
+
     const payrollData = [
-        { id: 1, name: 'rahul', skill: 'Mason', dailyWage: 800, daysPresent: 0, otHours: '0h', totalEarned: 0, status: 'ACTIVE' },
-        { id: 2, name: 'sunil kumar', skill: 'Helper', dailyWage: 600, daysPresent: 12, otHours: '4h', totalEarned: 7800, status: 'ACTIVE' },
-        { id: 3, name: 'amit singh', skill: 'Plumber', dailyWage: 850, daysPresent: 26, otHours: '2h', totalEarned: 22400, status: 'ACTIVE' },
-        { id: 4, name: 'vikram', skill: 'Electrician', dailyWage: 900, daysPresent: 15, otHours: '0h', totalEarned: 13500, status: 'ACTIVE' },
+        { id: 1, date: '18 Jun 2026', name: userName, skill: 'Mason', dailyWage: 800, daysPresent: 18, otHours: '2h', totalEarned: 14400, status: 'PAID', remarks: 'Standard Payout' },
+        { id: 2, date: '17 Jun 2026', name: userName, skill: 'Mason', dailyWage: 800, daysPresent: 12, otHours: '4h', totalEarned: 7800, status: 'PENDING', remarks: 'Bonus Pending' },
+        { id: 3, date: '16 Jun 2026', name: userName, skill: 'Mason', dailyWage: 800, daysPresent: 26, otHours: '2h', totalEarned: 22400, status: 'PAID', remarks: 'Full Month Payout' },
+        { id: 4, date: '15 Jun 2026', name: userName, skill: 'Mason', dailyWage: 800, daysPresent: 15, otHours: '0h', totalEarned: 13500, status: 'PENDING', remarks: 'Bank Verification' },
+        { id: 5, date: '14 Jun 2026', name: userName, skill: 'Mason', dailyWage: 800, daysPresent: 8, otHours: '0h', totalEarned: 6000, status: 'REJECTED', remarks: 'Incorrect Bank Info' },
     ];
+
+    const getStatusStyles = (status: string) => {
+        switch(status.toUpperCase()) {
+            case 'PAID':
+            case 'ACTIVE':
+                return 'bg-emerald-50 text-emerald-600';
+            case 'PENDING':
+                return 'bg-amber-50 text-amber-600';
+            case 'REJECTED':
+                return 'bg-rose-50 text-rose-600';
+            default:
+                return 'bg-slate-50 text-slate-500';
+        }
+    };
 
     const stats = [
         { label: 'TOTAL PAYOUT', value: '₹0.00', sub: 'All Wage Items', icon: Wallet, color: 'text-indigo-600', borderColor: 'border-indigo-200' },
@@ -41,9 +60,17 @@ const PaymentsPage: React.FC = () => {
             <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen font-inter pb-32">
                 
                 {/* ── Header ── */}
-                <div className="mb-10">
-                    <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Fiscal Payroll Analysis</h1>
-                    <p className="text-sm font-bold text-slate-400">Historical man-power costing and wage distribution trends.</p>
+                <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
+                    <div>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Fiscal Payroll Analysis</h1>
+                        <p className="text-sm font-bold text-slate-400">Historical man-power costing and wage distribution trends.</p>
+                    </div>
+                    <button 
+                        onClick={() => toast.success("Downloading PDF Report...")}
+                        className="bg-[#111827] hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all active:scale-95"
+                    >
+                        <FileMinus className="w-4 h-4" /> DOWNLOAD PDF
+                    </button>
                 </div>
 
                 {/* ── Stats Grid ── */}
@@ -124,25 +151,25 @@ const PaymentsPage: React.FC = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/30">
-                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Labour Name</th>
+                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center"># ID</th>
+                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
                                     <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Skill Type</th>
                                     <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Wage</th>
                                     <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Days Present</th>
                                     <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">OT Hours</th>
                                     <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Wage Earned</th>
+                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</th>
                                     <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {payrollData.map((row) => (
                                     <tr key={row.id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="px-10 py-6 text-center">
+                                            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{row.id.toString().padStart(3, '0')}</span>
+                                        </td>
                                         <td className="px-10 py-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center text-[11px] font-black uppercase">
-                                                    {row.name.charAt(0)}
-                                                </div>
-                                                <span className="text-sm font-black text-slate-700 capitalize">{row.name}</span>
-                                            </div>
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{row.date}</span>
                                         </td>
                                         <td className="px-10 py-6">
                                             <span className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-bold tracking-tight">
@@ -161,8 +188,11 @@ const PaymentsPage: React.FC = () => {
                                         <td className="px-10 py-6">
                                             <span className="text-sm font-black text-emerald-500">₹{row.totalEarned.toLocaleString()}</span>
                                         </td>
+                                        <td className="px-10 py-6">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{row.remarks}</span>
+                                        </td>
                                         <td className="px-10 py-6 text-right">
-                                            <span className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black tracking-widest">
+                                            <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black tracking-widest ${getStatusStyles(row.status)}`}>
                                                 {row.status}
                                             </span>
                                         </td>

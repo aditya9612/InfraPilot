@@ -1,28 +1,30 @@
 import React, { useState } from 'react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
-import { Send, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Send, Clock, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Request {
     id: string;
     title: string;
+    project: string;
     category: string;
     status: 'Pending' | 'Approved' | 'Rejected';
     date: string;
-    urgency: 'Low' | 'Medium' | 'High';
+    priority: 'Low' | 'Medium' | 'High';
 }
 
 const TaskRequestsPage: React.FC = () => {
     const [title, setTitle] = useState('');
+    const [project, setProject] = useState('Urban Heights');
     const [category, setCategory] = useState('New Task');
-    const [urgency, setUrgency] = useState<'Low' | 'Medium' | 'High'>('Medium');
+    const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
     const [description, setDescription] = useState('');
 
     const [requests, setRequests] = useState<Request[]>([
-        { id: 'REQ-401', title: 'Need help with plumbing', category: 'Support', status: 'Pending', date: '16 Jun 2026', urgency: 'High' },
-        { id: 'REQ-402', title: 'Requesting tiling for Room 204', category: 'New Task', status: 'Approved', date: '15 Jun 2026', urgency: 'Medium' },
-        { id: 'REQ-403', title: 'Broken drill machine', category: 'Repair', status: 'Rejected', date: '14 Jun 2026', urgency: 'High' },
+        { id: 'REQ-401', title: 'Need help with plumbing', project: 'Urban Heights', category: 'Support', status: 'Pending', date: '16 Jun 2026', priority: 'High' },
+        { id: 'REQ-402', title: 'Requesting tiling for Room 204', project: 'Urban Heights', category: 'New Task', status: 'Approved', date: '15 Jun 2026', priority: 'Medium' },
+        { id: 'REQ-403', title: 'Broken drill machine', project: 'Urban Heights', category: 'Repair', status: 'Rejected', date: '14 Jun 2026', priority: 'High' },
     ]);
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -35,16 +37,24 @@ const TaskRequestsPage: React.FC = () => {
         const newReq: Request = {
             id: `REQ-${Math.floor(Math.random() * 900) + 100}`,
             title,
+            project,
             category,
             status: 'Pending',
             date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-            urgency
+            priority
         };
 
         setRequests([newReq, ...requests]);
+        handleReset();
+        toast.success("Task request submitted!");
+    };
+
+    const handleReset = () => {
         setTitle('');
+        setProject('Urban Heights');
         setDescription('');
-        toast.success("Task request sent!");
+        setCategory('New Task');
+        setPriority('Medium');
     };
 
     return (
@@ -90,17 +100,31 @@ const TaskRequestsPage: React.FC = () => {
                                             </select>
                                         </label>
                                     </div>
+                                    <div className="space-y-4 md:col-span-2">
+                                        <label className="block">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Project Name</span>
+                                            <div className="relative mt-2">
+                                                <input
+                                                    type="text"
+                                                    value={project}
+                                                    onChange={(e) => setProject(e.target.value)}
+                                                    placeholder="Enter project name"
+                                                    className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-400 transition-all font-bold text-slate-700"
+                                                />
+                                            </div>
+                                        </label>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-4">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Urgency Level</span>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</span>
                                     <div className="flex gap-4">
                                         {(['Low', 'Medium', 'High'] as const).map(lvl => (
                                             <button
                                                 key={lvl}
                                                 type="button"
-                                                onClick={() => setUrgency(lvl)}
-                                                className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${urgency === lvl ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'}`}
+                                                onClick={() => setPriority(lvl)}
+                                                className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${priority === lvl ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-400 border border-slate-100 hover:bg-slate-100'}`}
                                             >
                                                 {lvl}
                                             </button>
@@ -120,12 +144,21 @@ const TaskRequestsPage: React.FC = () => {
                                     </label>
                                 </div>
 
-                                <button
-                                    type="submit"
-                                    className="w-full py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[30px] font-black uppercase tracking-[0.25em] text-[11px] transition-all flex items-center justify-center gap-3 shadow-xl shadow-indigo-100"
-                                >
-                                    Send Request <Send className="w-4 h-4" />
-                                </button>
+                                <div className="flex flex-col md:flex-row gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={handleReset}
+                                        className="flex-1 py-5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-[30px] font-black uppercase tracking-[0.25em] text-[11px] transition-all flex items-center justify-center gap-3"
+                                    >
+                                        Reset Form <RotateCcw className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-[2] py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[30px] font-black uppercase tracking-[0.25em] text-[11px] transition-all flex items-center justify-center gap-3 shadow-xl shadow-indigo-100"
+                                    >
+                                        Submit Request <Send className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </form>
                         </div>
 
@@ -145,8 +178,8 @@ const TaskRequestsPage: React.FC = () => {
                                                 <div>
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{req.id}</span>
-                                                        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${req.urgency === 'High' ? 'bg-rose-50 text-rose-500' : req.urgency === 'Medium' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
-                                                            {req.urgency}
+                                                        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${req.priority === 'High' ? 'bg-rose-50 text-rose-500' : req.priority === 'Medium' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>
+                                                            {req.priority}
                                                         </span>
                                                     </div>
                                                     <h3 className="text-sm font-black text-slate-700 mt-2 line-clamp-1">{req.title}</h3>
@@ -156,7 +189,10 @@ const TaskRequestsPage: React.FC = () => {
                                                 </div>
                                             </div>
                                             <div className="flex justify-between items-center pt-4 border-t border-slate-200/50">
-                                                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{req.category}</span>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{req.category}</span>
+                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">{req.project}</span>
+                                                </div>
                                                 <span className="text-[10px] font-bold text-slate-400">{req.date}</span>
                                             </div>
                                         </div>
