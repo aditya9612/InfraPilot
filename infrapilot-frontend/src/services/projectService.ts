@@ -256,8 +256,8 @@ export const projectService = {
 
   async getTasks(projectId: number, params: { limit?: number; offset?: number; assigned_user_id?: number; status?: string } = {}) {
     try {
-      const response = await api.get(`/projects/${projectId}/tasks`, { 
-        params: { limit: 100, offset: 0, ...params } 
+      const response = await api.get(`/projects/${projectId}/tasks`, {
+        params: { limit: 100, offset: 0, ...params }
       });
       const data = response.data;
       return Array.isArray(data) ? data : (data.items || data.data || []);

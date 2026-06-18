@@ -9,8 +9,10 @@ import ActivityFeed from "../../components/dashboard/ActivityFeed";
 import { useState, useEffect } from "react";
 import { projectService } from "../../services/projectService";
 import { Link } from "react-router-dom";
-import { Clock, AlertCircle, CheckCircle, TrendingUp } from "lucide-react";
+import { Clock, AlertCircle, CheckCircle, TrendingUp, FolderCheck, PieChart, Info, CalendarClock } from "lucide-react";
 import ComplianceScorecards from "../../components/dashboard/ComplianceScorecards";
+import ProjectProgressChart from "../../components/dashboard/ProjectProgressChart";
+import MonthlyTrendChart from "../../components/dashboard/MonthlyTrendChart";
 import { qcService } from "../../services/qcService";
 import { safetyService } from "../../services/safetyService";
 
@@ -96,7 +98,14 @@ const ManagerDashboard = () => {
               title="Total Managed Projects"
               value={projects.length.toString()}
               sub={`${activeProjects} Active Site Deployments`}
-              icon={<CheckCircle className="w-5 h-5 text-primary" />}
+              icon={<FolderCheck className="w-5 h-5 text-primary" />}
+            />
+            <StatCard
+              title="Completed Projects"
+              value={projects.filter(p => p.status === "COMPLETED").length.toString()}
+              sub="Successfully Handed Over"
+              accent="text-blue-600"
+              icon={<CheckCircle className="w-5 h-5 text-blue-600" />}
             />
             <StatCard
               title="Avg. Completion"
@@ -113,16 +122,42 @@ const ManagerDashboard = () => {
               icon={<AlertCircle className="w-5 h-5 text-rose-600" />}
             />
             <StatCard
+              title="Budget Utilized %"
+              value="68%"
+              sub="Of Total Allocated"
+              accent="text-purple-600"
+              icon={<PieChart className="w-5 h-5 text-purple-600" />}
+            />
+            <StatCard
+              title="Open Issues"
+              value="12"
+              sub="Requires Attention"
+              accent="text-orange-600"
+              icon={<Info className="w-5 h-5 text-orange-600" />}
+            />
+            <StatCard
               title="Pending Reviews"
               value="07"
               sub="Authorizations Pending"
               accent="text-amber-600"
               icon={<Clock className="w-5 h-5 text-amber-600" />}
             />
+            <StatCard
+              title="Today's Activities"
+              value="24"
+              sub="Logged Today"
+              accent="text-indigo-600"
+              icon={<CalendarClock className="w-5 h-5 text-indigo-600" />}
+            />
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Section - Project Performance */}
             <div className="lg:col-span-2 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <ProjectProgressChart />
+                <MonthlyTrendChart />
+              </div>
+
               <ProjectTable />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

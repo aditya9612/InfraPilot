@@ -7,6 +7,7 @@ import { projectService } from "../../services/projectService";
 import { documentService } from "../../services/documentService";
 import ReportPreviewModal from "../../components/dashboard/ReportPreviewModal";
 import ShareReportModal from "../../components/dashboard/ShareReportModal";
+import ReportDateModal from "../../components/dashboard/ReportDateModal";
 import toast from "react-hot-toast";
 import {
   FileText,
@@ -22,7 +23,7 @@ import {
   ArrowRight,
   ChevronDown
 } from "lucide-react";
-import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
+import { formatCompactCurrency } from "../../utils/currencyUtils";
 
 type ReportCategory = "Operations" | "Resources" | "Financials" | "Performance";
 
@@ -62,6 +63,8 @@ const ReportsPage = () => {
   const [subFilter, setSubFilter] = useState<string | null>(null);
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [startDate, setStartDate] = useState("2026-01-01");
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Sync category and specific report with URL
   useEffect(() => {
@@ -89,6 +92,15 @@ const ReportsPage = () => {
   const [viewingReport, setViewingReport] = useState<{ id: string, name: string, data: any, exportType: "PDF" | "Excel" | "Both" } | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [reportToShare, setReportToShare] = useState<{ id: string, name: string } | null>(null);
+
+  // Date selection modal state
+  const [isDateSelectionOpen, setIsDateSelectionOpen] = useState(false);
+  const [dateModalConfig, setDateModalConfig] = useState<{
+    id: string;
+    name: string;
+    format: "PDF" | "Excel";
+    isRange: boolean;
+  } | null>(null);
 
   const [stats, setStats] = useState({
     totalExpense: 0,
@@ -203,11 +215,12 @@ const ReportsPage = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleExport = async (reportId: string, format: "PDF" | "Excel") => {
+  const handleExport = async (reportId: string, format: "PDF" | "Excel", customStart?: string, customEnd?: string) => {
     const toastId = toast.loading(`Generating ${format} report...`);
     try {
       const pid = parseInt(selectedProjectId);
-      const today = new Date().toISOString().split('T')[0];
+      const effectiveStart = customStart || startDate;
+      const effectiveEnd = customEnd || endDate;
       const globalReports = ["profit-loss", "cashflow"];
 
       if (!globalReports.includes(reportId) && isNaN(pid)) {
@@ -215,15 +228,29 @@ const ReportsPage = () => {
         return;
       }
 
+      // Check if we need to ask for a date first
+      const reportType = REPORT_TYPES.find(r => r.id === reportId);
+      if (!dateModalConfig && (reportType?.requiresDate || reportType?.requiresRange)) {
+        toast.dismiss(toastId);
+        setDateModalConfig({
+          id: reportId,
+          name: reportType.name,
+          format: format,
+          isRange: !!reportType.requiresRange
+        });
+        setIsDateSelectionOpen(true);
+        return;
+      }
+
       let blob: any = null;
 
       switch (reportId) {
         case "daily":
-          blob = await reportService.exportDailyPDF(pid, today);
+          blob = await reportService.exportDailyPDF(pid, effectiveEnd);
           break;
         case "weekly": {
           if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
           } else {
             const data = await reportService.getWeeklyProgress(pid);
             generateCSV(data, "weekly_progress");
@@ -233,17 +260,17 @@ const ReportsPage = () => {
         }
         case "labour":
           blob = format === "PDF"
-            ? await reportService.downloadCombinedReport(pid, "2026-01-01", today)
+            ? await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd)
             : await reportService.exportLabourExcel(pid);
           break;
         case "material":
           blob = format === "PDF"
-            ? await reportService.downloadCombinedReport(pid, "2026-01-01", today)
+            ? await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd)
             : await reportService.exportMaterialExcel(pid);
           break;
         case "assets": {
           if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
           } else {
             const data = await reportService.getAssetReport(pid);
             generateCSV(data, "assets_report");
@@ -253,12 +280,12 @@ const ReportsPage = () => {
         }
         case "issues":
           blob = format === "PDF"
-            ? await reportService.downloadCombinedReport(pid, "2026-01-01", today)
+            ? await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd)
             : await reportService.exportIssueExcel(pid);
           break;
         case "work-summary": {
           if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
           } else {
             const data = await reportService.getWorkSummary(pid);
             generateCSV(data, "work_summary");
@@ -268,7 +295,7 @@ const ReportsPage = () => {
         }
         case "financial-summary": {
           if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
           } else {
             const data = await reportService.getFinancialSummary(pid);
             generateCSV(data, "financial_summary");
@@ -278,7 +305,7 @@ const ReportsPage = () => {
         }
         case "profit-loss": {
           if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
           } else {
             const data = await reportService.getProfitLoss();
             generateCSV(data, "profit_loss");
@@ -288,7 +315,7 @@ const ReportsPage = () => {
         }
         case "cashflow": {
           if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
           } else {
             const data = await reportService.getCashflow();
             generateCSV(data, "cashflow");
@@ -298,7 +325,7 @@ const ReportsPage = () => {
         }
         case "contractor-performance": {
           if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
           } else {
             const data = await reportService.getContractorPerformance(pid);
             generateCSV(data, "contractor_performance");
@@ -316,7 +343,7 @@ const ReportsPage = () => {
           blob = await reportService.exportAuditPDF(pid);
           break;
         default:
-          blob = await reportService.downloadCombinedReport(pid, "2026-01-01", today);
+          blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
       }
 
       // Validate that blob is actually a file and not an error JSON response
@@ -342,7 +369,7 @@ const ReportsPage = () => {
         extension = 'xlsx';
       }
 
-      link.setAttribute('download', `${reportId}_report_${today}.${extension}`);
+      link.setAttribute('download', `${reportId}_report_${effectiveEnd}.${extension}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -353,7 +380,7 @@ const ReportsPage = () => {
     }
   };
 
-  const handleExportCombined = async (format: "PDF" | "Excel") => {
+  const handleExportCombined = async (format: "PDF" | "Excel", customStart?: string, customEnd?: string) => {
     const pid = parseInt(selectedProjectId);
     if (isNaN(pid)) {
       toast.error("Please select a project first");
@@ -362,21 +389,33 @@ const ReportsPage = () => {
 
     const toastId = toast.loading(`Preparing Combined ${format}...`);
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const startDate = "2026-01-01"; // Fixed or dynamic start date
+      const effectiveStart = customStart || startDate;
+      const effectiveEnd = customEnd || endDate;
+
+      if (!dateModalConfig) {
+        toast.dismiss(toastId);
+        setDateModalConfig({
+          id: "combined",
+          name: "Combined Project Intelligence",
+          format: format,
+          isRange: true
+        });
+        setIsDateSelectionOpen(true);
+        return;
+      }
 
       if (format === "PDF") {
-        const blob = await reportService.downloadCombinedReport(pid, startDate, today);
+        const blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Combined_Project_Report_${today}.pdf`);
+        link.setAttribute('download', `Combined_Project_Report_${effectiveEnd}.pdf`);
         document.body.appendChild(link);
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        const data = await reportService.getCombinedReportData(pid, startDate, today);
+        const data = await reportService.getCombinedReportData(pid, effectiveStart, effectiveEnd);
         generateCSV(data, "Combined_Project_Intelligence");
       }
 
@@ -392,12 +431,11 @@ const ReportsPage = () => {
       const pid = parseInt(selectedProjectId);
       if (isNaN(pid)) throw new Error("Please select a project first");
 
-      const today = new Date().toISOString().split('T')[0];
       const data = {
         project_id: pid,
         target: target,
-        start_date: "2026-01-01",
-        end_date: today
+        start_date: startDate,
+        end_date: endDate
       };
 
       if (type === "email") {
@@ -686,6 +724,26 @@ const ReportsPage = () => {
         onClose={() => setIsShareModalOpen(false)}
         reportName={reportToShare?.name || ""}
         onShare={handleShareCombined}
+      />
+
+      <ReportDateModal
+        isOpen={isDateSelectionOpen}
+        onClose={() => {
+          setIsDateSelectionOpen(false);
+          setDateModalConfig(null);
+        }}
+        reportName={dateModalConfig?.name || ""}
+        format={dateModalConfig?.format || "PDF"}
+        isRange={dateModalConfig?.isRange}
+        onConfirm={(start, end) => {
+          setStartDate(start);
+          setEndDate(end);
+          if (dateModalConfig?.id === "combined") {
+            handleExportCombined(dateModalConfig.format, start, end);
+          } else if (dateModalConfig) {
+            handleExport(dateModalConfig.id, dateModalConfig.format, start, end);
+          }
+        }}
       />
     </>
   );

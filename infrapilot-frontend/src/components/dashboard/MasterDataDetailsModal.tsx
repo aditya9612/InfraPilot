@@ -42,6 +42,7 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InfoItem label="Entity name" value={item.name} />
+            <InfoItem label="Status" value={item.is_active !== false ? "Active" : "Inactive"} />
             <InfoItem label="System tag" value={item.system_tag} />
           </div>
         </div>
@@ -55,8 +56,34 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InfoItem label="Unique code" value={item.unique_code} isMono />
             <InfoItem label="Category group" value={item.category} />
+            {item.unit && <InfoItem label="Unit" value={item.unit} />}
+            {item.brand && <InfoItem label="Brand" value={item.brand} />}
+            {item.hsn_code && <InfoItem label="HSN Code" value={item.hsn_code} />}
           </div>
         </div>
+
+        {(item.specification || item.skill_category || item.default_daily_wage !== undefined) && (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 bg-primary rounded-full"></div>
+              <h3 className="font-semibold text-gray-700">Extended details</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {item.skill_category && <InfoItem label="Skill category" value={item.skill_category} />}
+              {item.default_daily_wage !== undefined && (
+                <InfoItem label="Default daily wage" value={`₹${item.default_daily_wage}`} />
+              )}
+              {item.default_working_hours !== undefined && (
+                <InfoItem label="Working hours" value={`${item.default_working_hours} hrs`} />
+              )}
+              {item.specification && (
+                <div className="md:col-span-2">
+                  <InfoItem label="Specification" value={item.specification} />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div>
           <div className="flex items-center gap-2 mb-4">

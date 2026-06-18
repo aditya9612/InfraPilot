@@ -4,7 +4,7 @@ import { boqService } from "../../services/boqService";
 import toast from "react-hot-toast";
 import { Upload, FileText, CheckCircle2, AlertCircle, X, ChevronDown } from "lucide-react";
 import type { BoqItem } from "../../types/boq";
-import { BOQ_CATEGORIES, BOQ_UNITS } from "../../config/constants";
+import { masterService, type MasterEntity } from "../../services/masterService";
 
 interface BulkImportBOQModalProps {
   isOpen: boolean;
@@ -26,14 +26,20 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
   const [availableBoqs, setAvailableBoqs] = useState<BoqItem[]>([]);
   const [boqName, setBoqName] = useState("");
   const [isLoadingBoqs, setIsLoadingBoqs] = useState(false);
+  const [activityTypes, setActivityTypes] = useState<MasterEntity[]>([]);
+  const [selectedActivityTypeId, setSelectedActivityTypeId] = useState<string>("");
 
   useEffect(() => {
     if (isOpen && projectId) {
       const loadBoqs = async () => {
         setIsLoadingBoqs(true);
         try {
-          const items = await boqService.getBoqsByProject(projectId);
+          const [items, types] = await Promise.all([
+            boqService.getBoqsByProject(projectId),
+            masterService.getEntities('activity-types'),
+          ]);
           setAvailableBoqs(items);
+          setActivityTypes(types);
           if (items.length > 0) {
             setBoqName(items[0].item_name);
           }
@@ -80,10 +86,8 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         .map((row: any) => ({
           project_id: projectId,
           item_name: row["Item Name"] || row["item_name"] || row["Name"],
-          category: row["Category"] || row["category"] || BOQ_CATEGORIES[0],
           description: row["Description"] || row["description"] || "",
           quantity: Number(row["Quantity"] || row["qty"] || 0),
-          unit: row["Unit"] || row["unit"] || BOQ_UNITS[0],
           unit_cost: Number(row["Unit Cost"] || row["rate"] || 0),
           status: "Active",
         }))
@@ -110,6 +114,12 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         return;
       }
 
+      if (!selectedActivityTypeId) {
+        toast.error("Please select an Activity Type for the imported items");
+        setIsUploading(false);
+        return;
+      }
+
       // Check if the name matches an existing BOQ
       const existingBoq = availableBoqs.find(
         (b) => b.item_name.toLowerCase() === boqName.toLowerCase(),
@@ -125,18 +135,23 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         const newBoq = await boqService.createBoq({
           project_id: projectId,
           item_name: boqName,
-          category: BOQ_CATEGORIES[0], // Using centralized category
           description: "Created via bulk import",
           quantity: 1,
-          unit: BOQ_UNITS[6] || "Nos", // Using centralized unit (Nos is usually 6th or 7th)
-          unit_cost: 0,
+          unit_cost: 1,
           status: "Draft",
+          activity_type_id: Number(selectedActivityTypeId),
         });
         targetId = newBoq.id;
         toast.success("New BOQ group created", { id: "boq-create" });
       }
 
-      await boqService.bulkAddItems(targetId, parsedItems);
+      // Stamp current selected activity_type_id onto all items at submission time
+      const itemsToSubmit = parsedItems.map((item) => ({
+        ...item,
+        activity_type_id: Number(selectedActivityTypeId),
+      }));
+
+      await boqService.bulkAddItems(targetId, itemsToSubmit);
       toast.success(`Successfully imported ${parsedItems.length} items!`);
       onSuccess();
       onClose();
@@ -165,6 +180,7 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
     setFile(null);
     setParsedItems([]);
     setStep(1);
+    setSelectedActivityTypeId("");
     // Don't reset boqName here to keep the context if they change file
   };
 
@@ -226,6 +242,26 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
                 </div>
                 <p className="text-[10px] text-slate-400 font-medium">
                   If the name doesn't exist, a new BOQ group will be created automatically.
+                </p>
+              </div>
+
+              {/* Activity Type Selection */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  Activity Type <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={selectedActivityTypeId}
+                  onChange={(e) => setSelectedActivityTypeId(e.target.value)}
+                  className={`w-full px-4 py-3 bg-slate-50 border ${!selectedActivityTypeId ? 'border-slate-200' : 'border-primary/30'} rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none`}
+                >
+                  <option value="">Select Activity Type for all items...</option>
+                  {activityTypes.map((type) => (
+                    <option key={type.id} value={type.id}>{type.name}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  Category and Unit will be auto-assigned from the selected Activity Type.
                 </p>
               </div>
 
