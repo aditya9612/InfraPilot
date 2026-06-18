@@ -10,6 +10,7 @@ export interface Alert {
   created_at: string;
   project_name?: string;
   end_date?: string;
+  start_date?: string;
 }
 
 export const alertService = {

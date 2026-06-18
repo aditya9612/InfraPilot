@@ -15,6 +15,7 @@ interface Task {
     assignedTo: string;
     assignment: string;
     priority: 'Low' | 'Medium' | 'High';
+    startDate: string;
     deadline: string;
     status: 'Planned' | 'In Progress' | 'Completed' | 'Cancelled';
     completion_percentage: number;
@@ -33,9 +34,10 @@ const MyTasksPage: React.FC = () => {
             title: 'Foundation Reinforcement', 
             project: 'New Sara City', 
             assignedBy: 'Eng. Sharma', 
-            assignedTo: 'Sunil Labour',
+            assignedTo: 'Gopal Yadav',
             assignment: 'Rebar Placement',
             priority: 'High', 
+            startDate: '2026-06-15',
             deadline: '2026-06-20', 
             status: 'In Progress',
             completion_percentage: 65 
@@ -45,9 +47,10 @@ const MyTasksPage: React.FC = () => {
             title: 'Concreting Section B', 
             project: 'New Sara City', 
             assignedBy: 'Eng. Verma', 
-            assignedTo: 'Sunil Labour',
+            assignedTo: 'Gopal Yadav',
             assignment: 'Concrete Pouring',
             priority: 'Medium', 
+            startDate: '2026-06-18',
             deadline: '2026-06-21', 
             status: 'Planned',
             completion_percentage: 0 
@@ -57,9 +60,10 @@ const MyTasksPage: React.FC = () => {
             title: 'Site Cleaning', 
             project: 'Green Valley', 
             assignedBy: 'Admin', 
-            assignedTo: 'Sunil Labour',
+            assignedTo: 'Gopal Yadav',
             assignment: 'Debris Removal',
             priority: 'Low', 
+            startDate: '2026-06-17',
             deadline: '2026-06-18', 
             status: 'Completed',
             completion_percentage: 100 
@@ -233,7 +237,7 @@ const MyTasksPage: React.FC = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/50">
-                                    {['TASK', 'PROJECT', 'ASSIGNED BY', 'ASSIGNED TO', 'ASSIGNMENT', 'PRIORITY', 'DEADLINE', 'STATUS', 'ACTIONS'].map(header => (
+                                    {['TASK', 'PROJECT', 'ASSIGNED BY', 'ASSIGNED TO', 'ASSIGNMENT', 'PRIORITY', 'TIMELINE', 'STATUS', 'ACTIONS'].map(header => (
                                         <th key={header} className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
                                             {header}
                                         </th>
@@ -277,9 +281,18 @@ const MyTasksPage: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <div className="flex items-center gap-2 text-slate-600">
-                                                <Calendar className="w-3.5 h-3.5 opacity-40" />
-                                                <span className="text-xs font-bold">{new Date(task.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                                            <div className="flex flex-col gap-1 text-slate-600">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Start Date" />
+                                                    <span className="text-[10px] font-bold">{new Date(task.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                                                    <span className="text-[10px] text-slate-300 mx-1">-</span>
+                                                    <span className="text-[10px] font-bold">{new Date(task.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500" title="End Date" />
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                    <Calendar className="w-2.5 h-2.5 opacity-40" />
+                                                    <span>Task Duration</span>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">

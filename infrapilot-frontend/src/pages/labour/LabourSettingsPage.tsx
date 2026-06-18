@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { User, Check, Trash2, Upload, Calendar, MapPin, Settings as SettingsIcon, Scale, Bell, Mail, Phone, Smartphone, Save, AlertTriangle, Ruler } from 'lucide-react';
+import { User, Check, Trash2, Upload, Calendar, MapPin, Settings as SettingsIcon, Scale, Bell, Mail, Phone, Smartphone, AlertTriangle, Landmark, ShieldCheck } from 'lucide-react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import { useAuth } from '../../context/AuthContext';
@@ -26,10 +26,7 @@ const LabourSettingsPage: React.FC = () => {
     const [notifSettings, setNotifSettings] = useState({
         email: true,
         sms: false,
-        push: false,
-        dsr: true,
-        issue: true,
-        material: true
+        app: true
     });
 
     // User Preferences
@@ -41,6 +38,14 @@ const LabourSettingsPage: React.FC = () => {
         compactView: false,
         showWeather: true,
         autoGps: true
+    });
+
+    // Bank Details
+    const [bankDetails, setBankDetails] = useState({
+        accountNumber: '•••• •••• 5678',
+        bankName: 'HDFC Bank',
+        ifscCode: 'HDFC0001234',
+        upiId: 'labour@upi'
     });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,7 +97,7 @@ const LabourSettingsPage: React.FC = () => {
                             {[
                                 { label: 'ACTIVE PROJECT', value: 'New sara city', sub: 'PRIMARY PROJECT WORKSPACE', color: 'text-[#0062ff]' },
                                 { label: 'UNIT SYSTEM', value: 'Metric', sub: 'FEET · METER', color: 'text-emerald-500' },
-                                { label: 'NOTIFICATIONS', value: '4 / 6', sub: 'CHANNELS ENABLED', color: 'text-orange-400' },
+                                { label: 'NOTIFICATIONS', value: '2 / 3', sub: 'CHANNELS ENABLED', color: 'text-orange-400' },
                                 { label: 'LANGUAGE', value: 'English', sub: 'IST (UTC+5:30)', color: 'text-slate-800' },
                             ].map((config, i) => (
                                 <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
@@ -203,9 +208,72 @@ const LabourSettingsPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Lower Rows */}
+                        {/* Lower Cards Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             
+                            {/* Bank Details Card */}
+                            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-10">
+                                <div className="flex items-center justify-between border-b border-slate-50 pb-6">
+                                    <div className="flex items-center gap-3 text-slate-400">
+                                        <Landmark className="w-4 h-4" />
+                                        <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">BANK DETAILS</h2>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full">
+                                        <ShieldCheck className="w-3 h-3" />
+                                        <span className="text-[8px] font-black uppercase tracking-widest">Verified</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">ACCOUNT NUMBER</label>
+                                        <input 
+                                            type="text" 
+                                            value={bankDetails.accountNumber} 
+                                            onChange={e => setBankDetails({...bankDetails, accountNumber: e.target.value})}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all font-mono"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">BANK NAME</label>
+                                        <input 
+                                            type="text" 
+                                            value={bankDetails.bankName} 
+                                            onChange={e => setBankDetails({...bankDetails, bankName: e.target.value})}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">IFSC CODE</label>
+                                        <input 
+                                            type="text" 
+                                            value={bankDetails.ifscCode} 
+                                            onChange={e => setBankDetails({...bankDetails, ifscCode: e.target.value})}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all uppercase"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">UPI ID</label>
+                                        <input 
+                                            type="text" 
+                                            value={bankDetails.upiId} 
+                                            onChange={e => setBankDetails({...bankDetails, upiId: e.target.value})}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 flex items-center justify-center shrink-0">
+                                        <ShieldCheck className="w-5 h-5 text-indigo-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-indigo-800 uppercase tracking-widest">SECURITY VERIFIED</p>
+                                        <p className="text-[10px] font-bold text-indigo-600/70 leading-relaxed mt-1">Your payment details are encrypted and stored securely. Only authorized payroll personnel can view this information.</p>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Project Selection Card */}
                             <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-10">
                                 <div className="flex items-center gap-3 text-slate-400 border-b border-slate-50 pb-6">
@@ -216,7 +284,7 @@ const LabourSettingsPage: React.FC = () => {
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">ACTIVE PROJECT</label>
                                     <input type="text" className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 outline-none" />
                                 </div>
-                                <div className="h-40" /> {/* Spacer like screenshot */}
+                                <div className="h-40" />
                             </div>
 
                             {/* Units Card */}
@@ -225,7 +293,6 @@ const LabourSettingsPage: React.FC = () => {
                                     <SettingsIcon className="w-4 h-4" />
                                     <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">UNITS</h2>
                                 </div>
-                                
                                 <div className="space-y-6">
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">UNIT SYSTEM</label>
@@ -244,7 +311,6 @@ const LabourSettingsPage: React.FC = () => {
                                             </button>
                                         </div>
                                     </div>
-
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">MASS / WEIGHT</label>
                                         <div className="flex gap-2">
@@ -259,7 +325,6 @@ const LabourSettingsPage: React.FC = () => {
                                             ))}
                                         </div>
                                     </div>
-
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">LENGTH / DISTANCE</label>
                                         <div className="flex gap-2">
@@ -272,16 +337,6 @@ const LabourSettingsPage: React.FC = () => {
                                                     {u}
                                                 </button>
                                             ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-8 p-6 bg-slate-50/50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">CURRENT UNITS</p>
-                                            <p className="text-sm font-black text-slate-800 tracking-tight mt-1">{unitSystem} · {massUnit} · {distanceUnit}</p>
-                                        </div>
-                                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-orange-200">
-                                            <Scale className="w-5 h-5" />
                                         </div>
                                     </div>
                                 </div>
@@ -297,10 +352,7 @@ const LabourSettingsPage: React.FC = () => {
                                     {[
                                         { id: 'email', label: 'Email Alerts', sub: 'Receive daily summary via email', icon: Mail },
                                         { id: 'sms', label: 'SMS Alerts', sub: 'Critical site alerts via SMS', icon: Phone },
-                                        { id: 'push', label: 'Push Notifications', sub: 'Real-time app notifications', icon: Smartphone },
-                                        { id: 'dsr', label: 'DSR Reminders', sub: 'Daily reminder to submit DSR', icon: Save },
-                                        { id: 'issue', label: 'Issue Alerts', sub: 'Notify on new high-priority issues', icon: AlertTriangle },
-                                        { id: 'material', label: 'Material Alerts', sub: 'Low stock threshold notifications', icon: Ruler },
+                                        { id: 'app', label: 'App Notifications', sub: 'Real-time application alerts', icon: Smartphone },
                                     ].map((item, i) => (
                                         <div key={i} className="flex items-center justify-between px-2 group">
                                             <div className="flex items-center gap-4">
@@ -339,7 +391,6 @@ const LabourSettingsPage: React.FC = () => {
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">LANGUAGE</label>
                                         <input type="text" value={userPrefs.language} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none" />
                                     </div>
-                                    
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">TIMEZONE</label>
@@ -350,7 +401,6 @@ const LabourSettingsPage: React.FC = () => {
                                             <input type="text" value={userPrefs.dateFormat} className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-xs font-black text-slate-700 outline-none" />
                                         </div>
                                     </div>
-
                                     <div className="space-y-4 pt-2">
                                         {[
                                             { id: 'autoSave', label: 'Auto Save', sub: 'Auto-save form drafts every 60s' },
@@ -377,8 +427,6 @@ const LabourSettingsPage: React.FC = () => {
                                             </div>
                                         ))}
                                     </div>
-
-                                    {/* Admin Warning Box */}
                                     <div className="p-5 rounded-2xl bg-orange-50/50 border border-orange-100 flex gap-4">
                                         <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0" />
                                         <div>

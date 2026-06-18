@@ -43,61 +43,76 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
     };
 
     return (
-        <div className="space-y-4">
-            {tasks.map((task) => {
-                const priority = getPriorityInfo(task.priority);
-                return (
-                    <div
-                        key={task.id}
-                        className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer group relative"
-                        onClick={() => onSelectTask(task)}
-                    >
-                        {/* Action Menu */}
-                        <button className="absolute top-6 right-6 p-1 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-50 transition-all">
-                            <MoreVertical className="w-5 h-5" />
-                        </button>
-
-                        {/* Header: ID & Status */}
-                        <div className="flex items-center gap-2 mb-3">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{task.id}</span>
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${getStatusBadgeStyle(task.status)}`}>
-                                {task.status}
-                            </span>
-                        </div>
-
-                        {/* Content: Title & Date & Priority */}
-                        <div className="flex justify-between items-start mb-8">
-                            <div>
-                                <h3 className="text-base font-bold text-slate-800 tracking-tight leading-tight uppercase mb-2">
-                                    {task.name}
-                                </h3>
-                                <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-wide">
-                                    <Clock className="w-3.5 h-3.5 opacity-70" />
-                                    <span>Starts: {task.startDate}</span>
-                                </div>
-                            </div>
-                            <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest mr-6 ${priority.color}`}>
-                                <Circle className="w-2.5 h-2.5 fill-current opacity-20" />
-                                {priority.label}
-                            </div>
-                        </div>
-
-                        {/* Progress Area */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                                <span className="text-slate-400">Progress</span>
-                                <span className="text-slate-800">{task.progress}%</span>
-                            </div>
-                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full transition-all duration-700 ease-out ${getProgressBarColor(task.status)}`}
-                                    style={{ width: `${task.progress}%` }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                );
-            })}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="bg-slate-50/50">
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Task ID</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Task Name</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Status</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 text-center">Priority</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Progress</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Start Date</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {tasks.map((task) => {
+                            const priority = getPriorityInfo(task.priority);
+                            return (
+                                <tr
+                                    key={task.id}
+                                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                                    onClick={() => onSelectTask(task)}
+                                >
+                                    <td className="px-8 py-6">
+                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{task.id}</span>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <h3 className="text-sm font-bold text-slate-800 tracking-tight uppercase">{task.name}</h3>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${getStatusBadgeStyle(task.status)}`}>
+                                            {task.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-8 py-6 text-center">
+                                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${priority.color} bg-white group-hover:shadow-sm transition-all`}>
+                                            <Circle className="w-2 h-2 fill-current opacity-40" />
+                                            {priority.label}
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex flex-col gap-2 min-w-[120px]">
+                                            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest">
+                                                <span className="text-slate-800">{task.progress}%</span>
+                                            </div>
+                                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full transition-all duration-700 ease-out ${getProgressBarColor(task.status)}`}
+                                                    style={{ width: `${task.progress}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                                            <Clock className="w-3.5 h-3.5 text-slate-300" />
+                                            {task.startDate}
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        <button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                                            <MoreVertical className="w-5 h-5" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };
