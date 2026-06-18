@@ -601,9 +601,9 @@ const LabourAttendancePage: React.FC = () => {
                                                         onClick={async () => {
                                                             try {
                                                                 toast.loading("Fetching details...", { id: "fetchDetails" });
-                                                                const attendanceData = await labourService.getLabourAttendance(lab.labour_id);
-                                                                const detailedLabour = attendanceData && attendanceData.length > 0
-                                                                    ? (attendanceData.find((a: any) => a.attendance_date === lab.attendance_date) || attendanceData[0])
+                                                                const attendanceData = await labourService.getTodayStatus(lab.labour_id);
+                                                                const detailedLabour = attendanceData && attendanceData.attendance
+                                                                    ? attendanceData.attendance
                                                                     : {};
                                                                 setSelectedLabour({ ...lab, ...detailedLabour });
                                                                 toast.dismiss("fetchDetails");
@@ -802,7 +802,7 @@ const LabourAttendancePage: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Work Summary</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.task_description || '-'}</p>
+                                <p className="text-xs font-bold text-slate-800 line-clamp-2" title={selectedLabour.task_description || selectedLabour.remarks}>{selectedLabour.task_description || selectedLabour.remarks || '-'}</p>
                             </div>
                         </div>
 
@@ -873,7 +873,7 @@ const LabourAttendancePage: React.FC = () => {
                                 <div className="bg-[#f0fdf4] border border-[#dcfce7] rounded-xl p-4 flex gap-3 shadow-sm">
                                     <MapPin className="w-[18px] h-[18px] text-[#059669] flex-shrink-0 mt-[1px] stroke-[2]" />
                                     <p className="text-[14px] font-semibold text-[#047857] leading-[1.6]">
-                                        Raver, Jalgaon District, Maharashtra, 425508, India (21.233377, 76.041908)
+                                        {selectedLocationLabour?.check_in_address || '-'}
                                     </p>
                                 </div>
                             </div>
@@ -887,7 +887,7 @@ const LabourAttendancePage: React.FC = () => {
                                 <div className="bg-[#fff1f2] border border-[#ffe4e6] rounded-xl p-4 flex gap-3 shadow-sm">
                                     <MapPin className="w-[18px] h-[18px] text-[#e11d48] flex-shrink-0 mt-[1px] stroke-[2]" />
                                     <p className="text-[14px] font-semibold text-[#be123c] leading-[1.6]">
-                                        Raver, Jalgaon District, Maharashtra, 425508, India (21.233375, 76.041903)
+                                        {selectedLocationLabour?.check_out_address || '-'}
                                     </p>
                                 </div>
                             </div>

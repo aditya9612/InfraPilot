@@ -6,9 +6,9 @@ import {
     Filter, Search, Plus, Eye, Calendar, User,
     CheckCircle, Clock, AlertCircle, XCircle, List, Grid,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
-    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward
+    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square
 } from 'lucide-react';
-import ConfirmModal from "../../../components/common/ConfirmModal";
+// import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
 import AudioRecordModal from './AudioRecordModal';
 import Modal from '../../../components/common/Modal';
@@ -79,10 +79,10 @@ const TaskManagementPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
-    // Delete Modal State
-    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [deleteId, setDeleteId] = useState<number | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    // Delete Modal State (Commented out as delete button is hidden)
+    // const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    // const [deleteId, setDeleteId] = useState<number | null>(null);
+    // const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState("");
@@ -95,6 +95,7 @@ const TaskManagementPage = () => {
 
     // Project Accordion State
     const [expandedProjects, setExpandedProjects] = useState<number[]>([]);
+    const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
 
     // Modal State
     const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
@@ -107,6 +108,16 @@ const TaskManagementPage = () => {
 
     // Audio recording for existing task
     const [recordingTaskId, setRecordingTaskId] = useState<number | null>(null);
+
+    // Audio Recording State for Edit Modal
+    const [editIsRecording, setEditIsRecording] = useState(false);
+    const [editAudioBlob, setEditAudioBlob] = useState<Blob | null>(null);
+    const [editRecordingTime, setEditRecordingTime] = useState(0);
+    const [editIsPlaying, setEditIsPlaying] = useState(false);
+    const editMediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const editAudioChunksRef = useRef<Blob[]>([]);
+    const editTimerRef = useRef<any>(null);
+    const editAudioRef = useRef<HTMLAudioElement | null>(null);
 
     // Detail Modal states
     const [taskComments, setTaskComments] = useState<any[]>([]);
@@ -192,9 +203,9 @@ const TaskManagementPage = () => {
             let pName = "Unknown Project";
             if (userStr) {
                 const user = JSON.parse(userStr);
-                const assignedProjects = user.assigned_projects || [];
-                const matched = assignedProjects.find((p: any) => p.id === projectId);
-                if (matched) pName = matched.name;
+                const assignedProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
+                const matched = assignedProjects.find((p: any) => (p.id || p.project_id) === projectId);
+                if (matched) pName = matched.project_name || matched.name;
             }
 
             const mappedTasks: FrontendTask[] = (Array.isArray(fetchedTasks) ? fetchedTasks : (fetchedTasks.items || fetchedTasks.data || [])).map((t: Task & { audio_data?: string }) => {
@@ -204,8 +215,10 @@ const TaskManagementPage = () => {
                 // Map the exact project name
                 let taskProjectName = pName;
                 if (t.project_id) {
-                    const matched = (userStr ? JSON.parse(userStr).assigned_projects || [] : []).find((p: any) => p.id === t.project_id);
-                    if (matched) taskProjectName = matched.name;
+                    const user = userStr ? JSON.parse(userStr) : null;
+                    const assignedProjects = user ? (user.assigned_projects || user.user?.assigned_projects || []) : [];
+                    const matched = assignedProjects.find((p: any) => (p.id || p.project_id) === t.project_id);
+                    if (matched) taskProjectName = matched.project_name || matched.name;
                 }
 
                 return {
@@ -230,6 +243,7 @@ const TaskManagementPage = () => {
 
     useEffect(() => {
         const userStr = localStorage.getItem("infrapilot_user");
+        let localProjects: any[] = [];
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
@@ -239,11 +253,22 @@ const TaskManagementPage = () => {
                 } else {
                     setProjectId(92);
                 }
+                localProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
                 setProjectId(92);
             }
         }
+
+        projectService.getProjects(100, 0)
+            .then(data => {
+                const apiProjects = Array.isArray(data) ? data : (data.items || []);
+                setAssignedProjects(apiProjects.length > 0 ? apiProjects : localProjects);
+            })
+            .catch(err => {
+                console.error("Failed to load projects", err);
+                setAssignedProjects(localProjects);
+            });
     }, []);
 
     useEffect(() => {
@@ -252,52 +277,107 @@ const TaskManagementPage = () => {
         }
     }, [projectId, activeTab, fetchData]);
 
+    const startEditRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            editMediaRecorderRef.current = mediaRecorder;
+            editAudioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    editAudioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(editAudioChunksRef.current, { type: 'audio/webm' });
+                setEditAudioBlob(audioBlob);
+            };
+
+            mediaRecorder.start();
+            setEditIsRecording(true);
+            setEditRecordingTime(0);
+            editTimerRef.current = setInterval(() => {
+                setEditRecordingTime(prev => prev + 1);
+            }, 1000);
+        } catch (error) {
+            console.error("Error accessing microphone:", error);
+            toast.error("Microphone access denied or not available");
+        }
+    };
+
+    const stopEditRecording = () => {
+        if (editMediaRecorderRef.current && editIsRecording) {
+            editMediaRecorderRef.current.stop();
+            editMediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+            setEditIsRecording(false);
+            clearInterval(editTimerRef.current);
+        }
+    };
+
+    const deleteEditRecording = () => {
+        setEditAudioBlob(null);
+        setEditRecordingTime(0);
+        if (editAudioRef.current) {
+            editAudioRef.current.pause();
+            editAudioRef.current.src = "";
+        }
+    };
+
+    const toggleEditPlay = () => {
+        if (!editAudioRef.current) return;
+
+        if (editIsPlaying) {
+            editAudioRef.current.pause();
+            setEditIsPlaying(false);
+        } else {
+            if (!editAudioRef.current.src && editAudioBlob) {
+                editAudioRef.current.src = URL.createObjectURL(editAudioBlob);
+                editAudioRef.current.onended = () => setEditIsPlaying(false);
+            }
+            editAudioRef.current.play().catch(() => { });
+            setEditIsPlaying(true);
+        }
+    };
+
+    const formatTime = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
     const openEditModal = (task: FrontendTask) => {
         setSelectedEditTask(task);
+        setEditAudioBlob(null);
         setIsEditModalOpen(true);
     };
 
     const handleEditFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (!projectId || !selectedEditTask) return;
-        const formData = new FormData(e.currentTarget);
+        if (!selectedEditTask) return;
+
+        const formElement = e.currentTarget;
+        const formData = new FormData(formElement);
+
+        const targetProjectId = Number(formData.get('project_id')) || projectId || 0;
+
+        // Ensure we do not send empty files which might fail validation
+        if (editAudioBlob) {
+            formData.set('audio_file', editAudioBlob, 'voice_note.webm');
+        } else if ((formData.get('audio_file') as File)?.size === 0 || !formData.get('audio_file')) {
+            formData.delete('audio_file');
+        }
+        if ((formData.get('instruction_image') as File)?.size === 0) {
+            formData.delete('instruction_image');
+        }
+
+        // Priority is integer in swagger
+        const priorityStr = formData.get('priority') as string;
+        if (priorityStr) formData.set('priority', parseInt(priorityStr).toString());
 
         try {
-            const targetProjectId = Number(formData.get('project_id')) || projectId;
-
-            const updatedTaskData = {
-                title: formData.get('title') as string,
-                description: formData.get('description') as string,
-                priority: formData.get('priority') as string,
-                status: formData.get('status') as string,
-                start_date: formData.get('start_date') as string,
-                end_date: formData.get('end_date') as string,
-                assigned_user_ids: [parseInt(formData.get('assigned_user_id') as string) || 1],
-                project_id: targetProjectId
-            };
-
-            const updatedTaskResponse = await projectService.updateTask(targetProjectId, selectedEditTask.id, updatedTaskData);
-
-            // Optimistic UI Update
-            setTasks(prevTasks => prevTasks.map(t => {
-                if (t.id === selectedEditTask.id) {
-                    const selectEl = document.querySelector('select[name="assigned_user_id"]') as HTMLSelectElement;
-                    const assignedName = selectEl ? selectEl.options[selectEl.selectedIndex].text : t.assignedTo.name;
-                    return {
-                        ...t,
-                        ...updatedTaskData,
-                        ...updatedTaskResponse,
-                        priority: mapPriority(updatedTaskData.priority),
-                        status: updatedTaskData.status as any,
-                        assigned_user_id: updatedTaskData.assigned_user_ids[0],
-                        assignedTo: {
-                            ...t.assignedTo,
-                            name: assignedName
-                        }
-                    };
-                }
-                return t;
-            }));
+            await projectService.updateTask(targetProjectId as number, selectedEditTask.id, formData);
 
             toast.success("Task updated successfully");
             setIsEditModalOpen(false);
@@ -330,6 +410,7 @@ const TaskManagementPage = () => {
         }
     };
 
+    /* 
     const handleDeleteTask = (taskId: number) => {
         setDeleteId(taskId);
         setIsDeleteModalOpen(true);
@@ -339,17 +420,18 @@ const TaskManagementPage = () => {
         if (!projectId || !deleteId) return;
         setIsSubmitting(true);
         try {
-            await projectService.deleteTask(projectId, deleteId);
-            toast.success("Task deleted successfully");
+            const res = await projectService.deleteTask(projectId, deleteId);
+            toast.success(res?.message || "Task deleted successfully");
             setIsDeleteModalOpen(false);
             setDeleteId(null);
             fetchData();
-        } catch (error) {
-            toast.error("Failed to delete task");
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Failed to delete task");
         } finally {
             setIsSubmitting(false);
         }
     };
+    */
 
     const handleStatusChange = async (taskId: number, newStatus: string) => {
         if (!projectId) return;
@@ -800,9 +882,9 @@ const TaskManagementPage = () => {
                                                         <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all">
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
-                                                        <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+                                                        {/* <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
                                                             <Trash2 className="w-4 h-4" />
-                                                        </button>
+                                                        </button> */}
                                                         <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
                                                             <Eye className="w-4 h-4" />
                                                         </button>
@@ -941,9 +1023,9 @@ const TaskManagementPage = () => {
                                                                 <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit">
                                                                     <Edit2 className="w-4 h-4" />
                                                                 </button>
-                                                                <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete">
+                                                                {/* <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete">
                                                                     <Trash2 className="w-4 h-4" />
-                                                                </button>
+                                                                </button> */}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -953,7 +1035,7 @@ const TaskManagementPage = () => {
                                     </div>
                                 )}
                             </div>
-                            
+
                             {/* Pagination Block */}
                             {filteredTasks.length > 0 && (
                                 <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter rounded-b-2xl mt-auto">
@@ -1585,12 +1667,121 @@ const TaskManagementPage = () => {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                    Task Title
+                                    Project <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    name="project_id"
+                                    defaultValue={selectedEditTask?.project_id || projectId || 1}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                    required
+                                >
+                                    <option value="None">None</option>
+                                    {assignedProjects.map((p: any) => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                    Voice Note
+                                </label>
+                                <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                    {!editIsRecording && !editAudioBlob && !selectedEditTask?.audio_data && (
+                                        <button
+                                            type="button"
+                                            onClick={startEditRecording}
+                                            className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 transition-colors"
+                                        >
+                                            <Mic className="w-5 h-5" />
+                                        </button>
+                                    )}
+
+                                    {editIsRecording && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={stopEditRecording}
+                                                className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 transition-colors animate-pulse"
+                                            >
+                                                <Square className="w-5 h-5 fill-current" />
+                                            </button>
+                                            <div className="flex items-center gap-2 text-rose-500 font-medium">
+                                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                                                {formatTime(editRecordingTime)}
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {editAudioBlob && !editIsRecording && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={toggleEditPlay}
+                                                className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                                            >
+                                                {editIsPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                                            </button>
+                                            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                                <div className="h-full bg-blue-500 w-full opacity-30"></div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={deleteEditRecording}
+                                                className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                            <audio ref={editAudioRef} className="hidden" />
+                                        </>
+                                    )}
+
+                                    {!editIsRecording && !editAudioBlob && selectedEditTask?.audio_data && (
+                                        <div className="flex items-center gap-3 w-full">
+                                            <AudioButton audioData={selectedEditTask.audio_data} />
+                                            <span className="text-sm text-slate-600 font-medium">Existing Audio</span>
+                                            <div className="ml-auto flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    name="remove_audio"
+                                                    id="remove_audio_inline"
+                                                    value="true"
+                                                    className="w-4 h-4 text-primary rounded border-slate-300"
+                                                />
+                                                <label htmlFor="remove_audio_inline" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest cursor-pointer">
+                                                    Remove
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {!editIsRecording && !editAudioBlob && !selectedEditTask?.audio_data && (
+                                        <span className="text-sm text-slate-400">Click to record a new voice note</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                    Instruction Image
+                                </label>
+                                <input
+                                    type="file"
+                                    name="instruction_image"
+                                    accept="image/*"
+                                    className="w-full px-4 py-2 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                    Task Title <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     name="title"
                                     defaultValue={selectedEditTask?.title}
+                                    required
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
                                 />
                             </div>
@@ -1610,52 +1801,41 @@ const TaskManagementPage = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Assign To
-                                    </label>
-                                    <select
-                                        name="assigned_user_id"
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                    >
-                                        <option value={selectedEditTask?.assigned_user_id || 1}>{selectedEditTask?.assignedTo?.name || "Select User"}</option>
-                                        <option value="1">Suresh Chaudhari</option>
-                                        <option value="2">Vishal Sathe</option>
-                                        <option value="3">Amit Khare</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                         Priority
                                     </label>
                                     <select
                                         name="priority"
-                                        defaultValue={selectedEditTask?.priority}
+                                        defaultValue={selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     >
-                                        <option value="High">High</option>
-                                        <option value="Medium">Medium</option>
-                                        <option value="Low">Low</option>
+                                        <option value={1}>High</option>
+                                        <option value={2}>Medium</option>
+                                        <option value={3}>Low</option>
                                     </select>
                                 </div>
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Project <span className="text-rose-500">*</span>
+                                        Start Date
                                     </label>
-                                    <select
-                                        name="project_id"
-                                        defaultValue={selectedEditTask?.project_id || projectId || 1}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
-                                        required
-                                    >
-                                        {(() => {
-                                            const userStr = localStorage.getItem("infrapilot_user");
-                                            const projects = userStr ? (JSON.parse(userStr).assigned_projects || []) : [];
-                                            return projects.map((p: any) => (
-                                                <option key={p.id} value={p.id}>{p.name}</option>
-                                            ));
-                                        })()}
-                                    </select>
+                                    <input
+                                        type="date"
+                                        name="start_date"
+                                        defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                        End Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        name="end_date"
+                                        defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                    />
                                 </div>
 
                                 <div>
@@ -1676,26 +1856,80 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Start Date
+                                        Assigned User
+                                    </label>
+                                    <select
+                                        name="assigned_user_ids"
+                                        defaultValue={selectedEditTask?.assigned_user_id || "2"}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                    >
+                                        <option value={selectedEditTask?.assigned_user_id?.toString() || "2"}>{selectedEditTask?.assignedTo?.name || "Select User"}</option>
+                                        <option value="1">Suresh Chaudhari (1)</option>
+                                        <option value="2">Vishal Sathe (2)</option>
+                                        <option value="3">Amit Khare (3)</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                        Activity Type ID
                                     </label>
                                     <input
-                                        type="date"
-                                        name="start_date"
-                                        defaultValue={selectedEditTask?.start_date ? new Date(selectedEditTask.start_date).toISOString().split('T')[0] : ''}
+                                        type="number"
+                                        name="activity_type_id"
+                                        defaultValue={1}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
                                     />
                                 </div>
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Deadline
+                                        Milestone ID
                                     </label>
                                     <input
-                                        type="date"
-                                        name="end_date"
-                                        defaultValue={selectedEditTask?.end_date ? new Date(selectedEditTask.end_date).toISOString().split('T')[0] : ''}
+                                        type="number"
+                                        name="milestone_id"
+                                        defaultValue={selectedEditTask?.milestone_id || 1}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                                        BOQ ID
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="boq_id"
+                                        defaultValue={selectedEditTask?.boq_id || 1}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                                    />
+                                </div>
+
+                                <div className="flex items-center gap-2 mt-2 py-2">
+                                    <input
+                                        type="checkbox"
+                                        name="remove_audio"
+                                        id="remove_audio"
+                                        value="true"
+                                        className="w-4 h-4 text-primary rounded border-slate-300"
+                                    />
+                                    <label htmlFor="remove_audio" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                                        Remove Audio
+                                    </label>
+                                </div>
+
+                                <div className="flex items-center gap-2 mt-2 py-2">
+                                    <input
+                                        type="checkbox"
+                                        name="remove_image"
+                                        id="remove_image"
+                                        value="true"
+                                        className="w-4 h-4 text-primary rounded border-slate-300"
+                                    />
+                                    <label htmlFor="remove_image" className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                                        Remove Image
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -1714,7 +1948,7 @@ const TaskManagementPage = () => {
                 }}
             />
 
-            <ConfirmModal
+            {/* <ConfirmModal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={executeDeleteTask}
@@ -1723,7 +1957,7 @@ const TaskManagementPage = () => {
                 confirmText="Archive Record"
                 type="danger"
                 isLoading={isSubmitting}
-            />
+            /> */}
 
             <AudioRecordModal
                 isOpen={recordingTaskId !== null}

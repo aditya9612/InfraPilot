@@ -23,6 +23,7 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
     const [inTime, setInTime] = useState(new Date().toISOString().slice(0, 16));
     const [checkInLatitude, setCheckInLatitude] = useState<number | null>(null);
     const [checkInLongitude, setCheckInLongitude] = useState<number | null>(null);
+    const [userId, setUserId] = useState<string>('');
     const [checkInAddress, setCheckInAddress] = useState('Fetching location...');
     const [taskId, setTaskId] = useState('');
     const [taskDescription, setTaskDescription] = useState('');
@@ -95,6 +96,8 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
                     const parsed = JSON.parse(raw);
                     const pid = parsed.user?.project_id || parsed.project_id;
                     if (pid) setProjectId(pid.toString());
+                    const uid = parsed.user?.id || parsed.id;
+                    if (uid) setUserId(uid.toString());
                 }
             } catch { }
             projectService.getProjects(100, 0).then((data: any) => {
@@ -113,11 +116,16 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
         setIsSubmitting(true);
         try {
             const fd = new FormData();
-            if (labourId) fd.append("user_id", labourId.toString());
+            if (labourId) {
+                fd.append("user_id", labourId.toString());
+            } else if (userId) {
+                fd.append("user_id", userId);
+            }
             fd.append("attendance_date", attendanceDate);
             if (projectId) fd.append("project_id", projectId);
             fd.append("status", status);
-            fd.append("in_time", new Date(inTime).toISOString());
+            // Append with seconds appended if inTime is just YYYY-MM-DDTHH:MM
+            fd.append("in_time", inTime.length === 16 ? `${inTime}:00` : new Date(inTime).toISOString());
             if (checkInLatitude !== null) fd.append("check_in_latitude", checkInLatitude.toString());
             if (checkInLongitude !== null) fd.append("check_in_longitude", checkInLongitude.toString());
             if (checkInAddress && !["Fetching location...", "Locating...", "Location not available"].includes(checkInAddress))

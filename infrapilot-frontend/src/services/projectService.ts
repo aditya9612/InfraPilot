@@ -256,46 +256,20 @@ export const projectService = {
 
   async getTasks(projectId: number, params: { limit?: number; offset?: number; assigned_user_id?: number; status?: string } = {}) {
     try {
-      const response = await api.get(`/projects/${projectId}/tasks`, { 
-        params: { limit: 100, offset: 0, ...params } 
+      const response = await api.get(`/projects/${projectId}/tasks`, {
+        params: { limit: 100, offset: 0, ...params }
       });
       const data = response.data;
-      return Array.isArray(data) ? data : (data.items || data.data || []);
+      const items = Array.isArray(data) ? data : (data.items || data.data || []);
+
+      // Map assigned_users to assigned_user_id for frontend compatibility
+      return items.map((item: any) => ({
+        ...item,
+        assigned_user_id: item.assigned_user_id || (item.assigned_users && item.assigned_users.length > 0 ? (item.assigned_users[0].id || item.assigned_users[0]) : null)
+      }));
     } catch (error: any) {
       console.error(`Get Tasks API Error:`, error.response?.data || error.message);
-      // Fallback mock tasks
-      return [
-        {
-          id: 2,
-          project_id: projectId,
-          boq_id: null,
-          title: "Foundation Excavation",
-          description: "Excavation work for building foundation in Block A.",
-          priority: "High",
-          status: "Planned",
-          start_date: "2026-05-18",
-          end_date: "2026-05-25",
-          created_by_user_id: 1,
-          assigned_user_id: 1,
-          completion_percentage: 0,
-          is_delayed: false
-        },
-        {
-          id: 1,
-          project_id: projectId,
-          boq_id: null,
-          title: "Site Cleaning",
-          description: "Remove debris and level ground",
-          priority: "High",
-          status: "Planned",
-          start_date: "2026-04-06",
-          end_date: "2026-04-06",
-          created_by_user_id: 1,
-          assigned_user_id: 1,
-          completion_percentage: 0,
-          is_delayed: true
-        }
-      ];
+      throw error;
     }
   },
 

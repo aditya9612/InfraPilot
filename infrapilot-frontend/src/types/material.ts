@@ -1,4 +1,4 @@
-export type RateType  = 'FIXED' | 'VARIABLE';
+export type RateType = 'FIXED' | 'VARIABLE';
 export type AlertType = 'LOW_STOCK' | 'IN_STOCK' | 'NEAR_LOW';
 export type IssueType = 'SITE' | 'SYSTEM' | 'STORE' | 'MANUAL' | 'DAMAGE' | 'LOSS' | 'VENDOR' | 'TRANSFER' | 'ADJUSTMENT' | 'PURCHASE';
 
@@ -44,7 +44,7 @@ export interface Material {
   extra_paid: number;             // overpayment if any
   minimum_stock_level: number;
   alert_type: AlertType;          // system sets automatically
-  
+
   // UI Compatibility aliases
   material_id: number;           // alias for id
   total_value: number;           // alias for total_amount

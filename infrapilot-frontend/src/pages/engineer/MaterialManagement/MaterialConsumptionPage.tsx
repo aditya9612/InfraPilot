@@ -12,7 +12,7 @@ import { projectService } from "../../../services/projectService";
 
 type TabType = "Usage" | "Transfers" | "Transactions";
 const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"];
-const TRANSFER_STATUSES: TransferStatus[] = ["PENDING", "IN_TRANSIT", "DELIVERED", "CANCELLED"];
+const TRANSFER_STATUSES: TransferStatus[] = ["PENDING", "COMPLETED", "CANCELLED"];
 
 const MaterialConsumptionPage = () => {
     const formatINR = (amount: number | string | undefined | null) => {
@@ -105,7 +105,7 @@ const MaterialConsumptionPage = () => {
             try {
                 const res = await projectService.getProjects(100, 0);
                 setProjectsList(Array.isArray(res) ? res : (res.items || res.data || []));
-            } catch (err) {}
+            } catch (err) { }
         };
         fetchProjects();
     }, []);
@@ -255,80 +255,80 @@ const MaterialConsumptionPage = () => {
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Consumption Logs</h2>
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
                         <div className="p-4 border-b border-slate-50 flex items-center gap-4">
-                        <div className="relative flex-1 max-w-md">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                            <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                            <div className="relative flex-1 max-w-md">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
+                                <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                            </div>
+                            <button onClick={activeTab === "Usage" ? fetchInventory : activeTab === "Transfers" ? fetchTransfers : fetchTransactions} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                         </div>
-                        <button onClick={activeTab === "Usage" ? fetchInventory : activeTab === "Transfers" ? fetchTransfers : fetchTransactions} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                        <div className="flex-1 overflow-auto scrollbar-thin">
+                            <table className="w-full text-left whitespace-nowrap">
+                                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0 z-10">
+                                    {activeTab === "Usage" && (
+                                        <tr>
+                                            <th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th>
+                                            <th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th><th className="px-6 py-4 text-right">Actions</th>
+                                        </tr>
+                                    )}
+                                    {activeTab === "Transfers" && (
+                                        <tr>
+                                            <th className="px-6 py-4">Material</th>
+                                            <th className="px-6 py-4">From Project</th>
+                                            <th className="px-6 py-4">To Project</th>
+                                            <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Transfer Date</th><th className="px-6 py-4 text-right">Actions</th>
+                                        </tr>
+                                    )}
+                                    {activeTab === "Transactions" && (
+                                        <tr>
+                                            <th className="px-6 py-4">Date</th><th className="px-6 py-4">Type</th><th className="px-6 py-4">Material</th><th className="px-6 py-4 text-center">Qty</th>
+                                            <th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Amount</th><th className="px-6 py-4">Issue Type</th>
+                                        </tr>
+                                    )}
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {isLoading ? <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading...</td></tr> :
+                                        activeTab === "Usage" ? paginatedInventory.map(i => (
+                                            <tr key={i.material_id} className="hover:bg-slate-50/50">
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.avg_rate)}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <button onClick={() => { setSelectedInventory(i); setUsageForm({ quantity: 0, project_id: projectId, issue_type: "SITE" }); setIsUsageModalOpen(true); }} className="px-4 py-2 bg-rose-50 text-rose-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Record Usage</button>
+                                                </td>
+                                            </tr>
+                                        )) : activeTab === "Transfers" ? paginatedTransfers.map(t => (
+                                            <tr key={t.id} className="hover:bg-slate-50/50">
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material?.name}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{t.from_project?.name || `Project #${t.from_project?.id}`}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{t.to_project?.name || `Project #${t.to_project?.id}`}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{t.quantity}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : t.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{t.status}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at || Date.now()).toLocaleDateString()}</td>
+                                                <td className="px-6 py-4 text-right flex justify-end gap-2">
+                                                    <button onClick={() => { handleViewTransfer(t.id); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View"><Eye className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update Status</button>
+                                                </td>
+                                            </tr>
+                                        )) : paginatedTransactions.map((t, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/50">
+                                                <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at).toLocaleString()}</td>
+                                                <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-[9px] font-bold ${t.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{t.type}</span></td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material_name || `Mat-${t.material_id}`}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-center">{t.quantity}</td>
+                                                <td className="px-6 py-4 text-sm text-right">{formatINR(t.rate)}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-right">{formatINR(t.total_amount)}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">{t.issue_type}</td>
+                                            </tr>
+                                        ))
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        {renderPagination(activeTab === "Usage" ? filteredInventory.length : activeTab === "Transfers" ? filteredTransfers.length : filteredTransactions.length)}
                     </div>
-                    <div className="flex-1 overflow-auto scrollbar-thin">
-                        <table className="w-full text-left whitespace-nowrap">
-                            <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0 z-10">
-                                {activeTab === "Usage" && (
-                                    <tr>
-                                        <th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th>
-                                        <th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th><th className="px-6 py-4 text-right">Actions</th>
-                                    </tr>
-                                )}
-                                {activeTab === "Transfers" && (
-                                    <tr>
-                                        <th className="px-6 py-4">Material</th>
-                                        <th className="px-6 py-4">From Project</th>
-                                        <th className="px-6 py-4">To Project</th>
-                                        <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4">Transfer Date</th><th className="px-6 py-4 text-right">Actions</th>
-                                    </tr>
-                                )}
-                                {activeTab === "Transactions" && (
-                                    <tr>
-                                        <th className="px-6 py-4">Date</th><th className="px-6 py-4">Type</th><th className="px-6 py-4">Material</th><th className="px-6 py-4 text-center">Qty</th>
-                                        <th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Amount</th><th className="px-6 py-4">Issue Type</th>
-                                    </tr>
-                                )}
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {isLoading ? <tr><td colSpan={8} className="p-8 text-center text-slate-400">Loading...</td></tr> :
-                                    activeTab === "Usage" ? paginatedInventory.map(i => (
-                                        <tr key={i.material_id} className="hover:bg-slate-50/50">
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.avg_rate)}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button onClick={() => { setSelectedInventory(i); setUsageForm({ quantity: 0, project_id: projectId, issue_type: "SITE" }); setIsUsageModalOpen(true); }} className="px-4 py-2 bg-rose-50 text-rose-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Record Usage</button>
-                                            </td>
-                                        </tr>
-                                    )) : activeTab === "Transfers" ? paginatedTransfers.map(t => (
-                                        <tr key={t.id} className="hover:bg-slate-50/50">
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material?.name}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600">{t.from_project?.name || `Project #${t.from_project?.id}`}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600">{t.to_project?.name || `Project #${t.to_project?.id}`}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{t.quantity}</td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${t.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : t.status === 'IN_TRANSIT' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{t.status}</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at || Date.now()).toLocaleDateString()}</td>
-                                            <td className="px-6 py-4 text-right flex justify-end gap-2">
-                                                <button onClick={() => { handleViewTransfer(t.id); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View"><Eye className="w-4 h-4" /></button>
-                                                <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update Status</button>
-                                            </td>
-                                        </tr>
-                                    )) : paginatedTransactions.map((t, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-50/50">
-                                            <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at).toLocaleString()}</td>
-                                            <td className="px-6 py-4"><span className={`px-2 py-1 rounded text-[9px] font-bold ${t.type === 'PURCHASE' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{t.type}</span></td>
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-800">{t.material_name || `Mat-${t.material_id}`}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-center">{t.quantity}</td>
-                                            <td className="px-6 py-4 text-sm text-right">{formatINR(t.rate)}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-right">{formatINR(t.total_amount)}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600">{t.issue_type}</td>
-                                        </tr>
-                                    ))
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                    {renderPagination(activeTab === "Usage" ? filteredInventory.length : activeTab === "Transfers" ? filteredTransfers.length : filteredTransactions.length)}
-                </div>
                 </div>
             </PageTransition>
 
@@ -388,7 +388,7 @@ const MaterialConsumptionPage = () => {
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Quantity</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.quantity}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">From Project</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.from_project?.name}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">To Project</p><p className="text-sm font-bold text-slate-800">{viewTransferDetails.to_project?.name}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p><span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border inline-block ${viewTransferDetails.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : viewTransferDetails.status === 'IN_TRANSIT' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{viewTransferDetails.status}</span></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p><span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border inline-block ${viewTransferDetails.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : viewTransferDetails.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{viewTransferDetails.status}</span></div>
                         </div>
                     </div>
                 )}

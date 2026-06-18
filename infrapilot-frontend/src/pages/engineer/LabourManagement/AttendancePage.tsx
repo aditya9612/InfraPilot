@@ -13,16 +13,19 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
-    Briefcase
+    Briefcase,
+    Eye
 } from "lucide-react";
 import toast from 'react-hot-toast';
 import labourService from '../../../services/labourService';
 import SelfCheckInModal from './components/SelfCheckInModal';
 import SelfCheckOutModal from './components/SelfCheckOutModal';
+import { useAuth } from '../../../context/AuthContext';
 
 type AttendanceState = "NOT_CHECKED_IN" | "CHECKED_IN" | "CHECKED_OUT";
 
 const AttendancePage: React.FC = () => {
+    const { user } = useAuth();
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
 
     // Geolocation state
@@ -108,7 +111,56 @@ const AttendancePage: React.FC = () => {
             }
 
             const data = await labourService.getAttendanceList(activeProjectId, fromDate || undefined, toDate || undefined);
-            setSelfAttendances(data.items || []);
+            
+            // Filter out other labourers, only keep self attendance
+            const allItems = data.items || [];
+            const userIdNum = user?.id ? Number(user.id) : null;
+            const filteredItems = allItems.filter((item: any) => 
+                Number(item.user_id) === userIdNum || 
+                Number(item.labour_id) === userIdNum ||
+                (item.worker_code && item.worker_code === `LAB-${userIdNum}`)
+            );
+            
+            setSelfAttendances(filteredItems);
+            // Check today's status to update UI state across reloads
+            const todayRecord = filteredItems.find((item: any) => item.attendance_date === today);
+            
+            const parseTimeStr = (timeStr: string) => {
+                if (!timeStr || timeStr === "--:--") return null;
+                if (timeStr.includes('T')) return new Date(timeStr);
+                
+                const d = new Date();
+                if (timeStr.includes('PM') || timeStr.includes('AM')) {
+                    const [time, period] = timeStr.split(' ');
+                    let [hours, minutes] = time.split(':');
+                    let h = parseInt(hours);
+                    if (period === 'PM' && h !== 12) h += 12;
+                    if (period === 'AM' && h === 12) h = 0;
+                    d.setHours(h, parseInt(minutes), 0, 0);
+                } else {
+                    const [h, m, s] = timeStr.split(':');
+                    d.setHours(parseInt(h) || 0, parseInt(m) || 0, parseInt(s) || 0, 0);
+                }
+                return d;
+            };
+            
+            if (todayRecord) {
+                const parsedIn = parseTimeStr(todayRecord.in_time);
+                const parsedOut = parseTimeStr(todayRecord.out_time);
+                
+                if (parsedOut) {
+                    setAttendanceState("CHECKED_OUT");
+                    if (parsedIn) setCheckInTime(parsedIn);
+                    setCheckOutTime(parsedOut);
+                } else if (parsedIn) {
+                    setAttendanceState("CHECKED_IN");
+                    setCheckInTime(parsedIn);
+                } else {
+                    setAttendanceState("NOT_CHECKED_IN");
+                }
+            } else {
+                setAttendanceState("NOT_CHECKED_IN");
+            }
         } catch (error) {
             console.error("Failed to fetch self attendances", error);
         }
@@ -446,22 +498,17 @@ const AttendancePage: React.FC = () => {
                                         <th className="px-6 py-4">check_in_image</th>
                                         <th className="px-6 py-4">check_out_image</th>
                                         <th className="px-6 py-4">check_in_address</th>
-                                        <th className="px-6 py-4">check_in_latitude</th>
-                                        <th className="px-6 py-4">check_in_longitude</th>
                                         <th className="px-6 py-4">check_out_address</th>
-                                        <th className="px-6 py-4">check_out_latitude</th>
-                                        <th className="px-6 py-4">check_out_longitude</th>
-                                        <th className="px-6 py-4">task_id</th>
                                         <th className="px-6 py-4">task_description</th>
                                         <th className="px-6 py-4">remarks</th>
                                         <th className="px-6 py-4">is_approved</th>
-                                        <th className="px-6 py-4">approved_by_id</th>
                                         <th className="px-6 py-4">is_outside_geofence</th>
                                         <th className="px-6 py-4">is_late</th>
                                         <th className="px-6 py-4">late_minutes</th>
                                         <th className="px-6 py-4">is_early_departure</th>
                                         <th className="px-6 py-4">early_minutes</th>
                                         <th className="px-6 py-4">work_location_type</th>
+                                        <th className="px-6 py-4 text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -493,22 +540,66 @@ const AttendancePage: React.FC = () => {
                                                     ) : <span className="text-[10px] text-slate-400">-</span>}
                                                 </td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_address ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_latitude ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_longitude ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_address ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_latitude ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_longitude ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_id ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_description ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.remarks ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_approved !== undefined ? String(rec.is_approved) : '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.approved_by_id ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_outside_geofence !== undefined ? String(rec.is_outside_geofence) : '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_late !== undefined ? String(rec.is_late) : '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.late_minutes ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_early_departure !== undefined ? String(rec.is_early_departure) : '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.early_minutes ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.work_location_type ?? '-'}</span></td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                toast.loading("Fetching details...", { id: "fetchDetails" });
+                                                                const attendanceData = await labourService.getTodayStatus(rec.user_id);
+                                                                const detailedLabour = attendanceData && attendanceData.attendance
+                                                                    ? attendanceData.attendance
+                                                                    : {};
+                                                                    
+                                                                const mappedData = {
+                                                                    ...rec,
+                                                                    id: rec.user_id || detailedLabour.user_id || 'U',
+                                                                    name: rec.user_name || 'Worker',
+                                                                    imgInUrl: detailedLabour.check_in_image || rec.check_in_image,
+                                                                    imgOutUrl: detailedLabour.check_out_image || rec.check_out_image,
+                                                                    status: detailedLabour.in_time && !detailedLabour.out_time ? 'Online' : 'Offline',
+                                                                    workLocation: detailedLabour.check_in_address || rec.check_in_address || '-',
+                                                                    contractor: '-',
+                                                                    department: '-',
+                                                                    checkIn: detailedLabour.in_time || rec.in_time || '-',
+                                                                    checkOut: detailedLabour.out_time || rec.out_time || '-',
+                                                                    hours: detailedLabour.working_hours || rec.working_hours || '-',
+                                                                    attendanceStatus: detailedLabour.is_late ? 'Late' : 'On Time',
+                                                                    taskDescription: detailedLabour.task_description || rec.task_description || '-',
+                                                                    remarks: detailedLabour.remarks || rec.remarks || '-',
+                                                                    isApproved: detailedLabour.is_approved !== undefined ? String(detailedLabour.is_approved) : (rec.is_approved !== undefined ? String(rec.is_approved) : '-'),
+                                                                    isOutsideGeofence: detailedLabour.is_outside_geofence !== undefined ? String(detailedLabour.is_outside_geofence) : (rec.is_outside_geofence !== undefined ? String(rec.is_outside_geofence) : '-'),
+                                                                    lateMinutes: detailedLabour.late_minutes || rec.late_minutes || '-',
+                                                                    earlyMinutes: detailedLabour.early_minutes || rec.early_minutes || '-',
+                                                                    projectName: rec.project_name || '-'
+                                                                };
+                                                                
+                                                                setSelectedLabour(mappedData);
+                                                                toast.dismiss("fetchDetails");
+                                                                setIsViewModalOpen(true);
+                                                            } catch (err) {
+                                                                console.error("Failed to fetch detailed view", err);
+                                                                toast.dismiss("fetchDetails");
+                                                                toast.error("Failed to fetch detailed view");
+                                                                setSelectedLabour(rec);
+                                                                setIsViewModalOpen(true);
+                                                            }
+                                                        }}
+                                                        className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                                        title="View Details"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))
                                     )}
@@ -695,8 +786,8 @@ const AttendancePage: React.FC = () => {
 
                         {/* Images Section */}
                         <div className="px-6 py-5 border-b border-slate-100">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Attendance & Work Photos</p>
-                            <div className="grid grid-cols-4 gap-4">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Attendance Photos</p>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col items-center gap-2">
                                     <div
                                         className="w-14 h-14 rounded-2xl bg-emerald-50 border-2 border-emerald-400 overflow-hidden cursor-pointer hover:scale-105 transition-transform"
@@ -715,62 +806,70 @@ const AttendancePage: React.FC = () => {
                                     </div>
                                     <p className={`text-[9px] font-bold uppercase tracking-wide text-center ${selectedLabour.checkOut !== '-' && selectedLabour.imgOutUrl ? 'text-rose-500' : 'text-slate-400'}`}>Check-Out</p>
                                 </div>
-                                <div className="flex flex-col items-center gap-2">
-                                    <div
-                                        className={`w-14 h-14 rounded-2xl overflow-hidden ${selectedLabour.startWorkImgUrl ? 'bg-blue-50 border-2 border-blue-400 cursor-pointer hover:scale-105 transition-transform' : 'bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400'}`}
-                                        onClick={() => selectedLabour.startWorkImgUrl && setPreviewImage({ url: selectedLabour.startWorkImgUrl, title: "Start Work Image - " + selectedLabour.name })}
-                                    >
-                                        {selectedLabour.startWorkImgUrl ? <img src={selectedLabour.startWorkImgUrl} alt="Start Work" className="w-full h-full object-cover" /> : <Camera className="w-4 h-4" />}
-                                    </div>
-                                    <p className={`text-[9px] font-bold uppercase tracking-wide text-center ${selectedLabour.startWorkImgUrl ? 'text-blue-500' : 'text-slate-400'}`}>Start Work</p>
-                                </div>
-                                <div className="flex flex-col items-center gap-2">
-                                    <div
-                                        className={`w-14 h-14 rounded-2xl overflow-hidden ${selectedLabour.endWorkImgUrl && selectedLabour.checkOut !== '-' ? 'bg-orange-50 border-2 border-orange-400 cursor-pointer hover:scale-105 transition-transform' : 'bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400'}`}
-                                        onClick={() => selectedLabour.endWorkImgUrl && selectedLabour.checkOut !== '-' && setPreviewImage({ url: selectedLabour.endWorkImgUrl, title: "End Work Image - " + selectedLabour.name })}
-                                    >
-                                        {selectedLabour.endWorkImgUrl && selectedLabour.checkOut !== '-' ? <img src={selectedLabour.endWorkImgUrl} alt="End Work" className="w-full h-full object-cover" /> : <Camera className="w-4 h-4" />}
-                                    </div>
-                                    <p className={`text-[9px] font-bold uppercase tracking-wide text-center ${selectedLabour.endWorkImgUrl && selectedLabour.checkOut !== '-' ? 'text-orange-500' : 'text-slate-400'}`}>End Work</p>
-                                </div>
                             </div>
                         </div>
 
                         {/* Details Grid */}
-                        <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4 border-b border-slate-100">
+                        <div className="px-6 py-5 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4 border-b border-slate-100">
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Labour ID</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT NAME</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.projectName}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">LABOUR ID</p>
                                 <p className="text-xs font-bold text-slate-800">{selectedLabour.id}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contractor</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR</p>
                                 <p className="text-xs font-bold text-slate-800">{selectedLabour.contractor}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Department</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">DEPARTMENT</p>
                                 <p className="text-xs font-bold text-slate-800">{selectedLabour.department}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Work Location</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">WORK LOCATION</p>
                                 <p className="text-xs font-bold text-slate-800">{selectedLabour.workLocation}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-In Time</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CHECK-IN TIME</p>
                                 <p className="text-xs font-bold text-emerald-600">{selectedLabour.checkIn}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-Out Time</p>
-                                <p className={`text-xs font-bold ${selectedLabour.checkOut !== '-' ? 'text-rose-600' : 'text-slate-400'}`}>{selectedLabour.checkOut}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CHECK-OUT TIME</p>
+                                <p className="text-xs font-bold text-slate-500">{selectedLabour.checkOut}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Hours</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.hours || '-'}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">TOTAL HOURS</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.hours}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Attendance Status</p>
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${selectedLabour.attendanceStatus === 'Late' ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
-                                    {selectedLabour.attendanceStatus || 'On Time'}
-                                </span>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">ATTENDANCE STATUS</p>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-500 border border-emerald-100">{selectedLabour.attendanceStatus}</span>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">TASK DESCRIPTION</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.taskDescription}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">REMARKS</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.remarks}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">APPROVED?</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.isApproved}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">OUTSIDE GEOFENCE?</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.isOutsideGeofence}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">LATE MINS</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.lateMinutes}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">EARLY MINS</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.earlyMinutes}</p>
                             </div>
                         </div>
 

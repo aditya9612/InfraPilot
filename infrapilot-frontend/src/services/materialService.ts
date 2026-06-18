@@ -165,7 +165,7 @@ export const materialService = {
       params: { project_id }
     });
     const data = response.data;
-    const items = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+    const items = Array.isArray(data) ? data : (data.materials || data.items || data.data || []);
     return items.map((rep: any) => ({
       ...rep,
       material_id: rep.material_id ?? rep.id ?? Math.floor(Math.random() * 10000),
@@ -173,18 +173,27 @@ export const materialService = {
       total_purchased: rep.total_purchased ?? 0,
       total_used: rep.total_used ?? 0,
       remaining_stock: rep.remaining_stock ?? 0,
-      total_cost: rep.total_cost ?? 0,
+      total_cost: rep.stock_value ?? rep.total_cost ?? 0,
       payment_pending: rep.payment_pending ?? 0,
       project_id: rep.project_id
     }));
   },
   async exportPdf(project_id?: number): Promise<void> {
     try {
-      const response = await api.get("/materials/reports/materials/pdf", { 
-        params: project_id ? { project_id } : undefined,
-        responseType: 'blob' 
-      });
-      if (response.status === 200) {
+      const endpoints = ["/materials/reports/pdf", "/materials/reports/materials/pdf"];
+      let response;
+      for (const endpoint of endpoints) {
+        try {
+            response = await api.get(endpoint, {
+              params: project_id ? { project_id } : undefined,
+              responseType: 'blob'
+            });
+            break;
+        } catch (e: any) {
+            if (e.response?.status !== 404) throw e;
+        }
+      }
+      if (response && response.status === 200) {
         const blob = new Blob([response.data], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -195,7 +204,7 @@ export const materialService = {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } else {
-        throw new Error("Failed to export PDF");
+        throw new Error("Failed to export PDF (404)");
       }
     } catch (e) {
       console.error("PDF API call failed", e);
@@ -205,11 +214,20 @@ export const materialService = {
 
   async exportExcel(project_id?: number): Promise<void> {
     try {
-      const response = await api.get("/materials/reports/materials/excel", { 
-        params: project_id ? { project_id } : undefined,
-        responseType: 'blob' 
-      });
-      if (response.status === 200) {
+      const endpoints = ["/materials/reports/excel", "/materials/reports/materials/excel"];
+      let response;
+      for (const endpoint of endpoints) {
+        try {
+            response = await api.get(endpoint, {
+              params: project_id ? { project_id } : undefined,
+              responseType: 'blob'
+            });
+            break;
+        } catch (e: any) {
+            if (e.response?.status !== 404) throw e;
+        }
+      }
+      if (response && response.status === 200) {
         const blob = new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -220,7 +238,7 @@ export const materialService = {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } else {
-        throw new Error("Failed to export Excel");
+        throw new Error("Failed to export Excel (404)");
       }
     } catch (e) {
       console.error("Excel API call failed", e);
@@ -347,8 +365,16 @@ export const materialService = {
   },
 
   async getPriceHistory(material_id: number): Promise<PriceHistory[]> {
-    const response = await api.get<PriceHistory[]>(`/materials/materials/price-history/${material_id}`);
-    return response.data;
+    const endpoint = `/materials/price-history/${material_id}`;
+    console.log(`GET /api/v1${endpoint}`);
+    try {
+      const response = await api.get(endpoint);
+      console.log(`Success! GET /api/v1${endpoint} returned:`, response.data);
+      return Array.isArray(response.data) ? response.data : (response.data.data || []);
+    } catch (e: any) {
+      console.error(`Endpoint /api/v1${endpoint} failed:`, e.response?.data || e.message);
+      return [];
+    }
   },
 
   async getMaterialSummary(project_id?: number): Promise<InventorySummary> {
