@@ -189,8 +189,64 @@ const GSTInvoicesWrapperSection = () => {
         </div>
       </div>
 
-      <div className="p-10 bg-white rounded-2xl shadow-sm border border-slate-100 text-center text-slate-500 font-bold">
-        Register View Coming Soon
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/60 border-b border-slate-100">
+              <tr>
+                {["Date", "Invoice No", "Type", "Party Name", "GSTIN", "Taxable Amt", "Total GST", "Invoice Total", "Attachments", "Action"].map(h => (
+                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              <tr className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-4 py-3 text-xs text-slate-500">2026-05-12</td>
+                <td className="px-4 py-3 text-xs font-bold text-primary">INV-001</td>
+                <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full font-bold text-[10px] uppercase">Sales</span></td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800">Apex Developers</td>
+                <td className="px-4 py-3 text-xs font-mono text-slate-500">27XYZAQ9876P1Z2</td>
+                <td className="px-4 py-3 text-xs text-right">₹10,00,000</td>
+                <td className="px-4 py-3 text-xs text-right">₹1,80,000</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹11,80,000</td>
+                <td className="px-4 py-3 text-xs">
+                  <div className="flex gap-2">
+                    <span className="flex items-center gap-1 text-slate-500 hover:text-primary cursor-pointer" title="Invoice Copy">📄</span>
+                    <span className="flex items-center gap-1 text-slate-500 hover:text-primary cursor-pointer" title="GST Document">📑</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  <div className="flex gap-2">
+                    <button className="text-slate-400 hover:text-primary">👁</button>
+                    <button className="text-slate-400 hover:text-primary">✏️</button>
+                  </div>
+                </td>
+              </tr>
+              <tr className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-4 py-3 text-xs text-slate-500">2026-05-10</td>
+                <td className="px-4 py-3 text-xs font-bold text-primary">INV-UTC-991</td>
+                <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Purchase</span></td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800">UltraTech Cement</td>
+                <td className="px-4 py-3 text-xs font-mono text-slate-500">27ABCDE1234F1Z5</td>
+                <td className="px-4 py-3 text-xs text-right">₹5,00,000</td>
+                <td className="px-4 py-3 text-xs text-right">₹1,40,000</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹6,40,000</td>
+                <td className="px-4 py-3 text-xs">
+                  <div className="flex gap-2">
+                    <span className="flex items-center gap-1 text-slate-500 hover:text-primary cursor-pointer" title="Invoice Copy">📄</span>
+                    <span className="flex items-center gap-1 text-slate-400 cursor-not-allowed" title="No GST Document">➖</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  <div className="flex gap-2">
+                    <button className="text-slate-400 hover:text-primary">👁</button>
+                    <button className="text-slate-400 hover:text-primary">✏️</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <GSTInvoiceModal 

@@ -477,8 +477,8 @@ const IssueTrackerPage = () => {
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
                                                 className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                                                     }`}
                                             >
                                                 {pageNum}
@@ -547,9 +547,9 @@ const IssueTrackerPage = () => {
                                     <div>
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Project</p>
                                         <p className="text-sm font-bold text-slate-800 uppercase tracking-widest truncate">
-                                            {projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.project_name || 
-                                             projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.name || 
-                                             `Project #${selectedIssue.project_id}`}
+                                            {projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.project_name ||
+                                                projects.find(p => Number(p.id) === Number(selectedIssue.project_id))?.name ||
+                                                `Project #${selectedIssue.project_id}`}
                                         </p>
                                     </div>
                                     <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Category</p><p className="text-sm font-bold text-slate-800 uppercase tracking-widest">{selectedIssue.category}</p></div>
