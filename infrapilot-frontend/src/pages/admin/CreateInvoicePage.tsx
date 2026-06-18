@@ -34,6 +34,7 @@ import type { LabourItem, MaterialItem, ExtraChargeItem } from "../../types/quot
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
 import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
+import QuotationPreviewModal from "../../components/forms/QuotationPreviewModal";
 import SelectContractorModal from "../../components/forms/SelectContractorModal";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
@@ -2471,28 +2472,61 @@ const CreateInvoicePage = () => {
         </div>
       </PageTransition>
 
-      <InvoicePreviewModal
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-        data={previewData ? previewData : {
-          clientName: clientDetails.name,
-          clientAddress: clientDetails.address,
-          clientGst: clientDetails.gst,
-          invoiceNo: invoiceDetails.invoiceNo,
-          date: invoiceDetails.date,
-          items: items,
-          labourItems: [],
-          materialItems: [],
-          extraChargeItems: [],
-          subTotal: subTotal,
-          grandTotal: grandTotal,
-          cgstRate: gstRates.cgst,
-          sgstRate: gstRates.sgst,
-          discount: discount,
-          advancePaid: advancePaid,
-          balanceDue: balanceDue,
-        }}
-      />
+      {status?.toLowerCase() === "converted" || status?.toLowerCase() === "invoice" ? (
+        <InvoicePreviewModal
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          data={previewData ? previewData : {
+            clientName: clientDetails.name,
+            clientAddress: clientDetails.address,
+            clientGst: clientDetails.gst,
+            invoiceNo: invoiceDetails.invoiceNo,
+            date: invoiceDetails.date,
+            items: items,
+            labourItems: labourItems,
+            materialItems: materialItems,
+            extraChargeItems: extraChargeItems,
+            subTotal: subTotal,
+            grandTotal: grandTotal,
+            cgstRate: gstRates.cgst,
+            sgstRate: gstRates.sgst,
+            discount: discount,
+            advancePaid: advancePaid,
+            balanceDue: balanceDue,
+          }}
+        />
+      ) : (
+        <QuotationPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          data={previewData ? previewData : {
+            clientName: clientDetails.name,
+            clientAddress: clientDetails.address || projectDetails.siteAddress,
+            mobile_number: clientDetails.mobile,
+            gst_number: clientDetails.gst,
+            projectName: projectDetails.name || "N/A",
+            siteAddress: projectDetails.siteAddress || clientDetails.address,
+            invoiceNo: invoiceDetails.invoiceNo || (id ? `QTN-${id}` : "NEW"),
+            date: invoiceDetails.date || new Date().toLocaleDateString(),
+            items: items,
+            labourItems: labourItems,
+            materialItems: materialItems,
+            extraChargeItems: extraChargeItems,
+            subTotal: subTotal,
+            grandTotal: grandTotal,
+            cgstRate: gstRates.cgst,
+            sgstRate: gstRates.sgst,
+            discount: discount,
+            advancePaid: advancePaid,
+            balanceDue: balanceDue,
+            // Add missing dynamic fields
+            projectType: projectDetails.type || "Commercial",
+            engineerName: projectDetails.engineer || "N/A",
+            workOrderNo: projectDetails.workOrderNo || "N/A",
+            terms: terms || "50% advance payment required."
+          }}
+        />
+      )}
 
       <EditInvoiceItemModal
         isOpen={isEditModalOpen}

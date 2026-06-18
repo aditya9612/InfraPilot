@@ -194,43 +194,117 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   ProjectManager: [
     { label: "Dashboard", path: "/manager", icon: "grid" },
-    { label: "Projects", path: "/manager/projects", icon: "folder" },
-    { label: "Work Progress", path: "/manager/work-progress", icon: "activity" },
-    { label: "Tasks", path: "/manager/tasks", icon: "check-square" },
     {
-      label: "Approvals",
-      path: "/manager/approvals",
-      icon: "check-circle",
+      label: "Projects",
+      path: "/manager/projects",
+      icon: "folder",
       subNav: [
-        { label: "DSR Approval", path: "/manager/approvals/dsr", icon: "clipboard-list" },
-        { label: "Material Approval", path: "/manager/approvals/material", icon: "package" },
-        { label: "Expense Approval", path: "/manager/approvals/expense", icon: "dollar-sign" },
-      ],
+        { label: "Project List", path: "/manager/projects/list", icon: "list" },
+        { label: "Project Details", path: "/manager/projects/details", icon: "info" },
+        { label: "Milestones", path: "/manager/projects/milestones", icon: "activity" },
+        { label: "Project Timeline", path: "/manager/projects/timeline", icon: "calendar" },
+      ]
     },
-    { label: "BOQ", path: "/manager/boq", icon: "list" },
-    { label: "Procurement", path: "/manager/procurement", icon: "shopping-cart" },
-    { label: "Quality", path: "/manager/quality", icon: "shield-check" },
-    { label: "Safety", path: "/manager/safety", icon: "alert-octagon" },
+    {
+      label: "Work Progress",
+      path: "/manager/progress",
+      icon: "trending-up",
+      subNav: [
+        { label: "Daily Progress", path: "/manager/progress/daily", icon: "clipboard" },
+        { label: "Weekly Progress", path: "/manager/progress/weekly", icon: "calendar" },
+        { label: "Progress Reports", path: "/manager/progress/reports", icon: "file-text" },
+      ]
+    },
+    {
+      label: "Tasks",
+      path: "/manager/tasks",
+      icon: "check-square",
+      subNav: [
+        { label: "My Tasks", path: "/manager/tasks/mine", icon: "user-check" },
+        { label: "Team Tasks", path: "/manager/tasks/team", icon: "users" },
+        { label: "Assign Task", path: "/manager/tasks/assign", icon: "plus" },
+        { label: "Task Calendar", path: "/manager/tasks/calendar", icon: "calendar" },
+      ]
+    },
     {
       label: "Resources",
       path: "/manager/resources",
       icon: "users",
       subNav: [
-        { label: "Deployment Hub", path: "/manager/resources/orchestrator", icon: "map" },
-        { label: "Site Engineers", path: "/manager/projects", icon: "user-check" },
-      ],
+        { label: "Labour", path: "/manager/resources/labour", icon: "users" },
+        { label: "Equipment", path: "/manager/resources/equipment", icon: "tool" },
+        { label: "Materials", path: "/manager/resources/materials", icon: "package" },
+      ]
     },
-    { label: "Labour", path: "/manager/labour", icon: "users" },
     {
-      label: "Compliance Hub",
-      path: "/manager/compliance",
+      label: "BOQ & Estimation",
+      path: "/manager/boq",
+      icon: "list",
+      subNav: [
+        { label: "BOQ", path: "/manager/boq/list", icon: "file-text" },
+        { label: "Budget", path: "/manager/boq/budget", icon: "dollar-sign" },
+        { label: "Cost Tracking", path: "/manager/boq/cost", icon: "trending-up" },
+      ]
+    },
+    {
+      label: "Procurement",
+      path: "/manager/procurement",
+      icon: "shopping-cart",
+      subNav: [
+        { label: "Material Requests", path: "/manager/procurement/requests", icon: "package" },
+        { label: "Purchase Requests", path: "/manager/procurement/purchase-requests", icon: "file-text" },
+        { label: "Purchase Orders", path: "/manager/procurement/purchase-orders", icon: "clipboard" },
+      ]
+    },
+    {
+      label: "Quality",
+      path: "/manager/quality",
+      icon: "check-circle",
+      subNav: [
+        { label: "Inspections", path: "/manager/quality/inspections", icon: "search" },
+        { label: "Quality Checklists", path: "/manager/quality/checklists", icon: "list" },
+        { label: "NCR", path: "/manager/quality/ncr", icon: "alert-triangle" },
+      ]
+    },
+    {
+      label: "Safety",
+      path: "/manager/safety",
       icon: "shield",
       subNav: [
-        { label: "QC Governance", path: "/manager/compliance/qc", icon: "check-circle" },
-        { label: "Safety Audit", path: "/manager/compliance/safety", icon: "alert-triangle" },
-      ],
+        { label: "Incidents", path: "/manager/safety/incidents", icon: "alert-triangle" },
+        { label: "Corrective Actions", path: "/manager/safety/actions", icon: "check-square" },
+      ]
     },
-    { label: "Chat", path: "/chat", icon: "message-circle" },
+    {
+      label: "Documents",
+      path: "/manager/documents",
+      icon: "folder",
+      subNav: [
+        { label: "Drawings", path: "/manager/documents/drawings", icon: "edit-3" },
+        { label: "Contracts", path: "/manager/documents/contracts", icon: "file-text" },
+        { label: "Project Files", path: "/manager/documents/files", icon: "file" },
+      ]
+    },
+    {
+      label: "Approvals",
+      path: "/manager/approvals",
+      icon: "check-circle",
+      subNav: [
+        { label: "Pending Approvals", path: "/manager/approvals/pending", icon: "clock" },
+        { label: "Approved", path: "/manager/approvals/approved", icon: "check-circle" },
+        { label: "Rejected", path: "/manager/approvals/rejected", icon: "rotate-ccw" },
+      ]
+    },
+    {
+      label: "Reports",
+      path: "/manager/reports",
+      icon: "bar-chart",
+      subNav: [
+        { label: "Progress Report", path: "/manager/reports/progress", icon: "trending-up" },
+        { label: "Cost Report", path: "/manager/reports/cost", icon: "dollar-sign" },
+        { label: "Resource Report", path: "/manager/reports/resource", icon: "users" },
+      ]
+    },
     { label: "Settings", path: "/manager/settings", icon: "settings" },
   ],
   SiteEngineer: [

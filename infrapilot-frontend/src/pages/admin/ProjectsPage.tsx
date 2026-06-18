@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { exportToCSV } from "../../utils/csvExport";
+import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import NewProjectModal from "../../components/dashboard/NewProjectModal";
@@ -47,6 +48,7 @@ const backendStatusMap: Record<string, string> = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const ProjectsPage = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
@@ -87,8 +89,32 @@ const ProjectsPage = () => {
         financeService.getInvoices(50, 0).catch(() => [])
       ]);
 
-      const projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
-      const fullList = Array.isArray(allRes) ? allRes : (allRes.items || allRes.data || []);
+      let projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
+      let fullList = Array.isArray(allRes) ? allRes : (allRes.items || allRes.data || []);
+
+      if (user?.role === "ProjectManager") {
+        try {
+          const memberChecks = await Promise.all(
+            fullList.map(async (p: any) => {
+              const mems = await projectService.getProjectMembers(p.id).catch(() => []);
+              const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
+              const isAssigned = memberList.some((m: any) =>
+                String(m.user_id) === String(user.id) ||
+                String(m.user?.id) === String(user.id) ||
+                String(m.userId) === String(user.id)
+              );
+              return { id: p.id, isAssigned };
+            })
+          );
+          const assignedIds = new Set(memberChecks.filter(c => c.isAssigned).map(c => c.id));
+          if (assignedIds.size > 0) {
+            projectList = projectList.filter((p: any) => assignedIds.has(p.id));
+            fullList = fullList.filter((p: any) => assignedIds.has(p.id));
+          }
+        } catch (err) {
+          console.error("Failed to filter assigned projects:", err);
+        }
+      }
 
       setProjects(projectList);
       setAllProjects(fullList);
@@ -134,7 +160,7 @@ const ProjectsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, filterStatus]);
+  }, [debouncedSearch, filterStatus, user]);
 
   useEffect(() => {
     fetchProjects();
@@ -290,12 +316,14 @@ const ProjectsPage = () => {
             >
               Download CSV
             </button>
-            <button
-              onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-            >
-              + New Project
-            </button>
+            {user?.role !== "ProjectManager" && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+              >
+                + New Project
+              </button>
+            )}
           </div>
         </div>
 
@@ -623,12 +651,16 @@ const ProjectsPage = () => {
                             <button onClick={() => handleViewProject(p.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all" title="View Details">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                             </button>
-                            <button onClick={() => handleEditClick(p)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit Project">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                            </button>
-                            <button onClick={() => handleDeleteClick(p.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete Project">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            </button>
+                            {user?.role !== "ProjectManager" && (
+                              <>
+                                <button onClick={() => handleEditClick(p)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit Project">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                                <button onClick={() => handleDeleteClick(p.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete Project">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

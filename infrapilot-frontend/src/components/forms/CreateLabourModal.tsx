@@ -33,6 +33,10 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
         if (initialData) {
             setFormData({
                 ...initialData,
+                default_daily_wage: initialData.default_daily_wage ?? 0,
+                default_working_hours: initialData.default_working_hours ?? 8,
+                default_ot_rate_per_hour: initialData.default_ot_rate_per_hour ?? 0,
+                is_active: initialData.is_active ?? true,
                 type: "Labour"
             });
         } else {
@@ -56,8 +60,10 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
         const newErrors: Record<string, string> = {};
 
         if (!formData.name.trim()) newErrors.name = "Labour type name is required.";
-        if (!formData.unique_code.trim()) newErrors.unique_code = "Unique code is required.";
         if (!formData.category.trim()) newErrors.category = "Category is required.";
+
+        if (formData.default_daily_wage <= 0) newErrors.default_daily_wage = "Daily wage must be positive.";
+        if (formData.default_ot_rate_per_hour < 0) newErrors.default_ot_rate_per_hour = "OT rate cannot be negative.";
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
@@ -115,11 +121,11 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <label className="block text-sm font-medium text-gray-600 mb-1">
-                                Unique Code <span className="text-rose-500">*</span>
+                                Unique Code <span className="text-gray-400 font-normal italic">(Optional)</span>
                             </label>
                             <input
                                 type="text"
-                                placeholder="e.g. MAS001"
+                                placeholder="LAB-001 (Auto-generated if empty)"
                                 className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.unique_code ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
                                 value={formData.unique_code}
                                 onChange={(e) => setFormData({ ...formData, unique_code: e.target.value })}
@@ -164,6 +170,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                                 value={formData.default_daily_wage}
                                 onChange={(e) => setFormData({ ...formData, default_daily_wage: Number(e.target.value) })}
                             />
+                            {errors.default_daily_wage && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_daily_wage}</p>}
                         </div>
                     </div>
 
@@ -187,6 +194,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                                 value={formData.default_ot_rate_per_hour}
                                 onChange={(e) => setFormData({ ...formData, default_ot_rate_per_hour: Number(e.target.value) })}
                             />
+                            {errors.default_ot_rate_per_hour && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_ot_rate_per_hour}</p>}
                         </div>
                     </div>
 

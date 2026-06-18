@@ -7,6 +7,7 @@ export interface MasterEntity {
     category: string;
     system_tag?: string;
     unit?: string | null;
+    is_active?: boolean;
 }
 
 export interface MasterStats {

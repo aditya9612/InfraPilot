@@ -124,11 +124,13 @@ export const boqService = {
       const response = await api.get(`/boq/${boqId}/versions`);
       return response.data.versions || [];
     } catch (error: any) {
-      console.error(
-        `Get versions for Boq ${boqId} Error:`,
-        error.response?.data || error.message,
-      );
-      throw error;
+      if (error.response?.status !== 404) {
+        console.error(
+          `Get versions for Boq ${boqId} Error:`,
+          error.response?.data || error.message,
+        );
+      }
+      return [];
     }
   },
 
@@ -141,11 +143,13 @@ export const boqService = {
       const response = await api.get(`/boq/${boqId}/versions`);
       return response.data.versions || [];
     } catch (error: any) {
-      console.error(
-        `Get versions for BOQ ${boqId} Error:`,
-        error.response?.data || error.message,
-      );
-      throw error;
+      if (error.response?.status !== 404) {
+        console.error(
+          `Get versions for BOQ ${boqId} Error:`,
+          error.response?.data || error.message,
+        );
+      }
+      return [];
     }
   },
 
@@ -384,11 +388,10 @@ export const boqService = {
    * Bulk add items to a BOQ document
    * POST /api/v1/boq/{boq_id}/items/bulk
    */
-  async bulkAddItems(_boqId: number, items: CreateBoqRequest[]): Promise<any[]> {
-    console.log("bulkAddItems called with:", { _boqId, itemCount: items.length });
+  async bulkAddItems(boqId: number, items: CreateBoqRequest[]): Promise<any[]> {
+    console.log("bulkAddItems called with:", { boqId, itemCount: items.length });
     try {
-      // Backend does not support bulk endpoints for items.
-      // We iterate and save each item individually.
+      // Bulk endpoint not yet available on backend; fall back to sequential individual creates.
       const results = [];
       for (const item of items) {
         const response = await api.post("/boq", item);
@@ -397,7 +400,7 @@ export const boqService = {
       return results;
     } catch (error: any) {
       console.error(
-        `Bulk Add Items to Boq ${_boqId} Error:`,
+        `Bulk Add Items to Boq ${boqId} Error:`,
         error.response?.data || error.message,
       );
       throw error;

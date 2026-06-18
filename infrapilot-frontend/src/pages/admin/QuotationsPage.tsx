@@ -22,6 +22,7 @@ import { quotationService } from "../../services/quotationService";
 import { financeService } from "../../services/financeService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
+import QuotationPreviewModal from "../../components/forms/QuotationPreviewModal";
 import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
 import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
 
@@ -44,6 +45,7 @@ const QuotationsPage = () => {
     // Preview state
     const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
     const [previewData, setPreviewData] = useState<any>(null);
+    const [previewType, setPreviewType] = useState<"quotation" | "invoice">("quotation");
     const [isFetchingPreview, setIsFetchingPreview] = useState(false);
 
     const fetchQuotations = async () => {
@@ -170,11 +172,20 @@ const QuotationsPage = () => {
             toast.loading("Preparing preview...", { id: "preview-loading" });
             const data = await quotationService.getQuotationPreview(id);
 
-            // Map Quotation to InvoicePreview format
+            // Determine if we show Quotation or Invoice format
+            const currentStatus = (data.status || "").toLowerCase();
+            console.log("Quotation Status for Preview:", currentStatus);
+            const isConverted = currentStatus === "converted" || currentStatus === "invoice";
+            setPreviewType(isConverted ? "invoice" : "quotation");
+
+            // Map Quotation to Preview format
             const mappedData = {
                 clientName: data.client_name,
                 clientAddress: data.billing_address || data.site_address,
-                clientGst: data.gst_number,
+                mobile_number: data.mobile_number,
+                gst_number: data.gst_number,
+                projectName: data.project_name || "N/A",
+                siteAddress: data.site_address || data.billing_address,
                 invoiceNo: data.quotation_no || `QTN-${data.id}`,
                 date: data.created_at ? new Date(data.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
                 items: data.items || [],
@@ -187,7 +198,12 @@ const QuotationsPage = () => {
                 discount: data.discount_amount || 0,
                 advancePaid: data.advance_paid || 0,
                 balanceDue: data.balance_due || 0,
-                grandTotal: data.grand_total || 0
+                grandTotal: data.grand_total || 0,
+                // Add missing dynamic fields
+                projectType: data.project_type || "Commercial",
+                engineerName: data.engineer_name || "N/A",
+                workOrderNo: data.work_order_no || "N/A",
+                terms: data.terms_conditions || "50% advance payment required."
             };
 
             setPreviewData(mappedData);
@@ -424,11 +440,19 @@ const QuotationsPage = () => {
                 isLoading={isRejecting}
                 title="Reject Quotation"
             />
-            <InvoicePreviewModal
-                isOpen={isPreviewModalOpen}
-                onClose={() => setIsPreviewModalOpen(false)}
-                data={previewData}
-            />
+            {previewType === "quotation" ? (
+                <QuotationPreviewModal
+                    isOpen={isPreviewModalOpen}
+                    onClose={() => setIsPreviewModalOpen(false)}
+                    data={previewData}
+                />
+            ) : (
+                <InvoicePreviewModal
+                    isOpen={isPreviewModalOpen}
+                    onClose={() => setIsPreviewModalOpen(false)}
+                    data={previewData}
+                />
+            )}
         </>
     );
 };

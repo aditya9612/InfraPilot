@@ -35,6 +35,16 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
     if (initialData) {
       setFormData({
         ...initialData,
+        name: initialData.name ?? "",
+        unique_code: initialData.unique_code ?? "",
+        category: initialData.category ?? "",
+        unit: initialData.unit ?? "",
+        brand: initialData.brand ?? "",
+        specification: initialData.specification ?? "",
+        hsn_code: initialData.hsn_code ?? "",
+        default_rate: initialData.default_rate ?? 0,
+        minimum_stock_level: initialData.minimum_stock_level ?? 0,
+        is_active: initialData.is_active ?? true,
         type: "Material"
       });
     } else {
@@ -60,9 +70,10 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = "Material name is required.";
-    if (!formData.unique_code.trim()) newErrors.unique_code = "Unique code is required.";
     if (!formData.category.trim()) newErrors.category = "Category is required.";
     if (!formData.unit.trim()) newErrors.unit = "Unit is required.";
+
+    if (formData.default_rate <= 0) newErrors.default_rate = "Default rate must be positive.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -121,11 +132,11 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Unique Code <span className="text-rose-500">*</span>
+                Unique Code <span className="text-gray-400 font-normal italic">(Optional)</span>
               </label>
               <input
                 type="text"
-                placeholder="e.g. MAT-CEMENT-001"
+                placeholder="MAT-001 (Auto-generated if empty)"
                 className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.unique_code ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
                 value={formData.unique_code}
                 onChange={(e) => setFormData({ ...formData, unique_code: e.target.value })}
@@ -203,6 +214,7 @@ const CreateMaterialModal: React.FC<CreateMaterialModalProps> = ({
                 value={formData.default_rate}
                 onChange={(e) => setFormData({ ...formData, default_rate: Number(e.target.value) })}
               />
+              {errors.default_rate && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_rate}</p>}
             </div>
           </div>
 
