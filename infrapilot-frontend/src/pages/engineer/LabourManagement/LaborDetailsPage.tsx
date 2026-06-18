@@ -11,10 +11,6 @@ import {
     Trash2,
     Eye,
     Filter,
-    Briefcase,
-    Phone,
-    Mail,
-    FileText,
     Building2,
     ChevronLeft,
     ChevronRight
@@ -27,8 +23,13 @@ import type { LabourItem } from "../../../types/labour";
 const initialFormData = {
     aadhaar_number: "",
     labour_name: "",
-    skill_type: "Skilled",
-    daily_wage_rate: "",
+    mobile_number: "",
+    email: "",
+    pan_number: "",
+    address: "",
+    labour_type_id: 1,
+    custom_daily_wage_rate: "",
+    custom_ot_rate_per_hour: "",
     contractor_id: 1,
     status: "Active",
     notes: "",
@@ -65,7 +66,7 @@ const LaborDetailsPage = () => {
             return 92;
         }
     });
-    const [contractorFilter, setContractorFilter] = useState<number | null>(null);
+    const [contractorFilter, setContractorFilter] = useState<string>("");
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [labourToDelete, setLabourToDelete] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -97,36 +98,25 @@ const LaborDetailsPage = () => {
         const newErrors: Record<string, string> = {};
         const aadhaarDigits = formData.aadhaar_number.replace(/-/g, "");
 
-        if (!formData.aadhaar_number.trim()) {
-            newErrors.aadhaar_number = "Aadhaar number is required";
-        } else if (aadhaarDigits.length !== 12) {
-            newErrors.aadhaar_number = "Aadhaar must be exactly 12 digits";
-        } else if (/^(\d)\1+$/.test(aadhaarDigits)) {
-            newErrors.aadhaar_number = "Aadhaar cannot consist of all identical digits";
-        } else if (aadhaarDigits.startsWith("0") || aadhaarDigits.startsWith("1")) {
-            newErrors.aadhaar_number = "Aadhaar number cannot start with 0 or 1";
+        if (formData.aadhaar_number.trim()) {
+            if (aadhaarDigits.length !== 12) newErrors.aadhaar_number = "Aadhaar must be exactly 12 digits";
+            else if (/^(\d)\1+$/.test(aadhaarDigits)) newErrors.aadhaar_number = "Aadhaar cannot consist of all identical digits";
+            else if (aadhaarDigits.startsWith("0") || aadhaarDigits.startsWith("1")) newErrors.aadhaar_number = "Aadhaar cannot start with 0 or 1";
         }
 
         if (!formData.labour_name.trim()) {
-            newErrors.labour_name = "Name is required";
+            newErrors.labour_name = "Labour name is required";
         } else if (!/^[a-zA-Z\s]+$/.test(formData.labour_name)) {
             newErrors.labour_name = "Name must contain only alphabets";
         }
 
-        if (!formData.skill_type.trim()) newErrors.skill_type = "Skill type is required";
-
-        if (!formData.daily_wage_rate) {
-            newErrors.daily_wage_rate = "Wage rate is required";
-        } else if (isNaN(Number(formData.daily_wage_rate)) || Number(formData.daily_wage_rate) <= 0) {
-            newErrors.daily_wage_rate = "Wage rate must be greater than 0";
-        } else if (!/^\d+(\.\d{1,2})?$/.test(String(formData.daily_wage_rate))) {
-            newErrors.daily_wage_rate = "Wage rate can have up to 2 decimal places";
-        } else if (Number(formData.daily_wage_rate) > 50000) {
-            newErrors.daily_wage_rate = "Wage rate exceeds maximum allowed limit";
+        if (!formData.mobile_number.trim()) {
+            newErrors.mobile_number = "Mobile number is required";
+        } else if (!/^[6-9]\d{9}$/.test(formData.mobile_number)) {
+            newErrors.mobile_number = "Enter a valid 10-digit Indian mobile number";
         }
 
-        if (!formData.contractor_id) newErrors.contractor_id = "Contractor ID is required";
-        if (!formData.status.trim()) newErrors.status = "Status is required";
+        if (!formData.labour_type_id) newErrors.labour_type_id = "Labour type is required";
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -267,8 +257,13 @@ const LaborDetailsPage = () => {
             if (formMode === "edit" && editId) {
                 const updatePayload = {
                     labour_name: formData.labour_name,
-                    skill_type: formData.skill_type,
-                    daily_wage_rate: Number(formData.daily_wage_rate).toFixed(2),
+                    mobile_number: formData.mobile_number || undefined,
+                    email: formData.email || undefined,
+                    pan_number: formData.pan_number || undefined,
+                    address: formData.address || undefined,
+                    labour_type_id: Number(formData.labour_type_id),
+                    custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : undefined,
+                    custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : undefined,
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
@@ -297,14 +292,19 @@ const LaborDetailsPage = () => {
                 toast.success("Profile updated successfully");
             } else {
                 const createPayload = {
-                    aadhaar_number: formData.aadhaar_number.replace(/-/g, ""),
+                    aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : undefined,
                     labour_name: formData.labour_name,
-                    skill_type: formData.skill_type,
-                    daily_wage_rate: Number(formData.daily_wage_rate),
+                    mobile_number: formData.mobile_number,
+                    email: formData.email || undefined,
+                    pan_number: formData.pan_number || undefined,
+                    address: formData.address || undefined,
+                    labour_type_id: Number(formData.labour_type_id),
+                    custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : undefined,
+                    custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : undefined,
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
-                    project_id: projectId || 92, // Only include if user has set a project
+                    project_id: projectId || 92,
                 };
                 console.log("Step 1: Registering Personnel...", createPayload);
                 const newLaborer = await labourService.createLabour(createPayload);
@@ -351,8 +351,8 @@ const LaborDetailsPage = () => {
     };
 
     const baseFilteredLaborers = laborers.filter(l => {
-        // Apply Contractor ID filter
-        if (contractorFilter !== null && l.contractor_id !== contractorFilter) return false;
+        // Apply Contractor Name filter
+        if (contractorFilter && l.contractor_name !== contractorFilter) return false;
 
         // Apply Status Filter
         if (statusFilter !== "All" && l.status !== statusFilter) return false;
@@ -481,14 +481,17 @@ const LaborDetailsPage = () => {
                             </select>
                         </div>
                         <div className="flex items-center gap-3 md:border-l md:border-slate-100 md:pl-4">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contractor ID:</span>
-                            <input
-                                type="number"
-                                placeholder="ID"
-                                value={contractorFilter || ''}
-                                onChange={(e) => setContractorFilter(e.target.value ? Number(e.target.value) : null)}
-                                className="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400"
-                            />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contractor:</span>
+                            <select
+                                value={contractorFilter}
+                                onChange={(e) => setContractorFilter(e.target.value)}
+                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest min-w-[160px]"
+                            >
+                                <option value="">All Contractors</option>
+                                {[...new Set(laborers.map(l => l.contractor_name).filter(Boolean))].map(name => (
+                                    <option key={name} value={name!}>{name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="flex items-center gap-2 font-inter md:border-l md:border-slate-100 md:pl-4">
                             <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest">
@@ -505,48 +508,113 @@ const LaborDetailsPage = () => {
                                 <p className="text-[10px] font-bold uppercase tracking-widest">Parsing Personnel Records...</p>
                             </div>
                         ) : (
-                            <table className="w-full text-left font-inter min-w-[1200px]">
+                            <table className="w-full text-left font-inter min-w-[3000px]">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                        <th className="px-6 py-4 font-inter">Labour Name</th>
-                                        <th className="px-6 py-4 font-inter">Aadhaar Number</th>
-                                        <th className="px-6 py-4 font-inter">Skill Type</th>
-                                        <th className="px-6 py-4 font-inter text-center">Daily Wage Rate</th>
-                                        <th className="px-6 py-4 font-inter text-center">Contractor ID</th>
-                                        <th className="px-6 py-4 font-inter">Status</th>
-                                        <th className="px-6 py-4 font-inter">Notes</th>
-                                        <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Role</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Aadhaar Number</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Labour Name</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Mobile Number</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">PAN Number</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Address</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Email</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Profile Image</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Labour Type Name</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Skill Category</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Default Daily Wage (₹)</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Custom Daily Wage (₹)</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Custom OT Rate/Hr (₹)</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Effective Daily Wage (₹)</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Effective OT Rate (₹)</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Contractor Name</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Status</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Notes</th>
+                                        <th className="px-4 py-4 text-right font-inter whitespace-nowrap">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
                                     {paginatedLaborers.map((labor) => (
                                         <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-slate-800 font-inter">{labor.labour_name}</span>
+                                            {/* role */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-xs text-slate-600 font-inter">{labor.role || "—"}</span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-xs font-bold text-slate-500 font-inter">{labor.aadhaar_number}</span>
+                                            {/* aadhaar_number */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-xs font-mono text-slate-600 font-inter">{labor.aadhaar_number || "—"}</span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-xs font-bold text-slate-700 font-inter uppercase tracking-tight">{labor.skill_type}</span>
+                                            {/* labour_name */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-sm font-bold text-slate-800 font-inter whitespace-nowrap">{labor.labour_name}</span>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="text-sm font-bold text-slate-800 tabular-nums font-inter">{labor.daily_wage_rate}</span>
+                                            {/* mobile_number */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-xs text-slate-600 font-inter">{labor.mobile_number || "—"}</span>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="text-xs font-bold text-slate-500 font-inter">{labor.contractor_id}</span>
+                                            {/* pan_number */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-xs font-mono text-slate-600 font-inter">{labor.pan_number || "—"}</span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter ${labor.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                            {/* address */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-xs text-slate-500 font-inter max-w-[120px] block truncate" title={labor.address || ""}>{labor.address || "—"}</span>
+                                            </td>
+                                            {/* email */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-xs text-slate-500 font-inter">{labor.email || "—"}</span>
+                                            </td>
+                                            {/* profile_image */}
+                                            <td className="px-4 py-4">
+                                                {labor.profile_image ? (
+                                                    <img src={labor.profile_image} alt="profile" className="w-7 h-7 rounded-full object-cover border border-slate-200" />
+                                                ) : (
+                                                    <span className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] text-slate-400 font-bold">{labor.labour_name?.charAt(0)}</span>
+                                                )}
+                                            </td>
+                                            {/* labour_type_name */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-xs font-bold text-slate-700 font-inter whitespace-nowrap">{labor.labour_type_name || "—"}</span>
+                                            </td>
+                                            {/* skill_category */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100 whitespace-nowrap">{labor.skill_category || "—"}</span>
+                                            </td>
+                                            {/* default_daily_wage */}
+                                            <td className="px-4 py-4 text-right">
+                                                <span className="text-xs text-slate-500 tabular-nums font-inter">{labor.default_daily_wage != null ? `₹${labor.default_daily_wage}` : "—"}</span>
+                                            </td>
+                                            {/* custom_daily_wage_rate */}
+                                            <td className="px-4 py-4 text-right">
+                                                <span className="text-xs font-bold text-slate-700 tabular-nums font-inter">{labor.custom_daily_wage_rate != null ? `₹${labor.custom_daily_wage_rate}` : "—"}</span>
+                                            </td>
+                                            {/* custom_ot_rate_per_hour */}
+                                            <td className="px-4 py-4 text-right">
+                                                <span className="text-xs font-bold text-slate-700 tabular-nums font-inter">{labor.custom_ot_rate_per_hour != null ? `₹${labor.custom_ot_rate_per_hour}` : "—"}</span>
+                                            </td>
+                                            {/* effective_daily_wage */}
+                                            <td className="px-4 py-4 text-right">
+                                                <span className="text-sm font-black text-emerald-600 tabular-nums font-inter">{labor.effective_daily_wage != null ? `₹${labor.effective_daily_wage}` : "—"}</span>
+                                            </td>
+                                            {/* effective_ot_rate */}
+                                            <td className="px-4 py-4 text-right">
+                                                <span className="text-xs font-bold text-slate-600 tabular-nums font-inter">{labor.effective_ot_rate != null ? `₹${labor.effective_ot_rate}` : "—"}</span>
+                                            </td>
+                                            {/* contractor_name */}
+                                            <td className="px-4 py-4">
+                                                <span className="text-xs text-slate-500 font-inter">{labor.contractor_name || "—"}</span>
+                                            </td>
+                                            {/* status */}
+                                            <td className="px-4 py-4">
+                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter whitespace-nowrap ${labor.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                     {labor.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <p className="text-[10px] text-slate-400 font-bold font-inter truncate max-w-[150px]" title={labor.notes}>
-                                                    {labor.notes}
-                                                </p>
+                                            {/* notes */}
+                                            <td className="px-4 py-4">
+                                                <p className="text-[10px] text-slate-400 font-bold font-inter truncate max-w-[120px]" title={labor.notes || ""}>{labor.notes || "—"}</p>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
+                                            {/* actions */}
+                                            <td className="px-4 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2 font-inter">
                                                     <button
                                                         onClick={() => handleViewDetail(labor.id)}
@@ -560,7 +628,7 @@ const LaborDetailsPage = () => {
                                                             <Eye className="w-4 h-4" />
                                                         )}
                                                     </button>
-                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, skill_type: labor.skill_type, daily_wage_rate: labor.daily_wage_rate.toString(), contractor_id: labor.contractor_id, status: labor.status, notes: labor.notes || "" }); setErrors({}); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "" }); setErrors({}); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => { setLabourToDelete(labor.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </td>
@@ -708,155 +776,162 @@ const LaborDetailsPage = () => {
                         </div>
                     )}
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Personnel Identity & Professional Details</h3>
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Personnel Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                            {/* aadhaar_number */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Aadhaar Number <span className="text-rose-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={formData.aadhaar_number}
-                                    onChange={(e) => setFormData({ ...formData, aadhaar_number: formatAadhaar(e.target.value) })}
-                                    placeholder="2345-6789-0123"
-                                    className={`w-full px-4 py-2.5 bg-white border ${errors.aadhaar_number ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`}
-                                    required
-                                />
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Aadhaar Number</label>
+                                <input type="text" value={formData.aadhaar_number} onChange={(e) => setFormData({ ...formData, aadhaar_number: formatAadhaar(e.target.value) })} placeholder="2345-6789-0123" className={`w-full px-4 py-2.5 bg-white border ${errors.aadhaar_number ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} />
                                 {errors.aadhaar_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.aadhaar_number}</p>}
                             </div>
+
+                            {/* labour_name * */}
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Name <span className="text-rose-500">*</span></label>
-                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} placeholder="Suresh Yadav" className={`w-full px-4 py-2.5 bg-white border ${errors.labour_name ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} required />
+                                <input type="text" value={formData.labour_name} onChange={(e) => setFormData({ ...formData, labour_name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} placeholder="Ramesh Shinde" className={`w-full px-4 py-2.5 bg-white border ${errors.labour_name ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} required />
                                 {errors.labour_name && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_name}</p>}
                             </div>
+
+                            {/* mobile_number * */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Skill Type <span className="text-rose-500">*</span></label>
-                                <select value={formData.skill_type} onChange={(e) => setFormData({ ...formData, skill_type: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all">
-                                    <option value="Skilled">Skilled</option>
-                                    <option value="Unskilled">Unskilled</option>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Mobile Number <span className="text-rose-500">*</span></label>
+                                <input type="tel" value={formData.mobile_number} onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '').slice(0, 10) })} placeholder="9696969696" className={`w-full px-4 py-2.5 bg-white border ${errors.mobile_number ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} required />
+                                {errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}
+                            </div>
+
+                            {/* pan_number */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PAN Number</label>
+                                <input type="text" value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase().slice(0, 10) })} placeholder="HHLM5621L" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-mono outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            </div>
+
+                            {/* email */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email</label>
+                                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="ramesh.shinde@gmail.com" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            </div>
+
+                            {/* address */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Address</label>
+                                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Pune, Maharashtra" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            </div>
+
+                            {/* labour_type_id * */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type <span className="text-rose-500">*</span></label>
+                                <select value={formData.labour_type_id} onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`}>
+                                    <option value={1}>Skilled</option>
+                                    <option value={2}>Semi-Skilled</option>
+                                    <option value={3}>Unskilled</option>
+                                    <option value={4}>Supervisor</option>
+                                    <option value={5}>Foreman</option>
                                 </select>
-                                {errors.skill_type && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.skill_type}</p>}
+                                {errors.labour_type_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_type_id}</p>}
                             </div>
+
+                            {/* custom_daily_wage_rate */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Daily Wage Rate <span className="text-rose-500">*</span></label>
-                                <input type="text" value={formData.daily_wage_rate} onChange={(e) => setFormData({ ...formData, daily_wage_rate: e.target.value.replace(/[^0-9.]/g, '') })} placeholder="900.00" className={`w-full px-4 py-2.5 bg-white border ${errors.daily_wage_rate ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} required />
-                                {errors.daily_wage_rate && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.daily_wage_rate}</p>}
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Daily Wage Rate (₹)</label>
+                                <input type="number" value={formData.custom_daily_wage_rate} onChange={(e) => setFormData({ ...formData, custom_daily_wage_rate: e.target.value })} placeholder="900" min="0" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                             </div>
+
+                            {/* custom_ot_rate_per_hour */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Contractor ID <span className="text-rose-500">*</span></label>
-                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: Number(e.target.value) })} placeholder="1" className={`w-full px-4 py-2.5 bg-white border ${errors.contractor_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`} required />
-                                {errors.contractor_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.contractor_id}</p>}
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom OT Rate / Hour (₹)</label>
+                                <input type="number" value={formData.custom_ot_rate_per_hour} onChange={(e) => setFormData({ ...formData, custom_ot_rate_per_hour: e.target.value })} placeholder="120" min="0" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                             </div>
+
+                            {/* contractor_id */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status <span className="text-rose-500">*</span></label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Contractor ID</label>
+                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: Number(e.target.value) })} placeholder="1" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            </div>
+
+                            {/* status */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status</label>
                                 <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all">
                                     <option value="Active">Active</option>
                                     <option value="Inactive">Inactive</option>
                                 </select>
-                                {errors.status && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.status}</p>}
                             </div>
+
+                            {/* notes — full width */}
                             <div className="md:col-span-2">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Notes <span className="text-rose-500">*</span></label>
-                                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Helper for general site works" className={`w-full px-4 py-2.5 bg-white border ${errors.notes ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all resize-none`} rows={3} required />
-                                {errors.notes && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.notes}</p>}
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Notes</label>
+                                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Experienced mason with 8 years of construction experience" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all resize-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={3} />
                             </div>
+
                         </div>
                     </div>
                 </form>
             </Modal>
 
-            {/* â”€â”€ Detail Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-            <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Personnel Profile Insight" maxWidth="max-w-xl">
+            {/* —————————————————————————————————— Detail Modal —————————————————————————————————— */}
+            <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Personnel Profile" maxWidth="max-w-2xl">
                 {selectedLaborer && (
-                    <div className="p-6 font-inter text-inter italic-none">
-                        {/* â”€â”€ Profile Style Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-                        <div className="bg-primary rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
-                            <div className="relative z-10 flex items-center gap-6 font-inter">
-                                <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
-                                    <span className="text-4xl font-bold font-inter">{selectedLaborer.labour_name.charAt(0)}</span>
-                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 ${selectedLaborer.status?.toLowerCase() === 'active' ? 'bg-emerald-500' : 'bg-rose-500'} border-4 border-primary rounded-full animate-pulse`} />
+                    <div className="p-6 font-inter">
+                        {/* Header card */}
+                        <div className="bg-primary rounded-2xl p-6 mb-6 text-white shadow-xl relative overflow-hidden">
+                            <div className="flex items-center gap-5">
+                                <div className="w-20 h-20 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative flex-shrink-0">
+                                    {selectedLaborer.profile_image ? (
+                                        <img src={selectedLaborer.profile_image} alt="profile" className="w-full h-full rounded-2xl object-cover" />
+                                    ) : (
+                                        <span className="text-3xl font-bold">{selectedLaborer.labour_name.charAt(0)}</span>
+                                    )}
+                                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 ${selectedLaborer.status === 'Active' ? 'bg-emerald-500' : 'bg-rose-500'} border-4 border-primary rounded-full`} />
                                 </div>
-                                <div className="font-inter">
-                                    <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{selectedLaborer.labour_name}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{selectedLaborer.skill_type}</span>
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h3 className="text-xl font-bold tracking-tight">{selectedLaborer.labour_name}</h3>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest ${selectedLaborer.status === 'Active' ? 'bg-emerald-500/30 text-emerald-100' : 'bg-rose-500/30 text-rose-100'}`}>{selectedLaborer.status}</span>
                                     </div>
-                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
-                                        <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter">worker.{selectedLaborer.worker_code.toLowerCase()}@infrapilot.com</span>
-                                    </div>
-                                    <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">DAILY WAGE: ₹{selectedLaborer.daily_wage_rate}</span>
+                                    <p className="text-white/70 text-xs font-bold mb-2">{selectedLaborer.role || 'Labour'} &nbsp;·&nbsp; {selectedLaborer.worker_code}</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{selectedLaborer.labour_type_name || '—'}</span>
+                                        <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{selectedLaborer.skill_category || '—'}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-8 px-2 mb-10 font-inter">
-                            {/* Professional Information style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                                        <Briefcase className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Professional Information</p>
+                        {/* All fields in GET API sequence */}
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            {([
+                                { label: 'ID', value: selectedLaborer.id },
+                                { label: 'Worker Code', value: selectedLaborer.worker_code },
+                                { label: 'User ID', value: selectedLaborer.user_id ?? '—' },
+                                { label: 'Role', value: selectedLaborer.role || '—' },
+                                { label: 'Aadhaar Number', value: selectedLaborer.aadhaar_number || '—' },
+                                { label: 'Labour Name', value: selectedLaborer.labour_name },
+                                { label: 'Mobile Number', value: selectedLaborer.mobile_number || '—' },
+                                { label: 'PAN Number', value: selectedLaborer.pan_number || '—' },
+                                { label: 'Address', value: selectedLaborer.address || '—' },
+                                { label: 'Email', value: selectedLaborer.email || '—' },
+                                { label: 'Labour Type ID', value: selectedLaborer.labour_type_id ?? '—' },
+                                { label: 'Labour Type Name', value: selectedLaborer.labour_type_name || '—' },
+                                { label: 'Skill Category', value: selectedLaborer.skill_category || '—' },
+                                { label: 'Default Daily Wage (₹)', value: selectedLaborer.default_daily_wage != null ? `₹${selectedLaborer.default_daily_wage}` : '—' },
+                                { label: 'Custom Daily Wage (₹)', value: selectedLaborer.custom_daily_wage_rate != null ? `₹${selectedLaborer.custom_daily_wage_rate}` : '—' },
+                                { label: 'Custom OT Rate/Hr (₹)', value: selectedLaborer.custom_ot_rate_per_hour != null ? `₹${selectedLaborer.custom_ot_rate_per_hour}` : '—' },
+                                { label: 'Effective Daily Wage (₹)', value: selectedLaborer.effective_daily_wage != null ? `₹${selectedLaborer.effective_daily_wage}` : '—', highlight: true },
+                                { label: 'Effective OT Rate (₹)', value: selectedLaborer.effective_ot_rate != null ? `₹${selectedLaborer.effective_ot_rate}` : '—', highlight: true },
+                                { label: 'Contractor ID', value: selectedLaborer.contractor_id ?? '—' },
+                                { label: 'Contractor Name', value: selectedLaborer.contractor_name || '—' },
+                                { label: 'Status', value: selectedLaborer.status },
+                            ] as { label: string; value: any; highlight?: boolean }[]).map(({ label, value, highlight }) => (
+                                <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                                    <p className={`text-sm font-bold truncate ${highlight ? 'text-emerald-600' : 'text-slate-800'}`}>{String(value)}</p>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Worker ID</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none uppercase">{selectedLaborer.worker_code}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Daily Base</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">₹{selectedLaborer.daily_wage_rate}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Aadhaar Reference</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">XXXX-XXXX-{selectedLaborer.aadhaar_number.slice(-4)}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Skill Category</p>
-                                        <p className="text-sm font-black text-blue-600 font-inter italic-none">{selectedLaborer.skill_type}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Contact Details style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                                        <Phone className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Audit Trail & Logistics</p>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Registration Date</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">2026-04-10</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Contractor ID</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">CONT-0{selectedLaborer.contractor_id}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Assignments style section */}
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                                        <FileText className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Deployment Status</p>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Assigned Site</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">Skyline Tower A</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Attendance Integrity</p>
-                                        <p className="text-sm font-black text-emerald-500 font-inter italic-none">High Consistency</p>
-                                    </div>
-                                </div>
+                            ))}
+                            {/* Notes — full width */}
+                            <div className="col-span-2 bg-slate-50 rounded-xl p-3 border border-slate-100">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Notes</p>
+                                <p className="text-sm font-bold text-slate-800">{selectedLaborer.notes || '—'}</p>
                             </div>
                         </div>
 

@@ -435,39 +435,49 @@ const AttendancePage: React.FC = () => {
                             <table className="w-full text-left whitespace-nowrap">
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold tracking-widest border-b border-slate-100">
-                                        <th className="px-6 py-4">labour_id</th>
-                                        <th className="px-6 py-4">labour_name</th>
-                                        <th className="px-6 py-4">worker_code</th>
+                                        <th className="px-6 py-4">project_name</th>
                                         <th className="px-6 py-4">attendance_date</th>
+                                        <th className="px-6 py-4">status</th>
                                         <th className="px-6 py-4">in_time</th>
                                         <th className="px-6 py-4">out_time</th>
                                         <th className="px-6 py-4">working_hours</th>
                                         <th className="px-6 py-4">overtime_hours</th>
-                                        <th className="px-6 py-4">task_id</th>
-                                        <th className="px-6 py-4">check_in_address</th>
-                                        <th className="px-6 py-4">check_out_address</th>
+                                        <th className="px-6 py-4">overtime_rate</th>
                                         <th className="px-6 py-4">check_in_image</th>
                                         <th className="px-6 py-4">check_out_image</th>
-                                        <th className="px-6 py-4">status</th>
+                                        <th className="px-6 py-4">check_in_address</th>
+                                        <th className="px-6 py-4">check_in_latitude</th>
+                                        <th className="px-6 py-4">check_in_longitude</th>
+                                        <th className="px-6 py-4">check_out_address</th>
+                                        <th className="px-6 py-4">check_out_latitude</th>
+                                        <th className="px-6 py-4">check_out_longitude</th>
+                                        <th className="px-6 py-4">task_id</th>
+                                        <th className="px-6 py-4">task_description</th>
+                                        <th className="px-6 py-4">remarks</th>
+                                        <th className="px-6 py-4">is_approved</th>
+                                        <th className="px-6 py-4">approved_by_id</th>
+                                        <th className="px-6 py-4">is_outside_geofence</th>
+                                        <th className="px-6 py-4">is_late</th>
+                                        <th className="px-6 py-4">late_minutes</th>
+                                        <th className="px-6 py-4">is_early_departure</th>
+                                        <th className="px-6 py-4">early_minutes</th>
+                                        <th className="px-6 py-4">work_location_type</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {paginatedHistory.length === 0 ? (
-                                        <tr><td colSpan={14} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">{historyFilter === 'Date' && !historyDateInput ? 'Select a date to view records' : 'No records found'}</p></td></tr>
+                                        <tr><td colSpan={27} className="px-6 py-12 text-center"><p className="text-xs text-slate-500 font-medium">{historyFilter === 'Date' && !historyDateInput ? 'Select a date to view records' : 'No records found'}</p></td></tr>
                                     ) : (
                                         paginatedHistory.map((rec, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-800">{rec.labour_id ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.labour_name ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.worker_code ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-800">{rec.project_name ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.attendance_date ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ? formatTime(new Date(rec.in_time)) : '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ? formatTime(new Date(rec.out_time)) : '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.working_hours ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_hours ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_id ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_address ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_address ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_rate ?? '-'}</span></td>
                                                 <td className="px-6 py-4">
                                                     {rec.check_in_image ? (
                                                         <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-emerald-400">
@@ -482,7 +492,23 @@ const AttendancePage: React.FC = () => {
                                                         </div>
                                                     ) : <span className="text-[10px] text-slate-400">-</span>}
                                                 </td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_address ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_latitude ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_longitude ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_address ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_latitude ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_longitude ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_id ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_description ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.remarks ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_approved !== undefined ? String(rec.is_approved) : '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.approved_by_id ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_outside_geofence !== undefined ? String(rec.is_outside_geofence) : '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_late !== undefined ? String(rec.is_late) : '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.late_minutes ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_early_departure !== undefined ? String(rec.is_early_departure) : '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.early_minutes ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.work_location_type ?? '-'}</span></td>
                                             </tr>
                                         ))
                                     )}

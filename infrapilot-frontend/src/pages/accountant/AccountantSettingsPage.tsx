@@ -154,11 +154,19 @@ const PaymentSettingsWrapper = createWrapper([
     <div className="space-y-6">
       <h3 className="text-lg font-black text-slate-800 mb-6">Payment Terms</h3>
       <div className="space-y-4">
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center"><div className="font-bold text-sm">Immediate</div><div className="text-sm text-slate-500">0 Days</div></div>
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center"><div className="font-bold text-sm">Net 15</div><div className="text-sm text-slate-500">15 Days</div></div>
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center"><div className="font-bold text-sm">Net 30</div><div className="text-sm text-slate-500">30 Days</div></div>
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center"><div className="font-bold text-sm">Net 45</div><div className="text-sm text-slate-500">45 Days</div></div>
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center"><div className="font-bold text-sm">Net 60</div><div className="text-sm text-slate-500">60 Days</div></div>
+        {[
+          { name: "Immediate", days: "0 Days", desc: "Payment due upon receipt" },
+          { name: "Net 15", days: "15 Days", desc: "Payment due within 15 days" },
+          { name: "Net 30", days: "30 Days", desc: "Payment due within 30 days" },
+          { name: "Net 45", days: "45 Days", desc: "Payment due within 45 days" },
+          { name: "Net 60", days: "60 Days", desc: "Payment due within 60 days" }
+        ].map(term => (
+          <div key={term.name} className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-2 md:items-center">
+            <div className="font-bold text-sm text-slate-800">{term.name}</div>
+            <div className="text-sm font-semibold text-slate-600">{term.days}</div>
+            <div className="text-xs text-slate-500">{term.desc}</div>
+          </div>
+        ))}
         <button onClick={() => toast.success("Custom term added!")} className="text-indigo-600 font-bold text-sm hover:text-indigo-800 transition-colors">+ Add Custom Term</button>
       </div>
     </div>
@@ -236,8 +244,8 @@ const UsersRolesWrapper = createWrapper([
   "permissions": () => (
     <div className="space-y-6">
       <h3 className="text-lg font-black text-slate-800 mb-6">Permissions Matrix (Accountant)</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border border-slate-200 rounded-xl overflow-hidden hidden md:table">
+      <div className="overflow-x-auto w-full">
+        <table className="w-full min-w-[600px] text-left border border-slate-200 rounded-xl overflow-hidden table">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase">Module</th>

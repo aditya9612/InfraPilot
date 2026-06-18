@@ -189,7 +189,7 @@ const AccountantDashboard = () => {
       />
 
       <main className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-12">
-        <div className="max-w-[1700px] mx-auto">
+        <div className="w-full">
 
           {/* ── Header ── */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -697,28 +697,7 @@ const AccountantDashboard = () => {
             </div>
           </div>
 
-          {/* ══════════════════════════════════════════════════════════════ */}
-          {/* Quick Action Buttons Bar (bottom) */}
-          {/* ══════════════════════════════════════════════════════════════ */}
-          <div className="mt-6 bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Actions</p>
-            <div className="flex flex-wrap gap-3">
-              {quickActions.map((qa) => (
-                <button
-                  key={qa.id}
-                  onClick={() => {
-                    if (qa.id === "invoice") { setActiveCreateType("owner"); setIsModalOpen(true); }
-                    else if (qa.id === "vendor") { setActiveCreateType("expense"); setIsModalOpen(true); }
-                    else toast.success(`${qa.label} — coming soon`);
-                  }}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm active:scale-95 transition-all ${qa.color}`}
-                >
-                  <span>{qa.icon}</span>
-                  {qa.label}
-                </button>
-              ))}
-            </div>
-          </div>
+
 
         </div>
       </main>

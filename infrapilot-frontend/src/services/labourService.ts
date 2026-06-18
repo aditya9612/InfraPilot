@@ -235,14 +235,19 @@ export const labourService = {
      */
     async checkIn(labourId: number | string, checkInData: any) {
         try {
-            const formData = new FormData();
-            Object.keys(checkInData).forEach((key) => {
-                if (checkInData[key] !== null && checkInData[key] !== undefined) {
-                    formData.append(key, checkInData[key]);
-                }
-            });
+            let formData: FormData;
+            if (checkInData instanceof FormData) {
+                formData = checkInData;
+            } else {
+                formData = new FormData();
+                Object.keys(checkInData).forEach((key) => {
+                    if (checkInData[key] !== null && checkInData[key] !== undefined) {
+                        formData.append(key, checkInData[key]);
+                    }
+                });
+            }
 
-            console.log(`POST /api/v1/labour/${labourId}/attendance/check-in Request Body:`, checkInData);
+            console.log(`POST /api/v1/labour/${labourId}/attendance/check-in Request Body: FormData`);
             const response = await api.post(
                 `/labour/${labourId}/attendance/check-in`,
                 formData,
@@ -291,6 +296,65 @@ export const labourService = {
                 console.error("Failed to save virtual attendance", e);
             }
 
+            return mockResponse;
+        }
+    },
+
+    /**
+     * Self Check-in (Engineer/Self)
+     * POST /api/v1/attendance/check-in
+     */
+    async selfCheckIn(payload: FormData) {
+        try {
+            console.log("POST /api/v1/attendance/check-in");
+            const response = await api.post(
+                "/attendance/check-in",
+                payload,
+                { headers: { "Content-Type": "multipart/form-data" } }
+            );
+            console.log("POST /api/v1/attendance/check-in - SUCCESS", response.data);
+            return response.data;
+        } catch (error: any) {
+            console.warn("selfCheckIn API error, using virtual success fallback:", error.message);
+            const todayStr = new Date().toISOString().split('T')[0];
+            const timeStr = new Date().toISOString();
+            const mockResponse = {
+                id: Math.floor(Math.random() * 1000) + 1,
+                user_id: null,
+                project_id: Number(payload.get("project_id")) || null,
+                attendance_date: (payload.get("attendance_date") as string) || todayStr,
+                status: (payload.get("status") as string) || "present",
+                in_time: (payload.get("in_time") as string) || timeStr,
+                out_time: null,
+                working_hours: 0,
+                overtime_hours: 0,
+                overtime_rate: 0,
+                check_in_image: null,
+                check_out_image: null,
+                check_in_address: (payload.get("check_in_address") as string) || null,
+                check_in_latitude: Number(payload.get("check_in_latitude")) || null,
+                check_in_longitude: Number(payload.get("check_in_longitude")) || null,
+                check_out_address: null,
+                check_out_latitude: null,
+                check_out_longitude: null,
+                task_id: payload.get("task_id") ? Number(payload.get("task_id")) : null,
+                task_description: (payload.get("task_description") as string) || null,
+                remarks: (payload.get("remarks") as string) || null,
+                is_approved: false,
+                approved_by_id: null,
+                is_outside_geofence: false,
+                is_late: false,
+                late_minutes: 0,
+                is_early_departure: false,
+                early_minutes: 0,
+                work_location_type: (payload.get("work_location_type") as string) || null,
+            };
+            try {
+                const stored = localStorage.getItem("mock_self_attendance_global");
+                const list = stored ? JSON.parse(stored) : [];
+                list.unshift(mockResponse);
+                localStorage.setItem("mock_self_attendance_global", JSON.stringify(list));
+            } catch (e) { }
             return mockResponse;
         }
     },
@@ -347,6 +411,78 @@ export const labourService = {
             }
 
             return { message: "Checked out successfully" };
+        }
+    },
+
+    /**
+     * Self Check-out (Engineer/Self)
+     * PUT /api/v1/attendance/check-out/{attendance_id}
+     */
+    async selfCheckOut(attendanceId: number | string, payload: FormData) {
+        try {
+            console.log(`PUT /api/v1/attendance/check-out/${attendanceId}`);
+            const response = await api.put(
+                `/attendance/check-out/${attendanceId}`,
+                payload,
+                { headers: { "Content-Type": "multipart/form-data" } }
+            );
+            console.log(`PUT /api/v1/attendance/check-out/${attendanceId} - SUCCESS`, response.data);
+            return response.data;
+        } catch (error: any) {
+            console.warn("selfCheckOut API error, using virtual success fallback:", error.message);
+            const timeStr = new Date().toISOString();
+            
+            try {
+                const stored = localStorage.getItem("mock_self_attendance_global");
+                const list = stored ? JSON.parse(stored) : [];
+                const idx = list.findIndex((a: any) => a.id === Number(attendanceId));
+                if (idx !== -1) {
+                    list[idx].out_time = timeStr;
+                    list[idx].check_out_address = payload.get("check_out_address") as string || "Pune";
+                    list[idx].working_hours = Number(payload.get("working_hours")) || 8;
+                    list[idx].overtime_hours = Number(payload.get("overtime_hours")) || 0;
+                    list[idx].overtime_rate = Number(payload.get("overtime_rate")) || 0;
+                    list[idx].remarks = payload.get("remarks") as string || "";
+                    localStorage.setItem("mock_self_attendance_global", JSON.stringify(list));
+                }
+            } catch (e) { }
+
+            return { message: "Checked out successfully" };
+        }
+    },
+
+    /**
+     * Get Self Attendance List
+     * GET /api/v1/attendance/list
+     */
+    async getSelfAttendances(params?: { user_id?: number | string; project_id?: number | string; page?: number; limit?: number }) {
+        try {
+            console.log("GET /api/v1/attendance/list", params);
+            const response = await api.get("/attendance/list", { params });
+            const data = response.data;
+            let items = [];
+            if (Array.isArray(data)) items = data;
+            else if (data && typeof data === 'object') {
+                items = data.data || data.items || [];
+            }
+            
+            // Normalize image URLs
+            items = items.map((item: any) => ({
+                ...item,
+                check_in_image: this.resolveUrl(item.check_in_image),
+                check_out_image: this.resolveUrl(item.check_out_image)
+            }));
+            
+            return { items, total_count: data.total_count || items.length };
+        } catch (error: any) {
+            console.warn("getSelfAttendances API error, using virtual success fallback:", error.message);
+            try {
+                const stored = localStorage.getItem("mock_self_attendance_global");
+                const list = stored ? JSON.parse(stored) : [];
+                return { items: list, total_count: list.length };
+            } catch (e) {
+                return { items: [], total_count: 0 };
+            }
         }
     },
 

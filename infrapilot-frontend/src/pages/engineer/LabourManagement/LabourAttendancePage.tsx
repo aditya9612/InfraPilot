@@ -492,7 +492,6 @@ const LabourAttendancePage: React.FC = () => {
                                     <th className="px-6 py-4 text-center">Hours</th>
                                     <th className="px-6 py-4">Location</th>
                                     <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Work Summary</th>
                                     <th className="px-6 py-4 text-center">Action</th>
                                 </tr>
                             </thead>
@@ -573,7 +572,6 @@ const LabourAttendancePage: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 ${lab.status === 'absent' ? 'bg-rose-50 text-rose-500 border-rose-200' : 'bg-emerald-50 text-emerald-500 border-emerald-200'} border rounded-full text-[9px] font-bold uppercase tracking-widest`}>{lab.status || "present"}</span></td>
-                                            <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">-</td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2 font-inter">
                                                     {!lab.in_time || lab.in_time === "--:--" ? (

@@ -224,10 +224,26 @@ const AutoEntriesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
 const AdjustmentEntriesWrapper = () => (
   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-      <h3 className="font-bold text-slate-800 mb-4">Depreciation Entry</h3>
+      <h3 className="font-bold text-slate-800 mb-4">Year End Adjustments</h3>
+      <div className="font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 text-slate-600">
+        <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Retained Earnings A/c</span><span>Dr</span></div>
+        <div className="flex justify-between pl-8"><span>To P&L Summary A/c</span><span>Cr</span></div>
+      </div>
+      <button className="w-full text-xs font-bold bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-all">Create Entry</button>
+    </div>
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+      <h3 className="font-bold text-slate-800 mb-4">Depreciation Entries</h3>
       <div className="font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 text-slate-600">
         <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Depreciation Exp A/c</span><span>Dr</span></div>
         <div className="flex justify-between pl-8"><span>To Machinery A/c</span><span>Cr</span></div>
+      </div>
+      <button className="w-full text-xs font-bold bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-all">Create Entry</button>
+    </div>
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+      <h3 className="font-bold text-slate-800 mb-4">Accrual Entries</h3>
+      <div className="font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 text-slate-600">
+        <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Accrued Expenses A/c</span><span>Dr</span></div>
+        <div className="flex justify-between pl-8"><span>To Outstanding Exp A/c</span><span>Cr</span></div>
       </div>
       <button className="w-full text-xs font-bold bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-all">Create Entry</button>
     </div>
@@ -251,30 +267,82 @@ const AdjustmentEntriesWrapper = () => (
 );
 
 const JournalApprovalSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-      <h3 className="font-bold text-slate-800">Pending Approvals</h3>
-      <div className="flex gap-2">
-        <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full font-bold text-xs">8 Pending</span>
+  <div className="space-y-6">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+        <h3 className="font-bold text-slate-800">Pending Approvals</h3>
+        <div className="flex gap-2">
+          <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full font-bold text-xs">8 Pending</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>{["Journal No", "Date", "Amount", "Created By", "Status", "Actions"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            <tr className="hover:bg-slate-50/50">
+              <td className="px-4 py-3 text-xs font-mono font-bold text-slate-800">JE-2024-1088</td><td className="px-4 py-3 text-xs text-slate-600">2024-11-05</td><td className="px-4 py-3 text-xs font-bold text-emerald-600">₹45,000</td><td className="px-4 py-3 text-xs text-slate-600">Amit Kumar</td>
+              <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-bold text-[10px] uppercase">Pending</span></td>
+              <td className="px-4 py-3 text-xs flex gap-3">
+                <button className="text-blue-600 font-bold hover:underline">View</button>
+                <button className="text-emerald-600 font-bold hover:underline">Approve</button>
+                <button className="text-rose-600 font-bold hover:underline">Reject</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50 border-b border-slate-100">
-          <tr>{["Journal No", "Date", "Amount", "Created By", "Status", "Actions"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          <tr className="hover:bg-slate-50/50">
-            <td className="px-4 py-3 text-xs font-mono font-bold text-slate-800">JE-2024-1088</td><td className="px-4 py-3 text-xs text-slate-600">2024-11-05</td><td className="px-4 py-3 text-xs font-bold text-emerald-600">₹45,000</td><td className="px-4 py-3 text-xs text-slate-600">Amit Kumar</td>
-            <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-bold text-[10px] uppercase">Pending</span></td>
-            <td className="px-4 py-3 text-xs flex gap-3">
-              <button className="text-blue-600 font-bold hover:underline">View</button>
-              <button className="text-emerald-600 font-bold hover:underline">Approve</button>
-              <button className="text-rose-600 font-bold hover:underline">Reject</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+        <h3 className="font-bold text-slate-800">Approved Entries</h3>
+        <div className="flex gap-2">
+          <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full font-bold text-xs">12 Approved</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>{["Journal No", "Date", "Amount", "Created By", "Status", "Actions"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            <tr className="hover:bg-slate-50/50">
+              <td className="px-4 py-3 text-xs font-mono font-bold text-slate-800">JE-2024-1085</td><td className="px-4 py-3 text-xs text-slate-600">2024-11-04</td><td className="px-4 py-3 text-xs font-bold text-emerald-600">₹1,20,000</td><td className="px-4 py-3 text-xs text-slate-600">Rohan Das</td>
+              <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Approved</span></td>
+              <td className="px-4 py-3 text-xs flex gap-3">
+                <button className="text-blue-600 font-bold hover:underline">View</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+        <h3 className="font-bold text-slate-800">Rejected Entries</h3>
+        <div className="flex gap-2">
+          <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-full font-bold text-xs">3 Rejected</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>{["Journal No", "Date", "Amount", "Created By", "Status", "Actions"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            <tr className="hover:bg-slate-50/50">
+              <td className="px-4 py-3 text-xs font-mono font-bold text-slate-800">JE-2024-1082</td><td className="px-4 py-3 text-xs text-slate-600">2024-11-03</td><td className="px-4 py-3 text-xs font-bold text-rose-600">₹15,000</td><td className="px-4 py-3 text-xs text-slate-600">Amit Kumar</td>
+              <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full font-bold text-[10px] uppercase">Rejected</span></td>
+              <td className="px-4 py-3 text-xs flex gap-3">
+                <button className="text-blue-600 font-bold hover:underline">View</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 );

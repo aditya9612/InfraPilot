@@ -448,7 +448,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           subNav: [
             { label: "Create Expense", path: "/accountant/expenses/direct?sub=create", icon: "file-plus" },
             { label: "Expense List", path: "/accountant/expenses/direct?sub=list", icon: "list" },
-            { label: "Approval Queue", path: "/accountant/expenses/direct?sub=approval", icon: "check-circle" },
           ],
         },
         {
@@ -458,7 +457,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           subNav: [
             { label: "Create Expense", path: "/accountant/expenses/indirect?sub=create", icon: "file-plus" },
             { label: "Expense List", path: "/accountant/expenses/indirect?sub=list", icon: "list" },
-            { label: "Approval Queue", path: "/accountant/expenses/indirect?sub=approval", icon: "check-circle" },
           ],
         },
         { label: "Expense Approval", path: "/accountant/expenses/approval", icon: "check-circle" },

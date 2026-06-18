@@ -138,8 +138,8 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   }, [initialSubTab]);
 
   const subTabs = [
-    { key: "list", label: "Bill List" },
     { key: "create", label: "Create Bill" },
+    { key: "list", label: "Bill List" },
     { key: "approval", label: "Bill Approval" },
     { key: "payments", label: "Bill Payment" },
   ] as const;
@@ -439,8 +439,8 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
   }, [initialSubTab]);
 
   const subTabs = [
-    { key: "list", label: "Bill List" },
     { key: "create", label: "Create Bill" },
+    { key: "list", label: "Bill List" },
     { key: "approval", label: "Bill Approval" },
     { key: "payments", label: "Bill Payment" },
   ] as const;
@@ -719,20 +719,180 @@ const OutstandingPayablesSection = () => (
 );
 
 // 6 & 7. Ledger Section (reused)
-const LedgerSection = ({ title, type }: { title: string, type: "Vendor" | "Contractor" }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
-    <div className="text-4xl mb-4">📖</div><h3 className="text-lg font-bold text-slate-800">{title}</h3>
-    <p className="text-slate-500 text-sm mt-1">Detailed transaction ledger for {type.toLowerCase()}s.</p>
-  </div>
-);
+const LedgerSection = ({ title, type }: { title: string, type: "Vendor" | "Contractor" }) => {
+  const [selectedParty, setSelectedParty] = useState("1");
+
+  const parties = type === "Vendor" ? [
+    { id: "1", name: "Mahaveer Cements" },
+    { id: "2", name: "TATA Steel Dist." }
+  ] : [
+    { id: "1", name: "Ganesh Earthmovers" },
+    { id: "2", name: "Apex Civil Works" }
+  ];
+
+  const summary = {
+    opening: 50000,
+    billed: 250000,
+    paid: 150000,
+    outstanding: 150000
+  };
+
+  const transactions = [
+    { id: 1, date: "2024-04-01", desc: "Opening Balance", dr: 0, cr: 0, bal: 50000 },
+    { id: 2, date: "2024-04-05", desc: type === "Vendor" ? "Bill: BILL/24/401" : "Bill: EXP/MAR/022", dr: 0, cr: 190000, bal: 240000 },
+    { id: 3, date: "2024-04-10", desc: "Payment (NEFT)", dr: 150000, cr: 0, bal: 90000 },
+    { id: 4, date: "2024-04-15", desc: type === "Vendor" ? "Bill: VB-1002" : "Bill: CB-1002", dr: 0, cr: 60000, bal: 150000 },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header & Selector */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h3 className="font-bold text-slate-800">{title}</h3>
+          <p className="text-xs text-slate-400 mt-0.5">Detailed transaction ledger</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select {type}:</label>
+          <select 
+            value={selectedParty} 
+            onChange={e => setSelectedParty(e.target.value)}
+            className="w-56 px-3 py-2 text-sm font-semibold border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 bg-slate-50 text-slate-700 cursor-pointer transition-all hover:bg-slate-100"
+          >
+            {parties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Summary Section */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-slate-100 flex items-center justify-center text-[10px]">⚖️</span> Opening Balance</p>
+          <p className="text-xl font-bold text-slate-700">{fmt(summary.opening)}</p>
+        </div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-emerald-100/50">
+          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-emerald-100 flex items-center justify-center text-emerald-600 text-xs">+</span> New Bills</p>
+          <p className="text-xl font-bold text-emerald-700">{fmt(summary.billed)}</p>
+        </div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-rose-100/50">
+          <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-rose-100 flex items-center justify-center text-rose-500 text-xs">-</span> Payments</p>
+          <p className="text-xl font-bold text-rose-600">{fmt(summary.paid)}</p>
+        </div>
+        <div className="bg-primary/5 rounded-2xl p-5 shadow-sm border border-primary/20">
+          <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-primary text-white flex items-center justify-center text-xs">=</span> Outstanding Balance</p>
+          <p className="text-xl font-black text-primary">{fmt(summary.outstanding)}</p>
+        </div>
+      </div>
+
+      {/* Transactions Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-5 border-b border-slate-100">
+          <h3 className="font-bold text-slate-800">Transactions</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/60 border-b border-slate-100">
+              <tr>
+                <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Date</th>
+                <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Bill No / Details</th>
+                <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">Debit (₹)</th>
+                <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">Credit (₹)</th>
+                <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">Balance (₹)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {transactions.map(t => (
+                <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-5 py-4 text-xs font-medium text-slate-500">{t.date}</td>
+                  <td className="px-5 py-4 text-sm font-bold text-slate-700">{t.desc}</td>
+                  <td className="px-5 py-4 text-sm font-bold text-rose-500 text-right">{t.dr > 0 ? fmt(t.dr) : "—"}</td>
+                  <td className="px-5 py-4 text-sm font-bold text-emerald-600 text-right">{t.cr > 0 ? fmt(t.cr) : "—"}</td>
+                  <td className="px-5 py-4 text-sm font-black text-slate-800 text-right">{fmt(t.bal)} <span className="text-[10px] font-bold text-slate-400 ml-1">Cr</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // 8. Reports Section
-const ReportsSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
-    <div className="text-4xl mb-4">📈</div><h3 className="text-lg font-bold text-slate-800">Payables Reports</h3>
-    <p className="text-slate-500 text-sm mt-1">Generate comprehensive liability and payment reports.</p>
-  </div>
-);
+const ReportsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
+  const [, setSearchParams] = useSearchParams();
+  const [activeSubTab, setActiveSubTab] = useState<"vendor" | "contractor" | "due" | "history">(
+    (initialSubTab as any) || "vendor"
+  );
+
+  const handleTabChange = (key: "vendor" | "contractor" | "due" | "history") => {
+    setActiveSubTab(key);
+    setSearchParams({ sub: key });
+  };
+
+  useEffect(() => {
+    if (initialSubTab) setActiveSubTab(initialSubTab as any);
+  }, [initialSubTab]);
+
+  const subTabs = [
+    { key: "vendor", label: "Vendor Payable Report" },
+    { key: "contractor", label: "Contractor Payable Report" },
+    { key: "due", label: "Due Payment Report" },
+    { key: "history", label: "Payment History Report" },
+  ] as const;
+
+  const renderReportContent = () => {
+    switch (activeSubTab) {
+      case "vendor":
+        return (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
+            <div className="text-4xl mb-4">🚛</div><h3 className="text-lg font-bold text-slate-800">Vendor Payable Report</h3>
+            <p className="text-slate-500 text-sm mt-1">Detailed summary of all vendor liabilities.</p>
+          </div>
+        );
+      case "contractor":
+        return (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
+            <div className="text-4xl mb-4">👷</div><h3 className="text-lg font-bold text-slate-800">Contractor Payable Report</h3>
+            <p className="text-slate-500 text-sm mt-1">Detailed summary of all contractor liabilities.</p>
+          </div>
+        );
+      case "due":
+        return (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
+            <div className="text-4xl mb-4">🚨</div><h3 className="text-lg font-bold text-slate-800">Due Payment Report</h3>
+            <p className="text-slate-500 text-sm mt-1">List of all overdue and upcoming payments.</p>
+          </div>
+        );
+      case "history":
+        return (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
+            <div className="text-4xl mb-4">💳</div><h3 className="text-lg font-bold text-slate-800">Payment History Report</h3>
+            <p className="text-slate-500 text-sm mt-1">Log of all historical payments made.</p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 flex-wrap">
+          {subTabs.map(t => (
+            <button key={t.key} onClick={() => handleTabChange(t.key)}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {renderReportContent()}
+    </div>
+  );
+};
 
 
 // --- MAIN COMPONENT ---
@@ -826,7 +986,7 @@ const PayablesPage = () => {
         {activeTab === "outstanding"       && <OutstandingPayablesSection />}
         {activeTab === "vendor-ledger"     && <LedgerSection title="Vendor Ledger" type="Vendor" />}
         {activeTab === "contractor-ledger" && <LedgerSection title="Contractor Ledger" type="Contractor" />}
-        {activeTab === "reports"           && <ReportsSection />}
+        {activeTab === "reports"           && <ReportsSection initialSubTab={subTab} />}
       </PageTransition>
     </>
   );

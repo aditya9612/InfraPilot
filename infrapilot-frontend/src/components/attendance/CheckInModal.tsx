@@ -1,262 +1,303 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Modal from '../common/Modal';
-import CameraCapture from '../common/CameraCapture';
-import { labourService } from '../../services/labourService';
+import { Camera, RefreshCw, Check, MapPin, Building2 } from "lucide-react";
 import toast from 'react-hot-toast';
-import { Camera as CameraIcon, Clock } from 'lucide-react';
+import { projectService } from '../../services/projectService';
+import { labourService } from '../../services/labourService';
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
     labour: any;
-    onSuccess: () => void;
+    onSuccess: (checkInTime?: Date) => void;
     projectId: number | null;
 }
 
-const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess, projectId }) => {
-    const [step, setStep] = useState<'details' | 'camera'>('details');
-    const [formData, setFormData] = useState({
-        project_id: 1,
-        task_id: '',
-        task_description: '',
-        latitude: null as number | null,
-        longitude: null as number | null,
-        location_address: '',
-        check_in_image: null as File | null
-    });
+const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess, projectId: initialProjectId }) => {
+    const today = new Date().toISOString().split('T')[0];
+
+    // ── State — fields matching Swagger API image exactly ──────────────────
+    const [attendanceDate, setAttendanceDate] = useState(today);
+    const [projectId, setProjectId] = useState(initialProjectId ? initialProjectId.toString() : '');
+    const [status, setStatus] = useState('present');
+    const [inTime, setInTime] = useState(new Date().toISOString().slice(0, 16));
+    const [checkInLatitude, setCheckInLatitude] = useState<number | null>(null);
+    const [checkInLongitude, setCheckInLongitude] = useState<number | null>(null);
+    const [checkInAddress, setCheckInAddress] = useState('Fetching location...');
+    const [taskId, setTaskId] = useState('');
+    const [taskDescription, setTaskDescription] = useState('');
+    const [remarks, setRemarks] = useState('');
+    const [workLocationType, setWorkLocationType] = useState('');
+    const [capturedImage, setCapturedImage] = useState<string | null>(null);
+
+    const [projects, setProjects] = useState<any[]>([]);
+    const [stream, setStream] = useState<MediaStream | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isLocating, setIsLocating] = useState(false);
 
-    useEffect(() => {
-        if (isOpen) {
-            const userStr = localStorage.getItem("infrapilot_user");
-            const user = userStr ? JSON.parse(userStr) : {};
-            const activePId = projectId || user?.project_id || user?.user?.project_id || 36;
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
 
-            setStep('details');
-            setFormData({
-                project_id: Number(activePId),
-                task_id: '',
-                task_description: '',
-                latitude: null,
-                longitude: null,
-                location_address: '',
-                check_in_image: null
-            });
-            detectLocation();
-        }
-    }, [isOpen, projectId]);
+    // ── GPS ──────────────────────────────────────────────────────────────────
+    const captureGPS = useCallback(() => {
+        setCheckInAddress("Locating...");
+        if (!("geolocation" in navigator)) { setCheckInAddress("Geolocation not supported"); return; }
+        navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+                const { latitude, longitude } = pos.coords;
+                setCheckInLatitude(latitude);
+                setCheckInLongitude(longitude);
+                try {
+                    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+                    const data = await res.json();
+                    const address = [data.locality, data.city, data.principalSubdivision, data.countryName].filter(Boolean).join(", ");
+                    setCheckInAddress(address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                } catch { setCheckInAddress(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`); }
+            },
+            (err) => { setCheckInAddress("Location not available"); if (err.code === 1) toast.error("Please allow location access."); },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }, []);
 
-    const detectLocation = () => {
-        setIsLocating(true);
-        setFormData(prev => ({ ...prev, location_address: 'Resolving real-time location...' }));
-        
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    const { latitude, longitude } = position.coords;
-                    try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
-                        const data = await res.json();
-                        const address = data.display_name || `Project Site (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
-                        
-                        setFormData(prev => ({ 
-                            ...prev, 
-                            latitude,
-                            longitude,
-                            location_address: address
-                        }));
-                    } catch (err) {
-                        console.warn("Reverse Geocoding failed:", err);
-                        setFormData(prev => ({ 
-                            ...prev, 
-                            latitude,
-                            longitude,
-                            location_address: `Site Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})` 
-                        }));
-                        toast.error("GPS captured, but address resolution failed.");
-                    } finally {
-                        setIsLocating(false);
-                    }
-                },
-                () => {
-                    toast.error("Location access denied. Please enable GPS for Check-In.");
-                    setFormData(prev => ({ ...prev, location_address: '' }));
-                    setIsLocating(false);
-                },
-                { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-            );
-        } else {
-            toast.error("Geolocation not supported by this browser");
-            setIsLocating(false);
+    // ── Camera ───────────────────────────────────────────────────────────────
+    const startCamera = async () => {
+        setCapturedImage(null);
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            setStream(mediaStream);
+            if (videoRef.current) videoRef.current.srcObject = mediaStream;
+        } catch { toast.error("Could not access camera. Please allow permissions."); }
+    };
+
+    const stopCamera = useCallback(() => {
+        if (stream) { stream.getTracks().forEach(t => t.stop()); setStream(null); }
+    }, [stream]);
+
+    const takePhoto = () => {
+        if (videoRef.current && canvasRef.current) {
+            const canvas = canvasRef.current;
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) { ctx.drawImage(videoRef.current, 0, 0); setCapturedImage(canvas.toDataURL('image/jpeg')); stopCamera(); }
         }
     };
 
-    const handleCheckIn = async () => {
-        if (!formData.location_address || formData.location_address === 'Resolving real-time location...') {
-            toast.error('Location resolution in progress or mandatory');
-            return;
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (isOpen) {
+            captureGPS();
+            startCamera();
+            setAttendanceDate(new Date().toISOString().split('T')[0]);
+            setInTime(new Date().toISOString().slice(0, 16));
+            
+            projectService.getProjects(100, 0).then((data: any) => {
+                setProjects(Array.isArray(data) ? data : (data.items || data.data || []));
+            }).catch(() => { });
+        } else {
+            stopCamera();
+            setCapturedImage(null);
         }
-        if (!formData.check_in_image) {
-            toast.error('Selfie is mandatory');
-            setStep('camera');
-            return;
-        }
+        return () => stopCamera();
+    }, [isOpen]);
 
+    useEffect(() => {
+        if (initialProjectId) setProjectId(initialProjectId.toString());
+    }, [initialProjectId]);
+
+    // ── Submit ────────────────────────────────────────────────────────────────
+    const handleSubmit = async () => {
+        if (!attendanceDate.trim()) { toast.error("Attendance Date is required."); return; }
         setIsSubmitting(true);
         try {
-            const labourId = labour.labour_id || labour.id;
-            console.log("Executing Check-In API: POST /labour/" + labourId + "/attendance/check-in");
-            console.log("Payload (FormData):", formData);
-            await labourService.checkIn(labourId, formData);
-            console.log("Check-In Success! Triggering Registry Refetch...");
-            onSuccess();
+            const fd = new FormData();
+            
+            fd.append("attendance_date", attendanceDate);
+            if (projectId) fd.append("project_id", projectId);
+            fd.append("status", status);
+            fd.append("in_time", new Date(inTime).toISOString());
+            if (checkInLatitude !== null) fd.append("check_in_latitude", checkInLatitude.toString());
+            if (checkInLongitude !== null) fd.append("check_in_longitude", checkInLongitude.toString());
+            if (checkInAddress && !["Fetching location...", "Locating...", "Location not available"].includes(checkInAddress))
+                fd.append("check_in_address", checkInAddress);
+            if (taskId) fd.append("task_id", taskId);
+            if (taskDescription) fd.append("task_description", taskDescription);
+            if (remarks) fd.append("remarks", remarks);
+            if (workLocationType) fd.append("work_location_type", workLocationType);
+            if (capturedImage) {
+                const blob = await (await fetch(capturedImage)).blob();
+                fd.append("check_in_image", blob, "checkin.jpg");
+            }
+
+            const labourIdToUse = labour.labour_id || labour.id;
+            await labourService.checkIn(labourIdToUse, fd);
+            toast.success("Successfully Checked In!");
+            onSuccess(new Date());
             onClose();
-            toast.success(`${labour.labour_name || 'Labour'} check-in confirmed for Project ${formData.project_id}`);
         } catch (error) {
-            toast.error('Check-in failed');
+            console.error("Check-In error:", error);
+            toast.error("Failed to check in. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 font-inter";
+    const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
+
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
-            title={`Check-In: ${labour?.labour_name}`}
-            maxWidth="max-w-xl"
+        <Modal
+            isOpen={isOpen}
+            onClose={() => { onClose(); setCapturedImage(null); }}
+            title={`Check-In: ${labour?.labour_name || 'Labour'}`}
+            maxWidth="max-w-4xl"
             footer={
-                step === 'details' && (
-                    <div className="flex gap-4">
-                        <button type="button" onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all">Cancel</button>
-                        <button 
-                            type="button"
-                            onClick={handleCheckIn}
-                            disabled={isSubmitting || isLocating}
-                            className="px-8 py-2 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50"
-                        >
-                            {isSubmitting ? 'Processing...' : 'Confirm Check-In'}
-                        </button>
-                    </div>
-                )
+                <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                    <button
+                        type="button"
+                        onClick={() => { onClose(); setCapturedImage(null); }}
+                        className="min-w-[180px] px-6 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all font-inter"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        className="min-w-[180px] px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
+                    >
+                        {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                        Submit Check-In
+                    </button>
+                </div>
             }
         >
-            {step === 'camera' ? (
-                <div className="py-4">
-                    <CameraCapture 
-                        onCapture={(file) => {
-                            setFormData({ ...formData, check_in_image: file });
-                            setStep('details');
-                        }}
-                        onCancel={() => setStep('details')}
-                    />
+            <div className="space-y-6 font-inter">
+
+                {/* ── Assign to project ─────────────────────────────────── */}
+                <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-primary" />
+                            <h3 className="text-sm font-bold text-primary font-inter">Assign to project</h3>
+                        </div>
+                    </div>
+                    <div className="ml-6">
+                        <label className={labelCls}>SELECT PROJECT</label>
+                        <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className={inputCls}>
+                            <option value="">-- Select your project --</option>
+                            {projects.map(p => (
+                                <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
-            ) : (
-                <div className="space-y-6 font-inter bg-slate-50/30 -mx-6 -mt-6 p-6">
-                    <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Basic Information</h3>
-                            <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight border border-emerald-100">
-                                Active Shift
+
+                {/* ── Attendance Details ────────────────────────────────── */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 font-inter">Attendance Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                        {/* attendance_date * */}
+                        <div>
+                            <label className={labelCls}>Attendance Date <span className="text-rose-500">*</span></label>
+                            <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className={inputCls} required />
+                        </div>
+
+                        {/* status */}
+                        <div>
+                            <label className={labelCls}>Status</label>
+                            <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputCls}>
+                                <option value="present">Present</option>
+                                <option value="absent">Absent</option>
+                                <option value="half_day">Half Day</option>
+                            </select>
+                        </div>
+
+                        {/* in_time */}
+                        <div>
+                            <label className={labelCls}>In Time</label>
+                            <input type="datetime-local" value={inTime} onChange={(e) => setInTime(e.target.value)} className={inputCls} />
+                        </div>
+
+                        {/* work_location_type */}
+                        <div>
+                            <label className={labelCls}>Work Location Type</label>
+                            <input type="text" value={workLocationType} onChange={(e) => setWorkLocationType(e.target.value)} placeholder="e.g. On-site, Remote" className={inputCls} />
+                        </div>
+
+                        {/* check_in_address */}
+                        <div className="md:col-span-2">
+                            <label className={labelCls}>Check In Address</label>
+                            <div className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 flex items-center gap-2 transition-all">
+                                <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                <span className="truncate flex-1">{checkInAddress}</span>
+                                <button type="button" onClick={captureGPS} className="text-[10px] font-bold text-primary hover:underline whitespace-nowrap ml-auto">
+                                    Refresh
+                                </button>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Report Date <span className="text-rose-500">*</span></label>
-                                <div className="relative">
-                                    <input 
-                                        type="text"
-                                        value={new Date().toLocaleDateString('en-GB')}
-                                        readOnly
-                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none font-bold text-slate-500 cursor-not-allowed"
-                                    />
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                        <Clock className="w-4 h-4" />
-                                    </div>
+                        {/* task_id */}
+                        <div>
+                            <label className={labelCls}>Task ID</label>
+                            <input type="number" value={taskId} onChange={(e) => setTaskId(e.target.value)} placeholder="e.g. 12" className={inputCls} />
+                        </div>
+
+                        {/* task_description */}
+                        <div>
+                            <label className={labelCls}>Task Description</label>
+                            <input type="text" value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} placeholder="Describe work..." className={inputCls} />
+                        </div>
+
+                        {/* remarks — full width */}
+                        <div className="md:col-span-2">
+                            <label className={labelCls}>Remarks</label>
+                            <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional remarks..." rows={2} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all resize-none focus:border-primary focus:ring-2 focus:ring-primary/20 font-inter" />
+                        </div>
+
+                    </div>
+                </div>
+
+                {/* ── Check In Image ────────────────────────────────────── */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 font-inter">Check In Image</h3>
+                    <div className="bg-black rounded-xl overflow-hidden aspect-video relative flex items-center justify-center border border-slate-200">
+                        {!capturedImage ? (
+                            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                        ) : (
+                            <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
+                        )}
+                        <canvas ref={canvasRef} className="hidden" />
+                        {!capturedImage && (
+                            <div className="absolute inset-0 pointer-events-none">
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-40 border-2 border-primary/70 rounded-full opacity-60" />
+                                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                    <span className="text-white text-[10px] font-bold uppercase tracking-widest">Live</span>
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Site Location <span className="text-rose-500">*</span></label>
-                                <input 
-                                    type="text"
-                                    value={formData.location_address}
-                                    onChange={(e) => setFormData({ ...formData, location_address: e.target.value })}
-                                    placeholder="e.g. Tower A - Basement"
-                                    className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all font-bold placeholder:text-slate-300"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex items-center justify-between px-5 py-3 bg-slate-50/50 rounded-xl border border-slate-100">
-                            <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${formData.latitude ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${formData.latitude ? 'text-slate-600' : 'text-slate-400'}`}>
-                                    {isLocating ? 'GPS: Locating...' : formData.latitude ? 'GPS: Captured' : 'GPS: Not Found'}
-                                </span>
-                            </div>
-                            <button 
-                                type="button"
-                                onClick={detectLocation}
-                                className="text-[10px] font-black text-primary hover:underline uppercase tracking-widest"
-                            >
-                                {formData.latitude ? 'Recapture' : 'Retry'}
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-4">
+                        {!capturedImage ? (
+                            <button type="button" onClick={takePhoto} className="flex-1 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-900 transition-all active:scale-95 flex items-center justify-center gap-2 font-inter">
+                                <Camera className="w-4 h-4" /> Capture Image
                             </button>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-6">
-                        <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-2">Work Progress</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                            <div>
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Task ID (Optional)</label>
-                                <input 
-                                    type="text"
-                                    value={formData.task_id}
-                                    onChange={(e) => setFormData({ ...formData, task_id: e.target.value })}
-                                    placeholder="TSK-001"
-                                    className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all font-bold placeholder:text-slate-300"
-                                />
+                        ) : (
+                            <button type="button" onClick={() => { setCapturedImage(null); startCamera(); }} className="flex-1 py-2.5 bg-white text-slate-800 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-2 font-inter">
+                                <RefreshCw className="w-4 h-4" /> Retake Image
+                            </button>
+                        )}
+                        {capturedImage && (
+                            <div className="flex items-center gap-2 text-emerald-600">
+                                <Check className="w-4 h-4" />
+                                <span className="text-xs font-bold font-inter">Image Captured</span>
                             </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Work Done Today <span className="text-rose-500">*</span></label>
-                                <textarea 
-                                    value={formData.task_description}
-                                    onChange={(e) => setFormData({ ...formData, task_description: e.target.value })}
-                                    placeholder="Describe work completed today..."
-                                    className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all min-h-[100px] resize-none placeholder:text-slate-300"
-                                    required
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-6">
-                        <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-2">Security Verification</h3>
-                        
-                        <button 
-                            type="button"
-                            onClick={() => setStep('camera')}
-                            className={`w-full p-6 rounded-[1.5rem] border-2 border-dashed transition-all flex flex-col items-center justify-center gap-3 ${formData.check_in_image ? 'border-emerald-200 bg-emerald-50/30' : 'border-blue-100 bg-blue-50/20 hover:bg-blue-50/50'}`}
-                        >
-                            <div className={`p-4 rounded-full ${formData.check_in_image ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
-                                <CameraIcon className="w-6 h-6" />
-                            </div>
-                            <div className="text-center">
-                                <p className="text-sm font-black text-slate-800 uppercase tracking-tight">
-                                    {formData.check_in_image ? 'Selfie Captured ✓' : 'Capture Mandatory Selfie *'}
-                                </p>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                                    {formData.check_in_image ? 'Click to Retake' : 'Verification Required as per SRS v3.0'}
-                                </p>
-                            </div>
-                        </button>
+                        )}
                     </div>
                 </div>
-            )}
+
+            </div>
         </Modal>
     );
 };

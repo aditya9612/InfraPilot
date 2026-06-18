@@ -132,6 +132,23 @@ const GSTInvoiceModal = ({ isOpen, onClose, type }: { isOpen: boolean; onClose: 
           <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total GST</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-indigo-50 text-indigo-700 font-bold" /></div>
         </div>
       </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
+          Attachment
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Copy</label>
+            <input type="file" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Document</label>
+            <input type="file" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+          </div>
+        </div>
+      </div>
         <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
           <h3 className="text-sm font-bold text-slate-800 mb-3">Invoice Summary</h3>
           <div className="space-y-3">
@@ -262,7 +279,13 @@ const InputGSTSection = () => (
             <td className="px-4 py-3 text-xs text-right">₹5,00,000</td>
             <td className="px-4 py-3 text-xs text-indigo-600 text-right font-bold">₹1,40,000</td>
             <td className="px-4 py-3 text-xs text-emerald-600 text-center font-bold">Yes</td>
-            <td className="px-4 py-3 text-xs text-center"><input type="checkbox" defaultChecked className="rounded text-primary" /></td>
+            <td className="px-4 py-3 text-xs text-center">
+              <select className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary">
+                <option>Claimed</option>
+                <option>Pending</option>
+                <option>Hold</option>
+              </select>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -321,8 +344,10 @@ const TDSManagementSection = () => (
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS Section (Construction Specific) *</label>
             <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
               <option>194C - Contractor Payments</option>
-              <option>194J - Professional / Consultancy Fees</option>
+              <option>194J - Professional Fees</option>
+              <option>194J - Consultancy Charges</option>
               <option>194I - Equipment Rental</option>
+              <option>194C - Subcontractor Payments</option>
             </select>
           </div>
 
@@ -370,7 +395,15 @@ const TaxReconciliationSection = () => (
             <td className="px-4 py-3 text-xs text-right font-mono">₹1,40,000</td>
             <td className="px-4 py-3 text-xs text-right font-mono text-emerald-500">₹0</td>
             <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Matched</span></td>
-            <td className="px-4 py-3 text-xs"><button className="text-slate-400 hover:text-primary font-semibold">View</button></td>
+            <td className="px-4 py-3 text-xs">
+              <select className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary">
+                <option>Select Action</option>
+                <option>Match</option>
+                <option>Mismatch</option>
+                <option>Reconcile</option>
+                <option>Download Report</option>
+              </select>
+            </td>
           </tr>
           <tr className="hover:bg-slate-50/50 transition-colors">
             <td className="px-4 py-3 text-xs font-bold text-primary">INV-STEEL-44</td>
@@ -379,7 +412,15 @@ const TaxReconciliationSection = () => (
             <td className="px-4 py-3 text-xs text-right font-mono">₹80,000</td>
             <td className="px-4 py-3 text-xs text-right font-mono text-rose-500 font-bold">-₹5,000</td>
             <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full font-bold text-[10px] uppercase">Mismatch</span></td>
-            <td className="px-4 py-3 text-xs"><button className="text-primary font-semibold hover:underline">Reconcile</button></td>
+            <td className="px-4 py-3 text-xs">
+              <select className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary" defaultValue="Reconcile">
+                <option>Select Action</option>
+                <option>Match</option>
+                <option>Mismatch</option>
+                <option>Reconcile</option>
+                <option>Download Report</option>
+              </select>
+            </td>
           </tr>
         </tbody>
       </table>
