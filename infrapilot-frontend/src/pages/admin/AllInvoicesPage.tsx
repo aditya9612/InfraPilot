@@ -108,7 +108,14 @@ const AllInvoicesPage = () => {
 
   const handleCreateInvoice = async (data: any) => {
     try {
-      await financeService.createInvoice(data);
+      if (data.type === "labour") {
+        const { project_id, start_date, end_date } = data;
+        await financeService.createLabourInvoice({ project_id, start_date, end_date });
+      } else if (data.type === "material") {
+        await financeService.createMaterialInvoice(data.project_id);
+      } else {
+        await financeService.createInvoice(data);
+      }
       toast.success("Invoice created successfully");
       setIsModalOpen(false);
       // Refresh invoice list

@@ -41,6 +41,21 @@ export const chatService = {
         return response.data;
     },
 
+    async getPinnedChats(): Promise<Conversation[]> {
+        const response = await api.get<Conversation[]>("/chats/pinned");
+        return response.data;
+    },
+
+    async softDeleteChat(chatId: number): Promise<{ status: string }> {
+        const response = await api.delete<{ status: string }>(`/chats/${chatId}`);
+        return response.data;
+    },
+
+    async restoreChat(chatId: number): Promise<{ status: string }> {
+        const response = await api.post<{ status: string }>(`/chats/${chatId}/restore`);
+        return response.data;
+    },
+
     async muteChat(chatId: number, muted: boolean): Promise<{ status: string; is_muted: boolean }> {
         const response = await api.post<{ status: string; is_muted: boolean }>(`/chats/${chatId}/mute?muted=${muted}`);
         return response.data;
@@ -48,6 +63,16 @@ export const chatService = {
 
     async archiveChat(chatId: number, archived: boolean): Promise<{ status: string; is_archived: boolean }> {
         const response = await api.post<{ status: string; is_archived: boolean }>(`/chats/${chatId}/archive?archived=${archived}`);
+        return response.data;
+    },
+
+    async pinChat(chatId: number): Promise<{ status: string }> {
+        const response = await api.post<{ status: string }>(`/chats/${chatId}/pin`);
+        return response.data;
+    },
+
+    async unpinChat(chatId: number): Promise<{ status: string }> {
+        const response = await api.post<{ status: string }>(`/chats/${chatId}/unpin`);
         return response.data;
     },
 
@@ -68,6 +93,7 @@ export const chatService = {
         parent_id?: number | null;
         attachment_id?: number | null;
         attachment_url?: string | null;
+        mention_user_ids?: number[];
     }): Promise<ChatMessage> {
         const response = await api.post<ChatMessage>(`/chats/${chatId}/messages`, payload);
         return response.data;
@@ -80,6 +106,21 @@ export const chatService = {
 
     async reactToMessage(messageId: number, reaction: string): Promise<{ status: string }> {
         const response = await api.post<{ status: string }>(`/chats/messages/${messageId}/react?reaction=${encodeURIComponent(reaction)}`);
+        return response.data;
+    },
+
+    async markRead(messageId: number): Promise<{ status: string }> {
+        const response = await api.post<{ status: string }>(`/chats/messages/${messageId}/read`);
+        return response.data;
+    },
+
+    async getReadReceipts(messageId: number): Promise<{ user_id: number; name: string; read_at: string }[]> {
+        const response = await api.get<{ user_id: number; name: string; read_at: string }[]>(`/messages/${messageId}/reads`);
+        return response.data;
+    },
+
+    async getMentionedMessages(): Promise<ChatMessage[]> {
+        const response = await api.get<ChatMessage[]>("/messages/mentions");
         return response.data;
     },
 

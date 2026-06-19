@@ -261,6 +261,38 @@ const ChatSidebar: React.FC = () => {
                     </div>
                 )}
 
+                {/* Pinned Section */}
+                {mode === "list" && !showArchived && searchQuery === "" && filter === "all" && conversations.some(c => c.is_pinned) && (
+                    <div className="mb-2">
+                        <div className="px-5 py-2 flex items-center gap-2 opacity-50">
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pinned Chats</span>
+                        </div>
+                        {conversations.filter(c => c.is_pinned).map(c => (
+                            <div
+                                key={`pinned-${c.id}`}
+                                role="button"
+                                onClick={() => setActiveChatId(c.id)}
+                                className={`w-full flex items-center gap-3 px-5 py-3.5 transition-all relative border-b border-slate-50/60 cursor-pointer ${activeChatId === c.id ? "bg-primary/5" : "hover:bg-slate-50"}`}
+                            >
+                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black text-white shrink-0 uppercase shadow-sm overflow-hidden ${c.type === "group" ? "bg-violet-500 text-white/90" : "bg-primary"}`}>
+                                    {c.type === "group" ? <Users className="w-4 h-4" /> : c.other_user_avatar ? <img src={getFullImageUrl(c.other_user_avatar)} className="w-full h-full object-cover" /> : (c.name || c.other_user_name || "?").charAt(0)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-sm font-black text-slate-700 truncate">{c.name || c.other_user_name}</h3>
+                                    <p className="text-[11px] text-slate-400 truncate font-medium">{c.last_message || "No messages"}</p>
+                                </div>
+                                {c.unread_count > 0 && (
+                                    <span className="min-w-[18px] h-[18px] bg-rose-500 text-white text-[9px] font-black rounded-md px-1 flex items-center justify-center">
+                                        {c.unread_count}
+                                    </span>
+                                )}
+                            </div>
+                        ))}
+                        <div className="h-px bg-slate-50 my-2 mx-5" />
+                    </div>
+                )}
+
                 {/* Chat List */}
                 {mode === "list" && (
                     isLoading && conversations.length === 0 ? (

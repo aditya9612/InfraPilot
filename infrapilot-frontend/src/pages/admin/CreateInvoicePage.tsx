@@ -95,8 +95,11 @@ const CreateInvoicePage = () => {
           clientName: data.client_name,
           clientAddress: data.billing_address || data.site_address,
           clientGst: data.gst_number,
+          clientMobile: data.mobile_number,
           invoiceNo: data.quotation_no,
           date: data.created_at ? new Date(data.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+          projectName: data.project_name || projectDetails.name,
+          terms: data.terms_conditions,
           items: (data.items || []) as any[],
           labourItems: (data.labour_items || []) as any[],
           materialItems: (data.material_items || []) as any[],
@@ -792,13 +795,36 @@ const CreateInvoicePage = () => {
     return res;
   };
 
-  // Implement Professional Direct Download (UltraTech Style)
+  // Implement Professional Direct Download (Backend for existing, window.print for new/drafts)
   const handleDownload = async () => {
-    toast.loading("Preparing UltraTech PDF...", { id: "pdf-gen" });
-    setTimeout(() => {
-      window.print();
-      toast.success("PDF Download Ready", { id: "pdf-gen" });
-    }, 500);
+    if (!id) {
+      toast.error("Please save the quotation first to download the PDF from backend", { duration: 3000 });
+      // Optional: fallback to window.print() if you want to allow draft printing
+      toast.loading("Opening print preview for draft...", { id: "pdf-gen" });
+      setTimeout(() => {
+        window.print();
+        toast.success("Print Ready", { id: "pdf-gen" });
+      }, 500);
+      return;
+    }
+
+    const toastId = toast.loading("Downloading PDF from backend...", { id: "pdf-gen" });
+    try {
+      const blob = await quotationService.downloadQuotationPDF(Number(id));
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF Downloaded Successfully", { id: toastId });
+    } catch (error) {
+      console.error("Download Error:", error);
+      toast.error("Failed to download PDF from backend. Falling back to print.", { id: toastId });
+      setTimeout(() => window.print(), 1000);
+    }
   };
 
   const handleEditItem = (item: InvoiceItem) => {
@@ -1179,7 +1205,7 @@ const CreateInvoicePage = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
-                {id ? "Quotation Intelligence" : "Invoice Details"}
+                {id ? "Quotation Intelligence" : "Quotation Details"}
                 {status === "approved" && (
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full border border-emerald-200">
                     <CheckCircle className="w-3 h-3" /> Approved
@@ -1371,11 +1397,11 @@ const CreateInvoicePage = () => {
                   <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
                     <FileText className="w-5 h-5" />
                   </div>
-                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Invoice Details</h3>
+                  <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Quotation Details</h3>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Invoice No.</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quotation No.</label>
                     <input
                       type="text"
                       value={invoiceDetails.invoiceNo}
@@ -1385,7 +1411,7 @@ const CreateInvoicePage = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Invoice Date</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quotation Date</label>
                     <div className="relative">
                       <input
                         type="date"
@@ -2537,128 +2563,121 @@ const CreateInvoicePage = () => {
 
       {/* PORTAL FOR PERFECT PRINTING (ULTRATECH STYLE) */}
       {createPortal(
-        <div id="ultra-tech-print-zone" className="fixed inset-0 bg-white z-[-1] invisible pointer-events-none opacity-0 
-              print:visible print:static print:z-[999999] print:opacity-100 print:block p-0 m-0">
-          <div className="bg-white p-8 max-w-[210mm] mx-auto font-serif">
-            {/* Header */}
-            <div className="border-b-2 border-slate-900 pb-6 mb-6 flex justify-between items-start">
-              <div className="flex items-center gap-4">
-                <img src={logo} alt="Logo" className="w-16 h-16 object-contain" />
-                <div>
-                  <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">InfraPilot</h1>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Construction & Infrastructure</p>
+        <div id="ultra-tech-print-zone" className="hidden print:block fixed inset-0 z-[9999] bg-white p-12 overflow-y-auto">
+          <div className="bg-white max-w-[210mm] mx-auto p-0 min-h-[297mm]">
+            {/* Header: Logo and Title */}
+            <div className="flex justify-between items-center mb-8">
+              <img src={logo} alt="Logo" className="w-24 h-24 object-contain" />
+              <h1 className="text-3xl font-bold text-[#1F4E79] tracking-tight">
+                {status?.toLowerCase() === "converted" || status?.toLowerCase() === "invoice" ? "TAX INVOICE" : "PROJECT QUOTATION"}
+              </h1>
+            </div>
+
+            {/* Company Info */}
+            <div className="mb-8">
+              <h2 className="text-lg font-bold text-slate-900">Infra Pilot</h2>
+              <p className="text-xs text-slate-600">GST: 27ABCDE1234F1Z5</p>
+              <p className="text-xs text-slate-600">Mobile: 9876543210</p>
+              <p className="text-xs text-slate-600">Email: info@infrapilot.com</p>
+            </div>
+
+            {/* Main Info Table */}
+            <div className="mb-6">
+              <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
+                <div className="w-1/2">Field</div>
+                <div className="w-1/2 text-left">Value</div>
+              </div>
+              <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
+                <div className="flex p-2">
+                  <div className="w-1/2 font-bold">Document No</div>
+                  <div className="w-1/2">{invoiceDetails.invoiceNo}</div>
+                </div>
+                <div className="flex p-2 bg-slate-50">
+                  <div className="w-1/2 font-bold">Date</div>
+                  <div className="w-1/2">{invoiceDetails.date}</div>
+                </div>
+                <div className="flex p-2">
+                  <div className="w-1/2 font-bold">Project</div>
+                  <div className="w-1/2 uppercase">{projects.find(p => p.id === selectedProjectId)?.project_name || "N/A"}</div>
+                </div>
+                <div className="flex p-2 bg-slate-50">
+                  <div className="w-1/2 font-bold">Project Type</div>
+                  <div className="w-1/2">Residential</div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="bg-slate-900 text-white px-6 py-2 text-sm font-black uppercase tracking-[0.2em] mb-4">Tax Invoice</div>
-                <p className="text-[10px] font-bold text-slate-600 uppercase">GSTIN: 27AAACL6442L1ZA</p>
+            </div>
+
+            {/* Client Details */}
+            <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Client Details</h3>
+            <div className="mb-6">
+              <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
+                <div className="w-1/2">Field</div>
+                <div className="w-1/2 text-left">Value</div>
+              </div>
+              <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
+                <div className="flex p-2">
+                  <div className="w-1/2 font-bold">Client Name</div>
+                  <div className="w-1/2 uppercase text-slate-900 font-black">{clientDetails.name || "N/A"}</div>
+                </div>
+                <div className="flex p-2 bg-slate-50">
+                  <div className="w-1/2 font-bold">Billing Address</div>
+                  <div className="w-1/2">{clientDetails.address || "N/A"}</div>
+                </div>
+                <div className="flex p-2">
+                  <div className="w-1/2 font-bold">GST Number</div>
+                  <div className="w-1/2">{clientDetails.gst || "N/A"}</div>
+                </div>
               </div>
             </div>
 
-            {/* Recipient */}
-            <div className="grid grid-cols-2 gap-px bg-slate-200 border border-slate-200 mb-6 font-mono">
-              <div className="bg-white p-4">
-                <h4 className="text-[10px] font-black bg-slate-100 px-2 py-1 -mx-4 -mt-4 border-b border-slate-200 mb-3 uppercase">Recipient Details</h4>
-                <p className="text-xs font-black text-slate-900 uppercase mb-1">{clientDetails.name || "Sandeep Sir"}</p>
-                <p className="text-[10px] text-slate-600 mb-2">{clientDetails.address || "Indore, MP"}</p>
-                <p className="text-[10px] font-bold text-slate-800">GSTIN: {clientDetails.gst || "23ABCDE1234F1Z5"}</p>
-              </div>
-              <div className="bg-white p-4 text-right">
-                <h4 className="text-[10px] font-black bg-slate-100 px-2 py-1 -mx-4 -mt-4 border-b border-slate-200 mb-3 uppercase text-right">Invoice Info</h4>
-                <p className="text-[10px] text-slate-400">Invoice No: <span className="font-black text-slate-900">{invoiceDetails.invoiceNo}</span></p>
-                <p className="text-[10px] text-slate-400">Date: <span className="font-black text-slate-900">{invoiceDetails.date}</span></p>
-                <p className="text-[10px] text-slate-400">Place: <span className="font-black text-slate-900 uppercase">Madhya Pradesh</span></p>
-              </div>
-            </div>
-
-            {/* Table */}
-            <table className="w-full border-collapse border border-slate-900 mb-6 text-[11px]">
+            {/* Item Details */}
+            <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Item Details</h3>
+            <table className="w-full border-collapse border border-slate-300 text-xs mb-8">
               <thead>
-                <tr className="bg-slate-50 uppercase font-black border-b border-slate-900">
-                  <th className="border border-slate-900 p-2 text-center w-12">Sr.</th>
-                  <th className="border border-slate-900 p-2 text-left">Description</th>
-                  <th className="border border-slate-900 p-2 text-center w-20">Qty</th>
-                  <th className="border border-slate-900 p-2 text-right w-24">Rate (₹)</th>
-                  <th className="border border-slate-900 p-2 text-center w-16">Unit</th>
-                  <th className="border border-slate-900 p-2 text-right w-28">Amount (₹)</th>
+                <tr className="bg-[#1F4E79] text-white font-bold">
+                  <th className="border border-slate-300 p-2 text-left">Item</th>
+                  <th className="border border-slate-300 p-2 text-center w-16">Qty</th>
+                  <th className="border border-slate-300 p-2 text-center w-20">Unit</th>
+                  <th className="border border-slate-300 p-2 text-right w-24">Rate</th>
+                  <th className="border border-slate-300 p-2 text-right w-28">Amount</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-300 text-slate-700">
                 {items.map((item, idx) => (
-                  <tr key={idx} className="font-bold text-slate-700">
-                    <td className="border border-slate-900 p-2 text-center">{idx + 1}</td>
-                    <td className="border border-slate-900 p-2 whitespace-pre-line">{item.description}</td>
-                    <td className="border border-slate-900 p-2 text-center">{item.quantity}</td>
-                    <td className="border border-slate-900 p-2 text-right">{item.rate.toLocaleString()}</td>
-                    <td className="border border-slate-900 p-2 text-center">{item.unit}</td>
-                    <td className="border border-slate-900 p-2 text-right font-black text-slate-900">{item.amount.toLocaleString()}</td>
-                  </tr>
-                ))}
-                {Array.from({ length: Math.max(0, 8 - items.length) }).map((_, i) => (
-                  <tr key={i} className="h-8">
-                    <td className="border border-slate-900"></td>
-                    <td className="border border-slate-900"></td>
-                    <td className="border border-slate-900"></td>
-                    <td className="border border-slate-900"></td>
-                    <td className="border border-slate-900"></td>
-                    <td className="border border-slate-900"></td>
+                  <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50" : ""}>
+                    <td className="border border-slate-300 p-2 font-bold whitespace-pre-line">{item.description}</td>
+                    <td className="border border-slate-300 p-2 text-center">{item.quantity}</td>
+                    <td className="border border-slate-300 p-2 text-center">{item.unit}</td>
+                    <td className="border border-slate-300 p-2 text-right">{item.rate.toLocaleString()}</td>
+                    <td className="border border-slate-300 p-2 text-right font-black text-slate-900">{item.amount.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="bg-slate-900 text-white font-black">
-                  <td colSpan={5} className="p-2 text-right uppercase tracking-[0.2em]">Total basic value</td>
-                  <td className="p-2 text-right">₹{subTotal.toLocaleString()}</td>
-                </tr>
-              </tfoot>
             </table>
 
             {/* Summary Footer */}
-            <div className="grid grid-cols-2 gap-8 mb-8">
-              <div>
-                <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Total in Words:</p>
-                <p className="text-[10px] font-black uppercase leading-tight">{toWords(grandTotal)}</p>
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="font-bold text-slate-500">Taxable Value</span>
-                  <span className="font-black text-slate-800">₹{subTotal.toLocaleString()}</span>
+            <div className="flex justify-end mb-8">
+              <div className="w-1/2 space-y-1 text-sm border border-slate-300 p-4">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Subtotal:</span>
+                  <span className="font-bold">INR {subTotal.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="font-bold text-slate-500">CGST ({gstRates.cgst}%)</span>
-                  <span className="font-black text-slate-800">₹{cgst.toLocaleString()}</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Grand Total:</span>
+                  <span className="font-black text-slate-900 text-lg">INR {grandTotal.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="font-bold text-slate-500">SGST ({gstRates.sgst}%)</span>
-                  <span className="font-black text-slate-800">₹{sgst.toLocaleString()}</span>
-                </div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-xs text-rose-600">
-                    <span className="font-bold">Discount</span>
-                    <span className="font-black">-₹{discount.toLocaleString()}</span>
-                  </div>
-                )}
-                {advancePaid > 0 && (
-                  <div className="flex justify-between text-xs text-emerald-600">
-                    <span className="font-bold">Advance Paid</span>
-                    <span className="font-black">₹{advancePaid.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="pt-4 border-t-2 border-slate-900 flex justify-between items-center">
-                  <span className="text-sm font-black uppercase tracking-tighter">
-                    {advancePaid > 0 ? "Balance Due" : "Final Net Amount"}
-                  </span>
-                  <span className="text-xl font-black text-slate-900">₹{balanceDue.toLocaleString()}</span>
+                <div className="pt-2 border-t border-slate-200">
+                  <p className="text-[10px] font-bold text-slate-400 italic leading-tight">Amount in Words: {toWords(grandTotal)}</p>
                 </div>
               </div>
             </div>
 
             <div className="mt-auto border-t-2 border-slate-900 pt-8 flex justify-between items-end">
               <div>
-                <p className="text-[8px] text-slate-400">This is a computer generated invoice.</p>
+                <p className="text-[8px] text-slate-400 italic">This is a computer generated document.</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-black mb-12 uppercase text-slate-900">For InfraPilot Pvt Ltd</p>
+                <p className="text-[10px] font-black mb-12 uppercase text-slate-900">For Infra Pilot</p>
                 <div className="border-t border-slate-400 pt-1">
                   <p className="text-[10px] font-black uppercase">Authorized Signatory</p>
                 </div>
