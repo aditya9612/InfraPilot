@@ -4,7 +4,7 @@ import Modal from '../common/Modal';
 
 import type { Project } from '../../types/project';
 import type { BoqItem } from '../../types/boq';
-import { BOQ_CATEGORIES, BOQ_STATUSES } from '../../config/constants';
+import { BOQ_STATUSES } from '../../config/constants';
 import { masterService, type MasterEntity } from '../../services/masterService';
 
 interface CreateBOQModalProps {
@@ -29,17 +29,12 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
   });
 
   const [activityTypes, setActivityTypes] = useState<MasterEntity[]>([]);
-  const [units, setUnits] = useState<MasterEntity[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [types, fetchedUnits] = await Promise.all([
-          masterService.getEntities('activity-types'),
-          masterService.getEntities('units'),
-        ]);
+        const types = await masterService.getEntities('activity-types');
         setActivityTypes(types);
-        setUnits(fetchedUnits);
       } catch (error) {
         console.error("Failed to fetch master data:", error);
       }
@@ -257,19 +252,6 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             {errors.item_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.item_name}</p>}
           </div>
 
-          <div className="md:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Category <span className="text-primary italic font-medium">(Auto-filled)</span></label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              disabled
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none appearance-none cursor-not-allowed text-slate-500 font-medium"
-            >
-              <option value="">Select Category</option>
-              {BOQ_CATEGORIES?.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
 
           <div className="md:col-span-2">
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Description <span className="text-rose-500">*</span></label>
@@ -297,19 +279,6 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             {errors.quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.quantity}</p>}
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit <span className="text-primary italic font-medium">(Auto-filled)</span></label>
-            <select
-              name="unit"
-              value={formData.unit}
-              onChange={handleChange}
-              disabled
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none appearance-none cursor-not-allowed text-slate-500 font-medium"
-            >
-              <option value="">Select Unit</option>
-              {units?.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-            </select>
-          </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit Cost (₹) <span className="text-rose-500">*</span></label>

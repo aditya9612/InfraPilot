@@ -46,6 +46,15 @@ const ChatView: React.FC = () => {
     const [isLoadingMembers, setIsLoadingMembers] = useState(false);
     const openProfile = (profile: UserProfile) => setSelectedProfile(profile);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [readReceipts, setReadReceipts] = useState<{ user_id: number; name: string; read_at: string }[] | null>(null);
+    const [receiptMsgId, setReceiptMsgId] = useState<number | null>(null);
+    const [isLoadingReceipts, setIsLoadingReceipts] = useState(false);
+
+    // Mentions state
+    const [mentionUsers, setMentionUsers] = useState<{ user_id: number; full_name: string | null; profile_image: string | null }[]>([]);
+    const [mentionSearch, setMentionSearch] = useState("");
+    const [showMentions, setShowMentions] = useState(false);
+    const [mentionedUserIds, setMentionedUserIds] = useState<number[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -107,6 +116,24 @@ const ChatView: React.FC = () => {
 
     const handleInputChange = (val: string) => {
         setInputText(val);
+
+        // Mention detection
+        const lastChar = val.slice(-1);
+        const lastWord = val.split(" ").pop() || "";
+
+        if (lastWord.startsWith("@")) {
+            const query = lastWord.slice(1);
+            setMentionSearch(query);
+            setShowMentions(true);
+            if (activeChatId) {
+                chatService.getMentionUsers(activeChatId).then(res => {
+                    setMentionUsers(res.items);
+                });
+            }
+        } else {
+            setShowMentions(false);
+        }
+
         if (!activeChatId) return;
         if (!isTyping) {
             setIsTyping(true);
@@ -117,6 +144,15 @@ const ChatView: React.FC = () => {
             setIsTyping(false);
             chatService.setTyping(activeChatId, false).catch(() => { });
         }, 2000);
+    };
+
+    const handleMentionSelect = (user: { user_id: number; full_name: string | null }) => {
+        const words = inputText.split(" ");
+        words.pop(); // Remove the partial @mention
+        const newText = [...words, `@${user.full_name}`, ""].join(" ");
+        setInputText(newText);
+        setMentionedUserIds(prev => Array.from(new Set([...prev, user.user_id])));
+        setShowMentions(false);
     };
 
     const handleSend = async () => {
@@ -148,8 +184,10 @@ const ChatView: React.FC = () => {
                 message: originalText,
                 parent_id: parentId,
                 attachment_id,
-                attachment_url
+                attachment_url,
+                mention_user_ids: mentionedUserIds
             });
+            setMentionedUserIds([]);
             setMessages(prev => [...prev, response]);
         } catch {
             toast.dismiss("uploading");
@@ -205,10 +243,69 @@ const ChatView: React.FC = () => {
         setShowPinned(true);
     };
 
-    const MessageStatusIcon = ({ status }: { status: string }) => {
-        if (status === "read") return <CheckCheck className="w-3 h-3 text-blue-400" />;
-        if (status === "delivered") return <CheckCheck className="w-3 h-3 text-slate-400" />;
-        return <Check className="w-3 h-3 text-slate-300" />;
+    const MessageStatusIcon = ({ msg }: { msg: ChatMessage }) => {
+        const status = msg.status;
+        const isMine = myUserId !== null && msg.sender_id === myUserId;
+        if (!isMine) return null;
+
+        const handleShowReceipts = async (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (receiptMsgId === msg.id) {
+                setReceiptMsgId(null);
+                setReadReceipts(null);
+                return;
+            }
+            setReceiptMsgId(msg.id);
+            setIsLoadingReceipts(true);
+            try {
+                const receipts = await chatService.getReadReceipts(msg.id);
+                setReadReceipts(receipts);
+            } catch {
+                setReadReceipts([]);
+            } finally {
+                setIsLoadingReceipts(false);
+            }
+        };
+
+        return (
+            <button
+                onClick={handleShowReceipts}
+                className="hover:scale-110 transition-transform cursor-pointer flex items-center relative"
+            >
+                {status === "read" ? <CheckCheck className="w-3 h-3 text-blue-400" /> :
+                    status === "delivered" ? <CheckCheck className="w-3 h-3 text-slate-400" /> :
+                        <Check className="w-3 h-3 text-slate-300" />}
+
+                <AnimatePresence>
+                    {receiptMsgId === msg.id && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="absolute bottom-6 right-0 w-48 bg-white rounded-xl shadow-2xl border border-slate-100 z-[120] p-1.5"
+                        >
+                            <div className="px-2 py-1.5 border-b border-slate-50 mb-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Read Receipts</p>
+                            </div>
+                            <div className="max-h-32 overflow-y-auto">
+                                {isLoadingReceipts ? (
+                                    <div className="p-2 text-center text-[9px] font-bold text-slate-400">Loading...</div>
+                                ) : readReceipts && readReceipts.length > 0 ? (
+                                    readReceipts.map(r => (
+                                        <div key={r.user_id} className="flex items-center justify-between px-2 py-1 rounded-lg hover:bg-slate-50">
+                                            <span className="text-[10px] font-bold text-slate-700 truncate">{r.name}</span>
+                                            <span className="text-[9px] text-slate-400">{formatToIST(r.read_at)}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="p-2 text-center text-[9px] font-bold text-slate-300 italic">Not read yet</div>
+                                )}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </button>
+        );
     };
 
     if (!activeChatId) {
@@ -469,6 +566,52 @@ const ChatView: React.FC = () => {
                                     <div className="h-px bg-slate-50 my-1 mx-2" />
 
                                     <button
+                                        onClick={async () => {
+                                            setShowMoreMenu(false);
+                                            if (activeChat) {
+                                                try {
+                                                    const targetPin = !activeChat.is_pinned;
+                                                    // Instant UI update
+                                                    updateConversation(activeChatId!, { is_pinned: targetPin });
+
+                                                    // In a real scenario, we might have a specific /chats/{id}/pin endpoint
+                                                    // But for now, we use the message pin as a proxy or assume context handles it.
+                                                    // The user mentioned "Chat Member: is_pinned" - so it's a member property.
+                                                    if (targetPin) await chatService.pinChat(activeChatId!);
+                                                    else await chatService.unpinChat(activeChatId!);
+
+                                                    toast.success(targetPin ? "Chat pinned" : "Chat unpinned");
+                                                } catch { toast.error("Failed to update pin status"); }
+                                            }
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-primary rounded-xl transition-all"
+                                    >
+                                        <Pin className="w-4 h-4" />
+                                        {activeChat?.is_pinned ? "Unpin Chat" : "Pin Chat"}
+                                    </button>
+
+                                    <button
+                                        onClick={async () => {
+                                            if (!window.confirm("Are you sure you want to delete this chat history?")) return;
+                                            setShowMoreMenu(false);
+                                            if (activeChatId) {
+                                                try {
+                                                    await chatService.softDeleteChat(activeChatId);
+                                                    updateConversation(activeChatId, { is_deleted: true });
+                                                    setActiveChatId(null);
+                                                    toast.success("Chat deleted");
+                                                } catch { toast.error("Failed to delete chat"); }
+                                            }
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                                    >
+                                        <X className="w-4 h-4" />
+                                        Delete Chat
+                                    </button>
+
+                                    <div className="h-px bg-slate-50 my-1 mx-2" />
+
+                                    <button
                                         onClick={() => {
                                             setShowSearch(true);
                                             setShowMoreMenu(false);
@@ -616,7 +759,11 @@ const ChatView: React.FC = () => {
                                                     <Pin className="w-2.5 h-2.5" /> Pinned
                                                 </span>
                                             )}
-                                            {msg.message}
+                                            {msg.message.split(/(@[^\s]+)/g).map((part, i) =>
+                                                part.startsWith("@") ? (
+                                                    <span key={i} className={isMine ? "text-amber-200 font-bold" : "text-primary font-bold"}>{part}</span>
+                                                ) : part
+                                            )}
                                         </div>
 
                                         {/* Reaction bubbles */}
@@ -633,7 +780,7 @@ const ChatView: React.FC = () => {
                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tight">
                                                 {formatToIST(msg.created_at)}
                                             </span>
-                                            {isMine && <MessageStatusIcon status={msg.status} />}
+                                            {isMine && <MessageStatusIcon msg={msg} />}
                                         </div>
                                     </div>
 
@@ -682,6 +829,40 @@ const ChatView: React.FC = () => {
                         <button onClick={() => setSelectedFile(null)} className="text-slate-400 hover:text-rose-500 p-1">
                             <X className="w-4 h-4" />
                         </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Mention Picker ── */}
+            <AnimatePresence>
+                {showMentions && mentionUsers.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute bottom-24 left-6 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 z-[100] overflow-hidden p-1.5"
+                    >
+                        <div className="px-3 py-2 border-b border-slate-50 mb-1">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mention User</p>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                            {mentionUsers
+                                .filter(u => !mentionSearch || (u.full_name || "").toLowerCase().includes(mentionSearch.toLowerCase()))
+                                .map(u => (
+                                    <button
+                                        key={u.user_id}
+                                        onClick={() => handleMentionSelect({ user_id: u.user_id, full_name: u.full_name })}
+                                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-xl transition-all"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-black text-primary uppercase overflow-hidden">
+                                            {u.profile_image ? (
+                                                <img src={getFullImageUrl(u.profile_image)} alt="U" className="w-full h-full object-cover" />
+                                            ) : (u.full_name || "?").charAt(0)}
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 truncate">{u.full_name}</span>
+                                    </button>
+                                ))}
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>

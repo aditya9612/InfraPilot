@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import Modal from "../common/Modal";
-import { Printer, QrCode, Download } from "lucide-react";
+import { Printer, Download } from "lucide-react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import logo from "../../assets/logo.png";
 import { settingsService } from "../../services/settingsService";
+import { quotationService } from "../../services/quotationService";
 import type { CompanySettings } from "../../types/settings";
+import toast from "react-hot-toast";
 
 interface InvoicePreviewModalProps {
     isOpen: boolean;
@@ -39,202 +41,162 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     const currentLogo = companyInfo?.company_logo ? settingsService.resolveUrl(companyInfo.company_logo) : logo;
     const currentSignature = companyInfo?.signature_image ? settingsService.resolveUrl(companyInfo.signature_image) : null;
 
-    // Shared helper: builds the complete invoice PDF and returns the jsPDF instance
+    const toWords = (num: number) => {
+        const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+        const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+        const inWords = (n: any): string => {
+            if ((n = n.toString()).length > 9) return 'overflow';
+            let n_arr: any = ('000000000' + n).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+            if (!n_arr) return '';
+            let str = '';
+            str += (n_arr[1] != 0) ? (a[Number(n_arr[1])] || b[n_arr[1][0]] + ' ' + a[n_arr[1][1]]) + 'Crore ' : '';
+            str += (n_arr[2] != 0) ? (a[Number(n_arr[2])] || b[n_arr[2][0]] + ' ' + a[n_arr[2][1]]) + 'Lakh ' : '';
+            str += (n_arr[3] != 0) ? (a[Number(n_arr[3])] || b[n_arr[3][0]] + ' ' + a[n_arr[3][1]]) + 'Thousand ' : '';
+            str += (n_arr[4] != 0) ? (a[Number(n_arr[4])] || b[n_arr[4][0]] + ' ' + a[n_arr[4][1]]) + 'Hundred ' : '';
+            str += (n_arr[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n_arr[5])] || b[n_arr[5][0]] + ' ' + a[n_arr[5][1]]) : '';
+            return str;
+        };
+
+        const amount = Math.floor(num);
+        const paisa = Math.round((num - amount) * 100);
+        let res = inWords(amount) + "Rupees Only";
+        if (paisa > 0) {
+            res = inWords(amount) + "Rupees and " + inWords(paisa) + "Paise Only";
+        }
+        return res;
+    };
+
     const buildInvoicePDF = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
 
-        // Styles
-        const slate900: [number, number, number] = [15, 23, 42];
-        const slate500: [number, number, number] = [100, 116, 139];
-        const slate100: [number, number, number] = [241, 245, 249];
+        const primaryBlue: [number, number, number] = [31, 78, 121]; // #1F4E79
+        const greenAccent: [number, number, number] = [74, 182, 94]; // #4AB65E
 
-        // 1. Header
-        try {
+        const drawFooter = (pdfDoc: jsPDF) => {
+            const footerY = pageHeight - 35;
+            pdfDoc.setFillColor(greenAccent[0], greenAccent[1], greenAccent[2]);
+            pdfDoc.rect(10, footerY - 2, pageWidth - 20, 1.5, "F");
+            pdfDoc.setFillColor(238, 238, 238);
+            pdfDoc.rect(10, footerY, pageWidth - 20, 25, "F");
+
+            pdfDoc.setFontSize(7);
+            pdfDoc.setTextColor(0, 0, 0);
+            pdfDoc.text(companyInfo?.mobile_number || "9876543210", 25, footerY + 8);
+            pdfDoc.text(companyInfo?.email || "info@infrapilot.com", 25, footerY + 16);
+            pdfDoc.text("@infrapilot_project", 85, footerY + 8);
+            pdfDoc.text(companyInfo?.mobile_number || "9999999999", 85, footerY + 16);
+            pdfDoc.text(companyInfo?.address || "Office No. 101, Skyline Tower, MG Road, Pune", 145, footerY + 8, { maxWidth: 50 });
+            pdfDoc.text(companyInfo?.website || "https://www.infrapilot.com/", 145, footerY + 18);
+        };
+
+        const drawHeader = (pdfDoc: jsPDF, isFirstPage = false) => {
             if (currentLogo) {
-                doc.addImage(currentLogo, 'PNG', 15, 12, 20, 20);
+                try { pdfDoc.addImage(currentLogo, 'PNG', 15, 10, 25, 20); } catch (e) { }
             }
-        } catch (e) {
-            console.warn("Logo not found", e);
-        }
+            pdfDoc.setFontSize(22);
+            pdfDoc.setFont("helvetica", "bold");
+            pdfDoc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+            pdfDoc.text("TAX INVOICE", pageWidth / 2 + 10, 25, { align: "center" });
 
-        doc.setFontSize(20);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
-        doc.text(companyInfo?.company_name?.toUpperCase() || "INFRAPILOT", 38, 22);
+            if (isFirstPage) {
+                pdfDoc.setFontSize(10);
+                pdfDoc.setTextColor(0, 0, 0);
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.text(companyInfo?.company_name || "Infra Pilot", 15, 45);
+                pdfDoc.setFontSize(8);
+                pdfDoc.setFont("helvetica", "normal");
+                pdfDoc.text(`GST: ${companyInfo?.gst_number || "27ABCDE1234F1Z5"}`, 15, 50);
+                pdfDoc.text(`Mobile: ${companyInfo?.mobile_number || "9876543210"}`, 15, 54);
+                pdfDoc.text(`Email: ${companyInfo?.email || "info@infrapilot.com"}`, 15, 58);
+            }
+        };
+
+        const drawTable = (pdfDoc: jsPDF, title: string, head: string[][], body: any[][], startY: number) => {
+            if (title) {
+                pdfDoc.setFontSize(11);
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setTextColor(0, 0, 0);
+                pdfDoc.text(title, 15, startY);
+                startY += 4;
+            }
+            autoTable(pdfDoc, {
+                startY: startY,
+                head: head,
+                body: body,
+                theme: 'grid',
+                headStyles: { fillColor: primaryBlue, textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold' },
+                bodyStyles: { fontSize: 8, textColor: [0, 0, 0] },
+                styles: { cellPadding: 2, lineWidth: 0.1, lineColor: [0, 0, 0] },
+                margin: { left: 15, right: 15 },
+                didDrawPage: () => { drawFooter(pdfDoc); }
+            });
+            return (pdfDoc as any).lastAutoTable.finalY + 8;
+        };
+
+        // --- Page 1 ---
+        drawHeader(doc, true);
+        let curY = 65;
+        curY = drawTable(doc, "", [['Field', 'Value']], [
+            ['Invoice No', data.invoiceNo || 'N/A'],
+            ['Date', data.date || 'N/A'],
+            ['Project', data.projectName || 'N/A'],
+            ['Project Type', data.projectType || 'Residential'],
+            ['Engineer', data.engineerName || 'Er. Tejas Dhande'],
+            ['Work Order', data.workOrderNo || 'N/A']
+        ], curY);
+
+        curY = drawTable(doc, "Client Details", [['Field', 'Value']], [
+            ['Client Name', data.clientName || 'N/A'],
+            ['Billing Address', data.clientAddress || 'N/A'],
+            ['Site Address', data.siteAddress || data.clientAddress || 'N/A'],
+            ['Mobile', data.clientMobile || data.clientMobileNo || 'N/A'],
+            ['GST Number', data.clientGst || data.clientGstNo || 'N/A']
+        ], curY);
+
+        curY = drawTable(doc, "Item Details", [['Item', 'Qty', 'Unit', 'Rate', 'Amount']],
+            data.items?.map((it: any) => [it.description || it.title, it.quantity, it.unit, it.rate?.toFixed(2), it.amount?.toFixed(2)]) || [],
+            curY
+        );
+
+        // Financial Summary on same page if possible, else autoTable handles it
+        curY = drawTable(doc, "Financial Summary", [['Description', 'Amount']], [
+            ['Subtotal', `INR ${data.subTotal?.toFixed(2)}`],
+            ['CGST', `INR ${((data.subTotal * (data.cgstRate || 0)) / 100).toFixed(2)}`],
+            ['SGST', `INR ${((data.subTotal * (data.sgstRate || 0)) / 100).toFixed(2)}`],
+            ['Grand Total', `INR ${data.grandTotal?.toFixed(2)}`],
+            ['Advance Paid', `INR ${data.advancePaid?.toFixed(2)}`],
+            ['Balance Due', `INR ${data.balanceDue?.toFixed(2)}`]
+        ], curY);
 
         doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
-        doc.text("CONSTRUCTION & INFRASTRUCTURE", 38, 28);
-
-        // Tax Invoice Box
-        doc.setDrawColor(slate900[0], slate900[1], slate900[2]);
-        doc.setLineWidth(0.6);
-        doc.rect(pageWidth - 75, 12, 60, 12);
-        doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
-        doc.text("TAX INVOICE", pageWidth - 45, 20, { align: "center" });
+        doc.text(`Amount in Words: ${toWords(data.grandTotal)}`, 15, curY);
 
-        doc.setFontSize(7);
-        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
-        doc.text(`GSTIN: ${companyInfo?.gst_number || '27AAACL6442L1ZA'}`, pageWidth - 45, 27, { align: "center" });
-        if (companyInfo?.mobile_number) doc.text(`TEL: ${companyInfo.mobile_number}`, pageWidth - 45, 31, { align: "center" });
+        // --- Page 2 (Terms & Signature if needed) ---
+        if (curY > pageHeight - 60) doc.addPage();
+        curY = Math.max(curY + 10, 40);
 
-        // Address info
-        doc.setFontSize(7);
-        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
-        const addr = companyInfo?.address || "Unit Address: 123, Business Hub, MG Road, Indore, MP - 452001";
-        const splitAddr = doc.splitTextToSize(addr, pageWidth - 100);
-        doc.text(splitAddr, 15, 38);
-
-        // 2. Metadata Tables (2 columns)
-        autoTable(doc, {
-            startY: 48,
-            head: [['RECIPIENT DETAILS', 'INVOICE INFO']],
-            body: [[{
-                content: `Name: ${data.clientName || 'N/A'}\nAddress: ${data.clientAddress || 'N/A'}\nGSTIN: ${data.clientGst || 'N/A'}`,
-                styles: { fontSize: 8, fontStyle: 'normal' }
-            }, {
-                content: `Invoice No: ${data.invoiceNo || 'N/A'}\nDate: ${data.date || new Date().toLocaleDateString()}\nProject Code: PRJ-2024-05\nPlace of Supply: MADHYA PRADESH`,
-                styles: { fontSize: 8, fontStyle: 'normal' }
-            }]],
-            theme: 'grid',
-            headStyles: { fillColor: slate100, textColor: slate500, fontSize: 8, fontStyle: 'bold' },
-            styles: { cellPadding: 4 }
-        });
-
-        // 3. Items Table
-        const tableRows: any[] = [];
-        const addSection = (title: string, items: any[], mapper: (item: any) => any[]) => {
-            if (!items || items.length === 0) return;
-            tableRows.push([{ content: title, colSpan: 5, styles: { fillColor: slate100, textColor: slate900, fontStyle: 'bold', fontSize: 7 } }]);
-            items.forEach((item) => tableRows.push(mapper(item)));
-        };
-
-        addSection('CONSTRUCTION WORK', data.items, (item) => [item.description || item.title, item.quantity, item.unit, item.rate?.toLocaleString(), item.amount?.toLocaleString()]);
-        addSection('MATERIAL SUPPLY', data.materialItems, (item) => [item.material_name, item.estimated_quantity, item.unit, item.estimated_rate?.toLocaleString(), item.estimated_amount?.toLocaleString()]);
-        addSection('LABOUR FORCES', data.labourItems, (item) => [item.skill_type, (item.labour_count * (item.labour_days || 1)), 'Man-days', item.daily_wage?.toLocaleString(), item.amount?.toLocaleString()]);
-        addSection('EXTRA CHARGES & EQUIPMENT', data.extraChargeItems, (item) => [item.description, item.quantity, '-', item.rate?.toLocaleString(), item.amount?.toLocaleString()]);
-
-        autoTable(doc, {
-            startY: (doc as any).lastAutoTable.finalY + 6,
-            head: [['DESCRIPTION', 'QTY', 'UNIT', 'RATE (INR)', 'BASIC VALUE (INR)']],
-            body: tableRows,
-            theme: 'grid',
-            headStyles: { fillColor: slate900, fontSize: 8, fontStyle: 'bold', halign: 'center' },
-            styles: { fontSize: 8, cellPadding: 2.5 },
-            columnStyles: {
-                0: { cellWidth: 85 },
-                1: { halign: 'center' },
-                2: { halign: 'center' },
-                3: { halign: 'right' },
-                4: { halign: 'right', fontStyle: 'bold' }
-            }
-        });
-
-        // Total Basic Value row
-        let currentY = (doc as any).lastAutoTable.finalY;
-        doc.setDrawColor(slate900[0], slate900[1], slate900[2]);
-        doc.setLineWidth(0.4);
-        doc.line(15, currentY, pageWidth - 15, currentY);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text("Terms & Conditions", 15, curY);
         doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.text("TOTAL BASIC VALUE", pageWidth - 45, currentY + 6, { align: "right" });
-        doc.text(`INR ${data.subTotal?.toLocaleString()}`, pageWidth - 15, currentY + 6, { align: "right" });
-        currentY += 12;
-
-        // 4. Summary (Words & Remarks vs Tax Breakdown)
-        doc.setDrawColor(226, 232, 240);
-        doc.setLineWidth(0.1);
-
-        // Left Column: Words & Remark
-        doc.setFontSize(7);
-        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
-        doc.text("TOTAL AMOUNT IN WORDS:", 15, currentY);
-        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
-        doc.setFont("helvetica", "bold");
-        doc.text(`INR ${toWords(data.grandTotal)}`, 15, currentY + 4, { maxWidth: 80 });
-
-        doc.rect(15, currentY + 12, 80, 15);
-        doc.setFontSize(7);
-        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
-        doc.text("REMARK:", 18, currentY + 17);
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(6);
-        doc.text("Material provided as per delivery challan. No breakage responsibility after site delivery.", 18, currentY + 20, { maxWidth: 74 });
+        const splitTerms = doc.splitTextToSize(data.terms || "Material provided as per delivery challan. No breakage responsibility after delivery.", pageWidth - 30);
+        doc.text(splitTerms, 15, curY + 5);
 
-        // Right Column: Tax Breakdown
-        const taxX = pageWidth - 80;
-        const startTaxY = currentY;
-        let taxCurrentY = startTaxY;
-
-        const addTaxLine = (label: string, value: any, isTotal = false) => {
-            doc.setFontSize(isTotal ? 10 : 8);
-            doc.setFont("helvetica", isTotal ? "bold" : "normal");
-            doc.setTextColor(slate900[0], slate900[1], slate900[2]);
-            doc.text(label, taxX, taxCurrentY);
-            doc.text(`INR ${value?.toLocaleString()}`, pageWidth - 15, taxCurrentY, { align: "right" });
-            taxCurrentY += 6;
-        };
-
-        addTaxLine("Taxable Value", data.subTotal);
-        addTaxLine(`CGST (${data.cgstRate}%)`, (data.subTotal * data.cgstRate) / 100);
-        addTaxLine(`SGST (${data.sgstRate}%)`, (data.subTotal * data.sgstRate) / 100);
-        if (data.discount) addTaxLine("Discount", -data.discount);
-        if (data.advancePaid) addTaxLine("Advance Paid", -data.advancePaid);
-
-        taxCurrentY += 2;
-        doc.setLineWidth(0.5);
-        doc.line(taxX, taxCurrentY, pageWidth - 15, taxCurrentY);
-        taxCurrentY += 6;
-        addTaxLine("BALANCE DUE:", data.balanceDue, true);
-
-        // 5. Footer & Signatory
-        let footerY = doc.internal.pageSize.height - 45;
-        doc.setDrawColor(slate900[0], slate900[1], slate900[2]);
-        doc.setLineWidth(0.5);
-        doc.line(15, footerY, pageWidth - 15, footerY);
-
-        footerY += 10;
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(slate900[0], slate900[1], slate900[2]);
-        doc.text(`For ${companyInfo?.company_name?.toUpperCase() || "INFRA-PILOT PVT LTD"}`, pageWidth - 15, footerY, { align: "right" });
-
+        curY += 40;
         if (currentSignature) {
-            try {
-                if (currentSignature) {
-                    doc.addImage(currentSignature, 'PNG', pageWidth - 55, footerY + 2, 35, 12);
-                }
-            } catch (e) {
-                console.warn("Signature not added to PDF", e);
-            }
+            try { doc.addImage(currentSignature, 'PNG', 15, curY, 30, 10); } catch (e) { }
         }
+        doc.line(15, curY + 12, 60, curY + 12);
+        doc.setFontSize(9);
+        doc.text("Authorized Signature", 15, curY + 17);
+        doc.text(companyInfo?.company_name || "Infra Pilot", 15, curY + 22);
 
-        doc.setDrawColor(203, 213, 225);
-        doc.line(pageWidth - 70, footerY + 15, pageWidth - 15, footerY + 15);
-        doc.setFontSize(7);
-        doc.text("AUTHORIZED SIGNATORY", pageWidth - 42.5, footerY + 19, { align: "center" });
-
-        // QR Placeholder
-        doc.setDrawColor(slate100[0], slate100[1], slate100[2]);
-        doc.setLineWidth(0.5);
-        doc.rect(15, footerY - 5, 20, 20);
-        doc.setFontSize(6);
-        doc.text("SCAN FOR\nPAYMENT", 25, footerY + 5, { align: "center" });
-
-        doc.setFontSize(6);
-        doc.setTextColor(slate500[0], slate500[1], slate500[2]);
-        doc.text("Certified that the particulars given above are true & correct.", 40, footerY + 20);
-
-        // T&C
-        doc.setFontSize(6);
-        doc.setTextColor(148, 163, 184);
-        const terms = companyInfo?.terms_conditions || "TERMS & CONDITIONS: 1. Subject to Jurisdiction. 2. Payment by RTGS/NEFT/UPI. 3. Interest @18% p.a. 4. TDS as per Form 16A.";
-        const splitTerms = doc.splitTextToSize(terms, pageWidth - 30);
-        doc.text(splitTerms, 15, doc.internal.pageSize.height - 10);
+        drawFooter(doc);
 
         return doc;
     };
@@ -251,211 +213,139 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         }
     };
 
-    const handleDownloadPDF = () => {
-        const doc = buildInvoicePDF();
-        doc.save(`Invoice_${data.invoiceNo || 'Draft'}.pdf`);
-    };
+    const handleDownloadPDF = async () => {
+        if (!data.id && !data.invoiceNo?.includes('QTN')) {
+            const doc = buildInvoicePDF();
+            doc.save(`Invoice_${data.invoiceNo || 'Draft'}.pdf`);
+            return;
+        }
 
-    const toWords = (num: number) => {
-        const amount = Math.floor(num);
-        return `${amount.toLocaleString()}`;
+        const toastId = toast.loading("Downloading PDF from backend...");
+        try {
+            const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
+
+            if (!qId || isNaN(Number(qId))) {
+                const doc = buildInvoicePDF();
+                doc.save(`Invoice_${data.invoiceNo || 'Draft'}.pdf`);
+                toast.dismiss(toastId);
+                return;
+            }
+
+            const blob = await quotationService.downloadQuotationPDF(Number(qId));
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Invoice_${data.invoiceNo}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success("Downloaded from Server", { id: toastId });
+        } catch (error) {
+            console.error("Backend Download Error:", error);
+            toast.error("Falling back to local generation", { id: toastId });
+            const doc = buildInvoicePDF();
+            doc.save(`Invoice_${data.invoiceNo || 'Draft'}.pdf`);
+        }
     };
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Invoice Preview"
-            maxWidth="max-w-5xl"
-        >
-            <div className="bg-slate-50 p-4 -m-6 rounded-b-2xl">
-                <div className="flex justify-end gap-3 mb-4 no-print">
-                    <button
-                        onClick={handleDownloadPDF}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all"
-                    >
-                        <Download className="w-4 h-4" /> Download PDF
+        <Modal isOpen={isOpen} onClose={onClose} title="Invoice Preview" maxWidth="max-w-5xl">
+            <div className="bg-slate-800 p-8 h-[90vh] overflow-y-auto no-print">
+                <div className="flex justify-end gap-3 mb-6">
+                    <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg">
+                        <Download size={18} /> Download PDF
                     </button>
-                    <button
-                        onClick={handlePrint}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                    >
-                        <Printer className="w-4 h-4" /> Print / Save PDF
+                    <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg">
+                        <Printer size={18} /> Print
                     </button>
                 </div>
 
-                <div id="printable-invoice" className="bg-white p-8 shadow-2xl border border-slate-200 mx-auto max-w-[210mm] min-h-[297mm]">
-                    <div className="border-b-2 border-slate-900 pb-6 mb-6">
-                        <div className="flex justify-between items-start">
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-20">
-                                        <img src={currentLogo || logo} alt="Logo" className="w-full h-auto" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">{companyInfo?.company_name || "InfraPilot"}</h1>
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Construction & Infrastructure</p>
-                                    </div>
-                                </div>
-                                <div className="text-[10px] space-y-1 text-slate-600 font-medium max-w-sm">
-                                    <p>{companyInfo?.address || "Unit Address: 123, Business Hub, MG Road, Indore, MP - 452001"}</p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <div className="border-2 border-slate-900 text-slate-900 px-6 py-2 text-sm font-black uppercase tracking-[0.2em] mb-4">
-                                    Tax Invoice
-                                </div>
-                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest space-y-1">
-                                    <p>GSTIN: {companyInfo?.gst_number || "27AAACL6442L1ZA"}</p>
-                                    {companyInfo?.mobile_number && <p>TEL: {companyInfo.mobile_number}</p>}
-                                </div>
-                            </div>
+                <div className="bg-white max-w-[210mm] mx-auto p-12 mb-8 shadow-2xl min-h-[297mm]">
+                    <div className="flex justify-between items-center mb-8">
+                        <img src={currentLogo || logo} alt="Logo" className="w-24 h-24 object-contain" />
+                        <h1 className="text-3xl font-bold text-[#1F4E79] tracking-tight">TAX INVOICE</h1>
+                    </div>
+
+                    <div className="mb-8">
+                        <h2 className="text-lg font-bold text-slate-900">{companyInfo?.company_name || "Infra Pilot"}</h2>
+                        <p className="text-xs text-slate-600">GST: {companyInfo?.gst_number || "27ABCDE1234F1Z5"}</p>
+                        <p className="text-xs text-slate-600">Mobile: {companyInfo?.mobile_number || "9876543210"}</p>
+                        <p className="text-xs text-slate-600">Email: {companyInfo?.email || "info@infrapilot.com"}</p>
+                    </div>
+
+                    <div className="mb-6">
+                        <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
+                            <div className="w-1/2">Field</div>
+                            <div className="w-1/2 text-left">Value</div>
+                        </div>
+                        <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
+                            <div className="flex p-2"><div className="w-1/2 font-bold">Invoice No</div><div className="w-1/2">{data.invoiceNo}</div></div>
+                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Date</div><div className="w-1/2">{data.date}</div></div>
+                            <div className="flex p-2"><div className="w-1/2 font-bold">Project</div><div className="w-1/2">{data.projectName || "N/A"}</div></div>
+                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Project Type</div><div className="w-1/2">Residential</div></div>
+                            <div className="flex p-2"><div className="w-1/2 font-bold">Engineer</div><div className="w-1/2">Er. Tejas Dhande</div></div>
+                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Work Order</div><div className="w-1/2">N/A</div></div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-px bg-slate-200 border border-slate-200 mb-6 font-mono">
-                        <div className="bg-white p-4 space-y-3">
-                            <h4 className="text-[10px] font-black bg-slate-100 px-2 py-1 -mx-4 -mt-4 border-b border-slate-200">RECIPIENT DETAILS</h4>
-                            <div className="space-y-1">
-                                <p className="text-[10px] text-slate-400">Name & Address of Recipient:</p>
-                                <p className="text-xs font-black text-slate-900 uppercase">{data.clientName || "N/A"}</p>
-                                <p className="text-[10px] text-slate-600 line-clamp-3">{data.clientAddress || "N/A"}</p>
-                                <p className="text-[10px] font-bold text-slate-800 pt-2">GSTIN: {data.clientGst || "N/A"}</p>
-                            </div>
+                    <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Client Details</h3>
+                    <div className="mb-6">
+                        <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
+                            <div className="w-1/2">Field</div>
+                            <div className="w-1/2 text-left">Value</div>
                         </div>
-                        <div className="bg-white p-4 space-y-3">
-                            <h4 className="text-[10px] font-black bg-slate-100 px-2 py-1 -mx-4 -mt-4 border-b border-slate-200 text-right">INVOICE INFO</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-[10px] text-slate-400">Invoice No:</p>
-                                    <p className="text-xs font-black text-slate-900">{data.invoiceNo || "Draft"}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] text-slate-400">Date:</p>
-                                    <p className="text-xs font-black text-slate-900">{data.date || new Date().toLocaleDateString()}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] text-slate-400">Project Code:</p>
-                                    <p className="text-xs font-black text-slate-900">PRJ-2024-05</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] text-slate-400">Place of Supply:</p>
-                                    <p className="text-xs font-black text-slate-900 uppercase">Local</p>
-                                </div>
-                            </div>
+                        <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
+                            <div className="flex p-2"><div className="w-1/2 font-bold">Client Name</div><div className="w-1/2 uppercase text-slate-900 font-black">{data.clientName || "N/A"}</div></div>
+                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Billing Address</div><div className="w-1/2">{data.clientAddress || "N/A"}</div></div>
+                            <div className="flex p-2"><div className="w-1/2 font-bold">Site Address</div><div className="w-1/2">N/A</div></div>
+                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Mobile</div><div className="w-1/2">{data.clientMobile || "N/A"}</div></div>
+                            <div className="flex p-2"><div className="w-1/2 font-bold">GST Number</div><div className="w-1/2">{data.clientGst || "N/A"}</div></div>
                         </div>
                     </div>
 
-                    <table className="w-full border-collapse border border-slate-900 mb-6">
+                    <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Item Details</h3>
+                    <table className="w-full border-collapse border border-slate-300 text-xs mb-8">
                         <thead>
-                            <tr className="bg-slate-50 text-[10px] font-black uppercase text-slate-800 border-b border-slate-900">
-                                <th className="border border-slate-900 p-2 text-center w-12">Sr.</th>
-                                <th className="border border-slate-900 p-2 text-left">Description</th>
-                                <th className="border border-slate-900 p-2 text-center w-20">Qty</th>
-                                <th className="border border-slate-900 p-2 text-right w-24">Rate (₹)</th>
-                                <th className="border border-slate-900 p-2 text-center w-16">Unit</th>
-                                <th className="border border-slate-900 p-2 text-right w-28">Basic Value (₹)</th>
+                            <tr className="bg-[#1F4E79] text-white font-bold">
+                                <th className="border border-slate-300 p-2 text-left">Item</th>
+                                <th className="border border-slate-300 p-2 text-center w-16">Qty</th>
+                                <th className="border border-slate-300 p-2 text-center w-20">Unit</th>
+                                <th className="border border-slate-300 p-2 text-right w-24">Rate</th>
+                                <th className="border border-slate-300 p-2 text-right w-28">Amount</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-slate-300 text-slate-700">
                             {data.items?.map((item: any, idx: number) => (
-                                <tr key={`item-${idx}`} className="text-[11px] font-bold text-slate-700">
-                                    <td className="border border-slate-900 p-2 text-center">{idx + 1}</td>
-                                    <td className="border border-slate-900 p-2">{item.description || item.title}</td>
-                                    <td className="border border-slate-900 p-2 text-center">{item.quantity}</td>
-                                    <td className="border border-slate-900 p-2 text-right">{item.rate?.toLocaleString()}</td>
-                                    <td className="border border-slate-900 p-2 text-center">{item.unit}</td>
-                                    <td className="border border-slate-900 p-2 text-right font-black text-slate-900">{item.amount?.toLocaleString()}</td>
+                                <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50" : ""}>
+                                    <td className="border border-slate-300 p-2 font-bold">{item.description || item.title}</td>
+                                    <td className="border border-slate-300 p-2 text-center">{item.quantity}</td>
+                                    <td className="border border-slate-300 p-2 text-center">{item.unit}</td>
+                                    <td className="border border-slate-300 p-2 text-right">{item.rate?.toFixed(2)}</td>
+                                    <td className="border border-slate-300 p-2 text-right font-black text-slate-900">{item.amount?.toFixed(2)}</td>
                                 </tr>
                             ))}
                         </tbody>
-                        <tfoot>
-                            <tr className="bg-slate-50 text-xs font-black text-slate-900 border-t-2 border-slate-900">
-                                <td colSpan={5} className="border border-slate-900 p-2 text-right uppercase tracking-widest">Total Basic Value</td>
-                                <td className="border border-slate-900 p-2 text-right">₹{data.subTotal?.toLocaleString()}</td>
-                            </tr>
-                        </tfoot>
                     </table>
 
-                    <div className="grid grid-cols-2 gap-8 mb-8">
-                        <div className="space-y-4">
-                            <div>
-                                <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Total Amount in Words:</p>
-                                <p className="text-[11px] font-black text-slate-800 uppercase leading-tight">{toWords(data.grandTotal)}</p>
+                    <div className="flex justify-end mb-8">
+                        <div className="w-1/2 space-y-1 text-sm border border-slate-300 p-4">
+                            <div className="flex justify-between"><span className="text-slate-500">Subtotal:</span><span className="font-bold">INR {data.subTotal?.toLocaleString()}</span></div>
+                            <div className="flex justify-between"><span className="text-slate-500">Grand Total:</span><span className="font-black text-slate-900 text-lg">INR {data.grandTotal?.toLocaleString()}</span></div>
+                            <div className="pt-2 border-t border-slate-200">
+                                <p className="text-[10px] font-bold text-slate-400 italic leading-tight">Amount in Words: {toWords(data.grandTotal)}</p>
                             </div>
-                            <div className="p-3 bg-slate-50 border border-slate-200 text-[10px] space-y-1">
-                                <p className="font-black text-slate-800">REMARK:</p>
-                                <p className="text-slate-600">Material provided as per delivery challan. No breakage responsibility after delivery.</p>
-                            </div>
-                        </div>
-                        <div className="space-y-2 border-l border-slate-100 pl-8">
-                            <div className="flex justify-between text-xs">
-                                <span className="font-bold text-slate-500">Taxable Value</span>
-                                <span className="font-black text-slate-800">₹{data.subTotal?.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                                <span className="font-bold text-slate-500">CGST ({data.cgstRate || 0}%)</span>
-                                <span className="font-black text-slate-800">₹{((data.subTotal * (data.cgstRate || 0)) / 100).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                                <span className="font-bold text-slate-500">SGST ({data.sgstRate || 0}%)</span>
-                                <span className="font-black text-slate-800">₹{((data.subTotal * (data.sgstRate || 0)) / 100).toLocaleString()}</span>
-                            </div>
-                            <div className="pt-4 border-t-2 border-slate-900 flex justify-between">
-                                <span className="text-sm font-black text-slate-900 uppercase">Balance Due</span>
-                                <span className="text-xl font-black text-slate-900">₹{data.balanceDue?.toLocaleString()}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-auto border-t-2 border-slate-900 pt-8">
-                        <div className="grid grid-cols-3 gap-8">
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-slate-50 border border-slate-100 rounded-lg">
-                                        <QrCode className="w-12 h-12 text-slate-800" />
-                                    </div>
-                                    <p className="text-[10px] font-black text-slate-900 leading-tight">Scan for<br />Payment</p>
-                                </div>
-                            </div>
-                            <div className="text-[9px] text-slate-500 flex items-end">
-                                Certified that the particulars given above are true & correct.
-                            </div>
-                            <div className="text-right space-y-12">
-                                <p className="text-[10px] font-black text-slate-900 uppercase">For {companyInfo?.company_name?.toUpperCase() || "INFRA-PILOT PVT LTD"}</p>
-                                <div className="relative">
-                                    {currentSignature && <img src={currentSignature} alt="Signature" className="absolute bottom-4 right-0 h-10 w-auto opacity-80" />}
-                                    <div className="border-t border-slate-400 pt-1">
-                                        <p className="text-[10px] font-black text-slate-900 uppercase">Authorized Signatory</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-12 text-[8px] text-slate-400 leading-tight border-t border-slate-100 pt-4">
-                        <p className="font-bold mb-1">TERMS & CONDITIONS:</p>
-                        <div className="whitespace-pre-line">
-                            {companyInfo?.terms_conditions || `1. Subject to Jurisdiction.
-2. Payment should be made by RTGS/NEFT/UPI.
-3. Interest @18% p.a. shall be charged on late payments.
-4. TDS deducted should be credited via Form 16A.`}
                         </div>
                     </div>
                 </div>
             </div>
-
             <style>{`
-        @media print {
-          #root, .no-print, button, .modal-close-button { display: none !important; }
-          body { background: white !important; margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          div.fixed.inset-0 { position: static !important; display: block !important; background: white !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; overflow: visible !important; }
-          .backdrop-blur-sm { display: none !important; }
-          div.max-w-5xl { max-width: 100% !important; box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; }
-          #printable-invoice { display: block !important; width: 100% !important; margin: 0 !important; padding: 20px !important; border: none !important; box-shadow: none !important; }
-          @page { margin: 0; size: A4; }
-        }
-      `}</style>
+                @media print {
+                    .no-print { display: none !important; }
+                    body { background: white !important; padding: 0 !important; }
+                    .shadow-2xl { box-shadow: none !important; border: none !important; }
+                }
+            `}</style>
         </Modal>
     );
 };
