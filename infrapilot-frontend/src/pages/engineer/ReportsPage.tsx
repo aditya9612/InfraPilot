@@ -215,26 +215,37 @@ const ReportsPage = () => {
                 console.warn("Failed to fetch DSR report metrics", err);
             }
 
-            // 2. Weekly Progress Mapping (Activities)
+            // 2. Weekly Progress Mapping (Work Progress)
             try {
-                const weeklyRes = await workProgressService.listActivities(projectId, { start_date: selectedDate, end_date: selectedDate } as any);
+                const summaryRes = await workProgressService.getProjectSummary(projectId);
                 const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
-                if (weeklyIdx !== -1 && weeklyRes && weeklyRes.length > 0) {
-                    const completedActivities = weeklyRes.filter((a: any) => a.completion_percentage === 100).length;
-                    const totalActivities = weeklyRes.length;
-                    const overallCompletion = totalActivities > 0
-                        ? Math.round((weeklyRes.reduce((acc: number, val: any) => acc + (Number(val.completion_percentage) || 0), 0)) / totalActivities)
-                        : 0;
-
-                    updatedReports[weeklyIdx] = {
-                        ...updatedReports[weeklyIdx],
-                        metrics: [
-                            { label: "Overall Completion", value: `${overallCompletion}%`, accent: "text-emerald-600" },
-                            { label: "Completed Activities", value: completedActivities.toString() },
-                            { label: "Total Activities", value: totalActivities.toString() },
-                            { label: "Status", value: overallCompletion >= 100 ? "Completed" : "In Progress" },
-                        ]
-                    };
+                if (weeklyIdx !== -1) {
+                    if (summaryRes) {
+                        const totalActivities = summaryRes.total_activities || 0;
+                        const completedActivities = summaryRes.completed_activities || 0;
+                        const delayedActivities = summaryRes.delayed_activities || 0;
+                        const overallCompletion = totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0;
+                        
+                        updatedReports[weeklyIdx] = {
+                            ...updatedReports[weeklyIdx],
+                            metrics: [
+                                { label: "Overall Completion", value: `${overallCompletion}%`, accent: "text-emerald-600" },
+                                { label: "Completed Activities", value: completedActivities.toString() },
+                                { label: "Total Activities", value: totalActivities.toString() },
+                                { label: "Delayed Activities", value: delayedActivities.toString(), accent: "text-rose-500" },
+                            ]
+                        };
+                    } else {
+                        updatedReports[weeklyIdx] = {
+                            ...updatedReports[weeklyIdx],
+                            metrics: [
+                                { label: "Overall Completion", value: "0%", accent: "text-emerald-600" },
+                                { label: "Completed Activities", value: "0" },
+                                { label: "Total Activities", value: "0" },
+                                { label: "Delayed Activities", value: "0", accent: "text-rose-500" },
+                            ]
+                        };
+                    }
                 }
             } catch (err) {
                 console.warn("Failed to fetch weekly report metrics", err);
@@ -254,10 +265,11 @@ const ReportsPage = () => {
                 }
                 const headers: Record<string, string> = {};
                 if (token) headers['Authorization'] = `Bearer ${token}`;
-                const response = await fetch(`https://infrapilot.in/api/v1/reports/labour?project_id=${projectId}`, { headers });
+                // Fetch using relative proxy url instead of hardcoded production
+                const response = await fetch(`/api/v1/reports/labour?project_id=${projectId}`, { headers });
                 const labourRes = await response.json();
                 const laborIdx = updatedReports.findIndex(r => r.id === "labour");
-                if (laborIdx !== -1 && labourRes) {
+                if (laborIdx !== -1) {
                     let parsedRes = labourRes;
                     if (typeof labourRes === 'string') {
                         try {
@@ -268,7 +280,7 @@ const ReportsPage = () => {
                     }
 
                     const summary: Array<{ skill_type: string; count: number }> =
-                        parsedRes.labour_summary || parsedRes.data?.labour_summary || [];
+                        parsedRes?.labour_summary || parsedRes?.data?.labour_summary || [];
 
                     const skilled = summary.find(s => s.skill_type?.toLowerCase() === "skilled")?.count ?? 0;
                     const unskilled = summary.find(s => s.skill_type?.toLowerCase() === "unskilled")?.count ?? 0;
@@ -292,21 +304,25 @@ const ReportsPage = () => {
             try {
                 const materialRes = await materialService.listMaterials(projectId, { start_date: selectedDate, end_date: selectedDate } as any);
                 const materialIdx = updatedReports.findIndex(r => r.id === "material");
-                if (materialIdx !== -1 && materialRes && materialRes.length > 0) {
+                if (materialIdx !== -1) {
                     let totalStock = 0;
                     let totalValue = 0;
-                    materialRes.forEach((m: any) => {
-                        totalStock += Number(m.remaining_stock || 0);
-                        totalValue += Number(m.total_amount || m.total_value || 0);
-                    });
+                    let numItems = 0;
+                    if (materialRes && materialRes.length > 0) {
+                        numItems = materialRes.length;
+                        materialRes.forEach((m: any) => {
+                            totalStock += Number(m.remaining_stock || 0);
+                            totalValue += Number(m.total_amount || m.total_value || 0);
+                        });
+                    }
 
                     updatedReports[materialIdx] = {
                         ...updatedReports[materialIdx],
                         metrics: [
-                            { label: "Total Stock Items", value: materialRes.length.toString(), accent: "text-rose-500" },
+                            { label: "Total Stock Items", value: numItems.toString(), accent: "text-rose-500" },
                             { label: "Stock Qty", value: totalStock.toFixed(1) },
                             { label: "Stock Value", value: `₹${(totalValue / 1000).toFixed(1)}k` },
-                            { label: "Status", value: "Updated" },
+                            { label: "Status", value: numItems > 0 ? "Updated" : "No Data" },
                         ]
                     };
                 }
@@ -616,16 +632,10 @@ const ReportsPage = () => {
         toast.loading(`Fetching data for ${report.name}...`, { id: `pdf-${report.id}` });
         try {
             if (report.id === "material") {
-                // Request PDF Blob from the backend, explicitly setting Accept header to prevent JSON content negotiation
-                const response = await api.get(`/materials/reports/materials/pdf?project_id=${projectId || 92}&_t=${Date.now()}`, {
-                    responseType: "blob",
-                    headers: {
-                        'Accept': 'application/pdf, application/octet-stream'
-                    }
-                });
-
-                if (response.data.type === "application/json") {
-                    const errorText = await response.data.text();
+                const blob = await reportService.exportMaterialPDF(projectId || 92);
+                
+                if (blob.type === "application/json") {
+                    const errorText = await blob.text();
                     console.error("PDF Generate Error:", errorText);
                     try {
                         const errObj = JSON.parse(errorText);
@@ -637,8 +647,7 @@ const ReportsPage = () => {
                     return;
                 }
 
-                // Download the received Blob
-                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+                const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
                 const link = document.createElement("a");
                 link.href = url;
                 link.setAttribute("download", `Material_Consumption_Report_${new Date().toISOString().split("T")[0]}.pdf`);
@@ -735,6 +744,34 @@ const ReportsPage = () => {
                 return;
             }
 
+            if (report.id === "weekly") {
+                const blob = await reportService.exportWeeklyPDF(projectId || 92);
+                
+                if (blob.type === "application/json") {
+                    const errorText = await blob.text();
+                    console.error("PDF Generate Error:", errorText);
+                    try {
+                        const errObj = JSON.parse(errorText);
+                        const msg = errObj.detail || errObj.message || errObj.error || "Could not generate PDF.";
+                        toast.error(`Server error: ${msg}`, { id: `pdf-${report.id}` });
+                    } catch (e) {
+                        toast.error("Server error: Could not generate PDF.", { id: `pdf-${report.id}` });
+                    }
+                    return;
+                }
+
+                const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `Work_Progress_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success(`${report.name} PDF downloaded!`, { id: `pdf-${report.id}` });
+                return;
+            }
+
             const today = new Date();
             const month = (today.getMonth() + 1).toString().padStart(2, '0');
             const year = today.getFullYear().toString();
@@ -742,7 +779,6 @@ const ReportsPage = () => {
             // Map our report.id to backend types: ["daily", "weekly", "monthly", "quarterly"]
             let mappedType = "monthly";
             if (report.id === "daily") mappedType = "daily";
-            if (report.id === "weekly") mappedType = "weekly";
 
             const reportData = await reportService.getProjectReportData(projectId || 92, mappedType, month, year);
 
@@ -768,16 +804,10 @@ const ReportsPage = () => {
         toast.loading(`Exporting ${report.name}...`, { id: `exp-${report.id}` });
         try {
             if (report.id === "material") {
-                // Request Excel Blob from the backend
-                const response = await api.get(`/materials/reports/materials/excel?project_id=${projectId || 92}&_t=${Date.now()}`, {
-                    responseType: "blob",
-                    headers: {
-                        'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream'
-                    }
-                });
+                const blob = await reportService.exportMaterialExcel(projectId || 92);
 
-                if (response.data.type === "application/json") {
-                    const errorText = await response.data.text();
+                if (blob.type === "application/json") {
+                    const errorText = await blob.text();
                     console.error("Excel Generate Error:", errorText);
                     try {
                         const errObj = JSON.parse(errorText);
@@ -789,7 +819,7 @@ const ReportsPage = () => {
                     return;
                 }
 
-                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+                const url = window.URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
                 const link = document.createElement("a");
                 link.href = url;
                 link.setAttribute("download", `Material_Consumption_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
@@ -895,13 +925,40 @@ const ReportsPage = () => {
                 return;
             }
 
+            if (report.id === "weekly") {
+                const blob = await reportService.exportWeeklyExcel(projectId || 92);
+
+                if (blob.type === "application/json") {
+                    const errorText = await blob.text();
+                    console.error("Excel Generate Error:", errorText);
+                    try {
+                        const errObj = JSON.parse(errorText);
+                        const msg = errObj.detail || errObj.message || errObj.error || "Could not generate Excel.";
+                        toast.error(`Server error: ${msg}`, { id: `exp-${report.id}` });
+                    } catch (e) {
+                        toast.error("Server error: Could not generate Excel.", { id: `exp-${report.id}` });
+                    }
+                    return;
+                }
+
+                const url = window.URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `Work_Progress_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success(`${report.name} Excel downloaded!`, { id: `exp-${report.id}` });
+                return;
+            }
+
             const today = new Date();
             const month = (today.getMonth() + 1).toString().padStart(2, '0');
             const year = today.getFullYear().toString();
 
             let mappedType = "monthly";
             if (report.id === "daily") mappedType = "daily";
-            if (report.id === "weekly") mappedType = "weekly";
 
             const reportData = await reportService.getProjectReportData(projectId || 92, mappedType, month, year);
 

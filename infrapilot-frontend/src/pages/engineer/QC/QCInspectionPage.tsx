@@ -507,238 +507,238 @@ const QCInspectionPage = () => {
                 </div>
 
                 {activeTab === "Inspection" && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                        <div className="relative flex-1 max-w-md font-inter">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                <Search className="w-4 h-4" />
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Search by test type or engineer..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter font-bold"
-                            />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 font-inter">
-                            <select
-                                value={filterType}
-                                onChange={(e) => setFilterType(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
-                            >
-                                <option value="All">All Types</option>
-                                {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
-                            <select
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
-                            >
-                                <option value="All">All Status</option>
-                                <option value="Pass">Pass</option>
-                                <option value="Fail">Fail</option>
-                            </select>
-                            {activeStatFilter !== "All" && (
-                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter bg-white border border-slate-200 rounded-xl shadow-sm">
-                                    <RotateCcw className="w-4 h-4" />
-                                </button>
-                            )}
-                            <select
-                                value={sortOrder}
-                                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
-                            >
-                                <option value="latest">Latest First</option>
-                                <option value="oldest">Oldest First</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                        {isLoading ? (
-                            <div className="p-20 text-center text-slate-400 font-inter">
-                                <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest">Syncing quality logs...</p>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                            <div className="relative flex-1 max-w-md font-inter">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                    <Search className="w-4 h-4" />
+                                </span>
+                                <input
+                                    type="text"
+                                    placeholder="Search by test type or engineer..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter font-bold"
+                                />
                             </div>
-                        ) : (
-                            <table className="w-full text-left font-inter min-w-[1000px]">
-                                <thead>
-                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                        <th className="px-6 py-4">Project</th>
-                                        <th className="px-6 py-4">Audit Details</th>
-                                        <th className="px-6 py-4">Test Description</th>
-                                        <th className="px-6 py-4">Status</th>
-                                        <th className="px-6 py-4">Values</th>
-                                        <th className="px-6 py-4">Auditor</th>
-                                        <th className="px-6 py-4 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50 font-inter">
-                                    {paginatedList.length > 0 ? (
-                                        paginatedList.map((qc) => (
-                                            <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                                <td className="px-6 py-4">
-                                                    <span className="text-sm font-bold text-slate-700 font-inter">
-                                                        {projects.find(p => Number(p.id) === Number(qc.project_id))?.project_name || 
-                                                         projects.find(p => Number(p.id) === Number(qc.project_id))?.name || 
-                                                         `Project #${qc.project_id}`}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col font-inter">
-                                                        <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col max-w-xs font-inter">
-                                                        <span className="text-xs font-bold text-slate-700 truncate font-inter">{qc.test_type}</span>
-                                                        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter truncate">
-                                                            <Activity className="w-3 h-3" />
-                                                            <span className="truncate font-inter">{qc.remarks || "No additional remarks"}</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border ${statusBadge[qc.status]}`}>
-                                                        {qc.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col font-inter">
-                                                        <p className="text-[10px] font-bold text-slate-800 font-inter">Result: {qc.result}</p>
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">Std: {qc.standard_value}</p>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-2 font-inter">
-                                                        <User className="w-3.5 h-3.5 text-slate-400" />
-                                                        <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2 font-inter">
-                                                        <button
-                                                            onClick={() => handleViewDetails(qc)}
-                                                            disabled={viewLoadingId === qc.id}
-                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
-                                                            title="View Details"
-                                                        >
-                                                            {viewLoadingId === qc.id ? (
-                                                                <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-                                                            ) : (
-                                                                <Eye className="w-4 h-4" />
-                                                            )}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openEdit(qc)}
-                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
-                                                        >
-                                                            <Edit2 className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => { setDeleteId(qc.id); setIsDeleteModalOpen(true); }}
-                                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
-                                                No quality audits found in the project vault.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-
-                    {/* ─── Pagination ─────────────────────────────────── */}
-                    {!isLoading && filteredList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-                            {/* Left: Items per page */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                            <div className="flex flex-wrap items-center gap-3 font-inter">
                                 <select
-                                    value={itemsPerPage}
-                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                    value={filterType}
+                                    onChange={(e) => setFilterType(e.target.value)}
+                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                 >
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
+                                    <option value="All">All Types</option>
+                                    {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                                <select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
+                                >
+                                    <option value="All">All Status</option>
+                                    <option value="Pass">Pass</option>
+                                    <option value="Fail">Fail</option>
+                                </select>
+                                {activeStatFilter !== "All" && (
+                                    <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter bg-white border border-slate-200 rounded-xl shadow-sm">
+                                        <RotateCcw className="w-4 h-4" />
+                                    </button>
+                                )}
+                                <select
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
+                                >
+                                    <option value="latest">Latest First</option>
+                                    <option value="oldest">Oldest First</option>
                                 </select>
                             </div>
-
-                            {/* Center: Showing info */}
-                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} records
-                            </div>
-
-                            {/* Right: Pagination */}
-                            <div className="flex flex-wrap justify-center items-center gap-1.5">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-
-                                {(() => {
-                                    const totalItems = filteredList.length;
-                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                                    const pages = [];
-                                    if (totalPages <= 5) {
-                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
-                                    } else {
-                                        if (currentPage <= 3) {
-                                            pages.push(1, 2, 3, 4, '...', totalPages);
-                                        } else if (currentPage >= totalPages - 2) {
-                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-                                        } else {
-                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-                                        }
-                                    }
-
-                                    return pages.map((page, index) => {
-                                        if (page === '...') {
-                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                                        }
-                                        const pageNum = page;
-                                        const isActive = currentPage === pageNum;
-                                        return (
-                                            <button
-                                                key={`page-${pageNum}`}
-                                                onClick={() => setCurrentPage(pageNum as number)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                    }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    });
-                                })()}
-
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredList.length / itemsPerPage), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredList.length / itemsPerPage)) || filteredList.length === 0}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
                         </div>
-                    )}
-                </div>
+
+                        <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                            {isLoading ? (
+                                <div className="p-20 text-center text-slate-400 font-inter">
+                                    <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest">Syncing quality logs...</p>
+                                </div>
+                            ) : (
+                                <table className="w-full text-left font-inter min-w-[1000px]">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                            <th className="px-6 py-4">Project</th>
+                                            <th className="px-6 py-4">Audit Details</th>
+                                            <th className="px-6 py-4">Test Description</th>
+                                            <th className="px-6 py-4">Status</th>
+                                            <th className="px-6 py-4">Values</th>
+                                            <th className="px-6 py-4">Auditor</th>
+                                            <th className="px-6 py-4 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50 font-inter">
+                                        {paginatedList.length > 0 ? (
+                                            paginatedList.map((qc) => (
+                                                <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-sm font-bold text-slate-700 font-inter">
+                                                            {projects.find(p => Number(p.id) === Number(qc.project_id))?.project_name ||
+                                                                projects.find(p => Number(p.id) === Number(qc.project_id))?.name ||
+                                                                `Project #${qc.project_id}`}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col font-inter">
+                                                            <span className="text-sm font-bold text-slate-800 font-inter">{qc.inspection_type}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col max-w-xs font-inter">
+                                                            <span className="text-xs font-bold text-slate-700 truncate font-inter">{qc.test_type}</span>
+                                                            <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter truncate">
+                                                                <Activity className="w-3 h-3" />
+                                                                <span className="truncate font-inter">{qc.remarks || "No additional remarks"}</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border ${statusBadge[qc.status]}`}>
+                                                            {qc.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col font-inter">
+                                                            <p className="text-[10px] font-bold text-slate-800 font-inter">Result: {qc.result}</p>
+                                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter">Std: {qc.standard_value}</p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2 font-inter">
+                                                            <User className="w-3.5 h-3.5 text-slate-400" />
+                                                            <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{qc.engineer_name}</p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex items-center justify-end gap-2 font-inter">
+                                                            <button
+                                                                onClick={() => handleViewDetails(qc)}
+                                                                disabled={viewLoadingId === qc.id}
+                                                                className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                                title="View Details"
+                                                            >
+                                                                {viewLoadingId === qc.id ? (
+                                                                    <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                                                ) : (
+                                                                    <Eye className="w-4 h-4" />
+                                                                )}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => openEdit(qc)}
+                                                                className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                            >
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setDeleteId(qc.id); setIsDeleteModalOpen(true); }}
+                                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-inter font-bold uppercase tracking-widest text-[10px]">
+                                                    No quality audits found in the project vault.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        {/* ─── Pagination ─────────────────────────────────── */}
+                        {!isLoading && filteredList.length > 0 && (
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                                {/* Left: Items per page */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+
+                                {/* Center: Showing info */}
+                                <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                    Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} records
+                                </div>
+
+                                {/* Right: Pagination */}
+                                <div className="flex flex-wrap justify-center items-center gap-1.5">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+
+                                    {(() => {
+                                        const totalItems = filteredList.length;
+                                        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                        const pages = [];
+                                        if (totalPages <= 5) {
+                                            for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                        } else {
+                                            if (currentPage <= 3) {
+                                                pages.push(1, 2, 3, 4, '...', totalPages);
+                                            } else if (currentPage >= totalPages - 2) {
+                                                pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                            } else {
+                                                pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                            }
+                                        }
+
+                                        return pages.map((page, index) => {
+                                            if (page === '...') {
+                                                return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                            }
+                                            const pageNum = page;
+                                            const isActive = currentPage === pageNum;
+                                            return (
+                                                <button
+                                                    key={`page-${pageNum}`}
+                                                    onClick={() => setCurrentPage(pageNum as number)}
+                                                    className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                        }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        });
+                                    })()}
+
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredList.length / itemsPerPage), prev + 1))}
+                                        disabled={currentPage === Math.max(1, Math.ceil(filteredList.length / itemsPerPage)) || filteredList.length === 0}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 {activeTab === "Test Reports" && (

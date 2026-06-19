@@ -278,6 +278,10 @@ function AppRoutes() {
             <Route path="/manager" element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}>
               <Route index element={<ManagerDashboard />} />
               <Route path="projects" element={<ProjectsPage />} />
+              <Route path="projects/list" element={<ProjectsPage />} />
+              <Route path="projects/details" element={<Navigate to="/manager/projects" replace />} />
+              <Route path="projects/milestones" element={<Navigate to="/manager/projects" replace />} />
+              <Route path="projects/timeline" element={<Navigate to="/manager/projects" replace />} />
               <Route path="projects/:id" element={<ProjectDetailsPage />} />
               <Route path="work-progress" element={<WorkProgressPage />} />
               <Route path="work-progress/:tab" element={<WorkProgressPage />} />

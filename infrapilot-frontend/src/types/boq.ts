@@ -56,13 +56,13 @@ export interface BoqVersionList {
 export interface CreateBoqRequest {
   project_id: number;
   item_name: string;
-  category: string;
+  category?: string;
   description: string;
   quantity: number;
-  unit: string;
+  unit?: string;
   unit_cost: number;
   status?: string;
-  activity_type_id?: number;
+  activity_type_id: number;
 }
 
 export interface UpdateBoqRequest {

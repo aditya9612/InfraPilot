@@ -18,6 +18,7 @@ import {
 
 import { labourService } from "../../../services/labourService";
 import { projectService } from "../../../services/projectService";
+import { masterService } from "../../../services/masterService";
 import type { LabourItem } from "../../../types/labour";
 
 const initialFormData = {
@@ -33,6 +34,7 @@ const initialFormData = {
     contractor_id: 1,
     status: "Active",
     notes: "",
+    profile_image: "",
 };
 
 const formatAadhaar = (value: string) => {
@@ -78,6 +80,7 @@ const LaborDetailsPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+    const [labourTypes, setLabourTypes] = useState<any[]>([]);
 
     useEffect(() => {
         if (isFormModalOpen) {
@@ -90,7 +93,16 @@ const LaborDetailsPage = () => {
                     console.error("Failed to fetch projects", err);
                 }
             };
+            const fetchLabourTypes = async () => {
+                try {
+                    const res = await masterService.getEntities("labour-types");
+                    setLabourTypes(res);
+                } catch (err) {
+                    console.error("Failed to fetch labour types", err);
+                }
+            };
             fetchProjects();
+            fetchLabourTypes();
         }
     }, [isFormModalOpen]);
 
@@ -267,6 +279,7 @@ const LaborDetailsPage = () => {
                     contractor_id: Number(formData.contractor_id),
                     status: formData.status,
                     notes: formData.notes,
+                    profile_image: formData.profile_image || undefined,
                 };
                 const updatedLaborer = await labourService.updateLabour(editId, updatePayload as any);
 
@@ -292,19 +305,19 @@ const LaborDetailsPage = () => {
                 toast.success("Profile updated successfully");
             } else {
                 const createPayload = {
-                    aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : undefined,
+                    aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
                     labour_name: formData.labour_name,
                     mobile_number: formData.mobile_number,
-                    email: formData.email || undefined,
-                    pan_number: formData.pan_number || undefined,
-                    address: formData.address || undefined,
+                    email: formData.email || null,
+                    pan_number: formData.pan_number || null,
+                    address: formData.address || null,
                     labour_type_id: Number(formData.labour_type_id),
-                    custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : undefined,
-                    custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : undefined,
-                    contractor_id: Number(formData.contractor_id),
-                    status: formData.status,
-                    notes: formData.notes,
-                    project_id: projectId || 92,
+                    custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : null,
+                    custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : null,
+                    contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null,
+                    status: formData.status || null,
+                    notes: formData.notes || null,
+                    profile_image: formData.profile_image || null,
                 };
                 console.log("Step 1: Registering Personnel...", createPayload);
                 const newLaborer = await labourService.createLabour(createPayload);
@@ -628,7 +641,7 @@ const LaborDetailsPage = () => {
                                                             <Eye className="w-4 h-4" />
                                                         )}
                                                     </button>
-                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "" }); setErrors({}); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setFormMode("edit"); setEditId(labor.id); setFormData({ aadhaar_number: formatAadhaar(labor.aadhaar_number), labour_name: labor.labour_name, mobile_number: labor.mobile_number || "", email: labor.email || "", pan_number: labor.pan_number || "", address: labor.address || "", labour_type_id: labor.labour_type_id ?? 1, custom_daily_wage_rate: labor.custom_daily_wage_rate?.toString() || "", custom_ot_rate_per_hour: labor.custom_ot_rate_per_hour?.toString() || "", contractor_id: labor.contractor_id ?? 1, status: labor.status, notes: labor.notes || "", profile_image: labor.profile_image || "" }); setErrors({}); setIsFormModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => { setLabourToDelete(labor.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </td>
@@ -800,16 +813,16 @@ const LaborDetailsPage = () => {
                                 {errors.mobile_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.mobile_number}</p>}
                             </div>
 
-                            {/* pan_number */}
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PAN Number</label>
-                                <input type="text" value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase().slice(0, 10) })} placeholder="HHLM5621L" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-mono outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
-                            </div>
-
                             {/* email */}
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email</label>
                                 <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="ramesh.shinde@gmail.com" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                            </div>
+
+                            {/* pan_number */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PAN Number</label>
+                                <input type="text" value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase().slice(0, 10) })} placeholder="HHLM5621L" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-mono outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                             </div>
 
                             {/* address */}
@@ -820,26 +833,20 @@ const LaborDetailsPage = () => {
 
                             {/* labour_type_id * */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type <span className="text-rose-500">*</span></label>
-                                <select value={formData.labour_type_id} onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all`}>
-                                    <option value={1}>Skilled</option>
-                                    <option value={2}>Semi-Skilled</option>
-                                    <option value={3}>Unskilled</option>
-                                    <option value={4}>Supervisor</option>
-                                    <option value={5}>Foreman</option>
-                                </select>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type ID <span className="text-rose-500">*</span></label>
+                                <input type="number" value={formData.labour_type_id || ""} onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })} placeholder="1" min="1" className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} />
                                 {errors.labour_type_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_type_id}</p>}
                             </div>
 
                             {/* custom_daily_wage_rate */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Daily Wage Rate (₹)</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Daily Wage Rate</label>
                                 <input type="number" value={formData.custom_daily_wage_rate} onChange={(e) => setFormData({ ...formData, custom_daily_wage_rate: e.target.value })} placeholder="900" min="0" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                             </div>
 
                             {/* custom_ot_rate_per_hour */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom OT Rate / Hour (₹)</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom OT Rate / Hour</label>
                                 <input type="number" value={formData.custom_ot_rate_per_hour} onChange={(e) => setFormData({ ...formData, custom_ot_rate_per_hour: e.target.value })} placeholder="120" min="0" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                             </div>
 
@@ -861,7 +868,22 @@ const LaborDetailsPage = () => {
                             {/* notes — full width */}
                             <div className="md:col-span-2">
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Notes</label>
-                                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="Experienced mason with 8 years of construction experience" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all resize-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={3} />
+                                <textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder="notes" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all resize-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={2} />
+                            </div>
+
+                            {/* profile_image — full width */}
+                            <div className="md:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Profile Image</label>
+                                <input type="file" accept="image/*" onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                            setFormData({ ...formData, profile_image: reader.result as string });
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" />
                             </div>
 
                         </div>

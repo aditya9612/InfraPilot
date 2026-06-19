@@ -109,16 +109,16 @@ export const reportService = {
         return response.data;
     },
     exportWeeklyPDF: async (projectId: number) => {
-        const url = `/reports/project/export/pdf`;
+        const url = `/work-progress/reports/pdf`;
         console.log(`Calling Weekly Report Export: GET ${url} with project_id=${projectId}`);
         const response = await api.get(url, {
-            params: { project_id: projectId, type: 'weekly' },
+            params: { project_id: projectId },
             responseType: 'blob'
         });
         return response.data;
     },
     exportWeeklyExcel: async (projectId: number) => {
-        const url = `/reports/weekly/export/excel`;
+        const url = `/work-progress/reports/excel`;
         console.log(`Calling Report Export: GET ${url} with project_id=${projectId}`);
         const response = await api.get(url, {
             params: { project_id: projectId },
@@ -135,11 +135,10 @@ export const reportService = {
         });
         return response.data;
     },
-    exportMaterialPDF: async (projectId: number) => {
+    exportMaterialPDF: async (_projectId: number) => {
         const url = `/materials/reports/materials/pdf`;
-        console.log(`Calling Material Export: GET ${url} with project_id=${projectId}`);
+        console.log(`Calling Material Export: GET ${url}`);
         const response = await api.get(url, {
-            params: { project_id: projectId, _t: Date.now() },
             responseType: 'blob'
         });
         return response.data;
@@ -176,9 +175,8 @@ export const reportService = {
         return response.data;
     },
 
-    exportMaterialExcel: async (projectId: number) => {
-        const response = await api.get(`/reports/material/export/excel`, {
-            params: { project_id: projectId },
+    exportMaterialExcel: async (_projectId: number) => {
+        const response = await api.get(`/materials/reports/materials/excel`, {
             responseType: 'blob'
         });
         return response.data;

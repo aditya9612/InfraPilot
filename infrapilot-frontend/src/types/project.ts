@@ -81,6 +81,8 @@ export interface Task {
   completion_percentage: number;
   is_delayed: boolean;
   boq_id?: number | null;
+  milestone_id?: number | null;
+  activity_type_id?: number | null;
 }
 
 export interface TaskProgress {

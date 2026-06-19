@@ -272,7 +272,7 @@ const PayrollReportPage: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{String(r.skill_type || 'â€”').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')}</span>
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">{String(r.skill_category || r.skill_type || r.skill || '—').replace('SkillType.', '').replace('SemiSkilled', 'Semi-Skilled')}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-sm font-bold text-slate-700 tabular-nums">₹{Number(r.daily_wage || 0).toLocaleString()}</span>

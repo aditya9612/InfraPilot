@@ -11,6 +11,8 @@ import toast from "react-hot-toast";
 const DashboardSection = () => {
   const kpis = [
     { label: "Total Employees", value: "42", icon: "🏢", accent: "from-blue-500 to-indigo-500", sub: "Active Staff" },
+    { label: "Site Engineers", value: "12", icon: "👷‍♂️", accent: "from-cyan-500 to-blue-500", sub: "On-site" },
+    { label: "Project Managers", value: "5", icon: "👔", accent: "from-purple-500 to-indigo-500", sub: "Managing Sites" },
     { label: "Total Labor", value: "156", icon: "👷", accent: "from-amber-500 to-orange-500", sub: "On-site today" },
     { label: "Total Contractors", value: "18", icon: "🏗️", accent: "from-emerald-500 to-teal-500", sub: "Active Projects" },
     { label: "Pending Payments", value: "₹4.5L", icon: "⏳", accent: "from-rose-500 to-pink-500", sub: "Unpaid Wages/Bills" },
@@ -18,7 +20,7 @@ const DashboardSection = () => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         {kpis.map((k, i) => (
           <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
             <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm text-white`}>{k.icon}</div>
@@ -145,7 +147,10 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </div>
             <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional Tax</label><input type="number" placeholder="200" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
             <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salary Advance Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600 font-semibold" /></div>
-            <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loan Recovery / Other</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loan Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Other Deductions</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+            </div>
           </div>
         </div>
       </div>
@@ -461,48 +466,100 @@ const ContractorPaymentSection = () => (
 );
 
 // 5. Attendance Integration
-const AttendanceIntegrationSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-      <div>
-        <h3 className="font-bold text-slate-800">Attendance Register</h3>
-        <p className="text-xs text-slate-500 mt-0.5">Unified view for Employees and Labor</p>
+const AttendanceIntegrationSection = () => {
+  const [activeTab, setActiveTab] = useState("employee");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+        <button onClick={() => setActiveTab("employee")} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeTab === "employee" ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>Employee Attendance</button>
+        <button onClick={() => setActiveTab("labor")} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeTab === "labor" ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>Labor Attendance</button>
       </div>
-      <div className="flex gap-2">
-        <button className="bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">Sync Biometrics</button>
-      </div>
+
+      {activeTab === "employee" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div>
+              <h3 className="font-bold text-slate-800">Employee Attendance Summary</h3>
+            </div>
+            <div className="flex gap-2">
+              <button className="bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">Sync Biometrics</button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Date", "Employee Name", "Role", "Present", "Absent", "Leave", "Half Day"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                <tr className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3 text-xs text-slate-500">Oct 2024</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">Amit Kumar</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">Site Engineer</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-emerald-600">24</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-rose-500">1</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-amber-500">1</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-slate-400">0</td>
+                </tr>
+                <tr className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3 text-xs text-slate-500">Oct 2024</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">Priya Sharma</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">Project Manager</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-emerald-600">26</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-slate-400">0</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-slate-400">0</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-slate-400">0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "labor" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div>
+              <h3 className="font-bold text-slate-800">Labor Attendance</h3>
+            </div>
+            <div className="flex gap-2">
+              <button className="bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">Export Sheet</button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Labor Name", "Site", "Attendance Days", "Overtime Hours"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                <tr className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">Raju Mason</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">Project Alpha</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-emerald-600">6</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-indigo-600">12.5</td>
+                </tr>
+                <tr className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">Ramesh Worker</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">Project Beta</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-emerald-600">5</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-indigo-600">8</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50/60 border-b border-slate-100">
-          <tr>
-            {["Date", "Name", "Type", "Site/Project", "Status", "Overtime (Hrs)"].map(h => (
-              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          <tr className="hover:bg-slate-50/50 transition-colors">
-            <td className="px-4 py-3 text-xs text-slate-500">2024-05-15</td>
-            <td className="px-4 py-3 text-xs font-bold text-slate-800">Amit Kumar</td>
-            <td className="px-4 py-3 text-xs text-slate-600">Site Engineer</td>
-            <td className="px-4 py-3 text-xs text-slate-600">Project Alpha</td>
-            <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Present</span></td>
-            <td className="px-4 py-3 text-xs font-semibold text-slate-500">0</td>
-          </tr>
-          <tr className="hover:bg-slate-50/50 transition-colors">
-            <td className="px-4 py-3 text-xs text-slate-500">2024-05-15</td>
-            <td className="px-4 py-3 text-xs font-bold text-slate-800">Raju Mason</td>
-            <td className="px-4 py-3 text-xs text-slate-600">Skilled Labor</td>
-            <td className="px-4 py-3 text-xs text-slate-600">Project Alpha</td>
-            <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Present</span></td>
-            <td className="px-4 py-3 text-xs font-bold text-indigo-600">2.5</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
+  );
+};
 
 // 6. Reports Wrapper
 const ReportsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {

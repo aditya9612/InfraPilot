@@ -7,9 +7,10 @@ import {
     Filter, Search, Eye, Calendar, User, 
     CheckCircle, Clock, AlertCircle, XCircle, List, 
     FileText, X, Mail, Briefcase, Phone,
-    Edit2, Trash2, RefreshCw, LayoutGrid, Camera
+    Edit2, Trash2, RefreshCw, LayoutGrid, Camera, Play
 } from 'lucide-react';
 import labourService from '../../../services/labourService';
+import { projectService } from '../../../services/projectService';
 
 interface TaskItem {
     id: string;
@@ -28,52 +29,6 @@ interface TaskItem {
     department: "Engineering" | "Plumbing" | "Electrical";
 }
 
-const mockTasks: TaskItem[] = [
-    {
-        id: "1",
-        title: "API Testing",
-        subtitle: "Start to test all APIs.",
-        assignedBy: { name: "Darshan Patil", role: "Admin" },
-        assignedTo: { name: "Suresh Chaudhari", role: "Employee" },
-        priority: "MEDIUM",
-        deadline: "May 27, 2026",
-        assignedDate: "May 19, 2026",
-        status: "To Do",
-        hasHistory: true,
-        startWorkImgUrl: "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop",
-        filterType: "Assigned",
-        department: "Engineering"
-    },
-    {
-        id: "2",
-        title: "ueihfuhaodj",
-        subtitle: "string",
-        assignedBy: { name: "Darshan Patil", role: "Admin" },
-        assignedTo: { name: "Vishal Sathe", role: "Employee" },
-        priority: "MEDIUM",
-        deadline: "Jul 23, 2026",
-        status: "To Do",
-        hasHistory: true,
-        startWorkImgUrl: "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=100&h=100&fit=crop",
-        endWorkImgUrl: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=100&h=100&fit=crop",
-        filterType: "My Tasks",
-        department: "Plumbing"
-    },
-    {
-        id: "3",
-        title: "ghsvfjagkjf",
-        subtitle: "No description provided.",
-        assignedBy: { name: "Darshan Patil", role: "Admin" },
-        assignedTo: { name: "Suresh Chaudhari", role: "Employee" },
-        priority: "MEDIUM",
-        deadline: "Aug 12, 2026",
-        status: "To Do",
-        hasHistory: false,
-        filterType: "Assigned",
-        department: "Electrical"
-    }
-];
-
 const priorityBadges: Record<string, string> = {
     LOW: "bg-emerald-500 text-white",
     MEDIUM: "bg-blue-500 text-white",
@@ -83,16 +38,9 @@ const priorityBadges: Record<string, string> = {
 const LabourTaskDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const [activeTab, setActiveTab] = useState<"All Tasks" | "Labour Detail">("All Tasks");
-    const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
-    const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-    // For this view, we'll only use list mode
-    const openTaskModal = (task: TaskItem) => {
-        setSelectedTask(task);
-        setModalTab("Details");
-    };
 
-    const [tasks, setTasks] = useState<TaskItem[]>(mockTasks);
+    const [tasks, setTasks] = useState<any[]>([]);
     
     // Filters and View State
     const [searchTerm, setSearchTerm] = useState("");
@@ -100,8 +48,11 @@ const LabourTaskDetailPage = () => {
     const [typeFilter, setTypeFilter] = useState("All Tasks");
     const [departmentFilter, setDepartmentFilter] = useState("All Departments");
 
+    const [selectedTask, setSelectedTask] = useState<any | null>(null);
+    const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
+
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [selectedEditTask, setSelectedEditTask] = useState<TaskItem | null>(null);
+    const [selectedEditTask, setSelectedEditTask] = useState<any | null>(null);
     const [previewImage, setPreviewImage] = useState<{ url: string, title: string } | null>(null);
 
     const [weeklyReport, setWeeklyReport] = useState<any>(null);
@@ -109,13 +60,14 @@ const LabourTaskDetailPage = () => {
     const [isLoadingReports, setIsLoadingReports] = useState(false);
 
     useEffect(() => {
-        const fetchReports = async () => {
+        const fetchReportsAndTasks = async () => {
             if (!id) return;
             setIsLoadingReports(true);
             try {
-                const [weeklyData, monthlyData] = await Promise.all([
+                const [weeklyData, monthlyData, taskList] = await Promise.all([
                     labourService.getLabourWeeklyReport(id),
-                    labourService.getLabourMonthlyReport(id)
+                    labourService.getLabourMonthlyReport(id),
+                    projectService.getTasks(1, { assigned_user_id: Number(id), limit: 20, offset: 0 })
                 ]);
                 
                 if (weeklyData && weeklyData.length > 0) {
@@ -124,15 +76,46 @@ const LabourTaskDetailPage = () => {
                 if (monthlyData && monthlyData.length > 0) {
                     setMonthlyReport(monthlyData[0]);
                 }
+
+                // Map tasks to frontend table format
+                const mappedTasks = taskList.map((t: any) => ({
+                    id: t.id.toString(),
+                    title: t.title || 'Untitled Task',
+                    subtitle: t.description || 'No description provided.',
+                    assignedBy: { name: "Darshan Patil", role: "Admin" }, // Mocked for UI
+                    assignedTo: { name: t.assigned_users && t.assigned_users.length > 0 ? (t.assigned_users[0].name || t.assigned_users[0].full_name || 'Employee') : 'Worker', role: "Employee" },
+                    priority: t.priority ? t.priority.toUpperCase() : "LOW",
+                    deadline: t.end_date ? new Date(t.end_date).toLocaleDateString() : 'N/A',
+                    status: t.status === 'Planned' ? 'To Do' : (t.status || 'To Do'),
+                    hasHistory: false,
+                    startWorkImgUrl: null,
+                    endWorkImgUrl: null,
+                    filterType: "Assigned",
+                    department: "Engineering",
+                    _raw: t
+                }));
+                setTasks(mappedTasks);
             } catch (error) {
-                console.error("Failed to fetch labour reports", error);
+                console.error("Failed to fetch labour reports or tasks", error);
             } finally {
                 setIsLoadingReports(false);
             }
         };
 
-        fetchReports();
+        fetchReportsAndTasks();
     }, [id]);
+
+    const openTaskModal = async (task: any) => {
+        try {
+            const fullTask = await projectService.getTask(1, Number(task.id));
+            setSelectedTask(fullTask);
+            setModalTab("Details");
+        } catch (e) {
+            console.error("Failed to fetch task details", e);
+            setSelectedTask(task._raw || task);
+            setModalTab("Details");
+        }
+    };
 
     const openEditModal = (task: TaskItem) => {
         setSelectedEditTask(task);
@@ -140,22 +123,50 @@ const LabourTaskDetailPage = () => {
     };
 
 
-    const handleEditFormSubmit = (e: React.FormEvent) => {
+    const handleEditFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedEditTask) {
             const form = e.target as HTMLFormElement;
             const title = (form.elements.namedItem("title") as HTMLInputElement).value;
             const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
             const deadline = (form.elements.namedItem("deadline") as HTMLInputElement).value;
+            const startDate = (form.elements.namedItem("startDate") as HTMLInputElement).value;
+            const assignee = (form.elements.namedItem("assignee") as HTMLSelectElement).value;
             
-            setTasks(prev => prev.map(t => t.id === selectedEditTask.id ? { 
-                ...t, 
-                title, 
-                subtitle: description, 
-                deadline 
-            } : t));
-            setIsEditModalOpen(false);
-            setSelectedEditTask(null);
+            try {
+                // Prepare API Payload matching the required spec
+                const payload = {
+                    title: title,
+                    description: description,
+                    priority: selectedEditTask.priority === "HIGH" ? 3 : selectedEditTask.priority === "MEDIUM" ? 2 : 1,
+                    start_date: startDate || "2026-06-15",
+                    end_date: deadline,
+                    status: selectedEditTask._raw?.status || "In Progress",
+                    assigned_user_ids: assignee || "2",
+                    activity_type_id: 1,
+                    milestone_id: 1,
+                    boq_id: 1,
+                    remove_audio: false,
+                    remove_image: false
+                };
+
+                // Call PUT API
+                await projectService.updateTask(1, Number(selectedEditTask.id), payload);
+
+                // Optimistically update local UI state
+                setTasks(prev => prev.map(t => t.id === selectedEditTask.id ? { 
+                    ...t, 
+                    title, 
+                    subtitle: description, 
+                    deadline 
+                } : t));
+                
+                setIsEditModalOpen(false);
+                setSelectedEditTask(null);
+            } catch (err) {
+                console.error("Failed to update task", err);
+                alert("Failed to update task. Please try again.");
+            }
         }
     };
 
@@ -182,6 +193,20 @@ const LabourTaskDetailPage = () => {
     const completedTasks = tasks.filter(t => t.status === "Completed").length;
     const overdueTasks = tasks.filter(t => t.status === "Overdue").length;
     const cancelledTasks = tasks.filter(t => t.status === "Cancelled").length;
+
+    if (isLoadingReports) {
+        return (
+            <>
+                <Navbar title="Labour Detail" breadcrumb={["Engineer", "Labour Management", "Labour Detail"]} />
+                <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] flex items-center justify-center">
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+                        <p className="text-slate-500 font-medium">Loading details...</p>
+                    </div>
+                </PageTransition>
+            </>
+        );
+    }
 
     return (
         <>
@@ -770,82 +795,72 @@ const LabourTaskDetailPage = () => {
                         <div className="p-6 overflow-y-auto flex-1">
                             {modalTab === "Details" && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-indigo-50 flex items-center justify-center text-indigo-500">
-                                                <FileText className="w-3.5 h-3.5" />
+                                    {[
+                                        { key: "title", label: "Title" },
+                                        { key: "description", label: "Description" },
+                                        { key: "priority", label: "Priority" },
+                                        { key: "status", label: "Status" },
+                                        { key: "start_date", label: "Start Date" },
+                                        { key: "end_date", label: "End Date" },
+                                        { key: "actual_start_date", label: "Actual Start Date" },
+                                        { key: "actual_end_date", label: "Actual End Date" },
+                                        { key: "assigned_users", label: "Assigned Users" },
+                                        { key: "completion_percentage", label: "Completion Percentage" },
+                                        { key: "is_delayed", label: "Is Delayed" },
+                                        { key: "execution_duration", label: "Execution Duration" },
+                                        { key: "delay_days", label: "Delay Days" },
+                                        { key: "actual_cost", label: "Actual Cost" },
+                                        { key: "planned_cost", label: "Planned Cost" },
+                                        { key: "audio_instruction_url", label: "Audio Instruction" }
+                                    ].map((field) => (
+                                        <div key={field.key} className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm ${field.key === 'description' ? 'md:col-span-2' : ''}`}>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-sm font-bold text-slate-800">{field.label}</span>
                                             </div>
-                                            <span className="text-sm font-bold text-slate-800">Description</span>
-                                        </div>
-                                        <p className="text-sm text-slate-600 pl-8">{selectedTask.subtitle || "No description provided."}</p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <User className="w-3.5 h-3.5" />
+                                            <div>
+                                                {field.key === 'audio_instruction_url' ? (
+                                                    (selectedTask as any)[field.key] ? (
+                                                        <div className="flex items-center gap-3 max-w-sm bg-slate-50 rounded-full p-2 pr-4 border border-slate-200 shadow-sm mt-1">
+                                                            <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer hover:bg-emerald-600 transition-colors" onClick={(e) => {
+                                                                const audio = e.currentTarget.parentElement?.querySelector('audio');
+                                                                if (audio) { audio.paused ? audio.play() : audio.pause(); }
+                                                            }}>
+                                                                <Play className="w-4 h-4 ml-0.5" />
+                                                            </div>
+                                                            <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden flex items-center">
+                                                                <div className="h-full bg-emerald-500 w-1/3"></div>
+                                                            </div>
+                                                            <audio src={(selectedTask as any)[field.key]} className="hidden" />
+                                                            <span className="text-xs font-bold text-slate-400">Audio</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm text-slate-600">-</span>
+                                                    )
+                                                ) : field.key === 'priority' ? (
+                                                    <span className={`inline-block px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${priorityBadges[String((selectedTask as any)[field.key] || '').toUpperCase()] || 'bg-slate-100 text-slate-600'}`}>
+                                                        {String((selectedTask as any)[field.key] || '-').toUpperCase()}
+                                                    </span>
+                                                ) : field.key === 'status' ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-2.5 h-2.5 rounded-full ${(selectedTask as any).status === 'Cancelled' ? 'bg-rose-500' : (selectedTask as any).status === 'Completed' ? 'bg-emerald-500' : (selectedTask as any).status === 'In Progress' ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                                                        <p className="text-sm text-slate-600 font-medium">{(selectedTask as any).status || '-'}</p>
+                                                    </div>
+                                                ) : field.key === 'assigned_users' ? (
+                                                    <p className="text-sm text-slate-600">
+                                                        {Array.isArray((selectedTask as any)[field.key]) && (selectedTask as any)[field.key].length > 0 
+                                                            ? (selectedTask as any)[field.key].map((u: any) => typeof u === 'object' ? (u.full_name || u.name || `User ${u.id}`) : u).join(', ') 
+                                                            : 'None'}
+                                                    </p>
+                                                ) : field.key.includes('date') && (selectedTask as any)[field.key] ? (
+                                                    <p className="text-sm text-slate-600">{new Date((selectedTask as any)[field.key]).toLocaleDateString()}</p>
+                                                ) : typeof (selectedTask as any)[field.key] === 'boolean' ? (
+                                                    <p className="text-sm text-slate-600">{(selectedTask as any)[field.key] ? 'Yes' : 'No'}</p>
+                                                ) : (
+                                                    <p className="text-sm text-slate-600 break-all">{(selectedTask as any)[field.key] !== null && (selectedTask as any)[field.key] !== undefined && (selectedTask as any)[field.key] !== '' ? String((selectedTask as any)[field.key]) : 'null'}</p>
+                                                )}
                                             </div>
-                                            <span className="text-sm font-bold text-slate-800">Assigned By</span>
                                         </div>
-                                        <div className="pl-8">
-                                            <p className="text-sm text-slate-600">{selectedTask.assignedBy.name}</p>
-                                            <p className="text-xs text-slate-500">{selectedTask.assignedBy.role}</p>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <User className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Assigned To</span>
-                                        </div>
-                                        <div className="pl-8">
-                                            <p className="text-sm text-slate-600">{selectedTask.assignedTo.name}</p>
-                                            <p className="text-xs text-slate-500">{selectedTask.assignedTo.role}</p>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <AlertCircle className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Priority</span>
-                                        </div>
-                                        <div className="pl-8">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${priorityBadges[selectedTask.priority]}`}>
-                                                {selectedTask.priority.charAt(0) + selectedTask.priority.slice(1).toLowerCase()}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <Calendar className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Deadline</span>
-                                        </div>
-                                        <p className="text-sm text-slate-600 pl-8">{selectedTask.deadline}</p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <Clock className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Assigned Date</span>
-                                        </div>
-                                        <p className="text-sm text-slate-600 pl-8">{selectedTask.assignedDate || "Not available"}</p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm md:col-span-2">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <CheckCircle className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Status</span>
-                                        </div>
-                                        <div className="pl-8 flex items-center gap-2">
-                                            <div className={`w-2.5 h-2.5 rounded-full ${selectedTask.status === 'Overdue' ? 'bg-rose-500' : selectedTask.status === 'Completed' ? 'bg-emerald-500' : selectedTask.status === 'In Progress' ? 'bg-blue-500' : 'bg-slate-400'}`} />
-                                            <p className="text-sm text-slate-600 font-medium">{selectedTask.status}</p>
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -918,11 +933,16 @@ const LabourTaskDetailPage = () => {
                                     <User className="w-3.5 h-3.5 text-blue-500 mr-1.5" />
                                     Assign To
                                 </label>
-                                <select className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none">
+                                <select 
+                                    name="assignee" 
+                                    defaultValue={selectedEditTask?._raw?.assigned_users?.[0]?.id || "2"}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none"
+                                >
                                     <option value="">Select Assignee</option>
                                     <option value="1">Darshan Patil</option>
-                                    <option value="2" selected>Vishal Sathe</option>
+                                    <option value="2">Vishal Sathe</option>
                                     <option value="3">Suresh Chaudhari</option>
+                                    <option value="225">Assigned User (225)</option>
                                 </select>
                             </div>
 
@@ -935,7 +955,7 @@ const LabourTaskDetailPage = () => {
                                 <input
                                     type="date"
                                     name="startDate"
-                                    defaultValue="2026-09-27"
+                                    defaultValue={selectedEditTask?._raw?.start_date?.split('T')[0] || "2026-09-27"}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all"
                                 />
                             </div>
@@ -950,7 +970,7 @@ const LabourTaskDetailPage = () => {
                                     required
                                     type="date"
                                     name="deadline"
-                                    defaultValue="2026-08-12"
+                                    defaultValue={selectedEditTask?._raw?.end_date?.split('T')[0] || "2026-08-12"}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all"
                                 />
                             </div>
@@ -961,7 +981,10 @@ const LabourTaskDetailPage = () => {
                                     <FileText className="w-3.5 h-3.5 text-blue-500 mr-1.5" />
                                     Project (Optional)
                                 </label>
-                                <select className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none">
+                                <select 
+                                    name="project"
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none"
+                                >
                                     <option value="none">None</option>
                                     <option value="skyline">Skyline Tower A</option>
                                     <option value="horizon">Horizon Complex</option>

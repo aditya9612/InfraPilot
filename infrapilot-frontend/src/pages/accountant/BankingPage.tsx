@@ -191,8 +191,26 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
   
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex gap-2 overflow-x-auto">
+          {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
+        </div>
+        {activeSubTab !== "dashboard" && (
+          <div className="flex flex-wrap gap-2">
+            <select className="px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <option value="">All Bank Accounts</option>
+              <option value="1">HDFC Bank</option>
+              <option value="2">SBI (Savings)</option>
+            </select>
+            <input type="date" className="px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20" title="Date Range" />
+            <select className="px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <option value="">All Statuses</option>
+              <option value="matched">Matched</option>
+              <option value="unmatched">Unmatched</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+        )}
       </div>
       
       {activeSubTab === "dashboard" && <BankReconciliationDashboard />}
@@ -275,8 +293,9 @@ const ReportsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) =>
     { key: "bankbook", label: "Bank Book" },
     { key: "cashbook", label: "Cash Book" },
     { key: "reconciliation", label: "Bank Reconciliation Report" },
-    { key: "transfer", label: "Fund Transfer Report" },
     { key: "cashflow", label: "Cash Flow Report" },
+    { key: "transfer", label: "Fund Transfer Report" },
+    { key: "daily", label: "Daily Transaction Report" },
   ];
   return (
     <div className="space-y-6">
@@ -395,6 +414,34 @@ const FundTransfersWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   );
 };
 
+const TransactionHistoryWrapper = () => {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden md:inline-block">Filters:</span>
+        <input type="date" className="px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20" title="Date" />
+        <select className="px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20">
+          <option value="">All Bank Accounts</option>
+          <option value="1">HDFC Bank</option>
+          <option value="2">SBI (Savings)</option>
+        </select>
+        <select className="px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20">
+          <option value="">All Transaction Types</option>
+          <option value="receipt">Receipt</option>
+          <option value="payment">Payment</option>
+          <option value="transfer">Fund Transfer</option>
+        </select>
+        <select className="px-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20">
+          <option value="">All Projects</option>
+          <option value="p1">Project Alpha</option>
+          <option value="p2">Project Beta</option>
+        </select>
+      </div>
+      <GenericTableSection title="Transaction History" columns={["Date", "Reference", "Type", "Debit", "Credit", "Balance"]} data={[["2024-11-01", "TR-1052", "Fund Transfer", "—", "₹50,000", "₹85,00,000"]]} />
+    </div>
+  );
+};
+
 // --- MAIN PAGE ---
 type TabKey = "dashboard" | "accounts" | "cash" | "reconciliation" | "transfers" | "history" | "reports";
 
@@ -481,7 +528,7 @@ const BankingPage = () => {
         {activeTab === "cash"           && <CashBookWrapper initialSubTab={subTab} key={subTab || "receipts"} />}
         {activeTab === "reconciliation" && <BankReconciliationWrapper initialSubTab={subTab} key={subTab || "dashboard"} />}
         {activeTab === "transfers"      && <FundTransfersWrapper initialSubTab={subTab} key={subTab || "bank2bank"} />}
-        {activeTab === "history"        && <GenericTableSection title="Transaction History" columns={["Date", "Reference", "Type", "Debit", "Credit", "Balance"]} data={[["2024-11-01", "TR-1052", "Fund Transfer", "—", "₹50,000", "₹85,00,000"]]} />}
+        {activeTab === "history"        && <TransactionHistoryWrapper />}
         {activeTab === "reports"        && <ReportsWrapperSection initialSubTab={subTab} key={subTab || "bankbook"} />}
       </PageTransition>
     </>

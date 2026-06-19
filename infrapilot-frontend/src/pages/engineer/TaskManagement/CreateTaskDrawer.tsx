@@ -175,14 +175,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
-    const blobToBase64 = (blob: Blob): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -196,20 +189,24 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         try {
             const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1 };
 
-            let audio_data = undefined;
-            if (audioBlob) {
-                audio_data = await blobToBase64(audioBlob);
+            const formData = new FormData();
+            formData.append("title", title);
+            formData.append("description", description);
+            formData.append("priority", String(priorityMap[priority]));
+            formData.append("status", "Planned");
+            
+            if (startDate) formData.append("start_date", startDate);
+            if (deadline) formData.append("end_date", deadline);
+            
+            if (selectedEmployees.length > 0) {
+                formData.append("assigned_user_ids", selectedEmployees.join(","));
             }
 
-            await projectService.createTask(targetProjectId, {
-                title,
-                description,
-                priority: priorityMap[priority],
-                start_date: startDate,
-                end_date: deadline,
-                assigned_user_id: selectedEmployees.length > 0 ? selectedEmployees[0] : undefined,
-                audio_data
-            });
+            if (audioBlob) {
+                formData.append("audio_file", audioBlob, "voice_note.webm");
+            }
+
+            await projectService.createTask(targetProjectId, formData);
 
             toast.success("Task created successfully");
             onSuccess();
@@ -272,7 +269,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
                     <div>
                         <label className={labelClasses}>
-                            Description <span className="text-rose-500">*</span>
+                            Description
                         </label>
                         <textarea
                             placeholder="Enter task description"
@@ -280,7 +277,6 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                             className={`${inputClasses} resize-none`}
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            required
                         />
                     </div>
 
@@ -366,12 +362,13 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                         <div>
                             <label className={labelClasses}>
                                 <FileText className="w-3 h-3 text-primary" />
-                                Project
+                                Project <span className="text-rose-500">*</span>
                             </label>
                             <select
                                 className={inputClasses}
                                 value={project}
                                 onChange={(e) => setProject(e.target.value)}
+                                required
                             >
                                 <option value="None">None</option>
                                 {assignedProjects.map((p: any) => (
@@ -396,14 +393,13 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                         <div>
                             <label className={labelClasses}>
                                 <Calendar className="w-3 h-3 text-primary" />
-                                Deadline <span className="text-rose-500">*</span>
+                                Deadline
                             </label>
                             <input
                                 type="date"
                                 className={inputClasses}
                                 value={deadline}
                                 onChange={(e) => setDeadline(e.target.value)}
-                                required
                             />
                         </div>
                     </div>
