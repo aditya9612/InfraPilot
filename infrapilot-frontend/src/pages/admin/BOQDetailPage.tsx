@@ -219,8 +219,8 @@ const BOQDetailPage = () => {
             return;
         }
         try {
-            // Using item.id as the BOQ handle for consistency with other operations
-            const boqId = boqItems[0].id;
+            // Prefer boq_group_id for new group-based endpoints; fall back to item.id
+            const boqId = boqItems[0].boq_group_id ?? boqItems[0].id;
             const newItem = await boqService.addBoqItem(boqId, data);
             toast.success("Item added to BOQ");
 

@@ -230,11 +230,9 @@ export const boqService = {
    * Add a single item to a BOQ document
    * POST /api/v1/boq/{boq_id}/items
    */
-  async addBoqItem(_boqId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
+  async addBoqItem(boqId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
     try {
-      // Backend does not support /boq/{id}/items. 
-      // Line items are independent entities created via /boq.
-      const response = await api.post("/boq", itemData);
+      const response = await api.post(`/boq/groups/${boqId}/items`, itemData);
       return response.data;
     } catch (error: any) {
       console.error(
@@ -251,15 +249,8 @@ export const boqService = {
    */
   async getBoqItems(projectId: number): Promise<BoqItem[]> {
     try {
-      // Use the generic list endpoint with a filter
-      const response = await api.get("/boq", { params: { project_id: projectId, limit: 1000 } });
-      const data = response.data;
-
-      // Handle different response structures
-      if (Array.isArray(data)) return data;
-      if (data.items && Array.isArray(data.items)) return data.items;
-      if (data.data && Array.isArray(data.data)) return data.data;
-      return [];
+      // Switch to the project-specific endpoint which is more reliable
+      return await this.getBoqsByProject(projectId);
     } catch (error: any) {
       console.error(
         `Get Items for Project ${projectId} Error:`,
@@ -391,13 +382,8 @@ export const boqService = {
   async bulkAddItems(boqId: number, items: CreateBoqRequest[]): Promise<any[]> {
     console.log("bulkAddItems called with:", { boqId, itemCount: items.length });
     try {
-      // Bulk endpoint not yet available on backend; fall back to sequential individual creates.
-      const results = [];
-      for (const item of items) {
-        const response = await api.post("/boq", item);
-        results.push(response.data);
-      }
-      return results;
+      const response = await api.post(`/boq/groups/${boqId}/items/bulk`, { items });
+      return response.data;
     } catch (error: any) {
       console.error(
         `Bulk Add Items to Boq ${boqId} Error:`,

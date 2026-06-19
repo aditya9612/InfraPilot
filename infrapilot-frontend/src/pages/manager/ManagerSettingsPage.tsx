@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { Upload, Trash2, User, Globe, Bell, Layout, ShieldAlert } from "lucide-react";
 import toast from "react-hot-toast";
 import { settingsService } from "../../services/settingsService";
+import { useProject } from "../../context/ProjectContext";
+import { useAuth } from "../../context/AuthContext";
 import type {
     UserSettings,
     UserProfile,
@@ -51,6 +54,9 @@ const SectionHeader = ({
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 const ManagerSettingsPage = () => {
+    const { assignedProjects } = useProject();
+    const { refreshUser } = useAuth();
+    const [activeTab, setActiveTab] = useState<"general" | "personal">("general");
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -98,7 +104,12 @@ const ManagerSettingsPage = () => {
             ]);
 
             setSettings(settingsRes);
-            setProfile(profileRes);
+            const normalizedProfile = {
+                ...profileRes,
+                mobile_number: profileRes.mobile_number || (profileRes as any).mobile || "",
+                email: profileRes.email || (profileRes as any).email_address || "",
+            };
+            setProfile(normalizedProfile as UserProfile);
 
             // Map Settings
             setSelectedProject(settingsRes.default_project_id);
@@ -158,12 +169,6 @@ const ManagerSettingsPage = () => {
         { key: "showWeather" as const, label: "Weather Forecast", desc: "Show site weather conditions" },
     ];
 
-    const projects = [
-        { id: 101, name: "Skyline Tower A" },
-        { id: 102, name: "Grand Residency Phase 1" },
-        { id: 103, name: "Metro Station Ph-IV" },
-    ];
-
     const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         if (!profile) return;
@@ -190,22 +195,29 @@ const ManagerSettingsPage = () => {
             };
 
             const profileData: UpdateProfileRequest = {
-                full_name: profile.full_name,
-                role: profile.role,
-                mobile_number: profile.mobile_number.replace(/\D/g, ""),
-                email: profile.email,
-                address: profile.address,
-                pan_number: profile.pan_number?.toUpperCase() || "",
-                aadhaar_number: profile.aadhaar_number?.replace(/\D/g, "") || "",
-                designation: profile.designation,
-                joining_date: profile.joining_date,
-                is_active: profile.is_active
+                user_id: profile.user_id,
+                full_name: profile.full_name || "",
+                role: profile.role || "Manager",
+                mobile_number: (profile.mobile_number || "").replace(/\D/g, ""),
+                email: profile.email || "",
+                address: profile.address || "",
+                pan_number: (profile.pan_number || "").toUpperCase(),
+                aadhaar_number: (profile.aadhaar_number || "").replace(/\D/g, ""),
+                designation: profile.designation || "",
+                joining_date: profile.joining_date || "",
+                is_active: !!profile.is_active
             };
 
-            await Promise.all([
+            const [, updatedProfile] = await Promise.all([
                 settingsService.updateSettings(settingsData),
                 settingsService.updateProfile(profileData)
             ]);
+
+            // ── Sync Navbar & Sidebar in real-time ──────────────────────────
+            refreshUser({
+                name: updatedProfile.full_name || profile.full_name,
+                profile_image: updatedProfile.profile_image ?? profileImage,
+            });
 
             toast.success("Manager settings updated!", { id: toastId });
             fetchData();
@@ -244,10 +256,12 @@ const ManagerSettingsPage = () => {
                             Governance & Control
                         </p>
                         <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                            Personal Settings
+                            {activeTab === "general" ? "General Settings" : "My Account"}
                         </h1>
                         <p className="text-slate-500 text-sm font-medium">
-                            Configure your oversight parameters and personal profile.
+                            {activeTab === "general"
+                                ? "Configure your site oversight parameters and app preferences."
+                                : "Manage your personal profile and digital identity."}
                         </p>
                     </div>
                     <button
@@ -262,215 +276,273 @@ const ManagerSettingsPage = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
                             </svg>
                         )}
-                        Sync Changes
+                        {activeTab === "general" ? "Save Settings" : "Save Profile"}
                     </button>
                 </div>
 
-                {/* ── Main Settings Grid ───────────────────────────────────── */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Tabs Switcher */}
+                <div className="flex items-center gap-1 bg-white/80 backdrop-blur-md p-1.5 rounded-2xl w-fit mb-10 border border-slate-200 shadow-sm transition-all">
+                    <button
+                        onClick={() => setActiveTab("general")}
+                        className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === "general" ? "bg-slate-900 text-white shadow-xl scale-105" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
+                    >
+                        ⚙️ General Settings
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("personal")}
+                        className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${activeTab === "personal" ? "bg-slate-900 text-white shadow-xl scale-105" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"}`}
+                    >
+                        👤 My Account
+                    </button>
+                </div>
 
-                    {/* ─ 1. Profile Core ──────────────────────────────── */}
-                    <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 lg:col-span-2">
-                        <SectionHeader
-                            title="Manager Profile"
-                            icon={<User className="w-4 h-4" />}
-                        />
-                        <div className="flex flex-col md:flex-row items-center md:items-start gap-12">
-                            <div className="flex flex-col items-center gap-4 shrink-0">
-                                <div className="relative group">
-                                    <div className="w-32 h-32 rounded-3xl border-4 border-slate-50 bg-slate-100 overflow-hidden flex items-center justify-center text-4xl font-bold text-slate-400 shadow-inner">
-                                        {profileImage ? (
-                                            <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
-                                        ) : (
-                                            profile?.full_name?.charAt(0) || "P"
-                                        )}
-                                    </div>
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-xl hover:scale-110 transition-transform border-4 border-white"
-                                        title="Upload Photo"
-                                    >
-                                        <Upload className="w-4 h-4" strokeWidth={3} />
-                                    </button>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        ref={fileInputRef}
-                                        onChange={handleImageUpload}
-                                    />
-                                </div>
-                                {profileImage && (
-                                    <button
-                                        onClick={handleRemoveImage}
-                                        className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1.5 transition-colors"
-                                    >
-                                        <Trash2 className="w-3 h-3" /> Remove Photo
-                                    </button>
-                                )}
-                            </div>
-
-                            <div className="flex-1 w-full">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                {/* ── Tabs Content ───────────────────────────────────── */}
+                <AnimatePresence mode="wait">
+                    {activeTab === "personal" ? (
+                        <motion.div
+                            key="personal"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100"
+                        >
+                            <SectionHeader
+                                title="Manager Profile"
+                                icon={<User className="w-4 h-4" />}
+                            />
+                            <div className="flex flex-col md:flex-row items-center md:items-start gap-12">
+                                <div className="flex flex-col items-center gap-4 shrink-0">
+                                    <div className="relative group">
+                                        <div className="w-32 h-32 rounded-3xl border-4 border-slate-50 bg-slate-100 overflow-hidden flex items-center justify-center text-4xl font-bold text-slate-400 shadow-inner">
+                                            {profileImage ? (
+                                                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                                            ) : (
+                                                profile?.full_name?.charAt(0) || "P"
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-xl hover:scale-110 transition-transform border-4 border-white"
+                                            title="Upload Photo"
+                                        >
+                                            <Upload className="w-4 h-4" strokeWidth={3} />
+                                        </button>
                                         <input
-                                            type="text"
-                                            name="full_name"
-                                            value={profile?.full_name || ""}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            ref={fileInputRef}
+                                            onChange={handleImageUpload}
                                         />
                                     </div>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Designation</label>
-                                        <input
-                                            type="text"
-                                            name="designation"
-                                            value={profile?.designation || ""}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all opacity-70 cursor-not-allowed"
-                                            disabled
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Email</label>
-                                        <input
-                                            type="email"
-                                            name="email"
-                                            value={profile?.email || ""}
-                                            disabled
-                                            className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-sm font-bold text-slate-500 opacity-70 cursor-not-allowed focus:outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Registered Mobile</label>
-                                        <input
-                                            type="tel"
-                                            name="mobile_number"
-                                            value={profile?.mobile_number || ""}
-                                            disabled
-                                            className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-sm font-bold text-slate-500 opacity-70 cursor-not-allowed focus:outline-none transition-all"
-                                        />
-                                    </div>
+                                    {profileImage && (
+                                        <button
+                                            onClick={handleRemoveImage}
+                                            className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1.5 transition-colors"
+                                        >
+                                            <Trash2 className="w-3 h-3" /> Remove Photo
+                                        </button>
+                                    )}
                                 </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* ─ 2. Global Preferences ──────────────────────────────── */}
-                    <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-                        <SectionHeader
-                            title="App Context"
-                            icon={<Globe className="w-4 h-4" />}
-                        />
-                        <div className="space-y-6">
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Default Multi-Site View</label>
-                                <select
-                                    value={selectedProject || ""}
-                                    onChange={e => setSelectedProject(Number(e.target.value))}
-                                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all appearance-none cursor-pointer"
-                                >
-                                    <option value="">Consolidated Portfolio</option>
-                                    {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Language</label>
-                                    <select
-                                        value={language}
-                                        onChange={e => setLanguage(e.target.value)}
-                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all appearance-none cursor-pointer"
-                                    >
-                                        <option>English</option>
-                                        <option>Hindi</option>
-                                        <option>Marathi</option>
-                                    </select>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mass Unit</label>
-                                    <select
-                                        value={massUnit}
-                                        onChange={e => setMassUnit(e.target.value)}
-                                        className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all appearance-none cursor-pointer"
-                                    >
-                                        <option>Kg</option>
-                                        <option>Ton</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ─ 3. Governance Notifications ──────────────────────────── */}
-                    <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-                        <SectionHeader
-                            title="Oversight Alerts"
-                            icon={<Bell className="w-4 h-4" />}
-                        />
-                        <div className="space-y-4">
-                            {notifItems.map(item => (
-                                <div
-                                    key={item.key}
-                                    className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100/50 hover:bg-slate-100/50 transition-all group"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-xl">{item.icon}</span>
-                                        <div>
-                                            <p className="text-sm font-bold text-slate-800">{item.label}</p>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{item.desc}</p>
+                                <div className="flex-1 w-full">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                                            <input
+                                                type="text"
+                                                name="full_name"
+                                                value={profile?.full_name || ""}
+                                                onChange={handleProfileChange}
+                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Designation</label>
+                                            <input
+                                                type="text"
+                                                name="designation"
+                                                value={profile?.designation || ""}
+                                                onChange={handleProfileChange}
+                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all opacity-70 cursor-not-allowed"
+                                                disabled
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Email</label>
+                                            <input
+                                                type="email"
+                                                name="email"
+                                                value={profile?.email || ""}
+                                                disabled
+                                                className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-sm font-bold text-slate-500 opacity-70 cursor-not-allowed focus:outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Registered Mobile</label>
+                                            <input
+                                                type="tel"
+                                                name="mobile_number"
+                                                value={profile?.mobile_number || ""}
+                                                disabled
+                                                className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-sm font-bold text-slate-500 opacity-70 cursor-not-allowed focus:outline-none transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN Number</label>
+                                            <input
+                                                name="pan_number"
+                                                value={profile?.pan_number || ""}
+                                                onChange={handleProfileChange}
+                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhaar Number</label>
+                                            <input
+                                                name="aadhaar_number"
+                                                value={profile?.aadhaar_number || ""}
+                                                onChange={handleProfileChange}
+                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-2 sm:col-span-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Address</label>
+                                            <textarea
+                                                name="address"
+                                                value={profile?.address || ""}
+                                                onChange={handleProfileChange}
+                                                rows={3}
+                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all resize-none"
+                                            />
                                         </div>
                                     </div>
-                                    <Toggle
-                                        enabled={notifications[item.key]}
-                                        onChange={() => toggleNotif(item.key)}
-                                    />
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* ─ 4. Interface Preferences ───────────────────────────────── */}
-                    <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 flex flex-col gap-6">
-                        <SectionHeader
-                            title="UI Preferences"
-                            icon={<Layout className="w-4 h-4" />}
-                        />
-                        <div className="space-y-4">
-                            {prefItems.map(item => (
-                                <div
-                                    key={item.key}
-                                    className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100/50"
-                                >
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-800">{item.label}</p>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{item.desc}</p>
-                                    </div>
-                                    <Toggle
-                                        enabled={preferences[item.key]}
-                                        onChange={() => togglePref(item.key)}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Restricted Notice */}
-                        <div className="flex items-start gap-4 p-5 bg-blue-50/50 rounded-3xl border border-blue-100 mt-auto">
-                            <ShieldAlert className="w-6 h-6 text-blue-500 shrink-0" />
-                            <div>
-                                <p className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-1">Corporate Policy</p>
-                                <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
-                                    Base project configuration and tax parameters are managed by the Project Director. Contact central IT for restricted overrides.
-                                </p>
                             </div>
-                        </div>
-                    </div>
-                </div>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="general"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 20 }}
+                            className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+                        >
+                            {/* App Context */}
+                            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
+                                <SectionHeader
+                                    title="App Context"
+                                    icon={<Globe className="w-4 h-4" />}
+                                />
+                                <div className="space-y-6">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Default Project Selection</label>
+                                        <select
+                                            value={selectedProject || ""}
+                                            onChange={e => setSelectedProject(Number(e.target.value))}
+                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all appearance-none cursor-pointer"
+                                        >
+                                            <option value="">Consolidated Portfolio</option>
+                                            {assignedProjects.map(p => (
+                                                <option key={p.id} value={p.id}>{p.project_name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Language</label>
+                                            <select
+                                                value={language}
+                                                onChange={e => setLanguage(e.target.value)}
+                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option>English</option>
+                                                <option>Hindi</option>
+                                                <option>Marathi</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mass Unit</label>
+                                            <select
+                                                value={massUnit}
+                                                onChange={e => setMassUnit(e.target.value)}
+                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option>Kg</option>
+                                                <option>Ton</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Oversight Alerts */}
+                            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
+                                <SectionHeader
+                                    title="Oversight Alerts"
+                                    icon={<Bell className="w-4 h-4" />}
+                                />
+                                <div className="space-y-4">
+                                    {notifItems.map(item => (
+                                        <div
+                                            key={item.key}
+                                            className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100/50 hover:bg-slate-100/50 transition-all group"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-xl">{item.icon}</span>
+                                                <div>
+                                                    <p className="text-sm font-bold text-slate-800">{item.label}</p>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{item.desc}</p>
+                                                </div>
+                                            </div>
+                                            <Toggle
+                                                enabled={notifications[item.key]}
+                                                onChange={() => toggleNotif(item.key)}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* UI Preferences */}
+                            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 flex flex-col gap-6">
+                                <SectionHeader
+                                    title="UI Preferences"
+                                    icon={<Layout className="w-4 h-4" />}
+                                />
+                                <div className="space-y-4">
+                                    {prefItems.map(item => (
+                                        <div
+                                            key={item.key}
+                                            className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100/50"
+                                        >
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-800">{item.label}</p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{item.desc}</p>
+                                            </div>
+                                            <Toggle
+                                                enabled={preferences[item.key]}
+                                                onChange={() => togglePref(item.key)}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Restricted Notice */}
+                                <div className="flex items-start gap-4 p-5 bg-blue-50/50 rounded-3xl border border-blue-100 mt-auto">
+                                    <ShieldAlert className="w-6 h-6 text-blue-500 shrink-0" />
+                                    <div>
+                                        <p className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-1">Corporate Policy</p>
+                                        <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                                            Base project configuration and tax parameters are managed by the Project Director. Contact central IT for restricted overrides.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
             </PageTransition>
         </>

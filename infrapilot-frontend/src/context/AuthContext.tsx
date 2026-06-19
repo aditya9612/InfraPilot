@@ -19,6 +19,8 @@ export interface User {
     access_token: string;
     token_type: string;
   };
+  project_id?: number;
+  project_name?: string;
 }
 
 interface AuthContextType {

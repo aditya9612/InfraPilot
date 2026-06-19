@@ -1,211 +1,535 @@
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import StatCard from "../../components/common/StatCard";
+import Navbar from "../../components/common/Navbar";
+import Modal from "../../components/common/Modal";
+import toast from "react-hot-toast";
+import { useProject } from "../../context/ProjectContext";
 import {
-  AlertOctagon,
-  ClipboardCheck,
-  Plus,
-  Filter,
-  Search,
-  CheckCircle2,
-  ArrowUpRight,
-  MoreVertical,
-  Download,
-  Clock,
+  Plus, Search, Eye, Edit2, RotateCcw,
+  ChevronLeft, ChevronRight, HeartPulse,
+  AlertOctagon, ShieldCheck, Download
 } from "lucide-react";
+import { safetyService } from "../../services/safetyService";
+import type { IncidentItem as SafetyItem, CreateIncidentRequest } from "../../services/safetyService";
+
+const violationTypeColors: Record<string, string> = {
+  "No Helmet": "bg-red-100 text-red-600 border-red-200",
+  "Unsafe Equipment Usage": "bg-orange-100 text-orange-600 border-orange-200",
+  "No Safety Harness": "bg-yellow-100 text-yellow-600 border-yellow-200",
+  "Unsafe Scaffolding": "bg-amber-100 text-amber-600 border-amber-200",
+  "Fire Hazard": "bg-rose-100 text-rose-600 border-rose-200",
+  "Electrical Hazard": "bg-blue-100 text-blue-600 border-blue-200",
+};
+
+const VIOLATION_TYPES = [
+  "No Helmet", "Unsafe Equipment Usage", "No Safety Harness",
+  "Unsafe Scaffolding", "Fire Hazard", "Electrical Hazard",
+];
 
 const ManagerSafetyPage = () => {
   const navigate = useNavigate();
   const { tab } = useParams();
-  const activeTab = tab || "incidents";
+  const activeTab = tab || "checklist";
+  const { selectedProjectId } = useProject();
 
-  const tabs = [
-    { id: "incidents", label: "Incidents", icon: <AlertOctagon className="w-4 h-4" /> },
-    { id: "corrective-actions", label: "Corrective Actions", icon: <ClipboardCheck className="w-4 h-4" /> },
-  ];
+  const [incidentList, setIncidentList] = useState<SafetyItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "HighRisk" | "Critical">("All");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [filterViolationType, setFilterViolationType] = useState("");
 
-  const handleTabChange = (tabId: string) => {
-    navigate(`/manager/safety/${tabId}`);
+  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState<SafetyItem | null>(null);
+
+  const defaultForm = (): CreateIncidentRequest => ({
+    project_id: selectedProjectId || 0,
+    date: new Date().toISOString().split("T")[0],
+    violation_type: "No Helmet",
+    description: "",
+    injury_details: "",
+    action_taken: "",
+    responsible_person: "",
+    safety_checklist_status: "pending",
+    ppe_compliance: true,
+  });
+
+  const [formData, setFormData] = useState<CreateIncidentRequest>(defaultForm());
+
+  // ── DATA ──────────────────────────────────────────────────────
+  const fetchData = useCallback(async () => {
+    if (!selectedProjectId) return;
+    setIsLoading(true);
+    try {
+      const res = await safetyService.listIncidents(selectedProjectId, filterViolationType || undefined);
+      const items = (res.items || []).sort((a: SafetyItem, b: SafetyItem) => Number(b.id) - Number(a.id));
+      setIncidentList(items);
+    } catch {
+      toast.error("Failed to load safety records");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedProjectId, filterViolationType]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterViolationType, activeStatFilter, sortOrder]);
+  useEffect(() => { setActiveStatFilter("All"); }, [activeTab]);
+
+  // ── STATS ─────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const total = incidentList.length;
+    const critical = incidentList.filter(i => i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard").length;
+    const noInjury = incidentList.filter(i => {
+      const t = (i.injury_details || "").trim().toLowerCase();
+      return !t || t.includes("no injury") || t.includes("none") || t.includes("n/a") || t === "-";
+    }).length;
+    const ppeCompliant = incidentList.filter(i => i.ppe_compliance).length;
+    const checklistDone = incidentList.filter(i => i.safety_checklist_status === "completed").length;
+    const ppeRate = total > 0 ? (ppeCompliant / total) * 100 : 100;
+    const checklistRate = total > 0 ? (checklistDone / total) * 100 : 100;
+    const injuryFreeRate = total > 0 ? (noInjury / total) * 100 : 100;
+    return {
+      total, critical,
+      compliance: Math.round((noInjury / (total || 1)) * 100),
+      siteSafety: Math.round((ppeRate + checklistRate + injuryFreeRate) / 3),
+    };
+  }, [incidentList]);
+
+  // ── FILTERED LIST ─────────────────────────────────────────────
+  const filteredList = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    let data = incidentList.filter(i =>
+      (!term || i.description.toLowerCase().includes(term) ||
+        i.responsible_person.toLowerCase().includes(term) ||
+        i.violation_type.toLowerCase().includes(term)) &&
+      (!filterViolationType || i.violation_type === filterViolationType)
+    );
+
+    if (activeStatFilter === "HighRisk") data = data.filter(i => i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard");
+    if (activeStatFilter === "Compliance") data = data.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury"));
+    if (activeStatFilter === "Critical") data = data.filter(i => !!(i.injury_details && !i.injury_details.toLowerCase().includes("no injury")));
+
+    return data.sort((a, b) => sortOrder === "latest" ? Number(b.id) - Number(a.id) : Number(a.id) - Number(b.id));
+  }, [incidentList, searchTerm, filterViolationType, activeStatFilter, sortOrder]);
+
+  const breakdown = useMemo(() => {
+    const groups: Record<string, { total: number; resolved: number; unresolved: number }> = {};
+    filteredList.forEach(q => {
+      if (!groups[q.violation_type]) groups[q.violation_type] = { total: 0, resolved: 0, unresolved: 0 };
+      groups[q.violation_type].total++;
+      if (q.safety_checklist_status === "completed") groups[q.violation_type].resolved++;
+      else groups[q.violation_type].unresolved++;
+    });
+    return Object.entries(groups).map(([type, d]) => ({ type, ...d, resolutionRate: Math.round((d.resolved / d.total) * 100) + "%" }));
+  }, [filteredList]);
+
+  const paginatedList = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredList.slice(start, start + itemsPerPage);
+  }, [filteredList, currentPage, itemsPerPage]);
+
+  // ── HANDLERS ──────────────────────────────────────────────────
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
+    setFormData(p => ({ ...p, [name]: val }));
   };
 
+  const handleCreateSubmit = async (e?: React.BaseSyntheticEvent) => {
+    if (e) e.preventDefault();
+    if (!formData.date || !formData.violation_type || !formData.description || !formData.action_taken || !formData.responsible_person) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await safetyService.createIncident({ ...formData, project_id: selectedProjectId || formData.project_id });
+      toast.success("Safety record created!");
+      setIsNewModalOpen(false);
+      setFormData(defaultForm());
+      fetchData();
+    } catch { toast.error("Failed to create record"); } finally { setIsSubmitting(false); }
+  };
+
+  const handleUpdateSubmit = async (e?: React.BaseSyntheticEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedIncident) return;
+    setIsSubmitting(true);
+    try {
+      await safetyService.updateIncident(selectedIncident.id, formData);
+      toast.success("Record updated!");
+      setIsEditModalOpen(false);
+      fetchData();
+    } catch { toast.error("Failed to update"); } finally { setIsSubmitting(false); }
+  };
+
+  const handleViewClick = async (id: number) => {
+    try {
+      const item = await safetyService.getIncident(id);
+      setSelectedIncident(item);
+      setIsViewModalOpen(true);
+    } catch { toast.error("Failed to fetch details"); }
+  };
+
+  const handleEditClick = async (id: number) => {
+    try {
+      const item = await safetyService.getIncident(id);
+      setSelectedIncident(item);
+      setFormData({
+        project_id: item.project_id, date: item.date,
+        violation_type: item.violation_type, description: item.description,
+        injury_details: item.injury_details || "", action_taken: item.action_taken,
+        responsible_person: item.responsible_person,
+        safety_checklist_status: item.safety_checklist_status || "pending",
+        ppe_compliance: item.ppe_compliance ?? true,
+      });
+      setIsEditModalOpen(true);
+    } catch { toast.error("Failed to fetch details"); }
+  };
+
+  const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
+  const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+
+  const tabs = [
+    { id: "checklist", label: "Safety Checklist" },
+    { id: "incidents", label: "Incident Report" },
+  ];
+
+  const isChecklist = activeTab === "checklist";
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <>
       <Navbar
         title="Safety Management"
-        breadcrumb={["Manager", "Safety", tabs.find(t => t.id === activeTab)?.label || "Incidents"]}
+        breadcrumb={["Manager", "Safety", isChecklist ? "Checklist Vault" : "Incident Logs"]}
       />
 
-      <PageTransition className="p-6 lg:p-8">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+      <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+        {/* ── Header ── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-sm border border-primary/20">
+            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20">
               <AlertOctagon className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Safety Hub</h1>
-              <p className="text-slate-500 mt-1">Monitor site incidents and drive corrective actions.</p>
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+                {isChecklist ? "Safety Audit Registry" : "Incident Response Vault"}
+              </h1>
+              <p className="text-slate-500 text-sm">
+                {isChecklist ? "Track safety inspections and site compliance." : "Archive of site accidents and corrective actions."}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap gap-2">
             <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-              <Download className="w-4 h-4 text-primary" />
-              Reports
+              <Download className="w-4 h-4 text-primary" /> Export
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition-all shadow-lg shadow-primary/20">
+            <button onClick={() => { setFormData(defaultForm()); setIsNewModalOpen(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
               <Plus className="w-4 h-4" />
-              {activeTab === "incidents" ? "Log Incident" : "Add Action"}
+              {isChecklist ? "Log Audit Entry" : "Log Incident"}
             </button>
           </div>
         </div>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Open Incidents"
-            value="12"
-            sub="5 Critical"
-            accent="text-rose-500"
-            icon={<AlertOctagon className="w-5 h-5 text-rose-500" />}
-          />
-          <StatCard
-            title="Resolved"
-            value="87"
-            sub="This month"
-            accent="text-emerald-500"
-            icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-          />
-          <StatCard
-            title="Avg. Resolution Time"
-            value="3.2d"
-            sub="From incident to close"
-            accent="text-primary"
-            icon={<Clock className="w-5 h-5 text-primary" />}
-          />
-          <StatCard
-            title="Safety Score"
-            value="92/100"
-            sub="Compliance index"
-            accent="text-blue-600"
-            icon={<ArrowUpRight className="w-5 h-5 text-blue-600" />}
-          />
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {[
+            { title: "Total Records", value: stats.total.toString(), sub: "All Time", accent: "text-slate-800", status: "All" },
+            { title: "Compliance", value: `${stats.compliance}%`, sub: "Incident-Free Rate", accent: "text-emerald-500", status: "Compliance" },
+            { title: "High Risks", value: stats.critical.toString(), sub: "Critical Hazards", accent: "text-rose-500", status: "HighRisk" },
+            { title: "Site Safety", value: `${stats.siteSafety}%`, sub: "Safety Momentum", accent: "text-blue-500", status: null },
+          ].map(s => (
+            <div key={s.title}
+              onClick={() => s.status && setActiveStatFilter(s.status as any)}
+              className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? "hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20" : "cursor-default"} group`}>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary">{s.title}</p>
+              <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+              <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
+            </div>
+          ))}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex p-1 bg-slate-200/50 backdrop-blur-sm rounded-2xl mb-8 w-fit border border-white/50 shadow-inner">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => handleTabChange(t.id)}
-              className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
-                activeTab === t.id ? "text-primary bg-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/40"
-              }`}
-            >
-              <span className="relative z-10">{t.icon}</span>
-              <span className="relative z-10">{t.label}</span>
+        {/* ── Tab Nav ── */}
+        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 overflow-x-auto scrollbar-none">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => navigate(`/manager/safety/${t.id}`)}
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === t.id ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}>
+              {t.label}
             </button>
           ))}
         </div>
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-          >
-            {activeTab === "incidents" && <IncidentsView />}
-            {activeTab === "corrective-actions" && <CorrectiveActionsView />}
-          </motion.div>
-        </AnimatePresence>
+        {/* ── Safety Checklist / Incidents Table ── */}
+        {isChecklist && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6">
+            <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" placeholder="Search by description, person or violation..." value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-bold" />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <select value={filterViolationType} onChange={e => setFilterViolationType(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm">
+                  <option value="">All Violations</option>
+                  {VIOLATION_TYPES.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+                {activeStatFilter !== "All" && (
+                  <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 bg-white border border-slate-200 rounded-xl shadow-sm">
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                )}
+                <select value={sortOrder} onChange={e => setSortOrder(e.target.value as any)}
+                  className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm">
+                  <option value="latest">Latest First</option>
+                  <option value="oldest">Oldest First</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-auto">
+              {isLoading ? (
+                <div className="p-20 text-center">
+                  <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing vault...</p>
+                </div>
+              ) : (
+                <table className="w-full text-left min-w-[900px]">
+                  <thead>
+                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">Incident Summary</th>
+                      <th className="px-6 py-4">Violation Type</th>
+                      <th className="px-6 py-4">Resources</th>
+                      <th className="px-6 py-4">PPE</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {paginatedList.length > 0 ? paginatedList.map(item => (
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-6 py-4">
+                          <span className="text-sm font-bold text-slate-800">{item.date}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col max-w-xs">
+                            <span className="text-xs font-bold text-slate-700 truncate">{item.description}</span>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                              <HeartPulse className="w-3 h-3 text-rose-500" />
+                              <span className="truncate">{item.injury_details || "No injuries"}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
+                            {item.violation_type}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">{item.responsible_person}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[140px]">ACTION: {item.action_taken}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.ppe_compliance ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
+                            {item.ppe_compliance ? "Compliant" : "Missing"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => handleViewClick(item.id)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleEditClick(item.id)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                          No safety records found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Pagination */}
+            {!isLoading && filteredList.length > 0 && (
+              <div className="px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-slate-500">Per page:</span>
+                  <select value={itemsPerPage} onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                    className="border border-slate-200 rounded-lg text-[11px] px-2 py-1 outline-none bg-white shadow-sm">
+                    {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length}
+                </p>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-primary disabled:opacity-50 bg-white shadow-sm">
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  {Array.from({ length: Math.ceil(filteredList.length / itemsPerPage) }, (_, i) => i + 1)
+                    .slice(Math.max(0, currentPage - 3), Math.min(Math.ceil(filteredList.length / itemsPerPage), currentPage + 2))
+                    .map(p => (
+                      <button key={p} onClick={() => setCurrentPage(p)}
+                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${currentPage === p ? "bg-primary text-white border border-primary" : "bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm"}`}>
+                        {p}
+                      </button>
+                    ))}
+                  <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredList.length / itemsPerPage), p + 1))}
+                    disabled={currentPage === Math.ceil(filteredList.length / itemsPerPage)}
+                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-primary disabled:opacity-50 bg-white shadow-sm">
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Incident Breakdown Tab ── */}
+        {!isChecklist && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="p-4 border-b border-slate-50 flex items-center gap-3">
+              <ShieldCheck className="w-5 h-5 text-primary" />
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Safety Incident Breakdown</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                    <th className="px-6 py-4">Violation Profile</th>
+                    <th className="px-6 py-4 text-center">Incident Count</th>
+                    <th className="px-6 py-4 text-center">Resolved</th>
+                    <th className="px-6 py-4 text-center">Unresolved</th>
+                    <th className="px-6 py-4 text-right">Resolution Rate</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {breakdown.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 text-sm font-bold text-slate-800">{row.type}</td>
+                      <td className="px-6 py-4 text-center text-sm text-slate-600">{row.total}</td>
+                      <td className="px-6 py-4 text-center"><span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.resolved}</span></td>
+                      <td className="px-6 py-4 text-center"><span className="px-2.5 py-1 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-bold uppercase tracking-widest">{row.unresolved}</span></td>
+                      <td className="px-6 py-4 text-right text-sm font-bold text-primary">{row.resolutionRate}</td>
+                    </tr>
+                  ))}
+                  {breakdown.length === 0 && (
+                    <tr><td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">No incidents reported.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </PageTransition>
-    </div>
+
+      {/* ── Create/Edit Modal ── */}
+      <Modal
+        isOpen={isNewModalOpen || isEditModalOpen}
+        onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+        title={isEditModalOpen ? "Modify Safety Record" : (isChecklist ? "Record Safety Audit" : "Log Incident Report")}
+        maxWidth="max-w-2xl"
+        footer={
+          <>
+            <button type="button" onClick={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
+              disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50">
+              Cancel
+            </button>
+            <button type="button" onClick={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}
+              disabled={isSubmitting}
+              className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}>
+              {isSubmitting ? "Syncing..." : (isEditModalOpen ? "Push Changes" : "Create Entry")}
+            </button>
+          </>
+        }
+      >
+        <form className="space-y-4 p-2" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Date <span className="text-rose-500">*</span></label>
+              <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Violation Type <span className="text-rose-500">*</span></label>
+              <select name="violation_type" value={formData.violation_type} onChange={handleInputChange} className={inputCls}>
+                {VIOLATION_TYPES.map(v => <option key={v}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Responsible Person <span className="text-rose-500">*</span></label>
+              <input name="responsible_person" type="text" value={formData.responsible_person}
+                onChange={e => setFormData(p => ({ ...p, responsible_person: e.target.value.replace(/[^a-zA-Z\s.'-]/g, "") }))}
+                placeholder="Full Name" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Checklist Status</label>
+              <select name="safety_checklist_status" value={formData.safety_checklist_status} onChange={handleInputChange} className={inputCls}>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelCls}>Description <span className="text-rose-500">*</span></label>
+              <textarea name="description" value={formData.description} onChange={handleInputChange} rows={2} placeholder="Describe the incident..." className={inputCls + " resize-none"} />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelCls}>Action Taken <span className="text-rose-500">*</span></label>
+              <textarea name="action_taken" value={formData.action_taken} onChange={handleInputChange} rows={2} placeholder="Corrective action taken..." className={inputCls + " resize-none"} />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelCls}>Injury Details</label>
+              <input name="injury_details" type="text" value={formData.injury_details || ""} onChange={handleInputChange} placeholder="e.g. No injury / Minor abrasion" className={inputCls} />
+            </div>
+            <div className="flex items-center gap-3">
+              <input type="checkbox" name="ppe_compliance" id="ppe_compliance" checked={formData.ppe_compliance}
+                onChange={handleInputChange} className="w-4 h-4 accent-primary" />
+              <label htmlFor="ppe_compliance" className="text-sm font-bold text-slate-700">PPE Compliant</label>
+            </div>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── View Modal ── */}
+      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Safety Record Details" maxWidth="max-w-lg">
+        {selectedIncident && (
+          <div className="p-6 space-y-4">
+            {[
+              ["Date", selectedIncident.date],
+              ["Violation Type", selectedIncident.violation_type],
+              ["Description", selectedIncident.description],
+              ["Action Taken", selectedIncident.action_taken],
+              ["Responsible Person", selectedIncident.responsible_person],
+              ["Injury Details", selectedIncident.injury_details || "No injuries reported"],
+              ["PPE Compliance", selectedIncident.ppe_compliance ? "✓ Compliant" : "✗ Missing"],
+              ["Checklist Status", selectedIncident.safety_checklist_status || "pending"],
+            ].map(([label, value]) => (
+              <div key={label} className="flex justify-between items-start">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
+                <span className="text-sm font-bold text-slate-800 text-right max-w-[60%]">{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+    </>
   );
 };
-
-const IncidentsView = () => (
-  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-    <div className="p-5 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-      <div className="flex items-center gap-4">
-        <h3 className="font-bold text-slate-800">Site Incident Log</h3>
-        <div className="flex bg-white border border-slate-200 rounded-lg px-3 py-1.5 items-center gap-2">
-          <Search className="w-4 h-4 text-slate-400" />
-          <input type="text" placeholder="Search incidents..." className="bg-transparent border-none outline-none text-xs w-48" />
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50">
-          <Filter className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50/50">
-          <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-            <th className="p-4">Incident ID</th>
-            <th className="p-4">Description</th>
-            <th className="p-4">Site / Zone</th>
-            <th className="p-4">Reported By</th>
-            <th className="p-4">Date</th>
-            <th className="p-4">Status</th>
-            <th className="p-4 text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {[
-            { id: "INC-101", desc: "Scaffold collapse", site: "Tower A", reporter: "John D.", date: "Today, 09:15", status: "Open" },
-            { id: "INC-098", desc: "Electrical fire", site: "Block B", reporter: "Sara K.", date: "Yesterday", status: "Closed" },
-            { id: "INC-095", desc: "Slip hazard", site: "Ground Floor", reporter: "Mike L.", date: "12 Jun", status: "In Review" },
-          ].map((inc, i) => (
-            <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-              <td className="p-4"><div className="text-sm font-bold text-slate-800">{inc.id}</div></td>
-              <td className="p-4"><div className="text-xs text-slate-600">{inc.desc}</div></td>
-              <td className="p-4"><div className="text-xs text-slate-600">{inc.site}</div></td>
-              <td className="p-4"><div className="text-xs text-slate-600">{inc.reporter}</div></td>
-              <td className="p-4"><div className="text-xs text-slate-500">{inc.date}</div></td>
-              <td className="p-4">
-                <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                  inc.status === "Open" ? "bg-rose-100 text-rose-600" :
-                  inc.status === "Closed" ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
-                }`}>{inc.status}</span>
-              </td>
-              <td className="p-4 text-right">
-                <button className="p-1 hover:bg-slate-200 rounded-lg transition-colors text-slate-400">
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
-const CorrectiveActionsView = () => (
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    {[
-      { title: "Scaffold Reinforcement", incident: "INC-101", status: "Planned", due: "2 weeks" },
-      { title: "Electrical System Audit", incident: "INC-098", status: "Completed", due: "-" },
-      { title: "Floor Slip Mats", incident: "INC-095", status: "In Progress", due: "5 days" },
-    ].map((act, i) => (
-      <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-        <h4 className="font-bold text-slate-800 mb-2">{act.title}</h4>
-        <p className="text-xs text-slate-500 mb-2">Related: {act.incident}</p>
-        <div className="flex items-center justify-between text-sm">
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-            act.status === "Completed" ? "bg-emerald-100 text-emerald-600" :
-            act.status === "Planned" ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"
-          }`}>{act.status}</span>
-          <span className="text-slate-400">Due: {act.due}</span>
-        </div>
-      </div>
-    ))}
-  </div>
-);
 
 export default ManagerSafetyPage;

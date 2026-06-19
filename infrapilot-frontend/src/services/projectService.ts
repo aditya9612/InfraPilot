@@ -327,29 +327,29 @@ export const projectService = {
     } catch (error: any) {
       console.error(`Get Task ${taskId} API Error:`, error.response?.data || error.message);
       return {
-          "id": taskId,
-          "project_id": projectId,
-          "title": taskId === 1 ? "API Testing" : taskId === 2 ? "ueihfuhaodj" : "ghsvfjagkjf",
-          "description": taskId === 1 ? "Start to test all APIs." : taskId === 2 ? "string" : "No description provided.",
-          "priority": "Medium",
-          "status": "Planned",
-          "start_date": taskId === 1 ? "2026-05-19" : "2026-06-15",
-          "end_date": taskId === 1 ? "2026-05-27" : "2026-07-23",
-          "actual_start_date": null,
-          "actual_end_date": null,
-          "created_by_user_id": 1,
-          "assigned_users": [
-            { id: taskId === 2 ? 226 : 225, name: taskId === 2 ? "Vishal Sathe" : "Suresh Chaudhari" }
-          ],
-          "completion_percentage": 0,
-          "is_delayed": false,
-          "execution_duration": 0,
-          "delay_days": 0,
-          "actual_cost": 0,
-          "planned_cost": 0,
-          "audio_instruction_url": null,
-          "instruction_image_url": taskId === 1 ? "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop" : taskId === 2 ? "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=100&h=100&fit=crop" : null,
-          "task_icon": null
+        "id": taskId,
+        "project_id": projectId,
+        "title": taskId === 1 ? "API Testing" : taskId === 2 ? "ueihfuhaodj" : "ghsvfjagkjf",
+        "description": taskId === 1 ? "Start to test all APIs." : taskId === 2 ? "string" : "No description provided.",
+        "priority": "Medium",
+        "status": "Planned",
+        "start_date": taskId === 1 ? "2026-05-19" : "2026-06-15",
+        "end_date": taskId === 1 ? "2026-05-27" : "2026-07-23",
+        "actual_start_date": null,
+        "actual_end_date": null,
+        "created_by_user_id": 1,
+        "assigned_users": [
+          { id: taskId === 2 ? 226 : 225, name: taskId === 2 ? "Vishal Sathe" : "Suresh Chaudhari" }
+        ],
+        "completion_percentage": 0,
+        "is_delayed": false,
+        "execution_duration": 0,
+        "delay_days": 0,
+        "actual_cost": 0,
+        "planned_cost": 0,
+        "audio_instruction_url": null,
+        "instruction_image_url": taskId === 1 ? "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop" : taskId === 2 ? "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=100&h=100&fit=crop" : null,
+        "task_icon": null
       };
     }
   },
@@ -488,5 +488,41 @@ export const projectService = {
         }
       ];
     }
-  }
+  },
+  /**
+   * Get list of projects assigned to a specific user (Manager/Engineer)
+   * This is a utility method since the backend /projects doesn't filter by user assignment yet.
+   */
+  async getAssignedProjects(userId: number) {
+    try {
+      // 1. Fetch some projects (limit 100 for now)
+      const pRes = await this.getProjects(100, 0);
+      const projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
+
+      // 2. Check membership for each project
+      // Note: This is an expensive operation but mirrors existing logic in ProjectsPage.tsx
+      const memberChecks = await Promise.all(
+        projectList.map(async (p: any) => {
+          try {
+            const mems = await this.getProjectMembers(p.id);
+            const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
+            const isAssigned = memberList.some((m: any) =>
+              String(m.user_id) === String(userId) ||
+              String(m.user?.id) === String(userId) ||
+              String(m.userId) === String(userId)
+            );
+            return { project: p, isAssigned };
+          } catch (err) {
+            console.error(`Failed to check members for project ${p.id}:`, err);
+            return { project: p, isAssigned: false };
+          }
+        })
+      );
+
+      return memberChecks.filter(c => c.isAssigned).map(c => c.project);
+    } catch (error) {
+      console.error("Failed to fetch assigned projects:", error);
+      throw error;
+    }
+  },
 };

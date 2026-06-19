@@ -128,7 +128,8 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
       let targetId: number;
 
       if (existingBoq) {
-        targetId = existingBoq.id;
+        // Prefer boq_group_id for the new group-based endpoints; fall back to id
+        targetId = existingBoq.boq_group_id ?? existingBoq.id;
       } else {
         // Create a new one
         toast.loading("Creating new BOQ group...", { id: "boq-create" });
@@ -141,7 +142,7 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
           status: "Draft",
           activity_type_id: Number(selectedActivityTypeId),
         });
-        targetId = newBoq.id;
+        targetId = newBoq.boq_group_id ?? newBoq.id;
         toast.success("New BOQ group created", { id: "boq-create" });
       }
 

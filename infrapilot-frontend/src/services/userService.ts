@@ -1,5 +1,5 @@
 import api from "./api";
-import type { User } from "../types/user";
+import type { User, RoleCounts } from "../types/user";
 
 export const userService = {
   /**
@@ -44,12 +44,12 @@ export const userService = {
       }
     });
 
-    // Only send the file in FormData, everything else must be in queryParams due to backend routing
+    // Only send the file in FormData, everything else must be in queryParams
     if (userData.profile_image && userData.profile_image instanceof File) {
       formData.append("profile_image", userData.profile_image);
       delete queryParams.profile_image;
     } else {
-      delete queryParams.profile_image; // Prevent huge URLs
+      delete queryParams.profile_image;
     }
 
     try {
@@ -87,7 +87,7 @@ export const userService = {
     if (queryParams.aadhaar_number) {
       queryParams.aadhaar_number = queryParams.aadhaar_number.replace(/-/g, '');
     }
-    
+
     if (queryParams.joining_date === '') {
       queryParams.joining_date = null;
     }
@@ -119,5 +119,50 @@ export const userService = {
   async deleteUser(userId: number) {
     const response = await api.delete(`/users/${userId}`);
     return response.data;
+  },
+
+  /**
+   * Get role-based user counts
+   * GET /api/v1/users/role-counts
+   */
+  async getRoleCounts(): Promise<RoleCounts> {
+    try {
+      const response = await api.get("/users/role-counts");
+      return response.data;
+    } catch (error: any) {
+      console.error("Get Role Counts Error:", error.response?.data || error.message);
+      return {};
+    }
+  },
+
+  /**
+   * Get list of roles with optional active/inactive filter
+   * GET /api/v1/users/roles
+   */
+  async getRoles(status?: "active" | "inactive") {
+    try {
+      const params: any = {};
+      if (status) params.status = status;
+      const response = await api.get("/users/roles", { params });
+      const data = response.data;
+      return Array.isArray(data) ? data : (data.items || data.data || []);
+    } catch (error: any) {
+      console.error("Get Roles Error:", error.response?.data || error.message);
+      return [];
+    }
+  },
+
+  /**
+   * Toggle a role's active/inactive status
+   * PUT /api/v1/users/roles/{role}/status
+   */
+  async toggleRoleStatus(role: string, is_active: boolean) {
+    try {
+      const response = await api.put(`/users/roles/${role}/status`, { is_active });
+      return response.data;
+    } catch (error: any) {
+      console.error(`Toggle Role ${role} Status Error:`, error.response?.data || error.message);
+      throw error;
+    }
   },
 };

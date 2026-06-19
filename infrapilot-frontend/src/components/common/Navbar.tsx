@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
+import ProjectSelector from "./ProjectSelector";
 import { useState, useRef, useEffect } from "react";
 import { LogOut, User as UserIcon, Settings, Bell, CheckCheck } from "lucide-react";
 import Modal from "./Modal";
@@ -242,6 +243,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <ProjectSelector />
           {action && (
             <button
               onClick={action.onClick}
@@ -333,7 +335,8 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
                       const settingsPath = user?.role === "Admin" ? "/admin/settings" :
                         user?.role === "SiteEngineer" ? "/engineer/settings" :
                           user?.role === "Client" ? "/client/settings" :
-                            user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
+                            user?.role === "ProjectManager" ? "/manager/settings" :
+                              user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
                       navigate(`${settingsPath}#profile`);
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition-colors"
@@ -347,7 +350,8 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
                       const settingsPath = user?.role === "Admin" ? "/admin/settings" :
                         user?.role === "SiteEngineer" ? "/engineer/settings" :
                           user?.role === "Client" ? "/client/settings" :
-                            user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
+                            user?.role === "ProjectManager" ? "/manager/settings" :
+                              user?.role === "Accountant" ? "/accountant/settings" : "/admin/settings";
                       navigate(settingsPath);
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 hover:text-primary transition-colors"

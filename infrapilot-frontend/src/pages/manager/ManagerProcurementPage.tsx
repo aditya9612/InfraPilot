@@ -1,378 +1,435 @@
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import StatCard from "../../components/common/StatCard";
-import { 
-  ShoppingCart, 
-  ClipboardList, 
-  FileText, 
-  Plus, 
-  Filter, 
-  Search,
-  Package,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  MoreVertical,
-  Download,
-  Calendar
+import Navbar from "../../components/common/Navbar";
+import Modal from "../../components/common/Modal";
+import toast from "react-hot-toast";
+import { useProject } from "../../context/ProjectContext";
+import {
+    ShoppingCart, ClipboardList, Package, Plus, Search,
+    Filter, Clock, CheckCircle2, AlertCircle, MoreVertical,
+    Download, FileText, Eye, Check, X, Box, ChevronLeft, ChevronRight, RotateCcw
 } from "lucide-react";
+import { siteRequestService } from "../../services/siteRequestService";
+import type { SiteRequestResponse } from "../../services/siteRequestService";
+import { materialService } from "../../services/materialService";
+import type { PurchaseOrder } from "../../services/materialService";
 
 const ManagerProcurementPage = () => {
     const navigate = useNavigate();
     const { tab } = useParams();
     const activeTab = tab || "material";
+    const { selectedProjectId } = useProject();
+
+    // ── Data States ───────────────────────────────────────────────
+    const [materialRequests, setMaterialRequests] = useState<SiteRequestResponse[]>([]);
+    const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // ── UI States ─────────────────────────────────────────────────
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filterStatus, setFilterStatus] = useState("All");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [activeStatFilter, setActiveStatFilter] = useState("All");
+
+    // ── Modal States ──────────────────────────────────────────────
+    const [selectedRequest, setSelectedRequest] = useState<SiteRequestResponse | null>(null);
+    const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+    const [isNewPOModalOpen, setIsNewPOModalOpen] = useState(false);
+
+    // ── DATA FETCH ────────────────────────────────────────────────
+    const fetchData = useCallback(async () => {
+        if (!selectedProjectId) return;
+        setIsLoading(true);
+        try {
+            const [requests, pos] = await Promise.all([
+                siteRequestService.getRequests(selectedProjectId),
+                materialService.listPurchaseOrders(0, 1000)
+            ]);
+
+            setMaterialRequests(Array.isArray(requests) ? requests : []);
+            // Filter POs by project_id since the service listPurchaseOrders doesn't take project_id in signature
+            setPurchaseOrders((pos || []).filter(po => po.project_id === selectedProjectId));
+        } catch (err) {
+            console.error("Failed to fetch procurement data", err);
+            toast.error("Failed to sync supply chain data");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [selectedProjectId]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, activeTab, activeStatFilter]);
+
+    // ── Computed Stats ────────────────────────────────────────────
+    const stats = useMemo(() => {
+        const pendingReq = materialRequests.filter(r => r.status === "Pending").length;
+        const openPO = purchaseOrders.filter(po => po.status !== "COMPLETED" && po.status !== "CANCELLED").length;
+        const deliveredMonth = purchaseOrders.filter(po => po.status === "COMPLETED").length;
+        const totalSpend = purchaseOrders.reduce((sum, po) => sum + (po.total_amount || 0), 0);
+
+        return {
+            pendingReq,
+            openPO,
+            deliveredMonth,
+            totalSpend: new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(totalSpend)
+        };
+    }, [materialRequests, purchaseOrders]);
+
+    // ── ACTIONS ───────────────────────────────────────────────────
+    const handleApprove = async (id: number) => {
+        setIsSubmitting(true);
+        try {
+            await siteRequestService.approveRequest(id);
+            toast.success("Requisition approved!");
+            setMaterialRequests(prev => prev.map(r => r.id === id ? { ...r, status: "Approved" } : r));
+        } catch {
+            toast.error("Approval failed");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleReject = async (id: number) => {
+        setIsSubmitting(true);
+        try {
+            await siteRequestService.rejectRequest(id);
+            toast.success("Requisition rejected");
+            setMaterialRequests(prev => prev.map(r => r.id === id ? { ...r, status: "Rejected" } : r));
+        } catch {
+            toast.error("Rejection failed");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const tabs = [
         { id: "material", label: "Material Requests", icon: <Package className="w-4 h-4" /> },
-        { id: "purchase-req", label: "Purchase Requests", icon: <ClipboardList className="w-4 h-4" /> },
         { id: "purchase-order", label: "Purchase Orders", icon: <ShoppingCart className="w-4 h-4" /> },
     ];
 
-    const handleTabChange = (tabId: string) => {
-        navigate(`/manager/procurement/${tabId}`);
+    const activeTabData = useMemo(() => {
+        if (activeTab === "material") {
+            let data = materialRequests;
+            if (activeStatFilter === "Pending") data = data.filter(r => r.status === "Pending");
+            if (filterStatus !== "All") data = data.filter(r => r.status === filterStatus);
+            if (searchTerm) {
+                const s = searchTerm.toLowerCase();
+                data = data.filter(r => r.description.toLowerCase().includes(s) || r.request_type.toLowerCase().includes(s) || String(r.id).includes(s));
+            }
+            return data.sort((a, b) => b.id - a.id);
+        } else {
+            let data = purchaseOrders;
+            if (activeStatFilter === "Open") data = data.filter(po => po.status !== "COMPLETED" && po.status !== "CANCELLED");
+            if (filterStatus !== "All") data = data.filter(po => po.status === filterStatus);
+            if (searchTerm) {
+                const s = searchTerm.toLowerCase();
+                data = data.filter(po => po.material_name.toLowerCase().includes(s) || String(po.id).includes(s));
+            }
+            return data.sort((a, b) => b.id - a.id);
+        }
+    }, [activeTab, materialRequests, purchaseOrders, searchTerm, filterStatus, activeStatFilter]);
+
+    const paginatedData = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return activeTabData.slice(start, start + itemsPerPage);
+    }, [activeTabData, currentPage, itemsPerPage]);
+
+    const getStatusBadge = (status: string) => {
+        const s = status.toUpperCase();
+        if (s === "APPROVED" || s === "COMPLETED") return "bg-emerald-100 text-emerald-600";
+        if (s === "PENDING" || s === "CREATED" || s === "PROCESSING") return "bg-amber-100 text-amber-600";
+        if (s === "REJECTED" || s === "CANCELLED") return "bg-rose-100 text-rose-600";
+        return "bg-slate-100 text-slate-500";
     };
 
+    const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
+
     return (
-        <div className="min-h-screen bg-[#F8FAFC]">
-            <Navbar 
-                title="Procurement Management" 
-                breadcrumb={["Manager", "Procurement", tabs.find(t => t.id === activeTab)?.label || "Material Requests"]} 
+        <div className="min-h-screen bg-slate-50 font-inter">
+            <Navbar
+                title="Supply Chain Hub"
+                breadcrumb={["Manager", "Procurement", tabs.find(t => t.id === activeTab)?.label || "Material Requests"]}
             />
 
-            <PageTransition className="p-6 lg:p-8">
-                {/* Header Section */}
+            <PageTransition className="p-6">
+                {/* ── Header ── */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Supply Chain Orchestrator</h1>
-                        <p className="text-slate-500 mt-1">Manage material lifecycles from requisition to fulfillment.</p>
+                        <p className="text-slate-500 mt-1">Directing site requisitions and procurement pipelines.</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-                            <Download className="w-4 h-4 text-primary" />
-                            Export
+                            <Download className="w-4 h-4 text-primary" /> Export
                         </button>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition-all shadow-lg shadow-primary/20">
-                            <Plus className="w-4 h-4" />
-                            New {activeTab === "material" ? "Request" : activeTab === "purchase-req" ? "Purchase Req" : "Order"}
-                        </button>
+                        {activeTab === "purchase-order" && (
+                            <button onClick={() => setIsNewPOModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                                <Plus className="w-4 h-4" /> New Order
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* Stat Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <StatCard 
-                        title="Pending Requests" 
-                        value="12" 
-                        sub="Awaiting review" 
-                        accent="text-amber-500"
-                        icon={<Clock className="w-5 h-5 text-amber-500" />}
-                    />
-                    <StatCard 
-                        title="Open Orders" 
-                        value="08" 
-                        sub="In transit/Delivery" 
-                        accent="text-primary"
-                        icon={<ShoppingCart className="w-5 h-5 text-primary" />}
-                    />
-                    <StatCard 
-                        title="Delivered (MTD)" 
-                        value="45" 
-                        sub="This month" 
-                        accent="text-emerald-500"
-                        icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-                    />
-                    <StatCard 
-                        title="Procurement Spend" 
-                        value="₹4.2M" 
-                        sub="Budget utilization: 68%" 
-                        accent="text-slate-900"
-                        icon={<FileText className="w-5 h-5 text-slate-700" />}
-                    />
+                {/* ── Stat Cards ── */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    {[
+                        { title: "Pending Requests", value: stats.pendingReq.toString(), sub: "Awaiting Action", accent: "text-amber-500", icon: <Clock className="w-5 h-5 text-amber-500" />, filter: "Pending" },
+                        { title: "Open Orders", value: stats.openPO.toString(), sub: "In Pipeline", accent: "text-primary", icon: <ShoppingCart className="w-5 h-5 text-primary" />, filter: "Open" },
+                        { title: "Delivered", value: stats.deliveredMonth.toString(), sub: "Completed POs", accent: "text-emerald-500", icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />, filter: "All" },
+                        { title: "Project Spend", value: stats.totalSpend, sub: "Total Commitment", accent: "text-slate-900", icon: <FileText className="w-5 h-5 text-slate-700" />, filter: "All" },
+                    ].map(s => (
+                        <div key={s.title} onClick={() => s.filter && setActiveStatFilter(s.filter)}
+                            className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md cursor-pointer active:scale-95 transition-all group">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-primary/5 transition-colors">{s.icon}</div>
+                            </div>
+                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-primary transition-colors">{s.title}</p>
+                            <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-2 font-medium">{s.sub}</p>
+                        </div>
+                    ))}
                 </div>
 
-                {/* Tab Navigation */}
-                <div className="flex p-1 bg-slate-200/50 backdrop-blur-sm rounded-2xl mb-8 w-fit border border-white/50 shadow-inner">
+                {/* ── Tab Switcher ── */}
+                <div className="flex p-1.5 bg-white border border-slate-200 rounded-2xl mb-8 w-fit shadow-sm overflow-x-auto scrollbar-none">
                     {tabs.map((t) => (
-                        <button
-                            key={t.id}
-                            onClick={() => handleTabChange(t.id)}
-                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
-                                activeTab === t.id 
-                                ? "text-primary bg-white shadow-sm" 
-                                : "text-slate-500 hover:text-slate-700 hover:bg-white/40"
-                            }`}
-                        >
-                            <span className="relative z-10">{t.icon}</span>
-                            <span className="relative z-10">{t.label}</span>
+                        <button key={t.id} onClick={() => navigate(`/manager/procurement/${t.id}`)}
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === t.id ? "text-slate-800 bg-slate-100 shadow-inner" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}>
+                            {t.icon}
+                            <span>{t.label}</span>
                         </button>
                     ))}
                 </div>
 
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={activeTab}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.3 }}
-                    >
-                        {activeTab === "material" && <MaterialRequestsView />}
-                        {activeTab === "purchase-req" && <PurchaseRequestsView />}
-                        {activeTab === "purchase-order" && <PurchaseOrdersView />}
-                    </motion.div>
-                </AnimatePresence>
+                {/* ── Main List Container ── */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-6">
+                    <div className="p-5 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/20">
+                        <div className="flex flex-1 items-center gap-4 max-w-md">
+                            <div className="relative w-full">
+                                <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input type="text" placeholder={`Search ${activeTab === "material" ? "requests" : "orders"}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
+                                <option value="All">All Status</option>
+                                {activeTab === "material" ? (
+                                    <>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Approved">Approved</option>
+                                        <option value="Rejected">Rejected</option>
+                                    </>
+                                ) : (
+                                    <>
+                                        <option value="CREATED">Created</option>
+                                        <option value="PENDING">In Transit</option>
+                                        <option value="COMPLETED">Fulfilled</option>
+                                        <option value="CANCELLED">Cancelled</option>
+                                    </>
+                                )}
+                            </select>
+                            {activeStatFilter !== "All" && (
+                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 bg-white border border-slate-200 rounded-xl shadow-sm transition-all hover:bg-rose-50">
+                                    <RotateCcw className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
+                                    <th className="px-6 py-4">ID & Origin</th>
+                                    <th className="px-6 py-4">{activeTab === "material" ? "Requisition Details" : "Order Contents"}</th>
+                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4">{activeTab === "material" ? "Quantity" : "Value"}</th>
+                                    <th className="px-6 py-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-20 text-center">
+                                            <div className="inline-block w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Syncing ledger...</p>
+                                        </td>
+                                    </tr>
+                                ) : paginatedData.length > 0 ? paginatedData.map((item: any) => (
+                                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-lg uppercase tracking-tighter shadow-sm">
+                                                {activeTab === "material" ? `RQ-${item.id}` : `PO-${item.id}`}
+                                            </span>
+                                            <div className="flex items-center gap-1.5 mt-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+                                                {activeTab === "material" ? `By Auth ID: ${item.requested_by}` : `Vendor ID: ${item.supplier_id}`}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-slate-800 leading-tight">
+                                                    {activeTab === "material" ? item.request_type : item.material_name}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 font-bold mt-1 line-clamp-1 italic uppercase tracking-tight">
+                                                    {activeTab === "material" ? (item.description || "No narrative") : `Linked Order — ID: ${item.id}`}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border shadow-sm ${getStatusBadge(item.status)}`}>
+                                                {item.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-slate-800 tabular-nums">
+                                                    {activeTab === "material" ? `${item.quantity} Units` : `₹${(item.total_amount || 0).toLocaleString()}`}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic mt-0.5">
+                                                    {activeTab === "material" ? "Site Requisition" : `${item.quantity} Qty @ ₹${item.rate}`}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button onClick={() => activeTab === "material" ? setSelectedRequest(item) : setSelectedPO(item)}
+                                                    className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all shadow-sm bg-white border border-slate-100">
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                {activeTab === "material" && item.status === "Pending" && (
+                                                    <div className="flex items-center gap-1.5 border-l border-slate-100 pl-2">
+                                                        <button onClick={() => handleApprove(item.id)} disabled={isSubmitting}
+                                                            className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100">
+                                                            <Check className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => handleReject(item.id)} disabled={isSubmitting}
+                                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all shadow-sm bg-white border border-slate-100">
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                            No {activeTab === "material" ? "requisitions" : "purchase orders"} archived for this project.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {!isLoading && activeTabData.length > 0 && (
+                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/30">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500">Page size:</span>
+                                <select value={itemsPerPage} onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="border border-slate-200 rounded-lg text-[11px] px-2 py-1 outline-none bg-white shadow-sm font-bold text-slate-700">
+                                    {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                            </div>
+                            <p className="text-[11px] text-slate-500 font-bold tabular-nums">
+                                {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, activeTabData.length)} of {activeTabData.length}
+                            </p>
+                            <div className="flex gap-1.5">
+                                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-primary disabled:opacity-50 bg-white shadow-sm active:scale-95 transition-all">
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                {Array.from({ length: Math.ceil(activeTabData.length / itemsPerPage) }, (_, i) => i + 1).slice(
+                                    Math.max(0, currentPage - 3), Math.min(Math.ceil(activeTabData.length / itemsPerPage), currentPage + 2)
+                                ).map(p => (
+                                    <button key={p} onClick={() => setCurrentPage(p)}
+                                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-all ${currentPage === p ? "bg-primary text-white border border-primary shadow-md shadow-primary/20 scale-110" : "bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm hover:border-primary/50"}`}>
+                                        {p}
+                                    </button>
+                                ))}
+                                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(activeTabData.length / itemsPerPage), p + 1))}
+                                    disabled={currentPage === Math.ceil(activeTabData.length / itemsPerPage)}
+                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-primary disabled:opacity-50 bg-white shadow-sm active:scale-95 transition-all">
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </PageTransition>
+
+            {/* ── Detail Modals ── */}
+            <Modal isOpen={!!selectedRequest} onClose={() => setSelectedRequest(null)} title="Requisition Artifact Analysis" maxWidth="max-w-xl">
+                {selectedRequest && (
+                    <div className="p-6 space-y-6">
+                        <div className={`rounded-2xl p-8 text-white shadow-lg ${selectedRequest.status === 'Approved' ? 'bg-emerald-600' : selectedRequest.status === 'Pending' ? 'bg-amber-600' : 'bg-rose-600'}`}>
+                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Procurement Record</p>
+                            <h3 className="text-xl font-bold mb-4">{selectedRequest.request_type}</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-white/10 rounded-xl p-3 border border-white/10">
+                                    <p className="text-[9px] font-bold uppercase opacity-60">Status</p>
+                                    <p className="font-bold text-lg">{selectedRequest.status.toUpperCase()}</p>
+                                </div>
+                                <div className="bg-white/10 rounded-xl p-3 border border-white/10">
+                                    <p className="text-[9px] font-bold uppercase opacity-60">Quantum</p>
+                                    <p className="font-bold text-lg">{selectedRequest.quantity} UNITS</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Narrative</p>
+                                <div className="p-4 bg-slate-50 rounded-xl text-sm font-bold text-slate-700 leading-relaxed italic border border-slate-100">
+                                    "{selectedRequest.description}"
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            <Modal isOpen={!!selectedPO} onClose={() => setSelectedPO(null)} title="Purchase Order Analysis" maxWidth="max-w-xl">
+                {selectedPO && (
+                    <div className="p-6 space-y-6">
+                        <div className="bg-slate-900 rounded-2xl p-8 text-white shadow-xl">
+                            <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Electronic Order Sheet</p>
+                            <h3 className="text-xl font-bold mb-4">{selectedPO.material_name}</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                                    <p className="text-[9px] font-bold uppercase opacity-60">Total Value</p>
+                                    <p className="font-bold text-lg">₹{(selectedPO.total_amount || 0).toLocaleString()}</p>
+                                </div>
+                                <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                                    <p className="text-[9px] font-bold uppercase opacity-60">Order Status</p>
+                                    <p className="font-bold text-lg tracking-widest text-primary">{selectedPO.status}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            {[
+                                ["Quantity", `${selectedPO.quantity} Units`],
+                                ["Rate", `₹${selectedPO.rate}/unit`],
+                                ["Supplier Ref", `#SUP-${selectedPO.supplier_id}`],
+                                ["Project Ref", `#PRJ-${selectedPO.project_id}`],
+                            ].map(([l, v]) => (
+                                <div key={l} className="p-4 border border-slate-100 rounded-2xl bg-slate-50/50">
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{l}</p>
+                                    <p className="text-sm font-bold text-slate-800 uppercase tabular-nums">{v}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 };
-
-const MaterialRequestsView = () => (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
-            <div className="flex items-center gap-4">
-                <h3 className="font-bold text-slate-800">Material Requisitions</h3>
-                <div className="flex bg-white border border-slate-200 rounded-lg px-3 py-1.5 items-center gap-2">
-                    <Search className="w-4 h-4 text-slate-400" />
-                    <input type="text" placeholder="Search requests..." className="bg-transparent border-none outline-none text-xs w-48" />
-                </div>
-            </div>
-            <button className="text-slate-500 hover:text-slate-700">
-                <Filter className="w-4 h-4" />
-            </button>
-        </div>
-        <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-                <thead>
-                    <tr className="bg-slate-50/50 text-slate-500 text-[11px] font-bold uppercase tracking-wider">
-                        <li className="p-4 list-none">Request ID</li>
-                        <th className="p-4 font-bold">Material / Category</th>
-                        <th className="p-4 font-bold">Site / Project</th>
-                        <th className="p-4 font-bold">Quantity</th>
-                        <th className="p-4 font-bold">Priority</th>
-                        <th className="p-4 font-bold">Status</th>
-                        <th className="p-4 font-bold text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                    {[
-                        { id: "MR-8429", name: "OPC Cement 53 Grade", cat: "Civil", site: "Skyline Residency", qty: "500 Bags", priority: "High", status: "Pending", date: "2h ago" },
-                        { id: "MR-8430", name: "TMT Steel 12mm", cat: "Structural", site: "Metro Ph-II", qty: "4.5 Tons", priority: "Critical", status: "Under Review", date: "5h ago" },
-                        { id: "MR-8431", name: "Electrical Conduits", cat: "MEP", site: "Coastal Bridge", qty: "1200 Mtrs", priority: "Medium", status: "Approved", date: "Yesterday" },
-                        { id: "MR-8432", name: "River Sand (Screened)", cat: "Civil", site: "Green Valley", qty: "3 Trucks", priority: "Low", status: "Rejected", date: "2 days ago" },
-                    ].map((req, i) => (
-                        <tr key={i} className="hover:bg-slate-50/80 transition-colors group">
-                            <td className="p-4">
-                                <span className="text-xs font-bold text-primary bg-primary/5 px-2 py-1 rounded-md">{req.id}</span>
-                                <div className="text-[10px] text-slate-400 mt-1">{req.date}</div>
-                            </td>
-                            <td className="p-4">
-                                <div className="text-sm font-bold text-slate-800">{req.name}</div>
-                                <div className="text-xs text-slate-500">{req.cat}</div>
-                            </td>
-                            <td className="p-4 text-xs font-semibold text-slate-600">{req.site}</td>
-                            <td className="p-4 text-xs font-bold text-slate-800">{req.qty}</td>
-                            <td className="p-4">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                    req.priority === "Critical" ? "bg-rose-50 text-rose-600" :
-                                    req.priority === "High" ? "bg-amber-50 text-amber-600" :
-                                    "bg-blue-50 text-primary"
-                                }`}>{req.priority}</span>
-                            </td>
-                            <td className="p-4">
-                                <span className={`flex items-center gap-1.5 text-[11px] font-bold ${
-                                    req.status === "Approved" ? "text-emerald-600" :
-                                    req.status === "Rejected" ? "text-rose-600" :
-                                    req.status === "Under Review" ? "text-blue-600" : "text-amber-500"
-                                }`}>
-                                    <div className={`w-1.5 h-1.5 rounded-full ${
-                                        req.status === "Approved" ? "bg-emerald-500" :
-                                        req.status === "Rejected" ? "bg-rose-500" :
-                                        req.status === "Under Review" ? "bg-blue-500" : "bg-amber-400"
-                                    }`} />
-                                    {req.status}
-                                </span>
-                            </td>
-                            <td className="p-4 text-right">
-                                <button className="p-1 hover:bg-slate-200 rounded-lg transition-colors text-slate-400">
-                                    <MoreVertical className="w-4 h-4" />
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    </div>
-);
-
-const PurchaseRequestsView = () => (
-    <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
-                {[
-                    { id: "PR-2024-001", title: "Bulk Steel Procurement - Q3", vendor: "Multiple Quotations", amount: "₹1,240,000", status: "RFQ Sent", items: 3 },
-                    { id: "PR-2024-002", title: "Finishing Materials for Block A", vendor: "Home Decor Pvt Ltd", amount: "₹450,000", status: "Pending Approval", items: 12 },
-                    { id: "PR-2024-003", title: "Electrical Substation Components", vendor: "Volt-Tech Solutions", amount: "₹2,800,000", status: "Technical Review", items: 5 },
-                ].map((pr, i) => (
-                    <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="flex gap-4">
-                                <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                    <ClipboardList className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-widest">{pr.id}</span>
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                            pr.status === "RFQ Sent" ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"
-                                        }`}>{pr.status}</span>
-                                    </div>
-                                    <h4 className="text-sm font-bold text-slate-800">{pr.title}</h4>
-                                    <p className="text-xs text-slate-500">Proposed Vendor: <span className="font-semibold text-slate-700">{pr.vendor}</span></p>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-lg font-black text-slate-900">{pr.amount}</div>
-                                <div className="text-[10px] text-slate-400">{pr.items} items listed</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                            <div className="flex items-center gap-4">
-                                <div className="flex -space-x-2">
-                                    {[1, 2, 3].map(j => (
-                                        <div key={j} className="w-6 h-6 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-500">U{j}</div>
-                                    ))}
-                                </div>
-                                <div className="text-[10px] text-slate-400 font-medium italic">3 stakeholders viewed</div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button className="px-4 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200">View Details</button>
-                                <button className="px-4 py-1.5 text-[11px] font-bold text-white bg-primary hover:bg-blue-600 rounded-lg transition-all shadow-sm shadow-primary/20">Convert to PO</button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <div className="space-y-6">
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <h3 className="font-bold text-slate-800 mb-4">Procurement Funnel</h3>
-                    <div className="space-y-6">
-                        {[
-                            { label: "Draft Requests", count: 8, color: "bg-slate-200", percent: 100 },
-                            { label: "Market Quotations", count: 5, color: "bg-blue-400", percent: 65 },
-                            { label: "Manager Review", count: 3, color: "bg-primary", percent: 40 },
-                            { label: "Approved POs", count: 12, color: "bg-emerald-500", percent: 85 },
-                        ].map((item, i) => (
-                            <div key={i}>
-                                <div className="flex justify-between text-[11px] font-bold mb-2">
-                                    <span className="text-slate-500">{item.label}</span>
-                                    <span className="text-slate-900">{item.count} Orders</span>
-                                </div>
-                                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                    <motion.div 
-                                        initial={{ width: 0 }}
-                                        animate={{ width: `${item.percent}%` }}
-                                        className={`h-full ${item.color}`}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div className="bg-gradient-to-br from-primary to-blue-700 p-6 rounded-2xl shadow-lg shadow-primary/30 text-white">
-                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4">
-                        <AlertCircle className="w-5 h-5 text-white" />
-                    </div>
-                    <h4 className="font-bold mb-2">Budget Alert</h4>
-                    <p className="text-xs text-white/80 leading-relaxed mb-6">Structural steel costs have risen by 12% in the last 14 days. Consider bulk booking to avoid future variance.</p>
-                    <button className="w-full py-2 bg-white text-primary text-xs font-bold rounded-xl hover:bg-slate-50 transition-colors">Analyze Market Trends</button>
-                </div>
-            </div>
-        </div>
-    </div>
-);
-
-const PurchaseOrdersView = () => (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-            <div>
-                <h3 className="text-lg font-bold text-slate-800">Master Purchase Orders</h3>
-                <p className="text-sm text-slate-500 mt-0.5">Tracking all outgoing orders and fulfillment status.</p>
-            </div>
-            <div className="flex gap-2">
-                <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50">
-                    <Filter className="w-4 h-4" />
-                </button>
-                <div className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-xl text-xs font-bold text-slate-600 border border-slate-200">
-                    <Calendar className="w-4 h-4" />
-                    This Quarter
-                </div>
-            </div>
-        </div>
-        <div className="overflow-x-auto">
-            <table className="w-full text-left">
-                <thead className="bg-slate-50/50">
-                    <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                        <th className="p-4">Order Details</th>
-                        <th className="p-4">Vendor Info</th>
-                        <th className="p-4">Delivery Timeline</th>
-                        <th className="p-4">Value</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 text-right">Progress</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                    {[
-                        { id: "PO-9001", title: "Batch 4 Concrete Reinforcement", vendor: "Metro Steel Traders", date: "June 12, 2024", timeline: "June 25", value: "₹845,000", status: "Dispatched", progress: 65 },
-                        { id: "PO-9005", title: "Flooring Tiles - Master Wing", vendor: "Ceramics Landmark", date: "June 10, 2024", timeline: "June 18", value: "₹320,000", status: "Delayed", progress: 20 },
-                        { id: "PO-8992", title: "Paint & Protective Coatings", vendor: "Asian Paints Depot", date: "June 05, 2024", timeline: "June 14", value: "₹185,000", status: "Fulfilled", progress: 100 },
-                        { id: "PO-9012", title: "Sanitary Fixtures Set B", vendor: "Jaguar Fittings", date: "June 15, 2024", timeline: "July 05", value: "₹1,250,000", status: "Processing", progress: 5 },
-                    ].map((po, i) => (
-                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="p-4">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-1 block">{po.id}</span>
-                                <div className="text-sm font-bold text-slate-800">{po.title}</div>
-                                <div className="text-[10px] text-slate-500 mt-1">Created on {po.date}</div>
-                            </td>
-                            <td className="p-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 uppercase">{po.vendor.charAt(0)}</div>
-                                    <div className="text-xs font-bold text-slate-700">{po.vendor}</div>
-                                </div>
-                            </td>
-                            <td className="p-4">
-                                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                    Expected: {po.timeline}
-                                </div>
-                            </td>
-                            <td className="p-4 text-sm font-black text-slate-900">{po.value}</td>
-                            <td className="p-4">
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-                                    po.status === "Fulfilled" ? "bg-emerald-100 text-emerald-600" :
-                                    po.status === "Delayed" ? "bg-rose-100 text-rose-600" :
-                                    po.status === "Dispatched" ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-500"
-                                }`}>{po.status}</span>
-                            </td>
-                            <td className="p-4">
-                                <div className="flex items-center gap-3 justify-end">
-                                    <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className={`h-full ${po.status === "Delayed" ? "bg-rose-500" : "bg-primary"}`} style={{ width: `${po.progress}%` }} />
-                                    </div>
-                                    <span className="text-[11px] font-bold text-slate-700 w-8">{po.progress}%</span>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-        <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex justify-center">
-            <button className="text-xs font-bold text-primary hover:underline">Download Procurement Summary Report</button>
-        </div>
-    </div>
-);
 
 export default ManagerProcurementPage;
