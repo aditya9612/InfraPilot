@@ -185,14 +185,14 @@ const ClientPaymentPage = () => {
 
     return (
         <>
-            <Navbar title="Approvals & Workflow" breadcrumb={["Client", "Payment", activeTab === 'quotation' ? 'Quotation Approval' : 'Payment History']} />
+            <Navbar title={activeTab === 'quotation' ? 'Quotation Approvals' : 'Payment History'} breadcrumb={["Client", "Payment", activeTab === 'quotation' ? 'Quotation Approvals' : 'Payment History']} />
             <div className="p-8 bg-slate-50 min-h-screen font-inter pb-20">
                 
                 {/* Header with Action Buttons */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                            {activeTab === 'quotation' ? 'Quotation Approvals' : 'Expense Approvals'}
+                            {activeTab === 'quotation' ? 'Quotation Approvals' : 'Payment History'}
                         </h1>
                         <p className="text-slate-500 font-medium mt-1 text-sm">
                             Review and authorize site requests for materials, billing, and expenses.
