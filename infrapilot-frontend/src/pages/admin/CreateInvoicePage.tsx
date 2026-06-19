@@ -2598,7 +2598,7 @@ const CreateInvoicePage = () => {
                 </div>
                 <div className="flex p-2">
                   <div className="w-1/2 font-bold">Project</div>
-                  <div className="w-1/2 uppercase">{projects.find(p => p.id === selectedProjectId)?.name || "N/A"}</div>
+                  <div className="w-1/2 uppercase">{projects.find(p => p.id === selectedProjectId)?.project_name || "N/A"}</div>
                 </div>
                 <div className="flex p-2 bg-slate-50">
                   <div className="w-1/2 font-bold">Project Type</div>
