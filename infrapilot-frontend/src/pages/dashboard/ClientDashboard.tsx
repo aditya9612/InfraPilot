@@ -2,7 +2,7 @@ import Navbar from "../../components/common/Navbar";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
-import { dashboardService, type ClientDashboardData } from "../../services/dashboardService";
+import { dashboardService, type ClientCommandCenterData } from "../../services/dashboardService";
 import { projectService } from "../../services/projectService";
 import { workProgressService } from "../../services/workProgressService";
 import toast from "react-hot-toast";
@@ -12,7 +12,7 @@ import { useClientProjectId } from "../../hooks/useClientProjectId";
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const [isBotOpen, setIsBotOpen] = useState(false);
-  const [dashboardData, setDashboardData] = useState<ClientDashboardData | null>(null);
+  const [dashboardData, setDashboardData] = useState<ClientCommandCenterData | null>(null);
   const [projectData, setProjectData] = useState<any>(null);
   const [liveFeed, setLiveFeed] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,55 +24,88 @@ const ClientDashboard = () => {
     let active = true;
 
     const fetchDashboardContent = async () => {
+      let activeProject: any = null;
       try {
         setLoading(true);
 
-        // 1. Fetch project data (The only reliable source)
-        const activeProject = await projectService.getProjectById(projectId);
-        if (!active) return;
-        setProjectData(activeProject);
+        // 1. Fetch project data (wrap in try/catch to prevent blocking dashboard on failure)
+        try {
+          activeProject = await projectService.getProjectById(projectId);
+          if (active) {
+            setProjectData(activeProject);
+          }
+        } catch (projError) {
+          console.warn("Project details fetch failed, continuing with dashboard stats:", projError);
+        }
 
-        // 2. Fetch dashboard stats for that project
-        const statsData = await dashboardService.getClientDashboard(projectId);
+        // 2. Fetch dashboard stats for that project (Enterprise API)
+        const responseData = await dashboardService.getClientCommandCenter(projectId);
         if (!active) return;
+
+        const statsData = responseData.data;
 
         // Sync and Sanitize: Use stats but prioritize project details if they disagree
         const getProgress = () => {
-          if (activeProject.completion_percentage !== undefined) return activeProject.completion_percentage;
-          if (activeProject.progress_percent !== undefined) return activeProject.progress_percent;
-          if (activeProject.progress !== undefined) return activeProject.progress;
-          return statsData.progress_percent || 0;
+          if (activeProject?.completion_percentage !== undefined) return activeProject.completion_percentage;
+          if (activeProject?.progress_percent !== undefined) return activeProject.progress_percent;
+          if (activeProject?.progress !== undefined) return activeProject.progress;
+          return statsData.summary?.overall_progress || 0;
         };
 
-        const syncedDashboardData: ClientDashboardData = {
+        const syncedDashboardData: ClientCommandCenterData = {
           ...statsData,
-          project_id: projectId,
-          status: activeProject.status || statsData.status,
-          progress_percent: getProgress(),
-          start_date: activeProject.start_date || statsData.start_date,
-          end_date: activeProject.end_date || statsData.end_date,
-          // Calculate remaining budget locally for precision
-          remaining_budget: (activeProject.budget_total || statsData.budget_total || 0) - (statsData.total_expense || 0),
+          project: {
+            ...statsData.project,
+            name: activeProject?.project_name || activeProject?.name || statsData.project?.name || "SARA CITY - Wing A",
+            status: activeProject?.status || statsData.project?.status || "PLANNED",
+            start_date: activeProject?.start_date || statsData.project?.start_date || "2026-06-01",
+            end_date: activeProject?.end_date || statsData.project?.end_date || "2027-12-31",
+            days_remaining: activeProject?.days_remaining || statsData.project?.days_remaining || 562,
+          },
+          summary: {
+            ...statsData.summary,
+            overall_progress: getProgress(),
+            // Calculate remaining budget locally for precision
+            remaining_budget: (activeProject?.budget_total || statsData.summary?.budget_total || 0) - (statsData.summary?.total_expense || 0),
+          }
         };
 
         setDashboardData(syncedDashboardData);
 
-        // 3. Fetch Activities for Live Execution Feed
+        // 3. Populate Live Execution Feed from work-progress/activities API
         try {
           const activities = await workProgressService.listActivities(projectId);
-          if (active) {
-            const mappedFeed = activities
-              .filter((act: any) => {
-                const s = act.status?.toUpperCase();
-                return s === 'IN_PROGRESS' || s === 'ON_TRACK' || s === 'ON TRACK';
-              })
-              .slice(0, 5)
-              .map((act: any) => ({
-                id: act.id,
-                text: `${act.activity_name} - ${act.completion_percentage}% completed`,
-                time: act.status?.replace('_', ' ') || "ACTIVE",
+          if (active && activities.length > 0) {
+            const mappedFeed = activities.slice(0, 5).map((act: any) => {
+              const timeVal = act.updated_at || act.created_at || new Date().toISOString();
+              const dateObj = new Date(timeVal);
+              const timeString = isNaN(dateObj.getTime())
+                ? "Just now"
+                : dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+              const statusText = act.status ? act.status.replace(/_/g, ' ').toLowerCase() : 'active';
+              const formattedStatus = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+
+              return {
+                id: act.id || Math.random(),
+                text: `${act.activity_name || 'Activity update'} - ${act.completion_percentage || 0}% completed (${formattedStatus})`,
+                time: timeString,
                 icon: act.status?.toUpperCase() === 'COMPLETED' ? "✔" : "🏗️"
-              }));
+              };
+            });
+            setLiveFeed(mappedFeed);
+          } else if (active && syncedDashboardData.live_execution_feed && syncedDashboardData.live_execution_feed.length > 0) {
+            // Fallback: Command center execution feed
+            const mappedFeed = syncedDashboardData.live_execution_feed.map((item: any) => {
+              const actionText = item.action ? item.action.replace(/_/g, ' ').toLowerCase() : 'update';
+              const formattedAction = actionText.charAt(0).toUpperCase() + actionText.slice(1);
+              return {
+                id: item.id,
+                text: `${formattedAction} - ${item.entity || 'System'}`,
+                time: item.created_at ? new Date(item.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : "Just now",
+                icon: item.action?.includes('CREATE') ? "🆕" : "🏗️"
+              };
+            });
             setLiveFeed(mappedFeed);
           }
         } catch (e) {
@@ -83,22 +116,57 @@ const ClientDashboard = () => {
         if (!active) return;
         console.error("Dashboard Fetch Error:", error);
         toast.error(error.message || "Failed to load dashboard data");
-        // Fallback
+        // Fallback matching enterprise schema requested for project 1
         setDashboardData({
-          project_id: projectId,
-          status: "PLANNED",
-          progress_percent: 0,
-          budget_total: 25000000,
-          total_expense: 0,
-          budget_used_percent: 0,
-          remaining_budget: 25000000,
-          milestones_total: 5,
-          milestones_completed: 0,
-          tasks_total: 10,
-          tasks_completed: 0,
-          start_date: "2026-04-01",
-          end_date: "2026-07-01",
-          days_remaining: 0,
+          project: {
+            id: projectId,
+            name: activeProject?.project_name || activeProject?.name || "SARA CITY - Wing A",
+            status: "PLANNED",
+            start_date: "2026-06-01",
+            end_date: "2027-12-31",
+            days_remaining: 562,
+          },
+          summary: {
+            overall_progress: 0,
+            budget_total: 12000,
+            total_expense: 0,
+            remaining_budget: 12000,
+            budget_used_percent: 0,
+            tasks: {
+              completed: 0,
+              pending: 0,
+              total: 0,
+            },
+            milestones: {
+              completed: 0,
+              total: 0,
+            },
+          },
+          work_progress: {
+            progress_percent: 0,
+            current_task: null,
+            task_description: null,
+            task_status: null,
+            last_completed: null,
+            upcoming: null,
+          },
+          live_execution_feed: [
+            {
+              id: 1,
+              action: "CREATE_USER",
+              entity: "USER",
+              created_at: "2026-06-16T11:34:23",
+            },
+          ],
+          cost_management_audit: [],
+          project_health: {
+            status: "PLANNED",
+            overall_progress: 0,
+            budget_health: "Good",
+            schedule_health: "Delayed",
+            task_completion_rate: 0,
+            budget_used_percent: 0,
+          },
         });
       } finally {
         if (active) setLoading(false);
@@ -151,42 +219,42 @@ const ClientDashboard = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
             <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-1">Project Command Center</p>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight">{(projectData?.project_name || "PROPOSAL STAGE").toUpperCase()}</h1>
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">{(projectData?.project_name || projectData?.name || dashboardData.project.name || "PROPOSAL STAGE").toUpperCase()}</h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm flex items-center gap-3">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-sm font-black text-slate-700">Project Status: {dashboardData ? dashboardData.status.charAt(0) + dashboardData.status.slice(1).toLowerCase() : "Loading..."}</p>
+              <p className="text-sm font-black text-slate-700">Project Status: {dashboardData ? (dashboardData.project.status || "PLANNED").charAt(0) + (dashboardData.project.status || "PLANNED").slice(1).toLowerCase() : "Loading..."}</p>
             </div>
           </div>
         </div>
         {/* Vital Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
-            { label: "Overall Progress", value: dashboardData ? `${Number(dashboardData.progress_percent).toFixed(2)}%` : "—", sub: "Progress Percent" },
-            { label: "Total Expense", value: dashboardData ? `₹${dashboardData.total_expense.toLocaleString("en-IN")}` : "—", sub: "Total Spent" },
-            { label: "Total Budget", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")}` : "—", sub: "Project Budget", smallText: true },
-            { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining", smallText: true },
-            { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed} / ${dashboardData.milestones_total}` : "—", sub: "Completed / Total" },
-            { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed} / ${dashboardData.tasks_total}` : "—", sub: "Completed / Total" },
+            { label: "Overall Progress", value: dashboardData ? `${Number(dashboardData.summary.overall_progress).toFixed(2)}%` : "—", sub: "Progress Percent" },
+            { label: "Total Expense", value: dashboardData ? `₹${dashboardData.summary.total_expense.toLocaleString("en-IN")}` : "—", sub: "Total Spent" },
+            { label: "Total Budget", value: dashboardData ? `₹${dashboardData.summary.budget_total.toLocaleString("en-IN")}` : "—", sub: "Project Budget", smallText: true },
+            { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.summary.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining", smallText: true },
+            { label: "Milestones", value: dashboardData ? `${dashboardData.summary.milestones.completed} / ${dashboardData.summary.milestones.total}` : "—", sub: "Completed / Total" },
+            { label: "Tasks", value: dashboardData ? `${dashboardData.summary.tasks.completed} / ${dashboardData.summary.tasks.total}` : "—", sub: "Completed / Total" },
             {
               label: "Project Dates",
               value: dashboardData ? (
                 <div className="flex items-center gap-3 mt-2">
                   <div className="flex flex-col">
                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Start</span>
-                    <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.start_date)}</span>
+                    <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.project.start_date)}</span>
                   </div>
                   <div className="text-slate-300 font-bold text-sm">→</div>
                   <div className="flex flex-col">
                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">End</span>
-                    <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.end_date)}</span>
+                    <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.project.end_date)}</span>
                   </div>
                 </div>
               ) : "—",
               sub: "Project Duration"
             },
-            { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining}` : "—", sub: "Days Remaining" },
+            { label: "Days Remaining", value: dashboardData ? `${dashboardData.project.days_remaining}` : "—", sub: "Days Remaining" },
           ].map((card: any, i) => (
             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md group flex flex-col justify-between min-h-[140px]">
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{card.label}</p>
@@ -212,29 +280,37 @@ const ClientDashboard = () => {
                     <circle cx="112" cy="112" r="100" stroke="#e2e8f0" strokeWidth="14" fill="transparent" />
                     <circle cx="112" cy="112" r="100" stroke="#2563EB" strokeWidth="14" fill="transparent"
                       strokeDasharray={628.3}
-                      strokeDashoffset={628.3 - (628.3 * (dashboardData?.progress_percent ?? 0)) / 100}
+                      strokeDashoffset={628.3 - (628.3 * (dashboardData?.summary?.overall_progress ?? 0)) / 100}
                       strokeLinecap="round"
                       className="transition-all duration-1000"
                     />
                   </svg>
                   <div className="absolute flex flex-col items-center">
-                    <span className="text-3xl font-black text-blue-600 tracking-tighter leading-none">{dashboardData ? `${Number(dashboardData.progress_percent).toFixed(2)}%` : "0%"}</span>
+                    <span className="text-3xl font-black text-blue-600 tracking-tighter leading-none">{dashboardData ? `${Number(dashboardData.summary.overall_progress).toFixed(2)}%` : "0%"}</span>
                     <span className="text-[7px] font-black text-slate-400 tracking-[0.15em] uppercase mt-1">Project Progress</span>
                   </div>
                 </div>
                 <div className="flex-1 space-y-8">
                   <div>
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight">Structural Phase III: <br />Roof Slab & MEP Hookups</h2>
-                    <p className="text-slate-400 text-sm font-medium mt-2 leading-relaxed">Today's Work focus: Finalizing rebar arrangement for the primary roof slab and ensuring plumbing sleeves are accurately placed.</p>
+                    <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight">
+                      {dashboardData.work_progress?.current_task || "Structural Phase III: Roof Slab & MEP Hookups"}
+                    </h2>
+                    <p className="text-slate-400 text-sm font-medium mt-2 leading-relaxed">
+                      {dashboardData.work_progress?.task_description || "Today's Work focus: Finalizing rebar arrangement for the primary roof slab and ensuring plumbing sleeves are accurately placed."}
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                     <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100" onClick={() => navigate('/last-completed')} style={{ cursor: 'pointer' }}>
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Last Completed</p>
-                      <p className="text-xs font-black text-slate-700 uppercase tracking-tight">4th Floor Column Pour</p>
+                      <p className="text-xs font-black text-slate-700 uppercase tracking-tight">
+                        {dashboardData.work_progress?.last_completed || "4th Floor Column Pour"}
+                      </p>
                     </div>
                     <div className="p-6 bg-blue-600 rounded-2xl shadow-xl shadow-blue-500/20" onClick={() => navigate('/upcoming-today')} style={{ cursor: 'pointer' }}>
                       <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 italic">Upcoming Today</p>
-                      <p className="text-xs font-black text-white uppercase tracking-tight">Casting Prep Meeting</p>
+                      <p className="text-xs font-black text-white uppercase tracking-tight">
+                        {dashboardData.work_progress?.upcoming || "Casting Prep Meeting"}
+                      </p>
                     </div>
                   </div>
                 </div>

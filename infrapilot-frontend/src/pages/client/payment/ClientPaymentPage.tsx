@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
-import { financeService } from "../../../services/financeService";
+import { paymentService } from "../../../services/paymentService";
 import { approvalService } from "../../../services/approvalService";
 import { quotationService } from "../../../services/quotationService";
 import { useParams, useNavigate } from "react-router-dom";
@@ -30,9 +30,7 @@ const ClientPaymentPage = () => {
                 if (activeTab === "quotation") {
                     const data = await quotationService.getQuotations();
                     // Filter strictly for New Sara City
-                    const projectQuotations = data.filter((q: any) => {
-                        return q.project_name?.toLowerCase().includes("new sara city");
-                    });
+                    const projectQuotations = data.filter((q: any) => Number(q.project_id) === Number(projectId));
                     
                     const mapped = projectQuotations.map((q: any) => ({
                         ...q,
@@ -47,13 +45,16 @@ const ClientPaymentPage = () => {
                     }));
                     setQuotations(mapped);
                 } else {
-                    const data = await financeService.getInvoices(100, 0);
-                    // Filter project-wise
-                    const targetProjectId = projectId || 92;
-                    const projectPayments = data.filter((p: any) => 
-                        p.project_id === Number(targetProjectId) || (targetProjectId === 92 && !p.project_id)
-                    );
-                    setPayments(projectPayments);
+                    const rawPayments = await paymentService.getPaymentHistory({ project_id: projectId || 1 });
+                    const mappedPayments = rawPayments.map((p: any) => ({
+                        id: p.id,
+                        invoice_number: p.labour_id?.toString() || p.id.toString(),
+                        amount: p.amount,
+                        date: p.payment_date,
+                        status: p.status,
+                        type: p.payment_type,
+                    }));
+                    setPayments(mappedPayments);
                 }
             } catch (error) {
                 console.error("Failed to fetch payment data:", error);

@@ -403,11 +403,10 @@ const ActivityListPage = () => {
                         <button
                           onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }}
                           disabled={a.status === "ON_TRACK" || a.status === "COMPLETED"}
-                          className={`p-2 rounded-xl transition-all font-inter ${
-                            a.status === "ON_TRACK" || a.status === "COMPLETED" 
-                              ? "text-slate-300 opacity-50 cursor-not-allowed" 
+                          className={`p-2 rounded-xl transition-all font-inter ${a.status === "ON_TRACK" || a.status === "COMPLETED"
+                              ? "text-slate-300 opacity-50 cursor-not-allowed"
                               : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                          }`}
+                            }`}
                           title={a.status === "ON_TRACK" || a.status === "COMPLETED" ? "Cannot delete active or completed activities" : "Archive Entry"}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -486,8 +485,8 @@ const ActivityListPage = () => {
                         key={`page-${pageNum}`}
                         onClick={() => setCurrentPage(pageNum)}
                         className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                            ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                            : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                          ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                          : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                           }`}
                       >
                         {pageNum}

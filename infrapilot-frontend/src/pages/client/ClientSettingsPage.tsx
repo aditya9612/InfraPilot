@@ -57,7 +57,7 @@ const ClientSettingsPage = () => {
                 const [profileData, settingsData, projectsResult, unitsData] = await Promise.all([
                     settingsService.getProfile(),
                     settingsService.getSettings(),
-                    projectService.getProjects(50, 0).catch(() => []),
+                    projectService.getProjects(20, 0).catch(() => []),
                     masterService.getEntities("units").catch(() => [])
                 ]);
                 const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
