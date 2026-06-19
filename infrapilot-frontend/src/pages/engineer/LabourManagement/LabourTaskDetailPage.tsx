@@ -57,6 +57,7 @@ const LabourTaskDetailPage = () => {
 
     const [weeklyReport, setWeeklyReport] = useState<any>(null);
     const [monthlyReport, setMonthlyReport] = useState<any>(null);
+    const [labourInfo, setLabourInfo] = useState<any>(null);
     const [isLoadingReports, setIsLoadingReports] = useState(false);
 
     useEffect(() => {
@@ -64,10 +65,11 @@ const LabourTaskDetailPage = () => {
             if (!id) return;
             setIsLoadingReports(true);
             try {
-                const [weeklyData, monthlyData, taskList] = await Promise.all([
+                const [weeklyData, monthlyData, taskList, labourData] = await Promise.all([
                     labourService.getLabourWeeklyReport(id),
                     labourService.getLabourMonthlyReport(id),
-                    projectService.getTasks(1, { assigned_user_id: Number(id), limit: 20, offset: 0 })
+                    projectService.getTasks(1, { assigned_user_id: Number(id), limit: 20, offset: 0 }),
+                    labourService.getLabourById(Number(id)).catch(() => null)
                 ]);
                 
                 if (weeklyData && weeklyData.length > 0) {
@@ -75,6 +77,9 @@ const LabourTaskDetailPage = () => {
                 }
                 if (monthlyData && monthlyData.length > 0) {
                     setMonthlyReport(monthlyData[0]);
+                }
+                if (labourData) {
+                    setLabourInfo(labourData);
                 }
 
                 // Map tasks to frontend table format
@@ -174,8 +179,16 @@ const LabourTaskDetailPage = () => {
         setTasks(prev => prev.filter(t => t.id !== taskId));
     };
 
-    const handleStatusChange = (taskId: string, newStatus: string) => {
+    const handleStatusChange = async (taskId: string, newStatus: string) => {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as TaskItem["status"] } : t));
+        
+        try {
+            let apiStatus = newStatus;
+            if (newStatus === "To Do") apiStatus = "Planned";
+            await projectService.updateTaskStatus(1, Number(taskId), apiStatus);
+        } catch (error) {
+            console.error("Failed to update task status", error);
+        }
     };
 
     const filteredTasks = tasks.filter(task => {
@@ -217,7 +230,7 @@ const LabourTaskDetailPage = () => {
                 {/* ─── Header Section ──────────────────────────────────────────────────────── */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight mb-1">Labour Profile: {id || 'LAB-001'}</h1>
+                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight mb-1">Labour Profile: {labourInfo?.user_name || labourInfo?.labour_name || id || 'LAB-001'}</h1>
                         <p className="text-slate-500 text-sm">Efficiently organize, track, and manage all tasks assigned to this personnel</p>
                     </div>
                 </div>
@@ -615,12 +628,12 @@ const LabourTaskDetailPage = () => {
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-bold tracking-tight font-inter">Rahul Sharma</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">Skilled</span>
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{labourInfo?.user_name || labourInfo?.labour_name || "Rahul Sharma"}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{labourInfo?.department || "Skilled"}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter">worker.lab-001@infrapilot.com</span>
+                                        <span className="text-[11px] font-bold font-inter">worker.lab-{id || '001'}@infrapilot.com</span>
                                     </div>
                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
                                         <span className="text-[10px] font-bold uppercase tracking-widest font-inter">DAILY WAGE: ₹900.00</span>

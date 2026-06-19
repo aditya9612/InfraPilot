@@ -138,7 +138,7 @@ const MaterialReceiptPage = () => {
 
     const fetchPOs = async () => {
         setIsLoading(true);
-        try { const data = await materialService.listPurchaseOrders(0, 500); setPurchaseOrders(data); }
+        try { const data = await materialService.listPurchaseOrders(projectId, 0, 500); setPurchaseOrders(data); }
         catch (e) { toast.error("Failed to load POs"); }
         finally { setIsLoading(false); }
     };
@@ -167,13 +167,22 @@ const MaterialReceiptPage = () => {
     }, [activeTab, projectId]);
 
     // Derived Data
-    const filteredMaterials = useMemo(() => materials.filter(m => m.material_name.toLowerCase().includes(searchTerm.toLowerCase()) || m.material_code?.toLowerCase().includes(searchTerm.toLowerCase())), [materials, searchTerm]);
+    const filteredMaterials = useMemo(() => materials
+        .filter(m => m.material_name.toLowerCase().includes(searchTerm.toLowerCase()) || m.material_code?.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => b.id - a.id), 
+    [materials, searchTerm]);
     const paginatedMaterials = useMemo(() => filteredMaterials.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredMaterials, currentPage, itemsPerPage]);
 
-    const filteredSuppliers = useMemo(() => suppliers.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())), [suppliers, searchTerm]);
+    const filteredSuppliers = useMemo(() => suppliers
+        .filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => b.id - a.id), 
+    [suppliers, searchTerm]);
     const paginatedSuppliers = useMemo(() => filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredSuppliers, currentPage, itemsPerPage]);
 
-    const filteredPOs = useMemo(() => purchaseOrders.filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [purchaseOrders, searchTerm]);
+    const filteredPOs = useMemo(() => purchaseOrders
+        .filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => b.id - a.id), 
+    [purchaseOrders, searchTerm]);
     const paginatedPOs = useMemo(() => filteredPOs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredPOs, currentPage, itemsPerPage]);
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
@@ -705,9 +714,9 @@ const MaterialReceiptPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
                             <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
-                            <div><label className={labelClasses}>Phone / Email *</label><input required value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={inputClasses} placeholder="Mobile number or Email" /></div>
+                            <div><label className={labelClasses}>Phone *</label><input required type="tel" maxLength={10} pattern="\d{10}" value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses} placeholder="10-digit Mobile number" title="Please enter exactly 10 digits" /></div>
                             <div><label className={labelClasses}>GST Number *</label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
-                            <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
+                            <div className="md:col-span-2"><label className={labelClasses}>Address *</label><textarea required value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
                     </div>
                 </form>

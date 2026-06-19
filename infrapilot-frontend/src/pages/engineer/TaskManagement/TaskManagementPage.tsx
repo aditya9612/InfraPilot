@@ -13,6 +13,7 @@ import CreateTaskDrawer from './CreateTaskDrawer';
 import AudioRecordModal from './AudioRecordModal';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
+import { boqService } from '../../../services/boqService';
 import type { Task, ProjectMember, ProjectStatus } from '../../../types/project';
 
 interface FrontendTask extends Omit<Task, 'priority'> {
@@ -102,6 +103,30 @@ const TaskManagementPage = () => {
     const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
 
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+
+    // Generate BOQ to Task Modal State
+    const [isGenerateBoqModalOpen, setIsGenerateBoqModalOpen] = useState(false);
+    const [generateBoqId, setGenerateBoqId] = useState<number | "">("");
+    const [generateMilestoneId, setGenerateMilestoneId] = useState<number | "">("");
+    const [isGeneratingBoq, setIsGeneratingBoq] = useState(false);
+
+    const handleGenerateBoqToTask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!generateBoqId) return;
+        setIsGeneratingBoq(true);
+        try {
+            await boqService.generateTasksFromBoq(Number(generateBoqId), generateMilestoneId ? Number(generateMilestoneId) : undefined);
+            toast.success("Tasks generated successfully from BOQ");
+            setIsGenerateBoqModalOpen(false);
+            setGenerateBoqId("");
+            setGenerateMilestoneId("");
+            fetchData();
+        } catch (err) {
+            toast.error("Failed to generate tasks from BOQ");
+        } finally {
+            setIsGeneratingBoq(false);
+        }
+    };
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedEditTask, setSelectedEditTask] = useState<FrontendTask | null>(null);
@@ -568,13 +593,22 @@ const TaskManagementPage = () => {
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {activeTab !== "Project Tasks" && (
-                            <button
-                                onClick={() => setIsCreateDrawerOpen(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Create Task
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => setIsGenerateBoqModalOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all"
+                                >
+                                    <FileText className="w-4 h-4" />
+                                    Generate BOQ to Task
+                                </button>
+                                <button
+                                    onClick={() => setIsCreateDrawerOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Create Task
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -2079,6 +2113,57 @@ const TaskManagementPage = () => {
                             rows={3}
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-amber-500/20 focus:border-amber-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none"
                             required
+                        />
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Generate BOQ to Task Modal */}
+            <Modal
+                isOpen={isGenerateBoqModalOpen}
+                onClose={() => setIsGenerateBoqModalOpen(false)}
+                title="Generate Tasks from BOQ"
+                maxWidth="max-w-md"
+                footer={
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => setIsGenerateBoqModalOpen(false)}
+                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
+                            disabled={isGeneratingBoq}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleGenerateBoqToTask}
+                            disabled={!generateBoqId || isGeneratingBoq}
+                            className="px-6 py-2.5 bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all disabled:opacity-50"
+                        >
+                            {isGeneratingBoq ? "Generating..." : "Generate Tasks"}
+                        </button>
+                    </>
+                }
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">BOQ ID <span className="text-rose-500">*</span></label>
+                        <input
+                            type="number"
+                            value={generateBoqId}
+                            onChange={(e) => setGenerateBoqId(e.target.value ? Number(e.target.value) : "")}
+                            placeholder="Enter BOQ ID"
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Milestone ID <span className="text-slate-400 font-normal">(Optional)</span></label>
+                        <input
+                            type="number"
+                            value={generateMilestoneId}
+                            onChange={(e) => setGenerateMilestoneId(e.target.value ? Number(e.target.value) : "")}
+                            placeholder="Enter Milestone ID"
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
                         />
                     </div>
                 </div>

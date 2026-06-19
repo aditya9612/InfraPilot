@@ -11,10 +11,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit2,
-  Trash2
+  Trash2,
+  Download,
+  FileText
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
+import { projectService } from "../../../services/projectService";
+import { userService } from "../../../services/userService";
 import type { ActivityItem, DailyEntry } from "../../../types/workProgress";
 
 
@@ -92,6 +96,55 @@ const DailyProgressEntryPage = () => {
   const [isDeleteEntryModalOpen, setIsDeleteEntryModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<DailyEntry | null>(null);
   const [deleteEntryId, setDeleteEntryId] = useState<number | null>(null);
+  const [historyFilterStatus, setHistoryFilterStatus] = useState<string>("all");
+  const [usersMap, setUsersMap] = useState<Record<number, string>>({});
+  const [projectsMap, setProjectsMap] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    const fetchLookups = async () => {
+
+      if (projectId) {
+        try {
+          const p = await projectService.getProjectById(projectId);
+          if (p) {
+            const pName = p.project_name || p.name;
+            if (pName) {
+              setProjectsMap(prev => ({ ...prev, [p.id || p.project_id]: pName }));
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to load specific project", err);
+        }
+      }
+
+    };
+    fetchLookups();
+  }, [projectId]);
+
+  // Dynamically resolve missing users from entries
+  useEffect(() => {
+    const missingUserIds = new Set<number>();
+    allEntries.forEach(e => {
+      if (e.created_by && !usersMap[e.created_by]) {
+        missingUserIds.add(e.created_by);
+      }
+    });
+
+    missingUserIds.forEach(async (uid) => {
+      try {
+        const u = await userService.getUserById(uid);
+        if (u) {
+          let name = u.full_name || u.name;
+          if (!name && u.first_name) name = u.first_name + " " + (u.last_name || "");
+          if (name && name.trim() !== "undefined undefined") {
+            setUsersMap(prev => ({ ...prev, [uid]: name.trim() }));
+          }
+        }
+      } catch (err) {
+        // Silently fail if user cannot be fetched
+      }
+    });
+  }, [allEntries, usersMap]);
 
 
   const loadActivities = useCallback(async () => {
@@ -153,11 +206,25 @@ const DailyProgressEntryPage = () => {
   const loadActivityHistory = useCallback(async () => {
     try {
       if (!hasLoadedHistory) setLoading(true);
-      const activityId = selectedActivityId === "all"
-        ? (activitiesList[0]?.id || 1)
-        : Number(selectedActivityId);
-      const res = await workProgressService.getActivityHistory(activityId);
-      setActivityHistory(res?.data || []);
+      
+      if (selectedActivityId === "all") {
+        const promises = activitiesList.map(a => workProgressService.getActivityHistory(a.id));
+        const results = await Promise.allSettled(promises);
+        const allHistory: any[] = [];
+        results.forEach(res => {
+          if (res.status === "fulfilled" && res.value?.data) {
+            allHistory.push(...res.value.data);
+          }
+        });
+        
+        allHistory.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        setActivityHistory(allHistory);
+      } else {
+        const activityId = Number(selectedActivityId);
+        const res = await workProgressService.getActivityHistory(activityId);
+        setActivityHistory(res?.data || []);
+      }
+      
       setHasLoadedHistory(true);
     } catch (err) {
       console.error("Load History Error:", err);
@@ -170,7 +237,7 @@ const DailyProgressEntryPage = () => {
   const loadDelayReport = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await workProgressService.getDelayReport();
+      const res = await workProgressService.getDelayReport(projectId || undefined);
       setDelayActivities(res?.data || []);
     } catch (err) {
       console.error("Load Delay Error:", err);
@@ -178,7 +245,7 @@ const DailyProgressEntryPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [projectId]);
 
   const loadProjectSummary = useCallback(async () => {
     if(!projectId) return;
@@ -213,12 +280,44 @@ const DailyProgressEntryPage = () => {
     try {
       await workProgressService.addDailyProgress(data);
       toast.success("Progress logged successfully!");
+      loadTodayProgress();
+      loadAllEntries();
+      loadActivityHistory();
       setIsLogModalOpen(false);
-      loadActivities();
-      if (activeTab === 'today') loadTodayProgress();
-      else loadAllEntries();
     } catch (err) {
       toast.error("Failed to log progress");
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      if (!projectId) return;
+      const blob = await workProgressService.downloadPdfReport(projectId);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Work_Progress_Report_${projectId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (error) {
+      toast.error("Failed to download PDF report");
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    try {
+      if (!projectId) return;
+      const blob = await workProgressService.downloadExcelReport(projectId);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Work_Progress_Report_${projectId}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (error) {
+      toast.error("Failed to download Excel report");
     }
   };
 
@@ -316,9 +415,17 @@ const DailyProgressEntryPage = () => {
         a?.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a?.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesActivity = selectedActivityId === "all" || String(e.activity_id) === String(selectedActivityId);
-      return matchesSearch && matchesActivity;
+      
+      let matchesStatus = true;
+      if (historyFilterStatus !== "all") {
+        const eStatus = e.new_value?.status || e.status || "NOT_STARTED";
+        const normalizedStatus = eStatus.toUpperCase().replace(/ /g, "_");
+        matchesStatus = normalizedStatus === historyFilterStatus;
+      }
+      
+      return matchesSearch && matchesActivity && matchesStatus;
     });
-  }, [activityHistory, filterDate, searchTerm, activitiesList, selectedActivityId]);
+  }, [activityHistory, filterDate, searchTerm, activitiesList, selectedActivityId, historyFilterStatus]);
 
   const filteredHistoryEntries = useMemo(() => {
     if (activeStatFilter === "All History") return baseHistoryEntries;
@@ -487,6 +594,20 @@ const DailyProgressEntryPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleDownloadPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <FileText className="w-4 h-4 text-rose-500" />
+              PDF Report
+            </button>
+            <button
+              onClick={handleDownloadExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <Download className="w-4 h-4 text-emerald-500" />
+              Excel Report
+            </button>
             {activeTab === 'all' && (
               <button
                 onClick={() => setIsLogModalOpen(true)}
@@ -577,6 +698,19 @@ const DailyProgressEntryPage = () => {
                         <option key={a.id} value={a.id}>{a.activity_name}</option>
                       ))}
                     </select>
+                    {activeTab === 'history' && (
+                      <select
+                        value={historyFilterStatus}
+                        onChange={(e) => setHistoryFilterStatus(e.target.value)}
+                        className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="NOT_STARTED">Not Started</option>
+                        <option value="ON_TRACK">On Track</option>
+                        <option value="DELAY">Delay</option>
+                        <option value="COMPLETED">Completed</option>
+                      </select>
+                    )}
                   </div>
                 )}
               </div>
@@ -612,6 +746,7 @@ const DailyProgressEntryPage = () => {
                           <th className="px-6 py-4 font-inter whitespace-nowrap">DATE</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">PROGRESS ADDED</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">REMARKS</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">CREATED BY</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">LOGGED AT</th>
                           {activeTab === 'all' && <th className="px-6 py-4 font-inter whitespace-nowrap text-right">ACTIONS</th>}
                         </tr>
@@ -637,6 +772,9 @@ const DailyProgressEntryPage = () => {
                                 {e.today_progress} {currentActivity?.unit || ""}
                               </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600 max-w-[250px] truncate" title={e.remarks}>{e.remarks || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-bold text-slate-700">
+                                {usersMap[e.created_by] || (e.created_by === engineer_id ? (user as any)?.full_name || user?.name : `User ${e.created_by}`) || "-"}
+                              </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-500">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
                               {activeTab === 'all' && (
                                 <td className="px-6 py-6 font-inter">
@@ -782,9 +920,15 @@ const DailyProgressEntryPage = () => {
                                 {currentActivity?.boq_code && <span className="block text-xs font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
                               </td>
                               <td className="px-6 py-6 font-inter">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.new_value?.status || ""] || "bg-rose-50 text-rose-600"} font-inter`}>
-                                  {e.new_value?.status || "DELAY"}
-                                </span>
+                                {(() => {
+                                  const rowStatus = e.new_value?.status || e.status || "NOT_STARTED";
+                                  const badgeClass = statusBadge[rowStatus] || statusBadge[rowStatus.replace(/_/g, " ")] || "bg-slate-50 text-slate-600";
+                                  return (
+                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${badgeClass} font-inter`}>
+                                      {rowStatus.replace(/_/g, " ")}
+                                    </span>
+                                  );
+                                })()}
                               </td>
                               <td className="px-6 py-6 font-inter">
                                 <div className="flex items-center gap-2 font-inter">
@@ -901,6 +1045,7 @@ const DailyProgressEntryPage = () => {
                     <table className="w-full text-left font-inter min-w-[1500px]">
                       <thead>
                         <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-50 font-inter">
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Project</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Activity</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Status</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">Progress (%)</th>
@@ -913,8 +1058,10 @@ const DailyProgressEntryPage = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-50 font-inter">
                         {paginatedDelayActivities.length > 0 ? paginatedDelayActivities.map((e: any) => {
+                          const pName = projectsMap[e.project_id] || (e.project_id === projectId ? "Current Project" : `Project ${e.project_id}`);
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                              <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">{pName}</td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">{e.activity_name || "-"}</td>
                               <td className="px-6 py-6 font-inter">
                                 <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase bg-rose-50 text-rose-600 font-inter">
@@ -1036,6 +1183,7 @@ const DailyProgressEntryPage = () => {
         onClose={() => setIsLogModalOpen(false)}
         onSubmit={handleLogModalSubmit}
         activity={null}
+        activitiesList={activitiesList}
         engineerId={engineer_id}
       />
 

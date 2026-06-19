@@ -70,7 +70,8 @@ export const labourService = {
                 { params: queryParams }
             );
             console.log("POST /api/v1/labour - SUCCESS", response.data);
-            return this._normalizeLabour(response.data);
+            const createdData = response.data?.items ? response.data.items[0] : (Array.isArray(response.data) ? response.data[0] : response.data);
+            return this._normalizeLabour(createdData);
         } catch (error: any) {
             console.warn("createLabour API error, using virtual success fallback:", error.message);
             const newId = Math.floor(Math.random() * 10000) + 5000;
@@ -95,7 +96,8 @@ export const labourService = {
             console.log(`PUT /api/v1/labour/${id} Request Body:`, data);
             const response = await api.put<any>(`/labour/${id}`, data);
             console.log(`PUT /api/v1/labour/${id} Raw Response:`, response.data);
-            return this._normalizeLabour(response.data);
+            const updatedData = response.data?.items ? response.data.items[0] : (Array.isArray(response.data) ? response.data[0] : response.data);
+            return this._normalizeLabour(updatedData);
         } catch (error: any) {
             console.warn("updateLabour API error, using virtual success fallback:", error.message);
             const index = this._mockLabours.findIndex((l: any) => l.id === id);
@@ -140,12 +142,18 @@ export const labourService = {
                 rawItems = data;
                 meta.total = data.length;
             } else if (data && typeof data === 'object') {
-                rawItems = data.items || data.data || (Array.isArray(data) ? data : []);
-                meta = data.meta || {
-                    total: rawItems.length,
-                    limit: data.limit || queryParams.limit,
-                    offset: data.offset || queryParams.offset
-                };
+                // Check for double-nested items array: { items: [ { items: [...] } ] }
+                if (Array.isArray(data.items) && data.items.length === 1 && data.items[0].items) {
+                    rawItems = data.items[0].items;
+                    meta = data.items[0].meta || { total: rawItems.length, limit: queryParams.limit, offset: queryParams.offset };
+                } else {
+                    rawItems = data.items || data.data || (Array.isArray(data) ? data : []);
+                    meta = data.meta || {
+                        total: rawItems.length,
+                        limit: data.limit || queryParams.limit,
+                        offset: data.offset || queryParams.offset
+                    };
+                }
             }
 
             // Map field aliases to ensure UI compatibility
@@ -720,6 +728,24 @@ export const labourService = {
     async updateAttendance(attendanceId: number, data: any): Promise<any> {
         const response = await api.put(`/labour/attendance/${attendanceId}`, data);
         return response.data;
+    },
+    /**
+     * Get Attendance Dashboard Stats
+     * GET /api/v1/labour/attendance/dashboard
+     */
+    async getAttendanceDashboard(projectId: number | string, fromDate?: string, toDate?: string) {
+        const params: any = { project_id: projectId };
+        if (fromDate) params.from_date = fromDate;
+        if (toDate) params.to_date = toDate;
+        
+        console.log(`GET /api/v1/labour/attendance/dashboard params:`, params);
+        try {
+            const response = await api.get("/labour/attendance/dashboard", { params });
+            return response.data;
+        } catch (error) {
+            console.error("Failed to fetch attendance dashboard stats", error);
+            return { total_labour: 0, present: 0 };
+        }
     },
 
     /**

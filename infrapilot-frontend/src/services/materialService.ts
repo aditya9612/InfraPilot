@@ -304,8 +304,10 @@ export const materialService = {
     return response.data;
   },
 
-  async listPurchaseOrders(skip: number = 0, limit: number = 50): Promise<PurchaseOrder[]> {
-    const response = await api.get<PurchaseOrder[]>("/materials/purchase-orders", { params: { skip, limit } });
+  async listPurchaseOrders(project_id?: number, skip: number = 0, limit: number = 50): Promise<PurchaseOrder[]> {
+    const params: any = { skip, limit };
+    if (project_id !== undefined) params.project_id = project_id;
+    const response = await api.get<PurchaseOrder[]>("/materials/purchase-orders", { params });
     return response.data;
   },
 

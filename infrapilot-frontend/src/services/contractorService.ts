@@ -59,11 +59,10 @@ export const contractorService = {
                     };
                 });
 
-            if (projectContractors.length > 0) return projectContractors;
-            return this.getContractors();
+            return projectContractors;
         } catch (error) {
             console.error(`Failed to fetch contractors for project ${projectId}:`, error);
-            return this.getContractors();
+            return [];
         }
     }
 };

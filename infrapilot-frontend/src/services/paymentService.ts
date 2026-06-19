@@ -1,9 +1,6 @@
 import api from "./api";
 import type {
-    AdvanceRequestPayload,
-    Payment,
-    AdvanceRequest,
-    PayrollReport
+    Payment
 } from "../types/payment";
 
 export const paymentService = {
@@ -119,7 +116,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/aggregate-report Request Params:", cleanParams);
@@ -141,7 +138,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/fiscal-summary Request Params:", cleanParams);
@@ -187,7 +184,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/weekly-velocity Request Params:", cleanParams);
@@ -204,7 +201,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll Request Params:", cleanParams);
@@ -221,7 +218,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/stats Request Params:", cleanParams);
@@ -231,6 +228,23 @@ export const paymentService = {
     },
 
 
+
+    /**
+     * Export Payroll to Excel
+     * GET /api/v1/labour/payroll/export
+     */
+    async exportPayrollExcel(filters?: { month?: number; year?: number; project_id?: number | string }): Promise<Blob> {
+        const cleanFilters = {
+            ...filters,
+            month: filters?.month ? filters.month.toString().padStart(2, '0') : undefined
+        };
+        console.log("GET /api/v1/labour/payroll/export Request Params:", cleanFilters);
+        const response = await api.get("/labour/payroll/export", {
+            params: cleanFilters,
+            responseType: 'blob'
+        });
+        return response.data;
+    },
 
     /**
      * Export Payroll to PDF

@@ -158,7 +158,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Provisioned Quantity*</label>
+              <label className={labelClasses}>Planned Quantity*</label>
               <input 
                 required type="number" name="planned_quantity" min="0" step="any"
                 className={inputClasses(errors.planned_quantity)}

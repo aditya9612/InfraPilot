@@ -95,7 +95,18 @@ const MaterialConsumptionPage = () => {
 
     const fetchTransactions = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getProjectTransactions(projectId); setTransactions(data); }
+        try { 
+            const data = await materialService.getProjectTransactions(projectId); 
+            setTransactions(data); 
+            
+            // Explicitly fetch the other API to show in network tab as requested
+            try {
+                const materialTransactions = await materialService.getTransactions(1);
+                console.log("Fetched Material 1 Transactions:", materialTransactions);
+            } catch (err) {
+                console.error("Failed to fetch material 1 transactions", err);
+            }
+        }
         catch (e) { toast.error("Failed to load transactions"); }
         finally { setIsLoading(false); }
     };

@@ -327,29 +327,29 @@ export const projectService = {
     } catch (error: any) {
       console.error(`Get Task ${taskId} API Error:`, error.response?.data || error.message);
       return {
-          "id": taskId,
-          "project_id": projectId,
-          "title": taskId === 1 ? "API Testing" : taskId === 2 ? "ueihfuhaodj" : "ghsvfjagkjf",
-          "description": taskId === 1 ? "Start to test all APIs." : taskId === 2 ? "string" : "No description provided.",
-          "priority": "Medium",
-          "status": "Planned",
-          "start_date": taskId === 1 ? "2026-05-19" : "2026-06-15",
-          "end_date": taskId === 1 ? "2026-05-27" : "2026-07-23",
-          "actual_start_date": null,
-          "actual_end_date": null,
-          "created_by_user_id": 1,
-          "assigned_users": [
-            { id: taskId === 2 ? 226 : 225, name: taskId === 2 ? "Vishal Sathe" : "Suresh Chaudhari" }
-          ],
-          "completion_percentage": 0,
-          "is_delayed": false,
-          "execution_duration": 0,
-          "delay_days": 0,
-          "actual_cost": 0,
-          "planned_cost": 0,
-          "audio_instruction_url": null,
-          "instruction_image_url": taskId === 1 ? "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop" : taskId === 2 ? "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=100&h=100&fit=crop" : null,
-          "task_icon": null
+        "id": taskId,
+        "project_id": projectId,
+        "title": taskId === 1 ? "API Testing" : taskId === 2 ? "ueihfuhaodj" : "ghsvfjagkjf",
+        "description": taskId === 1 ? "Start to test all APIs." : taskId === 2 ? "string" : "No description provided.",
+        "priority": "Medium",
+        "status": "Planned",
+        "start_date": taskId === 1 ? "2026-05-19" : "2026-06-15",
+        "end_date": taskId === 1 ? "2026-05-27" : "2026-07-23",
+        "actual_start_date": null,
+        "actual_end_date": null,
+        "created_by_user_id": 1,
+        "assigned_users": [
+          { id: taskId === 2 ? 226 : 225, name: taskId === 2 ? "Vishal Sathe" : "Suresh Chaudhari" }
+        ],
+        "completion_percentage": 0,
+        "is_delayed": false,
+        "execution_duration": 0,
+        "delay_days": 0,
+        "actual_cost": 0,
+        "planned_cost": 0,
+        "audio_instruction_url": null,
+        "instruction_image_url": taskId === 1 ? "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop" : taskId === 2 ? "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=100&h=100&fit=crop" : null,
+        "task_icon": null
       };
     }
   },

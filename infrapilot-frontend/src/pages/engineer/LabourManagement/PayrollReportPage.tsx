@@ -12,7 +12,6 @@ import { paymentService } from '../../../services/paymentService';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../../utils/currencyUtils';
 
-
 const PayrollReportPage: React.FC = () => {
     const [reports, setReports] = useState<any[]>([]);
 
@@ -88,14 +87,60 @@ const PayrollReportPage: React.FC = () => {
         fetchReports();
     }, [activeTab, projectId, selectedMonth, selectedYear]);
 
-    const handleExport = async () => {
+    const handleExportExcel = async () => {
         setIsExportingExcel(true);
         try {
-            await paymentService.exportPayroll(selectedMonth, selectedYear);
-            toast.success('Payroll exported successfully');
+            if (!selectedMonth || !selectedYear) {
+                toast.error("Please select month and year");
+                return;
+            }
+            
+            const responseBlob = await paymentService.exportPayrollExcel({ month: selectedMonth, year: selectedYear, project_id: projectId });
+            
+            // Create blob with explicit Excel MIME type to prevent corruption
+            const blob = new Blob([responseBlob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Payroll_Report_${selectedMonth}_${selectedYear}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            }, 100);
+            
+            toast.success('Excel exported successfully');
         } catch (error) {
-            console.error("Export Error:", error);
-            toast.error('Export failed');
+            console.error("Export Excel Error:", error);
+            toast.error('Excel Export failed');
+        } finally {
+            setIsExportingExcel(false);
+        }
+    };
+
+    const handleExportPDF = async () => {
+        setIsExportingExcel(true); // Using same loading state for simplicity or could add isExportingPdf
+        try {
+            if (!selectedMonth || !selectedYear) {
+                toast.error("Please select month and year");
+                return;
+            }
+            const blob = await paymentService.exportPayrollPDF({ month: selectedMonth, year: selectedYear, project_id: projectId });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Payroll_Report_${selectedMonth}_${selectedYear}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            toast.success('PDF exported successfully');
+        } catch (error) {
+            console.error("Export PDF Error:", error);
+            toast.error('PDF Export failed');
         } finally {
             setIsExportingExcel(false);
         }
@@ -223,7 +268,7 @@ const PayrollReportPage: React.FC = () => {
                                 ))}
                             </select>
                             <button
-                                onClick={handleExport}
+                                onClick={handleExportExcel}
                                 disabled={isExportingExcel}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
                             >
@@ -231,7 +276,7 @@ const PayrollReportPage: React.FC = () => {
                                 {isExportingExcel ? 'Generating...' : 'Export Excel'}
                             </button>
                             <button
-                                onClick={handleExport}
+                                onClick={handleExportPDF}
                                 disabled={isExportingExcel}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-rose-100 active:scale-95 disabled:opacity-50"
                             >

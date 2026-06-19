@@ -13,11 +13,12 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
-    Briefcase,
     Eye
 } from "lucide-react";
 import toast from 'react-hot-toast';
 import labourService from '../../../services/labourService';
+import { userService } from '../../../services/userService';
+import { projectService } from '../../../services/projectService';
 import SelfCheckInModal from './components/SelfCheckInModal';
 import SelfCheckOutModal from './components/SelfCheckOutModal';
 import { useAuth } from '../../../context/AuthContext';
@@ -40,6 +41,7 @@ const AttendancePage: React.FC = () => {
     // Modals State
     const [isCheckInModalOpen] = useState(false);
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
+    const [todayAttendanceId, setTodayAttendanceId] = useState<number | string | null>(null);
 
     // Camera State - Check In
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -76,6 +78,34 @@ const AttendancePage: React.FC = () => {
     const [historyDateInput, setHistoryDateInput] = useState("");
 
     const [selfAttendances, setSelfAttendances] = useState<any[]>([]);
+
+    const parseTimeStr = (timeStr: string) => {
+        if (!timeStr || timeStr === "--:--") return null;
+        
+        let cleanStr = timeStr;
+        if (cleanStr.includes(' ') && cleanStr.includes('-') && cleanStr.includes(':')) {
+            cleanStr = cleanStr.replace(' ', 'T');
+        }
+        
+        if (cleanStr.includes('T')) {
+            const ts = cleanStr.endsWith('Z') ? cleanStr : cleanStr + 'Z';
+            return new Date(ts);
+        }
+        
+        const d = new Date();
+        if (cleanStr.includes('PM') || cleanStr.includes('AM')) {
+            const [time, period] = cleanStr.split(' ');
+            let [hours, minutes] = time.split(':');
+            let h = parseInt(hours);
+            if (period === 'PM' && h !== 12) h += 12;
+            if (period === 'AM' && h === 12) h = 0;
+            d.setUTCHours(h, parseInt(minutes), 0, 0);
+        } else {
+            const [h, m, s] = cleanStr.split(':');
+            d.setUTCHours(parseInt(h) || 0, parseInt(m) || 0, parseInt(s) || 0, 0);
+        }
+        return d;
+    };
 
     const fetchSelfAttendances = async () => {
         try {
@@ -125,26 +155,10 @@ const AttendancePage: React.FC = () => {
             // Check today's status to update UI state across reloads
             const todayRecord = filteredItems.find((item: any) => item.attendance_date === today);
             
-            const parseTimeStr = (timeStr: string) => {
-                if (!timeStr || timeStr === "--:--") return null;
-                if (timeStr.includes('T')) return new Date(timeStr);
-                
-                const d = new Date();
-                if (timeStr.includes('PM') || timeStr.includes('AM')) {
-                    const [time, period] = timeStr.split(' ');
-                    let [hours, minutes] = time.split(':');
-                    let h = parseInt(hours);
-                    if (period === 'PM' && h !== 12) h += 12;
-                    if (period === 'AM' && h === 12) h = 0;
-                    d.setHours(h, parseInt(minutes), 0, 0);
-                } else {
-                    const [h, m, s] = timeStr.split(':');
-                    d.setHours(parseInt(h) || 0, parseInt(m) || 0, parseInt(s) || 0, 0);
-                }
-                return d;
-            };
+
             
             if (todayRecord) {
+                setTodayAttendanceId(todayRecord.id);
                 const parsedIn = parseTimeStr(todayRecord.in_time);
                 const parsedOut = parseTimeStr(todayRecord.out_time);
                 
@@ -159,6 +173,7 @@ const AttendancePage: React.FC = () => {
                     setAttendanceState("NOT_CHECKED_IN");
                 }
             } else {
+                setTodayAttendanceId(null);
                 setAttendanceState("NOT_CHECKED_IN");
             }
         } catch (error) {
@@ -520,8 +535,8 @@ const AttendancePage: React.FC = () => {
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-800">{rec.project_name ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.attendance_date ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ? formatTime(new Date(rec.in_time)) : '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ? formatTime(new Date(rec.out_time)) : '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ? formatTime(parseTimeStr(rec.in_time) as Date) : '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ? formatTime(parseTimeStr(rec.out_time) as Date) : '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.working_hours ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_hours ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_rate ?? '-'}</span></td>
@@ -560,18 +575,30 @@ const AttendancePage: React.FC = () => {
                                                                     ? attendanceData.attendance
                                                                     : {};
                                                                     
+                                                                let userName = rec.user_name || 'Worker';
+                                                                let projectName = rec.project_name || '-';
+                                                                try {
+                                                                    const uData = await userService.getUserById(rec.user_id || rec.labour_id);
+                                                                    if (uData && (uData.full_name || uData.name)) userName = uData.full_name || uData.name;
+                                                                    
+                                                                    const projId = detailedLabour.project_id || rec.project_id;
+                                                                    if (projId) {
+                                                                        const pData = await projectService.getProjectById(projId);
+                                                                        if (pData && pData.name) projectName = pData.name;
+                                                                    }
+                                                                } catch(e) {}
+                                                                    
                                                                 const mappedData = {
                                                                     ...rec,
                                                                     id: rec.user_id || detailedLabour.user_id || 'U',
-                                                                    name: rec.user_name || 'Worker',
+                                                                    name: userName,
                                                                     imgInUrl: detailedLabour.check_in_image || rec.check_in_image,
                                                                     imgOutUrl: detailedLabour.check_out_image || rec.check_out_image,
                                                                     status: detailedLabour.in_time && !detailedLabour.out_time ? 'Online' : 'Offline',
                                                                     workLocation: detailedLabour.check_in_address || rec.check_in_address || '-',
-                                                                    contractor: '-',
                                                                     department: '-',
-                                                                    checkIn: detailedLabour.in_time || rec.in_time || '-',
-                                                                    checkOut: detailedLabour.out_time || rec.out_time || '-',
+                                                                    checkIn: detailedLabour.in_time ? formatTime(parseTimeStr(detailedLabour.in_time) as Date) : (rec.in_time ? formatTime(parseTimeStr(rec.in_time) as Date) : '-'),
+                                                                    checkOut: detailedLabour.out_time ? formatTime(parseTimeStr(detailedLabour.out_time) as Date) : (rec.out_time ? formatTime(parseTimeStr(rec.out_time) as Date) : '-'),
                                                                     hours: detailedLabour.working_hours || rec.working_hours || '-',
                                                                     attendanceStatus: detailedLabour.is_late ? 'Late' : 'On Time',
                                                                     taskDescription: detailedLabour.task_description || rec.task_description || '-',
@@ -580,7 +607,7 @@ const AttendancePage: React.FC = () => {
                                                                     isOutsideGeofence: detailedLabour.is_outside_geofence !== undefined ? String(detailedLabour.is_outside_geofence) : (rec.is_outside_geofence !== undefined ? String(rec.is_outside_geofence) : '-'),
                                                                     lateMinutes: detailedLabour.late_minutes || rec.late_minutes || '-',
                                                                     earlyMinutes: detailedLabour.early_minutes || rec.early_minutes || '-',
-                                                                    projectName: rec.project_name || '-'
+                                                                    projectName: projectName
                                                                 };
                                                                 
                                                                 setSelectedLabour(mappedData);
@@ -741,9 +768,11 @@ const AttendancePage: React.FC = () => {
             <SelfCheckOutModal
                 isOpen={isCheckOutModalOpen}
                 onClose={() => setIsCheckOutModalOpen(false)}
+                attendanceId={todayAttendanceId || undefined}
                 onSuccess={(time) => {
                     setCheckOutTime(time);
                     setAttendanceState("CHECKED_OUT");
+                    fetchSelfAttendances();
                 }}
             />
 
@@ -768,11 +797,9 @@ const AttendancePage: React.FC = () => {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-1">
                                         <h3 className="text-xl font-black tracking-tight truncate">{selectedLabour.name}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">{selectedLabour.id}</span>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-3 text-white/70 text-xs font-medium">
                                         <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-white/80" /> {selectedLabour.workLocation}</span>
-                                        <span className="flex items-center gap-1"><Briefcase className="w-3 h-3 text-white/80" /> {selectedLabour.contractor}</span>
                                         <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-white/80" /> {formatDate(currentDateTime).replace(/, \d{4}/, ' 2026')}</span>
                                     </div>
                                     <div className="mt-2">
@@ -816,12 +843,8 @@ const AttendancePage: React.FC = () => {
                                 <p className="text-xs font-bold text-slate-800">{selectedLabour.projectName}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">LABOUR ID</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.id}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.contractor}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">APP USER NAME</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.name}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">DEPARTMENT</p>
