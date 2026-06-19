@@ -31,6 +31,9 @@ const NewProjectModal = ({
     start_date: "",
     end_date: "",
     status: "PLANNED",
+    shift_start_time: "09:00",
+    shift_end_time: "18:00",
+    grace_period_minutes: 15,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -161,6 +164,7 @@ const NewProjectModal = ({
         owner_id: Number(formData.owner_id),
         latitude: formData.latitude ? Number(formData.latitude) : undefined,
         longitude: formData.longitude ? Number(formData.longitude) : undefined,
+        grace_period_minutes: Number(formData.grace_period_minutes),
       };
       if (onSubmit) await onSubmit(requestBody);
       onClose();
@@ -454,7 +458,7 @@ const NewProjectModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">
-                Start Date
+                Start Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
@@ -471,7 +475,7 @@ const NewProjectModal = ({
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">
-                End Date
+                End Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
@@ -485,6 +489,51 @@ const NewProjectModal = ({
                   {errors.end_date}
                 </p>
               )}
+            </div>
+            <div className="md:col-span-2 border-t border-slate-50 pt-4 mt-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-3">
+                Shift & Attendance Settings
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                    Shift Start Time
+                  </label>
+                  <input
+                    type="time"
+                    name="shift_start_time"
+                    value={formData.shift_start_time}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                    Shift End Time
+                  </label>
+                  <input
+                    type="time"
+                    name="shift_end_time"
+                    value={formData.shift_end_time}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                    Grace Period (Mins)
+                  </label>
+                  <input
+                    type="number"
+                    name="grace_period_minutes"
+                    value={formData.grace_period_minutes}
+                    onChange={handleChange}
+                    min="0"
+                    placeholder="e.g. 15"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
