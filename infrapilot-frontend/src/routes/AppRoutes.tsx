@@ -179,6 +179,7 @@ function AppRoutes() {
               />
               <Route path="/admin/clients" element={<ClientsPage />} />
               <Route path="/admin/clients/:id" element={<ClientDetailPage />} />
+              <Route path="/admin/owners" element={<Navigate to="/admin/owners/list" replace />} />
               <Route path="/admin/owners/list" element={<OwnersListPage />} />
               <Route
                 path="/admin/owners/agreements"
@@ -212,7 +213,7 @@ function AppRoutes() {
               <Route path="/admin/finance/payments" element={<FinancePage />} />
               <Route path="/admin/finance/expenses" element={<FinancePage />} />
               <Route path="/admin/finance/profit" element={<FinancePage />} />
-              <Route path="approvals" element={<ApprovalsPage />} />
+              <Route path="/admin/approvals" element={<Navigate to="/admin/approvals/material" replace />} />
               <Route path="compliance/qc" element={<QCGovernancePage />} />
               <Route
                 path="/admin/approvals/material"
@@ -247,6 +248,7 @@ function AppRoutes() {
               />
               <Route path="/admin/documents" element={<DocumentsPage />} />
               <Route path="/admin/measurements" element={<MeasurementPage />} />
+              <Route path="/admin/invoices" element={<Navigate to="/admin/invoices/all" replace />} />
               <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
               <Route path="/admin/quotations" element={<QuotationsPage />} />
               <Route path="/admin/quotations/view/:id" element={<CreateInvoicePage />} />
@@ -300,6 +302,7 @@ function AppRoutes() {
               <Route path="quality/:tab" element={<ManagerQualityPage />} />
               <Route path="safety" element={<ManagerSafetyPage />} />
               <Route path="safety/:tab" element={<ManagerSafetyPage />} />
+              <Route path="resources" element={<Navigate to="/manager/resources/orchestrator" replace />} />
               <Route path="labour" element={<LabourRegistryPage />} />
               <Route path="labour/:id" element={<LabourTaskDetailPage />} />
               <Route path="resources/labour" element={<LabourRegistryPage />} />
@@ -435,8 +438,10 @@ function AppRoutes() {
               <Route path="/engineer/reports" element={<EngineerReportsPage />} />
               <Route path="/engineer/notifications" element={<EngineerNotificationsPage />} />
               <Route path="/engineer/settings" element={<EngineerSettingsPage />} />
+              <Route path="/engineer/progress" element={<Navigate to="/engineer/progress/activities" replace />} />
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
+              <Route path="/engineer/labor" element={<Navigate to="/engineer/labor/list" replace />} />
               <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
               <Route path="/engineer/labor/:id" element={<LabourTaskDetailPage />} />
               <Route path="/engineer/labor/attendance" element={<AttendancePage />} />
