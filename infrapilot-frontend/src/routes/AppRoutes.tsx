@@ -45,12 +45,8 @@ import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
 import WorkProgressPage from "../pages/manager/WorkProgressPage";
 import ManagerTasksPage from "../pages/manager/ManagerTasksPage";
 import ManagerProcurementPage from "../pages/manager/ManagerProcurementPage";
-import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
 import ManagerQualityPage from "../pages/manager/ManagerQualityPage";
 import ManagerSafetyPage from "../pages/manager/ManagerSafetyPage";
-import LabourRegistryPage from "../pages/manager/Resources/LabourRegistryPage";
-import EquipmentRegistryPage from "../pages/manager/Resources/EquipmentRegistryPage";
-import MaterialInventoryPage from "../pages/manager/Resources/MaterialInventoryPage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -179,7 +175,6 @@ function AppRoutes() {
               />
               <Route path="/admin/clients" element={<ClientsPage />} />
               <Route path="/admin/clients/:id" element={<ClientDetailPage />} />
-              <Route path="/admin/owners" element={<Navigate to="/admin/owners/list" replace />} />
               <Route path="/admin/owners/list" element={<OwnersListPage />} />
               <Route
                 path="/admin/owners/agreements"
@@ -213,7 +208,7 @@ function AppRoutes() {
               <Route path="/admin/finance/payments" element={<FinancePage />} />
               <Route path="/admin/finance/expenses" element={<FinancePage />} />
               <Route path="/admin/finance/profit" element={<FinancePage />} />
-              <Route path="/admin/approvals" element={<Navigate to="/admin/approvals/material" replace />} />
+              <Route path="approvals" element={<ApprovalsPage />} />
               <Route path="compliance/qc" element={<QCGovernancePage />} />
               <Route
                 path="/admin/approvals/material"
@@ -248,7 +243,6 @@ function AppRoutes() {
               />
               <Route path="/admin/documents" element={<DocumentsPage />} />
               <Route path="/admin/measurements" element={<MeasurementPage />} />
-              <Route path="/admin/invoices" element={<Navigate to="/admin/invoices/all" replace />} />
               <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
               <Route path="/admin/quotations" element={<QuotationsPage />} />
               <Route path="/admin/quotations/view/:id" element={<CreateInvoicePage />} />
@@ -285,29 +279,26 @@ function AppRoutes() {
               <Route index element={<ManagerDashboard />} />
               <Route path="projects" element={<ProjectsPage />} />
               <Route path="projects/list" element={<ProjectsPage />} />
+              <Route path="projects/details" element={<Navigate to="/manager/projects" replace />} />
+              <Route path="projects/milestones" element={<Navigate to="/manager/projects" replace />} />
+              <Route path="projects/timeline" element={<Navigate to="/manager/projects" replace />} />
               <Route path="projects/:id" element={<ProjectDetailsPage />} />
               <Route path="work-progress" element={<WorkProgressPage />} />
               <Route path="work-progress/:tab" element={<WorkProgressPage />} />
               <Route path="tasks" element={<ManagerTasksPage />} />
-              <Route path="tasks/:tab" element={<ManagerTasksPage />} />
               <Route path="approvals" element={<ManagerApprovalsPage />} />
               <Route path="approvals/dsr" element={<DSRApprovalPage />} />
               <Route path="approvals/material" element={<ManagerApprovalsPage />} />
               <Route path="approvals/expense" element={<ManagerApprovalsPage />} />
-              <Route path="boq" element={<ManagerBOQPage />} />
-              <Route path="boq/:tab" element={<ManagerBOQPage />} />
+              <Route path="boq" element={<BOQPage />} />
               <Route path="procurement" element={<ManagerProcurementPage />} />
               <Route path="procurement/:tab" element={<ManagerProcurementPage />} />
               <Route path="quality" element={<ManagerQualityPage />} />
               <Route path="quality/:tab" element={<ManagerQualityPage />} />
               <Route path="safety" element={<ManagerSafetyPage />} />
               <Route path="safety/:tab" element={<ManagerSafetyPage />} />
-              <Route path="resources" element={<Navigate to="/manager/resources/orchestrator" replace />} />
-              <Route path="labour" element={<LabourRegistryPage />} />
+              <Route path="labour" element={<LaborDetailsPage />} />
               <Route path="labour/:id" element={<LabourTaskDetailPage />} />
-              <Route path="resources/labour" element={<LabourRegistryPage />} />
-              <Route path="resources/equipment" element={<EquipmentRegistryPage />} />
-              <Route path="resources/materials" element={<MaterialInventoryPage />} />
               <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
               <Route path="compliance/qc" element={<QCGovernancePage />} />
               <Route path="compliance/safety" element={<SafetyManagementPage />} />
@@ -438,10 +429,8 @@ function AppRoutes() {
               <Route path="/engineer/reports" element={<EngineerReportsPage />} />
               <Route path="/engineer/notifications" element={<EngineerNotificationsPage />} />
               <Route path="/engineer/settings" element={<EngineerSettingsPage />} />
-              <Route path="/engineer/progress" element={<Navigate to="/engineer/progress/activities" replace />} />
               <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
               <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
-              <Route path="/engineer/labor" element={<Navigate to="/engineer/labor/list" replace />} />
               <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
               <Route path="/engineer/labor/:id" element={<LabourTaskDetailPage />} />
               <Route path="/engineer/labor/attendance" element={<AttendancePage />} />

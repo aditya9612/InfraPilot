@@ -1023,7 +1023,13 @@ const SidebarItem = ({
           onClick={() => {
             if (!isDisabled) {
               setIsOpen(!isOpen);
-              navigate(item.path);
+              if (!isParentActive) {
+                if (hasSubNav && item.subNav?.[0]) {
+                  navigate(item.subNav[0].path);
+                } else {
+                  navigate(item.path);
+                }
+              }
             }
           }}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isParentActive
