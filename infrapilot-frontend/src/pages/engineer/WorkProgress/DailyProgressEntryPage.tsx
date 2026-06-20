@@ -248,11 +248,11 @@ const DailyProgressEntryPage = () => {
   }, [projectId]);
 
   const loadProjectSummary = useCallback(async () => {
-    if(!projectId) return;
+    if (!projectId) return;
     try {
       const res = await workProgressService.getProjectSummary(projectId);
       setProjectSummary(res);
-    } catch(err) {
+    } catch (err) {
       console.error("Load Project Summary Error", err);
     }
   }, [projectId]);
@@ -871,8 +871,8 @@ const DailyProgressEntryPage = () => {
                                 key={`page-${pageNum}`}
                                 onClick={() => setCurrentPage(pageNum as number)}
                                 className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                  ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                  : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                                   }`}
                               >
                                 {pageNum}
@@ -1017,8 +1017,8 @@ const DailyProgressEntryPage = () => {
                                 key={`page-${pageNum}`}
                                 onClick={() => setCurrentPage(pageNum as number)}
                                 className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                  ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                  : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                                   }`}
                               >
                                 {pageNum}

@@ -471,7 +471,7 @@ const FinancePage = () => {
                 <Plus className="w-4 h-4" />
                 <span>Record Expense</span>
               </button>
-            ) : (
+            ) : subPage === "profit" ? null : (
               <CreateInvoiceDropdown
                 onSelectType={(type) => {
                   if (type === "owner") {

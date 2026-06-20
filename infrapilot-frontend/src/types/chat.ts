@@ -24,6 +24,7 @@ export interface MessageAttachment {
     file_name: string;
     file_type: string;
     file_size: number;
+    uploaded_by: number;
 }
 
 export interface ChatMessage {
@@ -37,6 +38,8 @@ export interface ChatMessage {
     is_deleted: boolean;
     is_edited: boolean;
     is_pinned: boolean;
+    is_delivered: boolean;
+    is_read: boolean;
     is_forwarded?: boolean;
     forwarded_from_message_id?: number | null;
     attachment_url?: string | null;
@@ -68,6 +71,10 @@ export interface Conversation {
     member_count?: number;
     is_muted?: boolean;
     is_archived?: boolean;
+    is_pinned?: boolean;
+    is_deleted?: boolean;
+    pinned_at?: string | null;
+    deleted_at?: string | null;
     archived?: boolean;
     other_user_mobile?: string | null;
 }

@@ -4,7 +4,7 @@ import Modal from '../common/Modal';
 
 import type { Project } from '../../types/project';
 import type { BoqItem } from '../../types/boq';
-import { BOQ_CATEGORIES, BOQ_UNITS, BOQ_STATUSES } from '../../config/constants';
+import { BOQ_STATUSES } from '../../config/constants';
 import { masterService, type MasterEntity } from '../../services/masterService';
 
 interface CreateBOQModalProps {
@@ -29,17 +29,12 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
   });
 
   const [activityTypes, setActivityTypes] = useState<MasterEntity[]>([]);
-  const [units, setUnits] = useState<MasterEntity[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [types, fetchedUnits] = await Promise.all([
-          masterService.getEntities('activity-types'),
-          masterService.getEntities('units'),
-        ]);
+        const types = await masterService.getEntities('activity-types');
         setActivityTypes(types);
-        setUnits(fetchedUnits);
       } catch (error) {
         console.error("Failed to fetch master data:", error);
       }
@@ -90,9 +85,6 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
         if (!value.trim()) error = 'Item name is required.';
         else if (value.trim().length < 2) error = 'Item name must be at least 2 characters.';
         break;
-      case 'category':
-        if (!value) error = 'Please select a category.';
-        break;
       case 'description':
         if (!value.trim()) error = 'Description is required.';
         break;
@@ -101,13 +93,13 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
         else if (isNaN(Number(value)) || Number(value) <= 0) error = 'Enter a valid quantity greater than 0.';
         else if (!/^\d+$/.test(value.toString())) error = 'Quantity must be a whole number.';
         break;
-      case 'unit':
-        if (!value) error = 'Please select a unit.';
-        break;
       case 'unit_cost':
         if (!value) error = 'Unit cost is required.';
         else if (isNaN(Number(value)) || Number(value) <= 0) error = 'Enter a valid unit cost.';
         else if (!/^\d+$/.test(value.toString())) error = 'Unit cost must be a whole number.';
+        break;
+      case 'activity_type_id':
+        if (!value) error = 'Activity Type is required.';
         break;
       default:
         break;
@@ -120,6 +112,25 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
 
     if (name === 'quantity' || name === 'unit_cost') {
       value = value.replace(/[^\d]/g, '');
+    }
+
+    if (name === 'activity_type_id') {
+      const selectedType = activityTypes.find(t => t.id.toString() === value);
+      if (selectedType) {
+        setFormData((prev) => ({
+          ...prev,
+          activity_type_id: value,
+          category: selectedType.category || '',
+          unit: selectedType.unit || '',
+        }));
+        setErrors((prev) => ({
+          ...prev,
+          activity_type_id: '',
+          category: '',
+          unit: '',
+        }));
+        return;
+      }
     }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -145,13 +156,11 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
         const submissionData = {
           project_id: Number(formData.project_id),
           item_name: formData.item_name,
-          category: formData.category,
           description: formData.description,
           quantity: Number(formData.quantity),
-          unit: formData.unit,
           unit_cost: Number(formData.unit_cost),
           status: formData.status,
-          activity_type_id: formData.activity_type_id ? Number(formData.activity_type_id) : undefined,
+          activity_type_id: Number(formData.activity_type_id),
         };
         await onSubmit(submissionData);
         setFormData({
@@ -243,19 +252,6 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             {errors.item_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.item_name}</p>}
           </div>
 
-          <div className="md:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Category <span className="text-rose-500">*</span></label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className={`w-full px-4 py-2.5 bg-white border ${errors.category ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
-            >
-              <option value="">Select Category</option>
-              {BOQ_CATEGORIES?.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            {errors.category && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.category}</p>}
-          </div>
 
           <div className="md:col-span-2">
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Description <span className="text-rose-500">*</span></label>
@@ -283,19 +279,6 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             {errors.quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.quantity}</p>}
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit <span className="text-rose-500">*</span></label>
-            <select
-              name="unit"
-              value={formData.unit}
-              onChange={handleChange}
-              className={`w-full px-4 py-2.5 bg-white border ${errors.unit ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
-            >
-              <option value="">Select Unit</option>
-              {units?.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-            </select>
-            {errors.unit && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.unit}</p>}
-          </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit Cost (₹) <span className="text-rose-500">*</span></label>
@@ -323,18 +306,19 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Activity Type (Optional)</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Activity Type <span className="text-rose-500">*</span></label>
             <select
               name="activity_type_id"
               value={formData.activity_type_id}
               onChange={handleChange}
-              className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none`}
+              className={`w-full px-4 py-2.5 bg-white border ${errors.activity_type_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
             >
               <option value="">Select Activity Type</option>
               {activityTypes?.map(type => (
                 <option key={type.id} value={type.id}>{type.name}</option>
               ))}
             </select>
+            {errors.activity_type_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.activity_type_id}</p>}
           </div>
 
           <div className="md:col-span-2 p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between">

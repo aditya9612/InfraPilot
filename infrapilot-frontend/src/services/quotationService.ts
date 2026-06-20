@@ -378,5 +378,21 @@ export const quotationService = {
             console.error(`Delete Quotation Extra Charge ${itemId} Error:`, error.response?.data || error.message);
             throw error;
         }
+    },
+
+    /**
+     * Download Quotation PDF from backend
+     * GET /api/v1/quotations/{id}/pdf
+     */
+    async downloadQuotationPDF(id: number): Promise<Blob> {
+        try {
+            const response = await api.get(`/quotations/${id}/pdf`, {
+                responseType: 'blob'
+            });
+            return response.data;
+        } catch (error: any) {
+            console.error(`Download Quotation PDF ${id} Error:`, error.response?.data || error.message);
+            throw error;
+        }
     }
 };

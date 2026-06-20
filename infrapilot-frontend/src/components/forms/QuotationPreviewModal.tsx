@@ -9,13 +9,13 @@ import { quotationService } from "../../services/quotationService";
 import type { CompanySettings } from "../../types/settings";
 import toast from "react-hot-toast";
 
-interface InvoicePreviewModalProps {
+interface QuotationPreviewModalProps {
     isOpen: boolean;
     onClose: () => void;
     data: any;
 }
 
-const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
+const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
     isOpen,
     onClose,
     data,
@@ -29,7 +29,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                     const settings = await settingsService.getCompanySettings();
                     setCompanyInfo(settings);
                 } catch (err) {
-                    console.error("Failed to fetch branding for invoice", err);
+                    console.error("Failed to fetch branding for quotation", err);
                 }
             };
             fetchBranding();
@@ -41,7 +41,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     const currentLogo = companyInfo?.company_logo ? settingsService.resolveUrl(companyInfo.company_logo) : logo;
     const currentSignature = companyInfo?.signature_image ? settingsService.resolveUrl(companyInfo.signature_image) : null;
 
-    const toWords = (num: number) => {
+    const numberToWords = (num: number) => {
         const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
         const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
@@ -67,12 +67,12 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         return res;
     };
 
-    const buildInvoicePDF = () => {
+    const buildQuotationPDF = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
         const pageHeight = doc.internal.pageSize.height;
 
-        const primaryBlue: [number, number, number] = [31, 78, 121]; // #1F4E79
+        const primaryBlue: [number, number, number] = [31, 78, 121]; // #1F4E79 (Screenshot table header)
         const greenAccent: [number, number, number] = [74, 182, 94]; // #4AB65E
 
         const drawFooter = (pdfDoc: jsPDF) => {
@@ -99,7 +99,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             pdfDoc.setFontSize(22);
             pdfDoc.setFont("helvetica", "bold");
             pdfDoc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-            pdfDoc.text("TAX INVOICE", pageWidth / 2 + 10, 25, { align: "center" });
+            pdfDoc.text("PROJECT QUOTATION", pageWidth / 2 + 10, 25, { align: "center" });
 
             if (isFirstPage) {
                 pdfDoc.setFontSize(10);
@@ -140,7 +140,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         drawHeader(doc, true);
         let curY = 65;
         curY = drawTable(doc, "", [['Field', 'Value']], [
-            ['Invoice No', data.invoiceNo || 'N/A'],
+            ['Quotation No', data.invoiceNo || 'N/A'],
             ['Date', data.date || 'N/A'],
             ['Project', data.projectName || 'N/A'],
             ['Project Type', data.projectType || 'Residential'],
@@ -151,7 +151,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         curY = drawTable(doc, "Client Details", [['Field', 'Value']], [
             ['Client Name', data.clientName || 'N/A'],
             ['Billing Address', data.clientAddress || 'N/A'],
-            ['Site Address', data.siteAddress || data.clientAddress || 'N/A'],
+            ['Site Address', data.clientAddress || 'N/A'],
             ['Mobile', data.clientMobile || data.clientMobileNo || 'N/A'],
             ['GST Number', data.clientGst || data.clientGstNo || 'N/A']
         ], curY);
@@ -161,7 +161,21 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             curY
         );
 
-        // Financial Summary on same page if possible, else autoTable handles it
+        // --- Page 2 (Labour, Material, Financials) ---
+        doc.addPage();
+        drawHeader(doc);
+        curY = 40;
+        if (data.labourItems?.length > 0) {
+            curY = drawTable(doc, "Labour Details", [['Skill', 'Count', 'Days', 'Wage', 'Amount']],
+                data.labourItems.map((it: any) => [it.skill_type, it.labour_count, it.labour_days, it.daily_wage, it.amount?.toFixed(2)]), curY
+            );
+        }
+        if (data.materialItems?.length > 0) {
+            curY = drawTable(doc, "Material Details", [['Material', 'Qty', 'Unit', 'Rate', 'Amount']],
+                data.materialItems.map((it: any) => [it.material_name, it.estimated_quantity, it.unit, it.estimated_rate, it.estimated_amount?.toFixed(2)]), curY
+            );
+        }
+
         curY = drawTable(doc, "Financial Summary", [['Description', 'Amount']], [
             ['Subtotal', `INR ${data.subTotal?.toFixed(2)}`],
             ['CGST', `INR ${((data.subTotal * (data.cgstRate || 0)) / 100).toFixed(2)}`],
@@ -173,21 +187,21 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        doc.text(`Amount in Words: ${toWords(data.grandTotal)}`, 15, curY);
+        doc.text(`Amount in Words: ${numberToWords(data.grandTotal)}`, 15, curY);
 
-        // --- Page 2 (Terms & Signature if needed) ---
-        if (curY > pageHeight - 60) doc.addPage();
-        curY = Math.max(curY + 10, 40);
-
+        // --- Page 3 (Terms & Signature) ---
+        doc.addPage();
+        drawHeader(doc);
+        curY = 40;
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
         doc.text("Terms & Conditions", 15, curY);
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
-        const splitTerms = doc.splitTextToSize(data.terms || "Material provided as per delivery challan. No breakage responsibility after delivery.", pageWidth - 30);
+        const splitTerms = doc.splitTextToSize(data.terms || "50% advance payment required.", pageWidth - 30);
         doc.text(splitTerms, 15, curY + 5);
 
-        curY += 40;
+        curY += 60;
         if (currentSignature) {
             try { doc.addImage(currentSignature, 'PNG', 15, curY, 30, 10); } catch (e) { }
         }
@@ -202,7 +216,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     };
 
     const handlePrint = () => {
-        const doc = buildInvoicePDF();
+        const doc = buildQuotationPDF();
         const pdfBlob = doc.output('blob');
         const url = URL.createObjectURL(pdfBlob);
         const win = window.open(url, '_blank');
@@ -215,8 +229,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
     const handleDownloadPDF = async () => {
         if (!data.id && !data.invoiceNo?.includes('QTN')) {
-            const doc = buildInvoicePDF();
-            doc.save(`Invoice_${data.invoiceNo || 'Draft'}.pdf`);
+            const doc = buildQuotationPDF();
+            doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
             return;
         }
 
@@ -225,8 +239,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
 
             if (!qId || isNaN(Number(qId))) {
-                const doc = buildInvoicePDF();
-                doc.save(`Invoice_${data.invoiceNo || 'Draft'}.pdf`);
+                const doc = buildQuotationPDF();
+                doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
                 toast.dismiss(toastId);
                 return;
             }
@@ -235,7 +249,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Invoice_${data.invoiceNo}.pdf`);
+            link.setAttribute('download', `Quotation_${data.invoiceNo}.pdf`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -244,13 +258,13 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         } catch (error) {
             console.error("Backend Download Error:", error);
             toast.error("Falling back to local generation", { id: toastId });
-            const doc = buildInvoicePDF();
-            doc.save(`Invoice_${data.invoiceNo || 'Draft'}.pdf`);
+            const doc = buildQuotationPDF();
+            doc.save(`Quotation_${data.invoiceNo || 'Draft'}.pdf`);
         }
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Invoice Preview" maxWidth="max-w-5xl">
+        <Modal isOpen={isOpen} onClose={onClose} title="Quotation Preview" maxWidth="max-w-5xl">
             <div className="bg-slate-800 p-8 h-[90vh] overflow-y-auto no-print">
                 <div className="flex justify-end gap-3 mb-6">
                     <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg">
@@ -264,7 +278,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 <div className="bg-white max-w-[210mm] mx-auto p-12 mb-8 shadow-2xl min-h-[297mm]">
                     <div className="flex justify-between items-center mb-8">
                         <img src={currentLogo || logo} alt="Logo" className="w-24 h-24 object-contain" />
-                        <h1 className="text-3xl font-bold text-[#1F4E79] tracking-tight">TAX INVOICE</h1>
+                        <h1 className="text-3xl font-bold text-[#1F4E79] tracking-tight">PROJECT QUOTATION</h1>
                     </div>
 
                     <div className="mb-8">
@@ -280,7 +294,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                             <div className="w-1/2 text-left">Value</div>
                         </div>
                         <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
-                            <div className="flex p-2"><div className="w-1/2 font-bold">Invoice No</div><div className="w-1/2">{data.invoiceNo}</div></div>
+                            <div className="flex p-2"><div className="w-1/2 font-bold">Quotation No</div><div className="w-1/2">{data.invoiceNo}</div></div>
                             <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Date</div><div className="w-1/2">{data.date}</div></div>
                             <div className="flex p-2"><div className="w-1/2 font-bold">Project</div><div className="w-1/2">{data.projectName || "N/A"}</div></div>
                             <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Project Type</div><div className="w-1/2">Residential</div></div>
@@ -333,7 +347,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                             <div className="flex justify-between"><span className="text-slate-500">Subtotal:</span><span className="font-bold">INR {data.subTotal?.toLocaleString()}</span></div>
                             <div className="flex justify-between"><span className="text-slate-500">Grand Total:</span><span className="font-black text-slate-900 text-lg">INR {data.grandTotal?.toLocaleString()}</span></div>
                             <div className="pt-2 border-t border-slate-200">
-                                <p className="text-[10px] font-bold text-slate-400 italic leading-tight">Amount in Words: {toWords(data.grandTotal)}</p>
+                                <p className="text-[10px] font-bold text-slate-400 italic leading-tight">Amount in Words: {numberToWords(data.grandTotal)}</p>
                             </div>
                         </div>
                     </div>
@@ -350,4 +364,4 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     );
 };
 
-export default InvoicePreviewModal;
+export default QuotationPreviewModal;

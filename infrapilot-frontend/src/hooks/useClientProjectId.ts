@@ -16,7 +16,7 @@ export function useClientProjectId() {
   const resolve = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       // 1. Try dedicated selection key first (Independent of server defaults)
       const selectedId = localStorage.getItem("client_selected_project_id");
       if (selectedId && selectedId !== "null") {
@@ -40,9 +40,9 @@ export function useClientProjectId() {
         }
       }
 
-      // 3. NO automatic fallback to project 1/92. Keep them on equal level.
-      console.debug("useClientProjectId: No project selected or found in settings.");
-      setProjectId(null);
+      // 3. Fallback to project 92 if no project is selected or found in settings
+      console.debug("useClientProjectId: No project selected or found in settings. Falling back to project 92.");
+      setProjectId(92);
     } catch (err) {
       console.error("useClientProjectId: failed to resolve project:", err);
       setProjectId(null);
@@ -56,7 +56,7 @@ export function useClientProjectId() {
 
     // Listen for changes from other tabs/windows
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "mock_settings") {
+      if (e.key === "mock_settings" || e.key === "client_selected_project_id") {
         console.debug("useClientProjectId: Storage update detected, re-resolving...");
         resolve();
       }
@@ -65,7 +65,7 @@ export function useClientProjectId() {
     // Re-check when window regains focus (user might have switched back from settings tab)
     window.addEventListener("focus", resolve);
     window.addEventListener("storage", handleStorageChange);
-    
+
     return () => {
       window.removeEventListener("focus", resolve);
       window.removeEventListener("storage", handleStorageChange);

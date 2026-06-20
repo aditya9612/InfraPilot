@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
 import { exportToCSV } from "../../utils/csvExport";
 import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
+import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal";
 import { financeService } from "../../services/financeService";
 import { projectService } from "../../services/projectService";
 import type { Project } from "../../types/project";
@@ -58,6 +59,7 @@ const AllInvoicesPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeCreateType, setActiveCreateType] = useState<InvoiceType>("owner");
   const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false);
+  const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
 
   const PAGE_SIZE = 10;
 
@@ -106,7 +108,14 @@ const AllInvoicesPage = () => {
 
   const handleCreateInvoice = async (data: any) => {
     try {
-      await financeService.createInvoice(data);
+      if (data.type === "labour") {
+        const { project_id, start_date, end_date } = data;
+        await financeService.createLabourInvoice({ project_id, start_date, end_date });
+      } else if (data.type === "material") {
+        await financeService.createMaterialInvoice(data.project_id);
+      } else {
+        await financeService.createInvoice(data);
+      }
       toast.success("Invoice created successfully");
       setIsModalOpen(false);
       // Refresh invoice list
@@ -432,6 +441,15 @@ const AllInvoicesPage = () => {
                                   <Eye className="w-4 h-4" />
                                 </Link>
                               )}
+                              {(inv.type === "labour" || inv.type === "material") && !inv.isQuotation && (
+                                <button
+                                  onClick={() => setViewingInvoice(inv as Invoice)}
+                                  className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                  title="View Invoice"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => inv.id && setDeleteTarget(inv.id)}
                                 className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
@@ -497,6 +515,25 @@ const AllInvoicesPage = () => {
         onSubmit={handleCreateInvoice}
         initialType={activeCreateType}
         projects={projects}
+      />
+
+      <InvoiceDetailsModal
+        isOpen={viewingInvoice !== null}
+        onClose={() => setViewingInvoice(null)}
+        invoice={viewingInvoice}
+        projects={projects}
+        onMarkPaid={async (id) => {
+          try {
+            await financeService.markInvoicePaid(id);
+            toast.success("Invoice marked as paid!");
+            const invData = await financeService.getInvoices(200);
+            setInvoices(Array.isArray(invData) ? invData : []);
+            setViewingInvoice(null);
+          } catch { toast.error("Failed to update status"); }
+        }}
+        onDownloadPDF={(id) => {
+          toast("PDF download coming soon for INV-" + String(id).padStart(3, "0"));
+        }}
       />
     </>
   );

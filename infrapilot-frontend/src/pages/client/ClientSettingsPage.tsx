@@ -14,6 +14,14 @@ const ClientSettingsPage = () => {
     const [updating, setUpdating] = useState(false);
     const [projects, setProjects] = useState<any[]>([]);
     const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+    // Sync selected project to localStorage so all client pages reflect the change instantly
+    useEffect(() => {
+      if (activeProjectId !== null) {
+        localStorage.setItem('client_selected_project_id', String(activeProjectId));
+        // Also keep settings state in sync for UI consistency
+        setSettings(prev => ({ ...prev, default_project_id: activeProjectId }));
+      }
+    }, [activeProjectId]);
 
     const { refreshUser } = useAuth();
 
@@ -57,7 +65,7 @@ const ClientSettingsPage = () => {
                 const [profileData, settingsData, projectsResult, unitsData] = await Promise.all([
                     settingsService.getProfile(),
                     settingsService.getSettings(),
-                    projectService.getProjects(50, 0).catch(() => []),
+                    projectService.getProjects(20, 0).catch(() => []),
                     masterService.getEntities("units").catch(() => [])
                 ]);
                 const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
@@ -217,7 +225,12 @@ const ClientSettingsPage = () => {
             }
             setSelectedFile(null);
 
+            // Persist the selected project to localStorage for immediate UI updates across pages
             if (projectChanged && !settingsError) {
+                localStorage.setItem('client_selected_project_id', String(activeProjectId));
+                // Update settings state as well
+                setSettings(prev => ({ ...prev, default_project_id: activeProjectId }));
+                // Optionally reload to apply changes in other components
                 setTimeout(() => window.location.reload(), 500);
             }
         } catch (err: any) {
@@ -428,7 +441,10 @@ const ClientSettingsPage = () => {
                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Active Project</label>
                                 <select
                                     value={activeProjectId ?? ''}
-                                    onChange={(e) => setActiveProjectId(Number(e.target.value))}
+                                    onChange={(e) => {
+                                      const newId = Number(e.target.value);
+                                      setActiveProjectId(newId);
+                                    }}
                                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
                                 >
                                     {projects.map(p => <option key={p.id} value={p.id}>{p.name || p.project_name}</option>)}

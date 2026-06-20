@@ -30,6 +30,7 @@ const MasterDataPage = () => {
   const [activeTab, setActiveTab] = useState("All");
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [showInactive, setShowInactive] = useState(false);
   const PAGE_SIZE = 10;
 
   // Sync tab state with URL path
@@ -60,6 +61,8 @@ const MasterDataPage = () => {
       };
 
       const tag = activeTab === "All" ? "" : tagMap[activeTab];
+      // Note: Backend might already filter active records by default.
+      // We'll fetch all and filter in frontend if needed, or pass a param if supported.
       const data = await masterService.getAllMasterData(searchTerm, tag);
       setItems(data);
 
@@ -82,16 +85,20 @@ const MasterDataPage = () => {
     setCurrentPage(0);
   }, [activeTab, searchTerm, sortOrder]);
 
-  const sortedItems = useMemo(() => {
-    return [...items].sort((a, b) => {
+  const filteredAndSortedItems = useMemo(() => {
+    let result = [...items];
+    if (!showInactive) {
+      result = result.filter(item => (item as any).is_active !== false);
+    }
+    return result.sort((a, b) => {
       const aVal = a.id;
       const bVal = b.id;
       return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
     });
-  }, [items, sortOrder]);
+  }, [items, sortOrder, showInactive]);
 
-  const totalPages = Math.max(1, Math.ceil(sortedItems.length / PAGE_SIZE));
-  const pagedItems = sortedItems.slice(
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedItems.length / PAGE_SIZE));
+  const pagedItems = filteredAndSortedItems.slice(
     currentPage * PAGE_SIZE,
     (currentPage + 1) * PAGE_SIZE
   );
@@ -102,20 +109,34 @@ const MasterDataPage = () => {
 
   const handleCreateOrUpdate = async (data: any) => {
     try {
-      const entityMap: Record<string, "units" | "labour-types" | "activity-types" | "materials"> = {
+      const pluralMap: Record<string, "units" | "labour-types" | "activity-types" | "materials"> = {
         "Material": "materials",
         "Labour": "labour-types",
         "Activity": "activity-types",
         "Unit": "units"
       };
 
+      // Generic entity mapping for PUT/DELETE - some backends expect singular or specific tags
+      const entityMap: Record<string, string> = {
+        "Material": "materials",
+        "Labour": "labour-types",
+        "Activity": "activity-types",
+        "Unit": "units"
+      };
+
+      const pluralType = pluralMap[data.type] || "materials";
       const entityType = entityMap[data.type] || "materials";
 
+      // Clean data for API - remove frontend-only fields
+      const { type, system_tag, ...apiData } = data;
+
       if (editingItem) {
-        await masterService.updateEntity(entityType, editingItem.id, data);
+        await masterService.updateEntity(entityType, editingItem.id, apiData);
         toast.success("Entity updated successfully!");
+        // If deactivated, automatically show inactive so it doesn't "disappear"
+        if (apiData.is_active === false) setShowInactive(true);
       } else {
-        await masterService.createEntity(entityType, data);
+        await masterService.createEntity(pluralType, apiData);
         toast.success("New entity added to master data!");
       }
       fetchMasterData();
@@ -235,6 +256,20 @@ const MasterDataPage = () => {
                 />
               </div>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
+              {/* 
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="show-inactive"
+                  checked={showInactive}
+                  onChange={(e) => setShowInactive(e.target.checked)}
+                  className="rounded border-slate-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="show-inactive" className="text-xs font-bold text-slate-500 cursor-pointer">
+                  Show Inactive
+                </label>
+              </div>
+              */}
             </div>
             <div className="flex gap-2">
               {["All", "Material", "Labour", "Activity", "Unit"].map((tab) => (
@@ -266,6 +301,7 @@ const MasterDataPage = () => {
                   <th className="px-6 py-4">Entity Name</th>
                   <th className="px-6 py-4">Unique Code</th>
                   <th className="px-6 py-4">Category</th>
+                  <th className="px-6 py-4 text-center">Is Active</th>
                   <th className="px-6 py-4">System Tag</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -280,6 +316,14 @@ const MasterDataPage = () => {
                       <span className="text-xs font-mono font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-100">{item.unique_code}</span>
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-500">{item.category}</td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold ${(item as any).is_active !== false
+                        ? "bg-emerald-50 text-emerald-600"
+                        : "bg-slate-100 text-slate-400"
+                        }`}>
+                        {(item as any).is_active !== false ? "ACTIVE" : "INACTIVE"}
+                      </span>
+                    </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.system_tag === "MATERIAL" ? "bg-blue-50 text-blue-600" :
                         item.system_tag === "LABOR" ? "bg-violet-50 text-violet-600" :
@@ -300,21 +344,23 @@ const MasterDataPage = () => {
                         >
                           <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
-                        <button
-                          onClick={() => {
-                            setEditingItem({
-                              ...item,
-                              type: item.system_tag === "MATERIAL" ? "Material" :
-                                item.system_tag === "LABOR" ? "Labour" :
-                                  item.system_tag === "ACTIVITY" ? "Activity" : "Unit"
-                            });
-                            setIsModalOpen(true);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
-                          title="Edit Entity"
-                        >
-                          <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                        </button>
+                        {/* 
+                         <button
+                           onClick={() => {
+                             setEditingItem({
+                               ...item,
+                               type: item.system_tag === "MATERIAL" ? "Material" :
+                                 item.system_tag === "LABOR" ? "Labour" :
+                                   item.system_tag === "ACTIVITY" ? "Activity" : "Unit"
+                             });
+                             setIsModalOpen(true);
+                           }}
+                           className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
+                           title="Edit Entity"
+                         >
+                           <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                         </button>
+                         */}
                         <button
                           onClick={() => {
                             setItemToDelete(item);
@@ -337,7 +383,7 @@ const MasterDataPage = () => {
           {totalPages > 1 && (
             <div className="px-6 py-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, sortedItems.length)} of {sortedItems.length} Records
+                Showing {(currentPage * PAGE_SIZE) + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredAndSortedItems.length)} of {filteredAndSortedItems.length} Records
               </p>
               <div className="flex items-center gap-2">
                 <button

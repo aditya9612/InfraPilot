@@ -12,6 +12,15 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import {
+  Box,
+  Layers,
+  Activity,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle2,
+  PieChart as PieChartIcon
+} from "lucide-react";
 import { formatCurrency } from "../../utils/currencyUtils";
 
 interface MaterialCostReportModalProps {
@@ -124,7 +133,12 @@ const MaterialCostReportModal = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
             <div className="bg-slate-900 p-8 rounded-[32px] shadow-2xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 relative z-10">Total Inventory Value</p>
+              <div className="flex items-center gap-4 mb-4 relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-emerald-400">
+                  <Box size={20} />
+                </div>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Inventory Value</p>
+              </div>
               <div className="flex items-baseline gap-1 relative z-10">
                 <span className="text-3xl font-black text-white">{formatCurrency(totalExpense)}</span>
               </div>
@@ -132,13 +146,23 @@ const MaterialCostReportModal = ({
 
             <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 relative z-10">Material Categories</p>
+              <div className="flex items-center gap-4 mb-4 relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500">
+                  <Layers size={20} />
+                </div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Material Categories</p>
+              </div>
               <p className="text-3xl font-black text-slate-900 relative z-10">{categoryData.length}</p>
             </div>
 
             <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 relative z-10">Strategic Sites</p>
+              <div className="flex items-center gap-4 mb-4 relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
+                  <Activity size={20} />
+                </div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Strategic Sites</p>
+              </div>
               <p className="text-3xl font-black text-slate-900 relative z-10">{projectData.length}</p>
             </div>
           </div>
@@ -156,27 +180,39 @@ const MaterialCostReportModal = ({
                 {categoryData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <PieChart>
+                      <defs>
+                        {categoryData.map((_entry, index) => (
+                          <linearGradient key={`gradient-${index}`} id={`pieGradient-${index}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={COLORS[index % COLORS.length]} stopOpacity={1} />
+                            <stop offset="100%" stopColor={COLORS[index % COLORS.length]} stopOpacity={0.7} />
+                          </linearGradient>
+                        ))}
+                      </defs>
                       <Pie
                         data={categoryData}
-                        innerRadius={80}
-                        outerRadius={120}
-                        paddingAngle={8}
+                        innerRadius={90}
+                        outerRadius={130}
+                        paddingAngle={5}
                         dataKey="value"
                         stroke="none"
+                        animationBegin={0}
+                        animationDuration={1500}
                       >
                         {categoryData.map((_entry, index) => (
                           <Cell
                             key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
+                            fill={`url(#pieGradient-${index})`}
+                            className="hover:opacity-80 transition-opacity outline-none"
                           />
                         ))}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
                       <Legend
                         verticalAlign="bottom"
+                        align="center"
                         iconType="circle"
-                        formatter={(value) => <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">{value}</span>}
-                        wrapperStyle={{ paddingTop: "20px" }}
+                        formatter={(value) => <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight ml-1">{value}</span>}
+                        wrapperStyle={{ paddingTop: "30px", marginBottom: "-10px" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -202,8 +238,16 @@ const MaterialCostReportModal = ({
                     <BarChart
                       data={projectData}
                       layout="vertical"
-                      margin={{ left: 20, right: 20 }}
+                      margin={{ left: 20, right: 40, bottom: 20 }}
                     >
+                      <defs>
+                        {projectData.map((_entry, index) => (
+                          <linearGradient key={`bar-grad-${index}`} id={`barGradient-${index}`} x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor={COLORS[(index + 1) % COLORS.length]} stopOpacity={0.8} />
+                            <stop offset="100%" stopColor={COLORS[(index + 1) % COLORS.length]} stopOpacity={1} />
+                          </linearGradient>
+                        ))}
+                      </defs>
                       <CartesianGrid
                         strokeDasharray="4 4"
                         horizontal={false}
@@ -212,30 +256,31 @@ const MaterialCostReportModal = ({
                       />
                       <XAxis
                         type="number"
-                        tickFormatter={(value) => `₹${value / 1000}k`}
-                        tick={{ fill: "#94a3b8", fontSize: 9, fontWeight: 900 }}
+                        tickFormatter={(value) => `₹${value >= 1000000 ? (value / 1000000).toFixed(1) + 'M' : (value / 1000).toFixed(0) + 'k'}`}
+                        tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 900 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <YAxis
                         type="category"
                         dataKey="name"
-                        width={100}
-                        tick={{ fill: "#64748b", fontSize: 9, fontWeight: "black" }}
+                        width={140}
+                        tick={{ fill: "#64748b", fontSize: 10, fontWeight: "black" }}
                         axisLine={false}
                         tickLine={false}
                       />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f8fafc" }} />
+                      <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f8fafc", radius: 8 }} />
                       <Bar
                         dataKey="value"
-                        fill="#10b981"
-                        radius={[0, 12, 12, 0]}
+                        radius={[0, 20, 20, 0]}
                         maxBarSize={32}
+                        animationDuration={1500}
                       >
                         {projectData.map((_entry, index) => (
                           <Cell
                             key={`cell-${index}`}
-                            fill={COLORS[(index + 1) % COLORS.length]}
+                            fill={`url(#barGradient-${index})`}
+                            className="hover:brightness-110 transition-all cursor-pointer outline-none"
                           />
                         ))}
                       </Bar>
