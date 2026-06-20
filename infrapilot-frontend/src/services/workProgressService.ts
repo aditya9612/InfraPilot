@@ -127,6 +127,7 @@ export const workProgressService = {
         today_progress: data.today_progress,
         remarks: data.remarks || "",
         created_by: data.created_by,
+        photos: data.photos || [],
         created_at: new Date().toISOString()
       };
       mockDailyEntries.unshift(newEntry);
@@ -162,6 +163,7 @@ export const workProgressService = {
       const params: Record<string, any> = {};
       if (activityId !== undefined) params.activity_id = activityId;
       if (entryDate !== undefined) params.entry_date = entryDate;
+      if ((window as any).currentProjectId) params.project_id = (window as any).currentProjectId;
 
       const response = await api.get("/work-progress/daily-entry", { params });
       return Array.isArray(response.data) ? response.data : (response.data?.data || []);
@@ -347,6 +349,53 @@ export const workProgressService = {
         ]
       };
     }
+  },
+
+  /**
+   * Get global work progress logs
+   */
+  async getGlobalLogs(activityId?: number): Promise<{ data: any[] }> {
+    try {
+      const params: Record<string, any> = {};
+      if (activityId) params.activity_id = activityId;
+      const response = await api.get("/work-progress/logs", { params });
+      return response.data;
+    } catch (error: any) {
+      console.warn("getGlobalLogs API error, using virtual fallback:", error.message);
+      return { data: [] };
+    }
+  },
+
+  /**
+   * Download PDF Report
+   */
+  async getPdfReport(projectId: number): Promise<void> {
+    const response = await api.get("/work-progress/reports/pdf", {
+      params: { project_id: projectId },
+      responseType: 'blob'
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Progress_Report_${projectId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+  },
+
+  /**
+   * Download Excel Report
+   */
+  async getExcelReport(projectId: number): Promise<void> {
+    const response = await api.get("/work-progress/reports/excel", {
+      params: { project_id: projectId },
+      responseType: 'blob'
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Progress_Report_${projectId}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
   }
 };
 

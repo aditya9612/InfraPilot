@@ -7,7 +7,6 @@ import TaskOverview from "../../components/dashboard/TaskOverview";
 import ResourceOrchestrator from "../../components/dashboard/ResourceOrchestrator";
 import ActivityFeed from "../../components/dashboard/ActivityFeed";
 import { useState, useEffect } from "react";
-import { projectService } from "../../services/projectService";
 import { Link } from "react-router-dom";
 import { Clock, AlertCircle, CheckCircle, TrendingUp, FolderCheck, PieChart, Info, CalendarClock } from "lucide-react";
 import ComplianceScorecards from "../../components/dashboard/ComplianceScorecards";
@@ -16,27 +15,30 @@ import MonthlyTrendChart from "../../components/dashboard/MonthlyTrendChart";
 import { qcService } from "../../services/qcService";
 import { safetyService } from "../../services/safetyService";
 
+import { useProject } from "../../context/ProjectContext";
+
 const ManagerDashboard = () => {
-  const [projects, setProjects] = useState<any[]>([]);
+  const { assignedProjects, selectedProjectId, isLoading: projectsLoading } = useProject();
   const [qcMetrics, setQcMetrics] = useState({ total: 0, failures: 0 });
   const [safetyMetrics, setSafetyMetrics] = useState({ total: 0, incidents: 0 });
   const [loading, setLoading] = useState(true);
 
+  // Derived state for the filtered projects to show in stats
+  const filteredProjects = selectedProjectId
+    ? assignedProjects.filter(p => p.id === selectedProjectId)
+    : assignedProjects;
+
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchDashboardMetrics = async () => {
       try {
-        const [pData, qcData, safetyData] = await Promise.all([
-          projectService.getProjects(),
-          qcService.listQc(0), // 0 to get overall if backend supports it, otherwise fallback
-          safetyService.listIncidents(0)
+        const [qcData, safetyData] = await Promise.all([
+          qcService.listQc(selectedProjectId || 0),
+          safetyService.listIncidents(selectedProjectId || 0)
         ]);
 
-        setProjects(Array.isArray(pData) ? pData : pData.items || []);
-
-        // Populate metrics (Demo fallback handled by services)
         setQcMetrics({
           total: qcData.meta.total,
-          failures: qcData.items.filter(i => i.status === "Fail").length
+          failures: qcData.items.filter((i: any) => i.status === "Fail").length
         });
         setSafetyMetrics({
           total: safetyData.meta.total,
@@ -49,11 +51,15 @@ const ManagerDashboard = () => {
         setLoading(false);
       }
     };
-    fetchDashboardData();
-  }, []);
+    if (!projectsLoading) {
+      fetchDashboardMetrics();
+    }
+  }, [projectsLoading, selectedProjectId]);
 
-  const activeProjects = projects.filter(p => p.status === "ONGOING").length;
-  const delayedProjects = projects.filter(p => p.status === "DELAYED").length;
+  const projects = filteredProjects; // Alias for backward compatibility in the render
+
+  const activeProjects = projects.filter(p => p.status === "Ongoing").length;
+  const delayedProjects = projects.filter(p => p.status === "Delayed").length;
 
   if (loading) {
     return (
@@ -102,7 +108,7 @@ const ManagerDashboard = () => {
             />
             <StatCard
               title="Completed Projects"
-              value={projects.filter(p => p.status === "COMPLETED").length.toString()}
+              value={projects.filter(p => p.status === "Completed").length.toString()}
               sub="Successfully Handed Over"
               accent="text-blue-600"
               icon={<CheckCircle className="w-5 h-5 text-blue-600" />}

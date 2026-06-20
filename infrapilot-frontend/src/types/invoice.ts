@@ -24,6 +24,10 @@ export interface Invoice {
   rate?: number;
   start_date?: string;
   end_date?: string;
+  paid_amount?: number;
+  pending_amount?: number;
+  source_type?: string | null;
+  quotation_id?: number | null;
 }
 
 export interface InvoiceCreateData {

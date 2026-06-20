@@ -587,11 +587,6 @@ const CreateInvoicePage = () => {
 
   // Implement Save
   const handleSaveQuotation = async () => {
-    if (!selectedProjectId) {
-      toast.error("Please select a project");
-      return;
-    }
-
     try {
       setIsSaving(true);
 
@@ -1331,7 +1326,7 @@ const CreateInvoicePage = () => {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name <span className="text-rose-500">*</span></label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name</label>
                     <select
                       value={selectedProjectId}
                       onChange={(e) => setSelectedProjectId(Number(e.target.value))}

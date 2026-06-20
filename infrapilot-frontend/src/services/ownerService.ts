@@ -33,10 +33,11 @@ export const ownerService = {
    */
   async getOwners(search = ""): Promise<Owner[]> {
     try {
-      const response = await api.get("/owners", { params: { search } });
+      const response = await api.get("/owners", { params: { search, limit: 1000 } });
       const data = response.data;
+      const items = Array.isArray(data) ? data : (data.items || data.data || []);
 
-      return (data || []).map((o: any) => ({
+      return items.map((o: any) => ({
         id: String(o.id),
         name: o.owner_name,
         mobile: String(o.mobile || o.mobile_number || ""),

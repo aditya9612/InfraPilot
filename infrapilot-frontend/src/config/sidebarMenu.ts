@@ -385,7 +385,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Dashboard", path: "/accountant", icon: "grid" },
     {
       label: "Chart of Accounts",
-      path: "/accountant/chart-of-accounts/assets",
+      path: "/accountant/chart-of-accounts",
       icon: "book-open",
       subNav: [
         { label: "Assets", path: "/accountant/chart-of-accounts/assets", icon: "dollar-sign" },
