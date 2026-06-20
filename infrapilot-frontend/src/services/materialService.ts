@@ -159,14 +159,14 @@ export const materialService = {
     return response.data;
   },
 
-  async getMaterialReport(project_id: number): Promise<MaterialReport[]> {
+  async getMaterialReport(project_id: number): Promise<{ summary: any, materials: MaterialReport[] }> {
     console.log("GET /api/v1/materials/reports Request Params:", { project_id });
     const response = await api.get<any>("/materials/reports", {
       params: { project_id }
     });
     const data = response.data;
     const items = Array.isArray(data) ? data : (data.materials || data.items || data.data || []);
-    return items.map((rep: any) => ({
+    const materials = items.map((rep: any) => ({
       ...rep,
       material_id: rep.material_id ?? rep.id ?? Math.floor(Math.random() * 10000),
       material_name: rep.material_name || "Unknown Material",
@@ -177,15 +177,20 @@ export const materialService = {
       payment_pending: rep.payment_pending ?? 0,
       project_id: rep.project_id
     }));
+    return { summary: data.summary || {}, materials };
   },
-  async exportPdf(project_id?: number): Promise<void> {
+  async exportPdf(project_id?: number, sortOrder?: string): Promise<void> {
     try {
       const endpoints = ["/materials/reports/pdf", "/materials/reports/materials/pdf"];
       let response;
       for (const endpoint of endpoints) {
         try {
+            const params: any = {};
+            if (project_id) params.project_id = project_id;
+            if (sortOrder) params.sort_order = sortOrder;
+
             response = await api.get(endpoint, {
-              params: project_id ? { project_id } : undefined,
+              params,
               responseType: 'blob'
             });
             break;
@@ -212,14 +217,18 @@ export const materialService = {
     }
   },
 
-  async exportExcel(project_id?: number): Promise<void> {
+  async exportExcel(project_id?: number, sortOrder?: string): Promise<void> {
     try {
       const endpoints = ["/materials/reports/excel", "/materials/reports/materials/excel"];
       let response;
       for (const endpoint of endpoints) {
         try {
+            const params: any = {};
+            if (project_id) params.project_id = project_id;
+            if (sortOrder) params.sort_order = sortOrder;
+
             response = await api.get(endpoint, {
-              params: project_id ? { project_id } : undefined,
+              params,
               responseType: 'blob'
             });
             break;

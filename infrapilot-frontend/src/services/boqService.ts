@@ -247,8 +247,7 @@ export const boqService = {
    */
   async getBoqItems(projectId: number): Promise<BoqItem[]> {
     try {
-      // Use the generic list endpoint with a filter
-      const response = await api.get("/boq", { params: { project_id: projectId, limit: 1000 } });
+      const response = await api.get("/boq", { params: { project_id: projectId, limit: 100, offset: 0 } });
       const data = response.data;
 
       // Handle different response structures

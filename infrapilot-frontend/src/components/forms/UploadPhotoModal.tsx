@@ -21,6 +21,8 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         activity_tag: "",
         location_tag: "",
         description: "",
+        task_id: "",
+        dsr_id: "",
     });
     const [projects, setProjects] = useState<any[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -35,6 +37,8 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                 activity_tag: "",
                 location_tag: "",
                 description: "",
+                task_id: "",
+                dsr_id: "",
             });
             setSelectedFile(null);
             setErrors({});
@@ -89,6 +93,8 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
             data.append("activity_tag", formData.activity_tag);
             data.append("location_tag", formData.location_tag);
             data.append("description", formData.description);
+            if (formData.task_id) data.append("task_id", String(formData.task_id));
+            if (formData.dsr_id) data.append("dsr_id", String(formData.dsr_id));
             if (selectedFile) {
                 data.append("file", selectedFile);
             }
@@ -173,6 +179,16 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                         <div>
                             <label className={labelClasses}>Observed Date</label>
                             <input type="date" name="date" value={formData.date} onChange={handleChange} className={inputClasses(errors.date)} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                        <div>
+                            <label className={labelClasses}>Task ID <span className="normal-case text-slate-300">(optional)</span></label>
+                            <input type="number" min="1" name="task_id" value={formData.task_id} onChange={handleChange} className={inputClasses(errors.task_id)} placeholder="Enter Task ID..." />
+                        </div>
+                        <div>
+                            <label className={labelClasses}>DSR ID <span className="normal-case text-slate-300">(optional)</span></label>
+                            <input type="number" min="1" name="dsr_id" value={formData.dsr_id} onChange={handleChange} className={inputClasses(errors.dsr_id)} placeholder="Enter DSR ID..." />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

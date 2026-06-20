@@ -86,8 +86,11 @@ export const documentService = {
      * Update document metadata
      * PUT /api/v1/documents/{id}
      */
-    async updateDocument(id: number, data: DocumentUpdateParams): Promise<Document> {
-        const response = await api.put(`/documents/${id}`, data);
+    async updateDocument(id: number, data: DocumentUpdateParams | FormData): Promise<Document> {
+        const isFormData = data instanceof FormData;
+        const response = await api.put(`/documents/${id}`, data, {
+            headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined
+        });
         return response.data;
     },
 

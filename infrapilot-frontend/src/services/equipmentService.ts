@@ -172,11 +172,10 @@ export const equipmentService = {
     // ==========================================
     // 2. Allocation
     // ==========================================
-    async allocateEquipment(id: number, project_id: number, allocated: boolean = true): Promise<AllocationStatus> {
-        const response = await api.post<AllocationStatus>(`/equipment/${id}/allocate?project_id=${project_id}`, {
-            equipment_id: id,
-            project_id: project_id,
-            allocated: allocated
+    async allocateEquipment(id: number, project_id: number): Promise<any> {
+        const response = await api.post(`/equipment/allocate`, {
+            equipment_ids: [id],
+            project_id: project_id
         });
         return response.data;
     },
@@ -186,8 +185,10 @@ export const equipmentService = {
         return response.data;
     },
 
-    async deallocateEquipment(id: number): Promise<AllocationStatus> {
-        const response = await api.put<AllocationStatus>(`/equipment/${id}/deallocate`);
+    async deallocateEquipment(id: number): Promise<any> {
+        const response = await api.put(`/equipment/deallocate`, {
+            equipment_ids: [id]
+        });
         return response.data;
     },
 
@@ -231,6 +232,12 @@ export const equipmentService = {
 
     async listMaintenance(equipment_id: number): Promise<MaintenanceItem[]> {
         const response = await api.get<MaintenanceItem[]>(`/equipment/${equipment_id}/maintenance`);
+        return response.data;
+    },
+
+    async completeMaintenance(maintenance_id: number): Promise<MaintenanceItem> {
+        const url = `/equipment/maintenance/${maintenance_id}/complete`;
+        const response = await api.put<MaintenanceItem>(url);
         return response.data;
     },
 

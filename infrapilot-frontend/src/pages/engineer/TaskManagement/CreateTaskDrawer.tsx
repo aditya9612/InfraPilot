@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Calendar, Search, Building2, UserCircle, Briefcase, FileText, Filter as FilterIcon, Check, Mic, Square, Play, Pause, Trash2 } from 'lucide-react';
+import { Calendar, UserCircle, Briefcase, FileText, Check, Mic, Square, Play, Pause, Trash2, Search, ChevronDown } from 'lucide-react';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
 import { labourService } from '../../../services/labourService';
+import { boqService } from '../../../services/boqService';
+import { workProgressService } from '../../../services/workProgressService';
 import toast from 'react-hot-toast';
 
 interface CreateTaskModalProps {
@@ -19,10 +21,18 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const [startDate, setStartDate] = useState('');
     const [deadline, setDeadline] = useState('');
     const [project, setProject] = useState('None');
-    const [filterRole, setFilterRole] = useState('All Roles');
-    const [filterDepartment, setFilterDepartment] = useState('All Departments');
-    const [showAllDepartments, setShowAllDepartments] = useState(false);
-    const [searchEmployee, setSearchEmployee] = useState('');
+
+    const [status, setStatus] = useState('Planned');
+    const [activityTypeId, setActivityTypeId] = useState('None');
+    const [milestoneId, setMilestoneId] = useState('None');
+    const [boqId, setBoqId] = useState('None');
+    const [instructionImage, setInstructionImage] = useState<File | null>(null);
+
+    const [milestones, setMilestones] = useState<any[]>([]);
+    const [boqs, setBoqs] = useState<any[]>([]);
+    const [activities, setActivities] = useState<any[]>([]);
+
+    const targetProjectId = project !== 'None' ? Number(project) : projectId;
 
     const [employees, setEmployees] = useState<any[]>([]);
 
@@ -36,6 +46,30 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const timerRef = useRef<any>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchProjectData = async () => {
+            if (!targetProjectId) {
+                setMilestones([]);
+                setBoqs([]);
+                setActivities([]);
+                return;
+            }
+            try {
+                const [ms, bq, act] = await Promise.all([
+                    projectService.getMilestones(targetProjectId).catch(() => []),
+                    boqService.getBoqItems(targetProjectId).catch(() => []),
+                    workProgressService.listActivities(targetProjectId).catch(() => [])
+                ]);
+                setMilestones(Array.isArray(ms) ? ms : (ms as any).items || (ms as any).data || []);
+                setBoqs(Array.isArray(bq) ? bq : (bq as any).items || (bq as any).data || []);
+                setActivities(Array.isArray(act) ? act : (act as any).items || (act as any).data || []);
+            } catch (err) {
+                console.error("Failed to load project-specific data", err);
+            }
+        };
+        fetchProjectData();
+    }, [targetProjectId]);
 
     useEffect(() => {
         let localProjects: any[] = [];
@@ -55,9 +89,11 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
             setStartDate('');
             setDeadline('');
             setProject('None');
-            setFilterRole('All Roles');
-            setFilterDepartment('All Departments');
-            setSearchEmployee('');
+            setStatus('Planned');
+            setActivityTypeId('None');
+            setMilestoneId('None');
+            setBoqId('None');
+            setInstructionImage(null);
             setSelectedEmployees([]);
             deleteRecording();
 
@@ -90,19 +126,45 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     };
 
     const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
+    
+    // Custom Dropdown State
+    const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+    const [userSearchQuery, setUserSearchQuery] = useState('');
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
-    const handleSelectAll = () => {
-        if (selectedEmployees.length === employees.length) {
-            setSelectedEmployees([]);
-        } else {
-            setSelectedEmployees(employees.map(e => e.id));
-        }
-    };
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsUserDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filteredEmployees = employees.filter((emp: any) => {
+        const s = userSearchQuery.toLowerCase();
+        return (emp.labour_name || emp.name || '').toLowerCase().includes(s) ||
+               (emp.worker_code || '').toLowerCase().includes(s) ||
+               (emp.skill_type || '').toLowerCase().includes(s);
+    });
+
+    const isAllVisibleSelected = filteredEmployees.length > 0 && filteredEmployees.every((emp: any) => selectedEmployees.includes(emp.id));
 
     const toggleEmployee = (id: number) => {
-        setSelectedEmployees(prev =>
-            prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
-        );
+        setSelectedEmployees(prev => prev.includes(id) ? prev.filter(eId => eId !== id) : [...prev, id]);
+    };
+
+    const toggleAllVisible = () => {
+        if (isAllVisibleSelected) {
+            setSelectedEmployees(prev => prev.filter(id => !filteredEmployees.find((e: any) => e.id === id)));
+        } else {
+            const newSelected = [...selectedEmployees];
+            filteredEmployees.forEach((emp: any) => {
+                if (!newSelected.includes(emp.id)) newSelected.push(emp.id);
+            });
+            setSelectedEmployees(newSelected);
+        }
     };
 
     const startRecording = async () => {
@@ -177,11 +239,20 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
 
 
+    const fileToBase64 = (file: Blob | File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = error => reject(error);
+        });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const targetProjectId = project !== 'None' ? Number(project) : projectId;
-        if (!targetProjectId) {
+        const targetProjectIdVal = project !== 'None' ? Number(project) : projectId;
+        if (!targetProjectIdVal) {
             toast.error("Please select a project");
             return;
         }
@@ -189,24 +260,44 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         try {
             const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1 };
 
-            const formData = new FormData();
-            formData.append("title", title);
-            formData.append("description", description);
-            formData.append("priority", String(priorityMap[priority]));
-            formData.append("status", "Planned");
-            
-            if (startDate) formData.append("start_date", startDate);
-            if (deadline) formData.append("end_date", deadline);
-            
-            if (selectedEmployees.length > 0) {
-                formData.append("assigned_user_ids", selectedEmployees.join(","));
-            }
-
+            let audioBase64 = null;
             if (audioBlob) {
-                formData.append("audio_file", audioBlob, "voice_note.webm");
+                audioBase64 = await fileToBase64(audioBlob);
+            }
+            
+            let imageBase64 = null;
+            if (instructionImage) {
+                imageBase64 = await fileToBase64(instructionImage);
             }
 
-            await projectService.createTask(targetProjectId, formData);
+            const assignedUserIdNum = selectedEmployees.length > 0 ? selectedEmployees[0] : null;
+
+            const payload: any = {
+                title,
+                activity_name: title,
+                description,
+                priority: priorityMap[priority],
+                status,
+                assigned_user_ids: selectedEmployees.length > 0 ? selectedEmployees.join(",") : "",
+                assigned_user_id: assignedUserIdNum,
+                engineer_id: assignedUserIdNum,
+                assigned_to: assignedUserIdNum,
+                user_id: assignedUserIdNum,
+                lead_id: assignedUserIdNum,
+                assigned_to_id: assignedUserIdNum,
+            };
+
+            if (startDate) payload.start_date = startDate;
+            if (deadline) payload.end_date = deadline;
+            
+            if (activityTypeId && activityTypeId !== 'None') payload.activity_type_id = Number(activityTypeId);
+            if (milestoneId && milestoneId !== 'None') payload.milestone_id = Number(milestoneId);
+            if (boqId && boqId !== 'None') payload.boq_id = Number(boqId);
+
+            if (audioBase64) payload.audio_data = audioBase64;
+            if (imageBase64) payload.instruction_image_url = imageBase64; // API might expect the base64 in url or a separate _data field. Using url as fallback.
+
+            await projectService.createTask(targetProjectIdVal, payload);
 
             toast.success("Task created successfully");
             onSuccess();
@@ -340,6 +431,18 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 )}
                             </div>
                         </div>
+
+                        <div>
+                            <label className={labelClasses}>
+                                Instruction Image
+                            </label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setInstructionImage(e.target.files?.[0] || null)}
+                                className={inputClasses + " p-2 h-[66px]"}
+                            />
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -361,6 +464,23 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
                         <div>
                             <label className={labelClasses}>
+                                <Check className="w-3 h-3 text-primary" />
+                                Status
+                            </label>
+                            <select
+                                className={inputClasses}
+                                value={status}
+                                onChange={(e) => setStatus(e.target.value)}
+                            >
+                                <option value="Planned">Planned</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="On Hold">On Hold</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={labelClasses}>
                                 <FileText className="w-3 h-3 text-primary" />
                                 Project <span className="text-rose-500">*</span>
                             </label>
@@ -375,6 +495,124 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                     <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name}</option>
                                 ))}
                             </select>
+                        </div>
+
+                        <div>
+                            <label className={labelClasses}>
+                                <FileText className="w-3 h-3 text-primary" />
+                                Activity Type
+                            </label>
+                            <select
+                                className={inputClasses}
+                                value={activityTypeId}
+                                onChange={(e) => setActivityTypeId(e.target.value)}
+                            >
+                                <option value="None">None</option>
+                                {activities.map((a: any) => (
+                                    <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={labelClasses}>
+                                <FileText className="w-3 h-3 text-primary" />
+                                Milestone
+                            </label>
+                            <select
+                                className={inputClasses}
+                                value={milestoneId}
+                                onChange={(e) => setMilestoneId(e.target.value)}
+                            >
+                                <option value="None">None</option>
+                                {milestones.map((m: any) => (
+                                    <option key={m.id} value={m.id}>{m.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={labelClasses}>
+                                <FileText className="w-3 h-3 text-primary" />
+                                BOQ
+                            </label>
+                            <select
+                                className={inputClasses}
+                                value={boqId}
+                                onChange={(e) => setBoqId(e.target.value)}
+                            >
+                                <option value="None">None</option>
+                                {boqs.map((b: any) => (
+                                    <option key={b.id} value={b.id}>{b.name || b.item_description || `BOQ Item`}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="relative" ref={dropdownRef}>
+                            <label className={labelClasses}>
+                                <UserCircle className="w-3 h-3 text-primary" />
+                                Assigned User
+                            </label>
+                            
+                            <div 
+                                className={`${inputClasses} flex items-center justify-between cursor-pointer ${isUserDropdownOpen ? 'ring-2 ring-primary/20 border-primary' : ''}`}
+                                onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                            >
+                                <span className="text-slate-600 truncate flex-1">
+                                    {selectedEmployees.length === 0 
+                                        ? "Select users..." 
+                                        : `${selectedEmployees.length} user${selectedEmployees.length > 1 ? 's' : ''} selected`}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
+                            </div>
+
+                            {isUserDropdownOpen && (
+                                <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[300px]">
+                                    <div className="p-2 border-b border-slate-100">
+                                        <div className="relative">
+                                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                            <input 
+                                                type="text" 
+                                                placeholder="Search employees by name, ID or email..."
+                                                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+                                                value={userSearchQuery}
+                                                onChange={(e) => setUserSearchQuery(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
+                                        <label className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors border-b border-slate-100 mb-2">
+                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isAllVisibleSelected ? 'bg-primary border-primary' : 'border-slate-300'}`}>
+                                                {isAllVisibleSelected && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+                                            <span className="text-sm font-bold text-slate-700">Select All Visible</span>
+                                            {/* Invisible checkbox so label works */}
+                                            <input type="checkbox" className="hidden" checked={isAllVisibleSelected} onChange={toggleAllVisible} />
+                                        </label>
+
+                                        {filteredEmployees.map((emp: any) => (
+                                            <label key={emp.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group">
+                                                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedEmployees.includes(emp.id) ? 'bg-primary border-primary' : 'border-slate-300'}`}>
+                                                    {selectedEmployees.includes(emp.id) && <Check className="w-3 h-3 text-white" />}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-bold text-slate-800">{emp.labour_name || emp.name}</p>
+                                                    <p className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded w-fit mt-0.5 border border-slate-200">{emp.worker_code}</p>
+                                                </div>
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-1 rounded-md group-hover:bg-white transition-colors border border-slate-200 group-hover:border-slate-300 shadow-sm">
+                                                    {emp.skill_type || 'GENERAL'}
+                                                </span>
+                                                <input type="checkbox" className="hidden" checked={selectedEmployees.includes(emp.id)} onChange={() => toggleEmployee(emp.id)} />
+                                            </label>
+                                        ))}
+                                        
+                                        {filteredEmployees.length === 0 && (
+                                            <div className="p-4 text-center text-sm text-slate-500">No employees found</div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div>
@@ -405,128 +643,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                     </div>
                 </div>
 
-                {/* Assignment Section */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2 mb-4">Task Assignment</h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className={labelClasses}>
-                                <FilterIcon className="w-3 h-3 text-primary" />
-                                Filter Role
-                            </label>
-                            <select
-                                className={inputClasses}
-                                value={filterRole}
-                                onChange={(e) => setFilterRole(e.target.value)}
-                            >
-                                <option value="All Roles">All Roles</option>
-                                <option value="Team Lead">Team Lead</option>
-                                <option value="Employee">Employee</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className={labelClasses}>
-                                <Building2 className="w-3 h-3 text-primary" />
-                                Filter Department
-                            </label>
-                            <select
-                                className={inputClasses}
-                                value={filterDepartment}
-                                onChange={(e) => setFilterDepartment(e.target.value)}
-                            >
-                                <option value="All Departments">All Departments</option>
-                                <option value="Engineering">Engineering</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            <label className={labelClasses}>
-                                <UserCircle className="w-3 h-3 text-primary" />
-                                Assign To
-                            </label>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${showAllDepartments ? 'bg-primary border-primary text-white' : 'border-slate-300 text-transparent'}`}
-                                    onClick={() => setShowAllDepartments(!showAllDepartments)}
-                                >
-                                    <Check className="w-3 h-3" />
-                                </button>
-                                <span className="text-xs font-medium text-slate-500">Show All Departments</span>
-                            </div>
-                        </div>
-
-                        <div className="relative mb-3">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Search className="w-4 h-4 text-slate-400" />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="Search employees by name, ID or email..."
-                                className={`${inputClasses} pl-9`}
-                                value={searchEmployee}
-                                onChange={(e) => setSearchEmployee(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                            <div
-                                className="flex items-center justify-between p-3 border-b border-slate-100 cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-colors"
-                                onClick={handleSelectAll}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedEmployees.length === employees.length ? 'bg-primary border-primary text-white' : 'border-slate-300 text-transparent'}`}>
-                                        <Check className="w-3 h-3" />
-                                    </div>
-                                    <span className="text-sm font-bold text-slate-700">Select All Visible</span>
-                                </div>
-                                {selectedEmployees.length > 0 && (
-                                    <span className="px-2 py-0.5 bg-blue-50 text-primary text-[10px] font-bold rounded-md">
-                                        {selectedEmployees.length} Selected
-                                    </span>
-                                )}
-                            </div>
-
-                            <div className="max-h-48 overflow-y-auto">
-                                {employees
-                                    .filter(emp =>
-                                        !searchEmployee ||
-                                        emp.labour_name?.toLowerCase().includes(searchEmployee.toLowerCase()) ||
-                                        emp.worker_code?.toLowerCase().includes(searchEmployee.toLowerCase())
-                                    )
-                                    .map(emp => (
-                                        <div
-                                            key={emp.id}
-                                            className="flex items-center justify-between p-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors"
-                                            onClick={() => toggleEmployee(emp.id)}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <div className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selectedEmployees.includes(emp.id) ? 'bg-primary border-primary text-white' : 'border-slate-300 text-transparent'}`}>
-                                                    <Check className="w-3 h-3" />
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span className="text-sm font-bold text-slate-800">{emp.labour_name || emp.name}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold border border-slate-200">
-                                                            {emp.worker_code}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded text-[10px] font-bold uppercase tracking-wider">
-                                                {emp.skill_type || 'Labour'}
-                                            </span>
-                                        </div>
-                                    ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </form>
         </Modal>
     );

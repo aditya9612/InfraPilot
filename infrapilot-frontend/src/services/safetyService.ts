@@ -11,6 +11,7 @@ export interface IncidentItem {
     responsible_person: string;
     safety_checklist_status: string;
     ppe_compliance: boolean;
+    task_id?: number | null;
 }
 
 export interface IncidentResponse {
@@ -32,6 +33,7 @@ export interface CreateIncidentRequest {
     responsible_person: string;
     safety_checklist_status: string;
     ppe_compliance: boolean;
+    task_id?: number | null;
 }
 
 export type UpdateIncidentRequest = CreateIncidentRequest;

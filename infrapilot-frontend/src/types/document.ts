@@ -52,4 +52,6 @@ export interface DocumentUpdateParams {
     status?: string;
     remarks?: string;
     version?: string;
+    file_url?: string | null;
+    file_size?: number;
 }

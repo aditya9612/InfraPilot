@@ -960,6 +960,14 @@ const SafetyManagementPage = () => {
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Project Link</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getProjectName(selectedIncident.project_id)}>{getProjectName(selectedIncident.project_id)}</p>
                                     </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task ID</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedIncident.task_id || "N/A"}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Responsible Person</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedIncident.responsible_person || "N/A"}</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -985,14 +993,12 @@ const SafetyManagementPage = () => {
                                             </div>
                                         </div>
                                     )}
-                                    {selectedIncident.action_taken && (
-                                        <div className="font-inter">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Corrective Measures</p>
-                                            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-700 leading-relaxed font-inter">
-                                                "{selectedIncident.action_taken}"
-                                            </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Corrective Measures</p>
+                                        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-700 leading-relaxed font-inter">
+                                            "{selectedIncident.action_taken || "No action taken recorded."}"
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

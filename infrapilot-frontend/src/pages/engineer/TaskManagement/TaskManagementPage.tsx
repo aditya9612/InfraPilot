@@ -4,9 +4,9 @@ import PageTransition from '../../../components/common/PageTransition';
 import toast from 'react-hot-toast';
 import {
     Filter, Search, Plus, Eye, Calendar, User,
-    CheckCircle, Clock, AlertCircle, XCircle, List, Grid,
+    CheckCircle, Clock, XCircle, List, Grid,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
-    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square
+    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square, AlertCircle
 } from 'lucide-react';
 // import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
@@ -14,6 +14,7 @@ import AudioRecordModal from './AudioRecordModal';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
 import { boqService } from '../../../services/boqService';
+import { workProgressService } from '../../../services/workProgressService';
 import type { Task, ProjectMember, ProjectStatus } from '../../../types/project';
 
 interface FrontendTask extends Omit<Task, 'priority'> {
@@ -23,6 +24,10 @@ interface FrontendTask extends Omit<Task, 'priority'> {
     hasHistory: boolean;
     projectName?: string;
     audio_data?: string;
+    milestoneName?: string;
+    boqName?: string;
+    creatorName?: string;
+    assignedNames?: string[];
 }
 
 
@@ -97,6 +102,10 @@ const TaskManagementPage = () => {
     // Project Accordion State
     const [expandedProjects, setExpandedProjects] = useState<number[]>([]);
     const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+
+    const [projectMilestones, setProjectMilestones] = useState<any[]>([]);
+    const [projectBoqs, setProjectBoqs] = useState<any[]>([]);
+    const [projectActivities, setProjectActivities] = useState<any[]>([]);
 
     // Modal State
     const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
@@ -217,12 +226,22 @@ const TaskManagementPage = () => {
     const fetchData = useCallback(async () => {
         if (!projectId) return;
         try {
-            const [fetchedTasks, fetchedMembers] = await Promise.all([
+            const [fetchedTasks, fetchedMembers, fetchedMilestones, fetchedBoqs, fetchedActivities] = await Promise.all([
                 projectService.getTasks(projectId),
-                projectService.getProjectMembers(projectId)
+                projectService.getProjectMembers(projectId),
+                projectService.getMilestones(projectId).catch(() => []),
+                boqService.getBoqItems(projectId).catch(() => []),
+                workProgressService.listActivities(projectId).catch(() => [])
             ]);
 
             const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
+            const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || []);
+            const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || []);
+            const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || []);
+
+            setProjectMilestones(milestonesList);
+            setProjectBoqs(boqsList);
+            setProjectActivities(activitiesList);
 
             const userStr = localStorage.getItem("infrapilot_user");
             let pName = "Unknown Project";
@@ -246,6 +265,22 @@ const TaskManagementPage = () => {
                     if (matched) taskProjectName = matched.project_name || matched.name;
                 }
 
+                const creator = membersList.find(m => m.user_id === (t as any).created_by_user_id);
+                const creatorName = creator ? creator.full_name : "Unknown";
+
+                const assignedNames = Array.isArray((t as any).assigned_users)
+                    ? (t as any).assigned_users.map((id: any) => {
+                        const m = membersList.find(member => member.user_id === id);
+                        return m ? m.full_name : id;
+                    })
+                    : [];
+
+                const milestone = milestonesList.find((m: any) => m.id === (t as any).milestone_id);
+                const milestoneName = milestone ? milestone.name : "None";
+
+                const boq = boqsList.find((b: any) => b.id === (t as any).boq_id);
+                const boqName = boq ? boq.name : "None";
+
                 return {
                     ...t,
                     priority: mapPriority(t.priority),
@@ -256,7 +291,11 @@ const TaskManagementPage = () => {
                     },
                     hasHistory: false,
                     projectName: taskProjectName,
-                    audio_data: t.audio_data
+                    audio_data: t.audio_data,
+                    milestoneName,
+                    boqName,
+                    creatorName,
+                    assignedNames
                 };
             });
             setTasks(mappedTasks);
@@ -387,22 +426,50 @@ const TaskManagementPage = () => {
 
         const targetProjectId = Number(formData.get('project_id')) || projectId || 0;
 
-        // Ensure we do not send empty files which might fail validation
-        if (editAudioBlob) {
-            formData.set('audio_file', editAudioBlob, 'voice_note.webm');
-        } else if ((formData.get('audio_file') as File)?.size === 0 || !formData.get('audio_file')) {
-            formData.delete('audio_file');
-        }
-        if ((formData.get('instruction_image') as File)?.size === 0) {
-            formData.delete('instruction_image');
-        }
+        const fileToBase64 = (file: Blob | File): Promise<string> => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = error => reject(error);
+            });
+        };
 
-        // Priority is integer in swagger
-        const priorityStr = formData.get('priority') as string;
-        if (priorityStr) formData.set('priority', parseInt(priorityStr).toString());
+        const assignedUserIds = formData.get('assigned_user_ids') || "";
+        const assignedUserIdNum = assignedUserIds ? Number(assignedUserIds.toString().split(',')[0]) : null;
+
+        const payload: any = {
+            title: formData.get('title'),
+            activity_name: formData.get('title'),
+            description: formData.get('description'),
+            priority: parseInt(formData.get('priority') as string) || 1,
+            start_date: formData.get('start_date') || undefined,
+            end_date: formData.get('end_date') || undefined,
+            status: formData.get('status'),
+            assigned_user_ids: assignedUserIds,
+            assigned_user_id: assignedUserIdNum,
+            engineer_id: assignedUserIdNum,
+            assigned_to: assignedUserIdNum,
+            user_id: assignedUserIdNum,
+            lead_id: assignedUserIdNum,
+            assigned_to_id: assignedUserIdNum,
+            activity_type_id: formData.get('activity_type_id') ? Number(formData.get('activity_type_id')) : undefined,
+            milestone_id: formData.get('milestone_id') ? Number(formData.get('milestone_id')) : undefined,
+            boq_id: formData.get('boq_id') ? Number(formData.get('boq_id')) : undefined,
+            remove_audio: formData.get('remove_audio') === 'true',
+            remove_image: formData.get('remove_image') === 'true',
+        };
+
+        if (editAudioBlob) {
+            payload.audio_data = await fileToBase64(editAudioBlob);
+        }
+        const instructionImage = formData.get('instruction_image') as File;
+        if (instructionImage && instructionImage.size > 0) {
+            payload.instruction_image_url = await fileToBase64(instructionImage);
+        }
 
         try {
-            await projectService.updateTask(targetProjectId as number, selectedEditTask.id, formData);
+            await projectService.updateTask(targetProjectId as number, selectedEditTask.id, payload);
 
             toast.success("Task updated successfully");
             setIsEditModalOpen(false);
@@ -932,67 +999,43 @@ const TaskManagementPage = () => {
                                         <table className="w-full text-left font-inter min-w-[1000px] block md:table">
                                             <thead className="hidden md:table-header-group">
                                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Task</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Project</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned By</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned To</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Assignment</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Deadline</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
+
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">project_id</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">milestone_id</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">boq_id</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">title</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">description</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">priority</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">status</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">start_date</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">end_date</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">created_by_user_id</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">assigned_users</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">completion_percentage</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">is_delayed</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">execution_duration</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">delay_days</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">actual_cost</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">planned_cost</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">audio_instruction_url</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">instruction_image_url</th>
+
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="block md:table-row-group">
                                                 {paginatedTasks.map((task) => (
                                                     <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors block md:table-row">
-                                                        <td className="p-4 block md:table-cell">
-                                                            <p className="text-sm font-bold text-slate-800">{task.title}</p>
-                                                            <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{task.description}</p>
 
-                                                        </td>
-                                                        <td className="p-4 block md:table-cell">
-                                                            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 whitespace-nowrap">
-                                                                {task.projectName}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4 block md:table-cell">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
-                                                                    <User className="w-3 h-3" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-xs font-bold text-slate-800">{task.assignedBy.name}</p>
-                                                                    <p className="text-[10px] text-slate-500">{task.assignedBy.role}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4 block md:table-cell">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
-                                                                    <User className="w-3 h-3" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-xs font-bold text-slate-800">{task.assignedTo.name}</p>
-                                                                    <p className="text-[10px] text-slate-500">{task.assignedTo.role}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.projectName || 'null'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.milestoneName || 'null'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.boqName || 'null'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs font-bold text-slate-800 block md:table-cell">{task.title}</td>
+                                                        <td className="p-4 text-xs text-slate-500 truncate max-w-[200px] block md:table-cell">{task.description}</td>
                                                         <td className="p-4 text-center block md:table-cell">
-                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${task.assignedTo.name === 'Unassigned' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                                                {task.assignedTo.name === 'Unassigned' ? 'UNASSIGNED' : 'ASSIGNED'}
+                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority] || 'bg-slate-500 text-white'}`}>
+                                                                {task.priority || 'LOW'}
                                                             </span>
-                                                        </td>
-                                                        <td className="p-4 text-center block md:table-cell">
-                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority]}`}>
-                                                                {task.priority}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4 block md:table-cell">
-                                                            <div className="flex items-center gap-2 text-sm text-slate-800 font-medium">
-                                                                <Calendar className="w-4 h-4 text-slate-400" />
-                                                                {new Date(task.end_date).toLocaleDateString()}
-                                                            </div>
                                                         </td>
                                                         <td className="p-4 block md:table-cell">
                                                             <div className="relative inline-block w-full min-w-[130px]">
@@ -1018,15 +1061,40 @@ const TaskManagementPage = () => {
                                                                 </div>
                                                             </div>
                                                         </td>
+                                                        <td className="p-4 whitespace-nowrap block md:table-cell">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-xs font-bold text-slate-800">{task.start_date || 'null'}</span>
+                                                                <span className="text-[10px] text-slate-500">Actual: {(task as any).actual_start_date || 'null'}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 whitespace-nowrap block md:table-cell">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-xs font-bold text-slate-800">{task.end_date || 'null'}</span>
+                                                                <span className="text-[10px] text-slate-500">Actual: {(task as any).actual_end_date || 'null'}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName || 'null'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length ? task.assignedNames.join(', ') : 'Unassigned'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).is_delayed ? 'true' : 'false'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).execution_duration || 0}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).delay_days || 0}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).actual_cost || 0}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).planned_cost || 0}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
+                                                            {(task as any).audio_instruction_url ? (
+                                                                <audio controls src={String((task as any).audio_instruction_url)} className="h-8 w-32" />
+                                                            ) : 'null'}
+                                                        </td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
+                                                            {(task as any).instruction_image_url ? (
+                                                                <img src={String((task as any).instruction_image_url)} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
+                                                            ) : 'null'}
+                                                        </td>
+
                                                         <td className="p-4 text-center block md:table-cell">
                                                             <div className="flex items-center justify-center gap-1">
-                                                                {task.audio_data ? (
-                                                                    <AudioButton audioData={task.audio_data} />
-                                                                ) : (
-                                                                    <button onClick={() => setRecordingTaskId(task.id)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Add Audio">
-                                                                        <Mic className="w-4 h-4" />
-                                                                    </button>
-                                                                )}
+
                                                                 <button
                                                                     onClick={() => {
                                                                         setSelectedProgressTask(task);
@@ -1051,15 +1119,16 @@ const TaskManagementPage = () => {
                                                                 >
                                                                     <Forward className="w-4 h-4" />
                                                                 </button>
-                                                                <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
+                                                                <button
+                                                                    onClick={() => openTaskModal(task)}
+                                                                    className="w-8 h-8 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                                                                    title="View Details"
+                                                                >
                                                                     <Eye className="w-4 h-4" />
                                                                 </button>
                                                                 <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit">
                                                                     <Edit2 className="w-4 h-4" />
                                                                 </button>
-                                                                {/* <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete">
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button> */}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1319,7 +1388,7 @@ const TaskManagementPage = () => {
                                                                             </td>
                                                                             <td className="p-4 text-center block md:table-cell">
                                                                                 <div className="flex items-center justify-center gap-1">
-                                                                                    <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
+                                                                                    <button onClick={() => openTaskModal(task)} className="w-8 h-8 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors" title="View Details">
                                                                                         <Eye className="w-4 h-4" />
                                                                                     </button>
                                                                                 </div>
@@ -1406,101 +1475,190 @@ const TaskManagementPage = () => {
                         {/* Modal Content */}
                         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
                             {modalTab === "Details" && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm md:col-span-2">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-indigo-50 flex items-center justify-center text-indigo-500">
-                                                <FileText className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Description</span>
+                                <div className="space-y-4 font-inter">
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                            <p className="text-xs font-bold text-slate-400 mb-1">Task Title</p>
+                                            <p className="text-sm font-bold text-slate-800">{selectedTask.title}</p>
                                         </div>
-                                        <p className="text-sm text-slate-600 pl-8">{selectedTask.description || "No description provided."}</p>
+                                    </div>
 
-                                        {selectedTask.audio_data && (
-                                            <div className="mt-4 ml-8 flex items-center gap-3 max-w-sm bg-slate-50 rounded-full p-2 pr-4 border border-slate-200 shadow-sm">
-                                                <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer hover:bg-emerald-600 transition-colors" onClick={(e) => {
-                                                    const audio = e.currentTarget.parentElement?.querySelector('audio');
-                                                    if (audio) { audio.paused ? audio.play() : audio.pause(); }
-                                                }}>
-                                                    <Play className="w-4 h-4 ml-0.5" />
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="p-1.5 bg-blue-50 rounded-lg text-blue-500">
+                                                <FileText className="w-4 h-4" />
+                                            </div>
+                                            <p className="text-sm font-bold text-slate-800">Description</p>
+                                        </div>
+                                        <p className="text-sm text-slate-600 pl-9">
+                                            {selectedTask.description || 'No description provided.'}
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <div className="p-1.5 bg-purple-50 rounded-lg text-purple-500">
+                                                    <User className="w-4 h-4" />
                                                 </div>
-                                                <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden flex items-center">
-                                                    <div className="h-full bg-emerald-500 w-1/3"></div>
+                                                <p className="text-sm font-bold text-slate-800">Assigned By</p>
+                                            </div>
+                                            <div className="pl-9">
+                                                <p className="text-sm text-slate-600">{selectedTask.creatorName || 'System / Admin'}</p>
+                                                <p className="text-xs text-slate-400">Manager</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <div className="p-1.5 bg-purple-50 rounded-lg text-purple-500">
+                                                    <User className="w-4 h-4" />
                                                 </div>
-                                                <audio src={selectedTask.audio_data} className="hidden" />
-                                                <span className="text-xs font-bold text-slate-400">0:00</span>
+                                                <p className="text-sm font-bold text-slate-800">Assigned To</p>
                                             </div>
-                                        )}
+                                            <div className="pl-9">
+                                                <p className="text-sm text-slate-600">{selectedTask.assignedNames?.length ? selectedTask.assignedNames.join(', ') : 'Unassigned'}</p>
+                                                <p className="text-xs text-slate-400">Labour</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <div className="p-1.5 bg-purple-50 rounded-lg text-purple-500">
+                                                    <AlertCircle className="w-4 h-4" />
+                                                </div>
+                                                <p className="text-sm font-bold text-slate-800">Priority</p>
+                                            </div>
+                                            <div className="pl-9">
+                                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold ${selectedTask.priority === 'HIGH' ? 'bg-rose-500 text-white' : selectedTask.priority === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white'}`}>
+                                                    {selectedTask.priority}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <div className="p-1.5 bg-purple-50 rounded-lg text-purple-500">
+                                                    <Calendar className="w-4 h-4" />
+                                                </div>
+                                                <p className="text-sm font-bold text-slate-800">Deadline</p>
+                                            </div>
+                                            <div className="pl-9">
+                                                <p className="text-sm text-slate-600">{selectedTask.end_date ? new Date(selectedTask.end_date).toLocaleDateString() : 'N/A'}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <div className="p-1.5 bg-purple-50 rounded-lg text-purple-500">
+                                                    <Clock className="w-4 h-4" />
+                                                </div>
+                                                <p className="text-sm font-bold text-slate-800">Start Date</p>
+                                            </div>
+                                            <div className="pl-9">
+                                                <p className="text-sm text-slate-600">{selectedTask.start_date ? new Date(selectedTask.start_date).toLocaleDateString() : 'N/A'}</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <User className="w-3.5 h-3.5" />
+
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="p-1.5 bg-purple-50 rounded-lg text-purple-500">
+                                                <CheckCircle className="w-4 h-4" />
                                             </div>
-                                            <span className="text-sm font-bold text-slate-800">Assigned By</span>
+                                            <p className="text-sm font-bold text-slate-800">Status</p>
                                         </div>
-                                        <div className="pl-8">
-                                            <p className="text-sm text-slate-600">{selectedTask.assignedBy.name}</p>
-                                            <p className="text-xs text-slate-500">{selectedTask.assignedBy.role}</p>
+                                        <div className="pl-9 flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+                                            <p className="text-sm text-slate-600">{selectedTask.status}</p>
                                         </div>
                                     </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <User className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Assigned To</span>
-                                        </div>
-                                        <div className="pl-8">
-                                            <p className="text-sm text-slate-600">{selectedTask.assignedTo.name}</p>
-                                            <p className="text-xs text-slate-500">{selectedTask.assignedTo.role}</p>
-                                        </div>
+
+                                <h4 className="text-sm font-bold text-slate-800 mt-6 mb-2">Project Classification</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">Project</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedTask.projectName || 'N/A'}</p>
                                     </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <AlertCircle className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Priority</span>
-                                        </div>
-                                        <div className="pl-8">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${priorityBadges[selectedTask.priority]}`}>
-                                                {selectedTask.priority.charAt(0) + selectedTask.priority.slice(1).toLowerCase()}
-                                            </span>
-                                        </div>
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">Milestone</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedTask.milestoneName || 'N/A'}</p>
                                     </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <Calendar className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Deadline</span>
-                                        </div>
-                                        <p className="text-sm text-slate-600 pl-8">{new Date(selectedTask.end_date).toLocaleDateString()}</p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <Clock className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Start Date</span>
-                                        </div>
-                                        <p className="text-sm text-slate-600 pl-8">{selectedTask.start_date ? new Date(selectedTask.start_date).toLocaleDateString() : "Not available"}</p>
-                                    </div>
-                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm md:col-span-2">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-6 h-6 rounded bg-purple-50 flex items-center justify-center text-purple-500">
-                                                <CheckCircle className="w-3.5 h-3.5" />
-                                            </div>
-                                            <span className="text-sm font-bold text-slate-800">Status</span>
-                                        </div>
-                                        <div className="pl-8 flex items-center gap-2">
-                                            <div className={`w-2.5 h-2.5 rounded-full ${selectedTask.status === 'Cancelled' ? 'bg-rose-500' : selectedTask.status === 'Completed' ? 'bg-emerald-500' : selectedTask.status === 'In Progress' ? 'bg-blue-500' : 'bg-slate-400'}`} />
-                                            <p className="text-sm text-slate-600 font-medium">{selectedTask.status}</p>
-                                        </div>
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">BOQ</p>
+                                        <p className="text-sm font-bold text-slate-800">{selectedTask.boqName || 'N/A'}</p>
                                     </div>
                                 </div>
-                            )}
+
+                                <h4 className="text-sm font-bold text-slate-800 mt-6 mb-2">Execution & Delays</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">Actual Start</p>
+                                        <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_start_date ? new Date((selectedTask as any).actual_start_date).toLocaleDateString() : 'N/A'}</p>
+                                    </div>
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">Actual End</p>
+                                        <p className="text-sm font-bold text-slate-800">{(selectedTask as any).actual_end_date ? new Date((selectedTask as any).actual_end_date).toLocaleDateString() : 'N/A'}</p>
+                                    </div>
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">Duration</p>
+                                        <p className="text-sm font-bold text-slate-800">{(selectedTask as any).execution_duration || 0} days</p>
+                                    </div>
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">Delay Status</p>
+                                        <p className={`text-sm font-bold ${(selectedTask as any).is_delayed ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                            {(selectedTask as any).is_delayed ? `${(selectedTask as any).delay_days || 0} Days Delayed` : 'On Track'}
+                                        </p>
+                                    </div>
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">Completion</p>
+                                        <p className="text-sm font-bold text-blue-500">{(selectedTask as any).completion_percentage || 0}%</p>
+                                    </div>
+                                </div>
+
+                                <h4 className="text-sm font-bold text-slate-800 mt-6 mb-2">Financials</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">Planned Cost</p>
+                                        <p className="text-sm font-bold text-slate-800">₹{(selectedTask as any).planned_cost || 0}</p>
+                                    </div>
+                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                        <p className="text-xs font-bold text-slate-400 mb-1">Actual Cost</p>
+                                        <p className="text-sm font-bold text-slate-800">₹{(selectedTask as any).actual_cost || 0}</p>
+                                    </div>
+                                </div>
+
+                                {((selectedTask as any).instruction_image_url || selectedTask.audio_data || (selectedTask as any).audio_instruction_url || (selectedTask as any).task_icon) && (
+                                    <>
+                                        <h4 className="text-sm font-bold text-slate-800 mt-6 mb-2">Media & Instructions</h4>
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {(selectedTask as any).task_icon && (
+                                                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                                    <p className="text-xs font-bold text-slate-400 mb-3">Task Icon</p>
+                                                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 flex items-center justify-center">
+                                                        <img src={String((selectedTask as any).task_icon)} alt="Task Icon" className="w-full h-full object-contain" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {(selectedTask as any).instruction_image_url && (
+                                                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                                    <p className="text-xs font-bold text-slate-400 mb-3">Instruction Image</p>
+                                                    <div className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video max-w-sm">
+                                                        <img src={String((selectedTask as any).instruction_image_url)} alt="Instruction" className="w-full h-full object-cover" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {(selectedTask.audio_data || (selectedTask as any).audio_instruction_url) && (
+                                                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                                    <p className="text-xs font-bold text-slate-400 mb-3">Audio Instruction</p>
+                                                    <audio controls src={selectedTask.audio_data || (selectedTask as any).audio_instruction_url} className="w-full max-w-sm" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
 
                             {modalTab === "Comments" && (
                                 <div className="flex flex-col h-full min-h-[400px]">
@@ -1529,43 +1687,15 @@ const TaskManagementPage = () => {
                                             </div>
                                         ) : (
                                             <div className="space-y-4">
-                                                {taskComments.map((c: any, i) => {
-                                                    const messageContent = c.content || c.comment || c.text || "";
-
-                                                    // Basic parsing to extract the attachment if we added it via text
-                                                    const attachmentMatch = messageContent.match(/\[Attached:\s*(.*?)\]/);
-                                                    const attachmentName = attachmentMatch ? attachmentMatch[1] : null;
-                                                    const cleanText = messageContent.replace(/\[Attached:\s*(.*?)\]/g, '').trim();
-
-                                                    const member = projectMembers.find(m => m.user_id === c.author_user_id);
-                                                    const authorName = c.author_name || member?.full_name || "User";
-
-                                                    return (
-                                                        <div key={i} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 w-max max-w-[80%]">
-                                                            <p className="text-xs font-bold text-slate-700 mb-1">{authorName}</p>
-
-                                                            {cleanText && (
-                                                                <p className="text-sm text-slate-600 whitespace-pre-wrap">{cleanText}</p>
-                                                            )}
-
-                                                            {attachmentName && (
-                                                                <div className="mt-2 flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors">
-                                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center shrink-0">
-                                                                        <Paperclip className="w-4 h-4" />
-                                                                    </div>
-                                                                    <div className="overflow-hidden">
-                                                                        <p className="text-xs font-bold text-slate-700 truncate">{attachmentName}</p>
-                                                                        <p className="text-[10px] text-slate-400">Attached File</p>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            <p className="text-[10px] text-slate-400 mt-2">
-                                                                {c.created_at ? new Date(c.created_at).toLocaleString() : "Just now"}
-                                                            </p>
-                                                        </div>
-                                                    );
-                                                })}
+                                                {taskComments.map((c: any, i) => (
+                                                    <div key={i} className="flex flex-col bg-white border border-slate-200 rounded-xl p-3 shadow-sm w-max max-w-[80%]">
+                                                        <span className="text-xs font-bold text-slate-800 mb-1">
+                                                            {c.author_user_id === 1 ? 'Clients' : (projectMembers.find(m => m.user_id === c.author_user_id)?.full_name || `User ${c.author_user_id}`)}
+                                                        </span>
+                                                        <p className="text-sm text-slate-700 mb-2">{c.content || c.comment || c.text || ""}</p>
+                                                        <span className="text-[10px] text-slate-400">Just now</span>
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
@@ -1634,27 +1764,24 @@ const TaskManagementPage = () => {
                                             <p className="text-sm text-slate-500">History and audit logs will appear here.</p>
                                         </div>
                                     ) : (
-                                        <div className="space-y-4">
+                                        <div className="relative space-y-6 pl-4 md:pl-0 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:ml-5 md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-200">
                                             {taskActivity.map((activity: any, i) => (
-                                                <div key={i} className="flex gap-4 items-start relative before:absolute before:left-[19px] before:top-10 before:bottom-[-20px] before:w-0.5 before:bg-slate-200 last:before:hidden">
-                                                    <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 text-indigo-500 z-10">
-                                                        <Clock className="w-5 h-5" />
+                                                <div key={i} className="relative flex items-start gap-6">
+                                                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-50 border-4 border-white shadow-sm text-indigo-500 z-10 shrink-0">
+                                                        <Clock className="w-4 h-4" />
                                                     </div>
-                                                    <div className="bg-white border border-slate-200 rounded-xl p-4 flex-1 shadow-sm">
-                                                        <div className="flex justify-between items-start mb-2">
-                                                            <h4 className="text-sm font-bold text-slate-800">{activity.action || "Progress Updated"}</h4>
-                                                            <span className="text-[10px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</span>
+                                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex-1">
+                                                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                                            <h4 className="text-sm font-bold text-slate-800">Progress Updated</h4>
+                                                            <span className="text-[10px] font-bold text-slate-500">{new Date(activity.created_at).toLocaleString()}</span>
                                                         </div>
-                                                        <div className="space-y-1.5">
-                                                            <p className="text-sm text-slate-800 font-medium">
-                                                                {activity.description || `Progress moved to ${activity.percentage ?? activity.progress_percentage ?? 0}%`}
-                                                            </p>
-                                                            {activity.remarks && (
-                                                                <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 shadow-sm">
-                                                                    <span className="font-bold text-slate-700 block mb-0.5">Remarks:</span> {activity.remarks}
-                                                                </p>
-                                                            )}
-                                                        </div>
+                                                        <p className="text-sm text-slate-700 mb-3">Progress moved to {activity.percentage ?? activity.progress_percentage ?? 0}%</p>
+                                                        {activity.remarks && (
+                                                            <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-600">
+                                                                <span className="font-bold text-slate-700 block mb-1">Remarks:</span>
+                                                                {activity.remarks}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
@@ -1908,36 +2035,48 @@ const TaskManagementPage = () => {
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                         Activity Type ID
                                     </label>
-                                    <input
-                                        type="number"
+                                    <select
                                         name="activity_type_id"
-                                        defaultValue={1}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                    />
+                                        defaultValue={selectedEditTask?.activity_type_id || ""}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                    >
+                                        <option value="">None</option>
+                                        {projectActivities.map((a: any) => (
+                                            <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                         Milestone ID
                                     </label>
-                                    <input
-                                        type="number"
+                                    <select
                                         name="milestone_id"
-                                        defaultValue={selectedEditTask?.milestone_id || 1}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                    />
+                                        defaultValue={selectedEditTask?.milestone_id || ""}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                    >
+                                        <option value="">None</option>
+                                        {projectMilestones.map((m: any) => (
+                                            <option key={m.id} value={m.id}>{m.name}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                         BOQ ID
                                     </label>
-                                    <input
-                                        type="number"
+                                    <select
                                         name="boq_id"
-                                        defaultValue={selectedEditTask?.boq_id || 1}
-                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                                    />
+                                        defaultValue={selectedEditTask?.boq_id || ""}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                                    >
+                                        <option value="">None</option>
+                                        {projectBoqs.map((b: any) => (
+                                            <option key={b.id} value={b.id}>{b.name || b.item_description || `BOQ Item`}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <div className="flex items-center gap-2 mt-2 py-2">
