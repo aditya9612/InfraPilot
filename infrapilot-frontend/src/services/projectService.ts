@@ -312,7 +312,11 @@ export const projectService = {
 
   async createTask(projectId: number, taskData: any) {
     try {
-      const response = await api.post(`/projects/${projectId}/tasks`, taskData);
+      const response = await api.post(`/projects/${projectId}/tasks`, taskData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
       return response.data;
     } catch (error: any) {
       console.error("Create Task API Error:", error.response?.data || error.message);
@@ -356,7 +360,11 @@ export const projectService = {
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
     try {
-      const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData);
+      const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
       return response.data;
     } catch (error: any) {
       console.error(`Update Task ${taskId} API Error:`, error.response?.data || error.message);

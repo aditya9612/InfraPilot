@@ -577,29 +577,7 @@ const BOQPage = () => {
                 </option>
               ))}
             </select>
-            <div className="h-6 w-px bg-slate-200 hidden md:block mx-1" />
-            <button
-              onClick={() => {
-                if (projectFilter === "all") {
-                  toast.error(
-                    "Please select a project to analyze cost performance",
-                  );
-                  return;
-                }
-                setIsOptimizationModalOpen(true);
-              }}
-              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all duration-300 min-w-48 ${projectFilter === "all"
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-70"
-                : "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-amber-200 hover:scale-105"
-                }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="truncate">
-                {projectFilter === "all"
-                  ? "Select Project for Analysis"
-                  : "Smart Analysis"}
-              </span>
-            </button>
+
             <button
               onClick={() => {
                 if (projectFilter === "all") {

@@ -244,27 +244,35 @@ export const reportService = {
         return response.data;
     },
 
-    exportProjectReportPDF: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
+    exportProjectReportPDF: async (params: {
+        project_id: number;
+        type: string;
+        report_date?: string | null;
+        start_date?: string | null;
+        end_date?: string | null;
+        month?: number | null;
+        year?: number | null;
+        quarter?: number | null;
+    }) => {
         const response = await api.get(`/reports/project/export/pdf`, {
-            params: {
-                project_id: projectId,
-                type,
-                month,
-                year
-            },
+            params,
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportProjectReportExcel: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
+    exportProjectReportExcel: async (params: {
+        project_id: number;
+        type: string;
+        report_date?: string | null;
+        start_date?: string | null;
+        end_date?: string | null;
+        month?: number | null;
+        year?: number | null;
+        quarter?: number | null;
+    }) => {
         const response = await api.get(`/reports/project/export/excel`, {
-            params: {
-                project_id: projectId,
-                type,
-                month,
-                year
-            },
+            params,
             responseType: 'blob'
         });
         return response.data;

@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { projectService } from "../../services/projectService";
@@ -16,7 +16,6 @@ import { generateProjectReport } from "../../utils/reportGenerator";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ScheduleProjectModal from "../../components/projects/ScheduleProjectModal";
-import { parseCSV } from "../../utils/csvParser";
 
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -346,59 +345,6 @@ const ProjectDetailsPage = () => {
     }
   };
 
-  // --- CSV Import Handlers ---
-  const taskInputRef = useRef<HTMLInputElement>(null);
-  const milestoneInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImportCSV = async (file: File, type: "task" | "milestone") => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const text = e.target?.result as string;
-      const data = parseCSV(text);
-
-      if (data.length === 0) {
-        toast.error("Invalid CSV or empty file.");
-        return;
-      }
-
-      const toastId = toast.loading(`Importing ${data.length} ${type}s...`);
-
-      try {
-        let successCount = 0;
-        for (const item of data) {
-          try {
-            if (type === "task") {
-              await projectService.createTask(projectId, {
-                title: item.title || item.name || "Untitled Task",
-                description: item.description || item.desc || "",
-                status: item.status || "To Do",
-                priority: item.priority || "Medium",
-                start_date: item.start_date || project?.start_date || "",
-                end_date: item.end_date || project?.end_date || "",
-              });
-            } else {
-              await projectService.createMilestone(projectId, {
-                title: item.title || item.name || "Untitled Milestone",
-                description: item.description || item.desc || "",
-                status: item.status || "Pending",
-                start_date: item.start_date || project?.start_date || "",
-                end_date: item.end_date || project?.end_date || "",
-              });
-            }
-            successCount++;
-          } catch (err) {
-            console.error(`Failed to import ${type}:`, item, err);
-          }
-        }
-
-        toast.success(`Successfully imported ${successCount} ${type}s.`, { id: toastId });
-        fetchProjectData();
-      } catch (error) {
-        toast.error(`Failed to complete ${type} import.`, { id: toastId });
-      }
-    };
-    reader.readAsText(file);
-  };
 
   if (loading) {
     return (
@@ -469,95 +415,11 @@ const ProjectDetailsPage = () => {
           </div>
 
           <div className="flex gap-3">
-            <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-              <button
-                onClick={() => setIsEditModalOpen(true)}
-                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-r border-slate-100"
-              >
-                Edit
-              </button>
-              <button
-                onClick={async () => {
-                  const toastId = toast.loading("Downloading PDF intelligence report...");
-                  try {
-                    const blob = new Blob([await projectService.exportProjectPdf(projectId)], { type: "application/pdf" });
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.setAttribute(
-                      "download",
-                      `Project_${projectId}_Report.pdf`,
-                    );
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    window.URL.revokeObjectURL(url);
-                    toast.success("PDF Downloaded", { id: toastId });
-                  } catch (error) {
-                    toast.error("PDF export failed");
-                    toast.dismiss(toastId);
-                  }
-                }}
-                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-r border-slate-100"
-                title="Download Intelligence PDF"
-              >
-                PDF
-              </button>
-              <button
-                onClick={async () => {
-                  const toastId = toast.loading("Downloading Excel report...");
-                  try {
-                    const blob = new Blob([await projectService.exportProjectExcel(projectId)], { type: "text/csv;charset=utf-8;" });
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.setAttribute(
-                      "download",
-                      `Project_${projectId}_Report.csv`,
-                    );
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    window.URL.revokeObjectURL(url);
-                    toast.success("CSV Downloaded", { id: toastId });
-                  } catch (error) {
-                    toast.error("Excel export failed");
-                    toast.dismiss(toastId);
-                  }
-                }}
-                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all"
-                title="Download Excel"
-              >
-                CSV
-              </button>
-              <button
-                onClick={() => milestoneInputRef.current?.click()}
-                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-l border-slate-100"
-                title="Import Milestones from CSV"
-              >
-                Import
-              </button>
-              <input
-                type="file"
-                ref={milestoneInputRef}
-                className="hidden"
-                accept=".csv"
-                onChange={(e) => e.target.files?.[0] && handleImportCSV(e.target.files[0], "milestone")}
-              />
-              <input
-                type="file"
-                ref={taskInputRef}
-                className="hidden"
-                accept=".csv"
-                onChange={(e) => e.target.files?.[0] && handleImportCSV(e.target.files[0], "task")}
-              />
-            </div>
-
             <button
-              onClick={() => taskInputRef.current?.click()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 hover:bg-slate-900 transition-all active:scale-95"
+              onClick={() => setIsEditModalOpen(true)}
+              className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all active:scale-95"
             >
-              Import Tasks (CSV)
+              Edit
             </button>
 
             <button

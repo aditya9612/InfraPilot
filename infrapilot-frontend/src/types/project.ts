@@ -7,7 +7,7 @@ export type ProjectStatus =
   | "Completed"
   | "On Hold";
 export type TaskStatus = "Planned" | "In Progress" | "Completed" | "Cancelled";
-export type MilestoneStatus = "Pending" | "In Progress" | "Completed";
+export type MilestoneStatus = "Planned" | "Pending" | "In Progress" | "Completed";
 
 export type ProjectCategory =
   | 'RESIDENTIAL'
@@ -83,6 +83,16 @@ export interface Task {
   boq_id?: number | null;
   milestone_id?: number | null;
   activity_type_id?: number | null;
+  audio_file?: string | null;
+  instruction_image?: string | null;
+  audio_instruction_url?: string | null;
+  instruction_image_url?: string | null;
+  planned_cost?: number;
+  actual_cost?: number;
+  execution_duration?: number;
+  delay_days?: number;
+  actual_start_date?: string | null;
+  actual_end_date?: string | null;
 }
 
 export interface TaskProgress {

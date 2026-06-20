@@ -15,11 +15,7 @@ import {
 import {
   Box,
   Layers,
-  Activity,
-  TrendingUp,
-  AlertCircle,
-  CheckCircle2,
-  PieChart as PieChartIcon
+  Activity
 } from "lucide-react";
 import { formatCurrency } from "../../utils/currencyUtils";
 
@@ -94,8 +90,8 @@ const MaterialCostReportModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200 font-inter">
-      <div className="bg-white rounded-[40px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 font-inter">
+      <div className="bg-white rounded-[40px] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-10 py-8 border-b border-slate-100 bg-slate-900 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-[100px] -mr-48 -mt-48" />

@@ -163,7 +163,7 @@ export default function AddMaterialModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2 space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Assigned Project <span className="text-rose-500">*</span>
+                Project ID <span className="text-rose-500">*</span>
               </label>
               <select
                 name="project_id"
@@ -247,7 +247,7 @@ export default function AddMaterialModal({
 
             <div className="md:col-span-2 space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Assigned supplier <span className="text-rose-500">*</span>
+                Supplier <span className="text-rose-500">*</span>
               </label>
               <select
                 name="supplier_name"
@@ -329,7 +329,7 @@ export default function AddMaterialModal({
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Stock Alert Threshold
+                Minimum Stock Level
               </label>
               <input
                 type="text"
@@ -348,7 +348,7 @@ export default function AddMaterialModal({
               <>
                 <div className="space-y-1 border-t border-slate-50 pt-4 mt-2">
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Opening quantity <span className="text-rose-500">*</span>
+                    Quantity Purchased <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -370,7 +370,7 @@ export default function AddMaterialModal({
 
                 <div className="space-y-1 border-t border-slate-50 pt-4 mt-2">
                   <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Initial payment
+                    Payment Given
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">
@@ -415,7 +415,7 @@ export default function AddMaterialModal({
             {initialData && (
               <div className="space-y-1 md:col-span-2 border-t border-slate-50 pt-4 mt-2">
                 <label className="block text-sm font-medium text-primary mb-1">
-                  Record additional payment
+                  Payment Given (Additional)
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">

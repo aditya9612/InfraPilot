@@ -20,6 +20,7 @@ const CreateMilestoneModal = ({
     description: "",
     start_date: "",
     end_date: "",
+    status: "Planned" as string,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -88,6 +89,7 @@ const CreateMilestoneModal = ({
         description: "",
         start_date: "",
         end_date: "",
+        status: "Planned",
       });
     }, 1000);
   };
@@ -163,6 +165,20 @@ const CreateMilestoneModal = ({
                 className={`w-full px-3 py-2 bg-slate-50 border ${errors.end_date ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary focus:border-primary'} rounded-lg text-sm outline-none transition-all text-slate-700`}
               />
               {errors.end_date && <p className="text-[10px] text-red-500 mt-1">{errors.end_date}</p>}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 mb-1">Initial Status</label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-primary focus:border-primary transition-all text-slate-700"
+              >
+                <option value="Planned">Planned</option>
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+              </select>
             </div>
           </div>
         </div>
