@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-    Wallet,
     TrendingUp,
     CreditCard,
     Clock,
@@ -45,7 +44,6 @@ const PaymentsPage: React.FC = () => {
     };
 
     const stats = [
-        { label: 'TOTAL PAYOUT', value: '₹0.00', sub: 'All Wage Items', icon: Wallet, color: 'text-indigo-600', borderColor: 'border-indigo-200' },
         { label: 'HIGH PAYOUTS', value: '0', sub: 'Above ₹5k Threshold', icon: TrendingUp, color: 'text-emerald-500', borderColor: 'border-slate-100' },
         { label: 'OT INTENSIVE', value: '0', sub: 'Shifts with Overtime', icon: Clock, color: 'text-amber-500', borderColor: 'border-slate-100' },
         { label: 'ADVANCE ADJUSTED', value: '₹0.00', sub: 'Recovery Target', icon: CreditCard, color: 'text-rose-500', borderColor: 'border-slate-100' },
@@ -74,7 +72,7 @@ const PaymentsPage: React.FC = () => {
                 </div>
 
                 {/* ── Stats Grid ── */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                     {stats.map((stat, i) => (
                         <div key={i} className={`bg-white p-8 rounded-[32px] border ${stat.borderColor} shadow-sm transition-all hover:shadow-md`}>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{stat.label}</p>
