@@ -57,18 +57,4 @@ export const INITIAL_USERS: User[] = [
     is_active: true,
     profile_image: "https://i.pravatar.cc/150?u=gopal",
   },
-  {
-    user_id: 174,
-    full_name: "Rama Sharma",
-    email: "rama.s@infrapilot.com",
-    mobile_number: "7575757575",
-    role: "Labour",
-    designation: "Carpenter",
-    pan_number: "ABCDE7575Z",
-    aadhaar_number: "7575 7575 7575",
-    joining_date: "01 June 2024",
-    address: "Patna, Bihar",
-    is_active: true,
-    profile_image: "https://i.pravatar.cc/150?u=rama",
-  },
 ];

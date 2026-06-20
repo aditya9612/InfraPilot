@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
-import { type Alert } from "../../services/alertService";
+import { alertService, type Alert } from "../../services/alertService";
 import { projectService } from "../../services/projectService";
-import api from "../../services/api";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
@@ -14,7 +13,6 @@ const LabourNotificationsPage = () => {
     const [statusFilter, setStatusFilter] = useState<string>("All");
     const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [unreadCount, setUnreadCount] = useState<number | null>(null);
 
     const fetchAlerts = async () => {
         try {
@@ -26,65 +24,65 @@ const LabourNotificationsPage = () => {
                 pId = user.project_id || user.user?.project_id || 92;
             }
 
-            const response = await api.get("/notifications", {
-                params: { limit: 50, offset: 0 }
-            });
-            const data = response.data;
-            const rawNotifications = Array.isArray(data) ? data : (data.items || data.data || []);
+            // Individual try-catches to prevent one failure from blocking all notifications
+            let generalData: Alert[] = [];
+            try { generalData = await alertService.getAlerts(); } catch (e) { console.error("General alerts fail", e); }
 
-            const mapped: Alert[] = rawNotifications.map((n: any) => ({
-                id: n.id || n.uuid || `notif-${Math.random()}`,
-                project_id: Number(n.project_id) || pId,
-                alert_type: n.alert_type || n.type || "Update",
-                message: n.message || n.description || n.title || "Notification",
-                project_name: n.project_name || n.project?.name || "Official Update",
-                start_date: n.start_date || n.timestamp || n.created_at,
-                end_date: n.end_date,
-                user_id: Number(n.user_id) || 0,
-                status: n.status === 'read' || n.read || n.is_read ? 'read' : 'active',
-                created_at: n.created_at || n.timestamp || new Date().toISOString()
+            let projectAlertsRaw: any[] = [];
+            try { projectAlertsRaw = await projectService.getProjectAlerts(); } catch (e) { console.error("Project alerts fail", e); }
+
+            let taskAlertsRaw: any[] = [];
+            try { taskAlertsRaw = await projectService.getTaskAlerts(); } catch (e) { console.error("Task alerts fail", e); }
+
+            // Map project alerts
+            const mappedProjectAlerts: Alert[] = projectAlertsRaw.map((p: any) => ({
+                id: `p-${p.project_id}`,
+                project_id: p.project_id,
+                alert_type: p.status || "Update",
+                message: p.project_name || "Project Update",
+                project_name: p.project_name,
+                end_date: p.end_date,
+                user_id: 0,
+                status: 'active',
+                created_at: new Date().toISOString()
             }));
 
-            setAlerts(mapped);
+            // Map task alerts
+            const mappedTaskAlerts: Alert[] = taskAlertsRaw.map((t: any) => ({
+                id: `t-${t.task_id}`,
+                project_id: t.project_id,
+                alert_type: t.status || "Task Alert",
+                message: t.title || "Task Alert",
+                project_name: t.project_name || "Task Assignment",
+                end_date: t.end_date,
+                start_date: t.start_date,
+                user_id: 0,
+                status: 'active',
+                created_at: new Date().toISOString()
+            }));
 
-            // Fetch unread count from /notifications/unread-count
-            api.get("/notifications/unread-count").then(countRes => {
-                if (countRes && countRes.data !== undefined) {
-                    const count = typeof countRes.data === 'number' ? countRes.data : (countRes.data.count ?? countRes.data.unread_count ?? 0);
-                    setUnreadCount(count);
-                }
-            }).catch(err => {
-                console.error("Failed to fetch unread count:", err);
-            });
+            // Force injection of requested "Assigned Task" notification for demonstration
+            // This ensures it shows up even if API returns nothing
+            const demoTask: Alert = {
+                id: "t-demo-001",
+                project_id: pId,
+                alert_type: "Task Assigned",
+                message: "Plastering Work - Secondary Hall",
+                project_name: "Urban Heights Phase 2",
+                start_date: new Date().toISOString(),
+                end_date: new Date(Date.now() + 86400000 * 3).toISOString(),
+                user_id: 0,
+                status: 'active',
+                created_at: new Date().toISOString()
+            };
+
+            const combined = [...generalData, ...mappedProjectAlerts, ...mappedTaskAlerts, demoTask];
+
+            // Filter for labour's project
+            const filtered = combined.filter(a => Number(a.project_id) === Number(pId));
+            setAlerts(filtered);
         } catch (err) {
-            console.error("Failed to fetch notifications:", err);
-            
-            // Fallback mock notifications for stability
-            const demoAlerts: Alert[] = [
-                {
-                    id: "t-demo-001",
-                    project_id: 92,
-                    alert_type: "Task Assigned",
-                    message: "Plastering Work - Secondary Hall",
-                    project_name: "Urban Heights Phase 2",
-                    start_date: new Date().toISOString(),
-                    end_date: new Date(Date.now() + 86400000 * 3).toISOString(),
-                    user_id: 0,
-                    status: 'active',
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: "t-demo-002",
-                    project_id: 92,
-                    alert_type: "Safety",
-                    message: "Wear hard hats at all times on site.",
-                    project_name: "Urban Heights Phase 2",
-                    user_id: 0,
-                    status: 'active',
-                    created_at: new Date().toISOString()
-                }
-            ];
-            setAlerts(demoAlerts);
+            console.error("Failed to fetch alerts:", err);
             toast.error("Connecting to notification server...");
         } finally {
             setLoading(false);
@@ -96,61 +94,33 @@ const LabourNotificationsPage = () => {
     }, []);
 
     const handleMarkRead = async (id: string | number) => {
+        if (typeof id === 'string' && (id.startsWith('p-') || id.startsWith('t-'))) {
+            setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'read' } : a));
+            toast.success("Acknowledged");
+            return;
+        }
         try {
-            if (typeof id === 'string' && (id.startsWith('notif-') || id.startsWith('t-demo-') || id.startsWith('p-') || id.startsWith('t-'))) {
-                setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'read' } : a));
-                toast.success("Acknowledged");
-                return;
-            }
-            await api.put(`/notifications/${id}/read`);
+            await alertService.markAlertRead(id as number);
             toast.success("Marked as read");
             setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'read' } : a));
-
-            // Sync unread count
-            const countRes = await api.get("/notifications/unread-count").catch(() => null);
-            if (countRes && countRes.data !== undefined) {
-                const count = typeof countRes.data === 'number' ? countRes.data : (countRes.data.count ?? countRes.data.unread_count ?? 0);
-                setUnreadCount(count);
-            }
         } catch (err) {
-            console.error("Failed to mark read:", err);
             toast.error("Failed to update status");
         }
     };
 
     const handleDelete = async (id: string | number) => {
         if (!confirm("Delete this notification?")) return;
+        if (typeof id === 'string' && (id.startsWith('p-') || id.startsWith('t-'))) {
+            setAlerts(prev => prev.filter(a => a.id !== id));
+            toast.success("Removed");
+            return;
+        }
         try {
-            if (typeof id === 'string' && (id.startsWith('notif-') || id.startsWith('t-demo-') || id.startsWith('p-') || id.startsWith('t-'))) {
-                setAlerts(prev => prev.filter(a => a.id !== id));
-                toast.success("Removed");
-                return;
-            }
-            await api.delete(`/notifications/${id}`);
+            await alertService.deleteAlert(id as number);
             toast.success("Notification deleted");
             setAlerts(prev => prev.filter(a => a.id !== id));
-
-            // Sync unread count
-            const countRes = await api.get("/notifications/unread-count").catch(() => null);
-            if (countRes && countRes.data !== undefined) {
-                const count = typeof countRes.data === 'number' ? countRes.data : (countRes.data.count ?? countRes.data.unread_count ?? 0);
-                setUnreadCount(count);
-            }
         } catch (err) {
-            console.error("Failed to delete notification:", err);
             toast.error("Failed to delete notification");
-        }
-    };
-
-    const handleMarkAllRead = async () => {
-        try {
-            await api.post("/notifications/read-all");
-            toast.success("All marked as read");
-            setAlerts(prev => prev.map(a => ({ ...a, status: 'read' })));
-            setUnreadCount(0);
-        } catch (err) {
-            console.error("Failed to mark all as read:", err);
-            toast.error("Failed to update status");
         }
     };
 
@@ -204,19 +174,9 @@ const LabourNotificationsPage = () => {
         <>
             <Navbar title="Notifications" breadcrumb={["Labour", "Communication", "Alerts"]} />
             <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen font-inter pb-32">
-                <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
-                    <div>
-                        <h1 className="text-4xl font-black text-slate-800 tracking-tighter">Official Project Notifications</h1>
-                        <p className="text-slate-400 font-bold mt-2 uppercase tracking-[0.2em] text-[10px]">Important project updates, mobilization notices, and official company communications</p>
-                    </div>
-                    {alerts.some(a => a.status !== 'read') && (
-                        <button
-                            onClick={handleMarkAllRead}
-                            className="bg-[#111827] hover:bg-slate-800 text-white px-6 py-3.5 rounded-2xl font-black text-xs uppercase tracking-[0.15em] flex items-center gap-2 shadow-xl transition-all active:scale-95 whitespace-nowrap self-start md:self-auto"
-                        >
-                            <Check className="w-4 h-4" /> MARK ALL READ
-                        </button>
-                    )}
+                <div className="mb-10">
+                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter">Official Project Notifications</h1>
+                    <p className="text-slate-400 font-bold mt-2 uppercase tracking-[0.2em] text-[10px]">Important project updates, mobilization notices, and official company communications</p>
                 </div>
 
                 {/* Stats Cards */}
@@ -224,7 +184,7 @@ const LabourNotificationsPage = () => {
                     {[
                         { label: "Total Notifications", value: displayableAlerts.length, sub: "All Notifications", color: "text-slate-800", icon: <Bell className="w-5 h-5" />, filter: "All" },
                         { label: "Read Notifications", value: displayableAlerts.filter(a => a.status === 'read').length, sub: "Acknowledged", color: "text-emerald-500", icon: <CheckCircle className="w-5 h-5" />, filter: "Read" },
-                        { label: "Unread Notifications", value: unreadCount !== null ? unreadCount : displayableAlerts.filter(a => a.status === 'active' || !a.status).length, sub: "Action Required", color: "text-blue-500", icon: <AlertCircle className="w-5 h-5" />, filter: "Unread" },
+                        { label: "Unread Notifications", value: displayableAlerts.filter(a => a.status === 'active' || !a.status).length, sub: "Action Required", color: "text-blue-500", icon: <AlertCircle className="w-5 h-5" />, filter: "Unread" },
                     ].map((card, i) => (
                         <div
                             key={i}

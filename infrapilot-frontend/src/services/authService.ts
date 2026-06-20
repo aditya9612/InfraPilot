@@ -19,7 +19,7 @@ export const authService = {
    * POST /api/v1/auth/login
    */
   async login(mobile: string): Promise<LoginResponse> {
-    if (mobile === "8080808080" || mobile === "7575757575") {
+    if (mobile === "8080808080") {
       return { message: "Mock OTP sent successfully (use 123456)", mobile };
     }
     const response = await api.post("/auth/login", { mobile });
@@ -31,10 +31,10 @@ export const authService = {
    * POST /api/v1/auth/verify_otp
    */
   async verifyOtp(mobile: string, otp: string): Promise<VerifyOtpResponse> {
-    if ((mobile === "8080808080" || mobile === "7575757575") && otp === "123456") {
+    if (mobile === "8080808080" && otp === "123456") {
       return {
         token: { access_token: "mock-token-labour", token_type: "Bearer" },
-        user_id: mobile === "7575757575" ? 174 : 999
+        user_id: 999
       };
     }
     const response = await api.post("/auth/verify_otp", { mobile, otp });
@@ -62,14 +62,6 @@ export const authService = {
             role: "Labour",
             email: "gopal.y@mock.com",
             mobile_number: "8080808080",
-            profile_image: ""
-          };
-        } else if (user.mobile === "7575757575") {
-          return {
-            full_name: "Rama Sharma",
-            role: "Labour",
-            email: "rama.s@mock.com",
-            mobile_number: "7575757575",
             profile_image: ""
           };
         }
