@@ -26,6 +26,9 @@ export interface DailyEntry {
   remarks: string;
   created_by: number;
   created_at: string;
+  photos?: string[];
+  planned_today_quantity?: number;
+  actual_today_quantity?: number; // alias for today_progress if needed
   updated_at?: string;
 }
 
@@ -63,4 +66,5 @@ export interface DailyProgressRequest {
   today_progress: number;
   remarks: string;
   created_by: number;
+  photos?: string[];
 }

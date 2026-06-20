@@ -26,6 +26,7 @@ import CreateInvoiceModal from "../../components/forms/CreateInvoiceModal";
 import InvoiceDetailsModal from "../../components/dashboard/InvoiceDetailsModal";
 import { financeService } from "../../services/financeService";
 import { projectService } from "../../services/projectService";
+import { ownerService } from "../../services/ownerService";
 import type { Project } from "../../types/project";
 import type { Invoice, InvoiceType } from "../../types/invoice";
 
@@ -47,6 +48,7 @@ const AllInvoicesPage = () => {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [owners, setOwners] = useState<any[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -85,10 +87,11 @@ const AllInvoicesPage = () => {
     const load = async () => {
       setIsLoading(true);
       try {
-        const [quotData, invData, projData] = await Promise.all([
+        const [quotData, invData, projData, ownersRes] = await Promise.all([
           quotationService.getQuotations(),
           financeService.getInvoices(200),
           projectService.getProjects(100, 0),
+          ownerService.getOwners()
         ]);
         setQuotations(quotData);
         setInvoices(Array.isArray(invData) ? invData : []);
@@ -96,6 +99,7 @@ const AllInvoicesPage = () => {
           ? projData
           : projData.items || projData.data || [];
         setProjects(projList);
+        setOwners(ownersRes);
       } catch (error) {
         console.error("Failed to load data", error);
         toast.error("Failed to load invoice data");
@@ -441,9 +445,17 @@ const AllInvoicesPage = () => {
                                   <Eye className="w-4 h-4" />
                                 </Link>
                               )}
-                              {(inv.type === "labour" || inv.type === "material") && !inv.isQuotation && (
+                              {!inv.isQuotation && (
                                 <button
-                                  onClick={() => setViewingInvoice(inv as Invoice)}
+                                  onClick={async () => {
+                                    try {
+                                      const detailedInvoice = await financeService.getInvoiceById(inv.id);
+                                      setViewingInvoice(detailedInvoice);
+                                    } catch (error) {
+                                      toast.error("Failed to fetch invoice details");
+                                      setViewingInvoice(inv as Invoice);
+                                    }
+                                  }}
                                   className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
                                   title="View Invoice"
                                 >
@@ -522,6 +534,7 @@ const AllInvoicesPage = () => {
         onClose={() => setViewingInvoice(null)}
         invoice={viewingInvoice}
         projects={projects}
+        owners={owners}
         onMarkPaid={async (id) => {
           try {
             await financeService.markInvoicePaid(id);

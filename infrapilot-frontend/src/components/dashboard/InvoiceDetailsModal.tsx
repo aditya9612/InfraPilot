@@ -2,12 +2,14 @@ import React from "react";
 import Modal from "../common/Modal";
 import type { Invoice } from "../../types/invoice";
 import type { Project } from "../../types/project";
+import type { Owner } from "../../types/owner";
 
 interface InvoiceDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   invoice: Invoice | null;
   projects: Project[];
+  owners?: Owner[];
   onMarkPaid: (id: number) => void;
   onDownloadPDF: (id: number) => void;
 }
@@ -17,12 +19,14 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
   onClose,
   invoice,
   projects,
+  owners = [],
   onMarkPaid,
   onDownloadPDF,
 }) => {
   if (!invoice) return null;
 
   const project = projects.find((p) => p.id === invoice.project_id);
+  const owner = owners.find((o) => String(o.id) === String(invoice.owner_id));
 
   const statusColors = {
     pending: "bg-amber-100 text-amber-600 border-amber-200",
@@ -156,23 +160,42 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                     Base Amount
                   </span>
                   <span className="text-sm font-black text-slate-800">
-                    ₹{invoice.amount.toLocaleString("en-IN")}
+                    ₹{(invoice.amount ?? 0).toLocaleString("en-IN")}
                   </span>
                 </div>
                 <div className="flex justify-between items-center px-2">
                   <span className="text-sm font-bold text-slate-500">
-                    GST ({invoice.gst_percent}%)
+                    GST ({invoice.gst_percent ?? 0}%)
                   </span>
                   <span className="text-sm font-black text-slate-800">
-                    ₹{invoice.gst_amount.toLocaleString("en-IN")}
+                    ₹{(invoice.gst_amount ?? 0).toLocaleString("en-IN")}
                   </span>
                 </div>
                 <div className="flex justify-between items-center px-2">
                   <span className="text-sm font-bold text-slate-500">
-                    Tax ({invoice.tax_percent}%)
+                    Tax ({invoice.tax_percent ?? 0}%)
                   </span>
                   <span className="text-sm font-black text-slate-800">
-                    ₹{invoice.tax_amount.toLocaleString("en-IN")}
+                    ₹{(invoice.tax_amount ?? 0).toLocaleString("en-IN")}
+                  </span>
+                </div>
+
+                <div className="h-px bg-slate-100 w-full my-2"></div>
+
+                <div className="flex justify-between items-center px-2">
+                  <span className="text-sm font-bold text-slate-500">
+                    Paid Amount
+                  </span>
+                  <span className="text-sm font-black text-emerald-600">
+                    ₹{(invoice.paid_amount ?? 0).toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center px-2">
+                  <span className="text-sm font-bold text-slate-500">
+                    Pending Amount
+                  </span>
+                  <span className="text-sm font-black text-amber-600">
+                    ₹{(invoice.pending_amount ?? 0).toLocaleString("en-IN")}
                   </span>
                 </div>
 
@@ -181,9 +204,29 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                     Total Invoice Amount
                   </span>
                   <span className="text-2xl font-black text-primary tracking-tighter">
-                    ₹{invoice.total_amount.toLocaleString("en-IN")}
+                    ₹{(invoice.total_amount ?? 0).toLocaleString("en-IN")}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Additional Metadata */}
+            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 mt-4">
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Source Type</p>
+                <p className="text-xs font-bold text-slate-600 uppercase">{invoice.source_type || "Direct"}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Quotation ID</p>
+                <p className="text-xs font-bold text-slate-600">#{invoice.quotation_id || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Client / Owner</p>
+                <p className="text-xs font-bold text-slate-600">{owner ? owner.name : invoice.owner_id ? `Owner #${invoice.owner_id}` : "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Last Updated</p>
+                <p className="text-xs font-bold text-slate-600">{invoice.created_at?.split("T")[0]}</p>
               </div>
             </div>
           </div>

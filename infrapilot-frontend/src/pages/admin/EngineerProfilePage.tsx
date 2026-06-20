@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { generateEngineerReportPDF } from "../../utils/projectPDFGenerator";
 import toast from "react-hot-toast";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -268,20 +267,18 @@ const EngineerProfilePage: React.FC = () => {
         );
     }
 
-    const handleExport = () => {
-        toast.promise(
-            new Promise((resolve) => {
-                setTimeout(() => {
-                    generateEngineerReportPDF(engineer);
-                    resolve(true);
-                }, 1500);
-            }),
-            {
-                loading: 'Compiling Site Intelligence...',
-                success: 'Site Report Generated!',
-                error: 'Failed to export report.',
-            }
-        );
+    const handleExport = async () => {
+        if (!activeProjectId) {
+            toast.error("No active project selected to export report.");
+            return;
+        }
+        const toastId = toast.loading("Compiling Site Report...");
+        try {
+            await dsrService.exportDsrExcel(activeProjectId);
+            toast.success("Site Report Downloaded!", { id: toastId });
+        } catch {
+            toast.error("Failed to export site report.", { id: toastId });
+        }
     };
 
 

@@ -3,6 +3,8 @@ import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 import type { Expense } from "../../types/expense";
 import type { Project } from "../../types/project";
+import { boqService } from "../../services/boqService";
+import type { BoqItem } from "../../types/boq";
 
 interface CreateExpenseModalProps {
   isOpen: boolean;
@@ -28,8 +30,11 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
     paid_by: "",
     payment_mode: "Cash",
     remarks: "",
+    boq_item_id: "",
     attachment: null as File | null,
   });
+  const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
+  const [isFetchingBoqs, setIsFetchingBoqs] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -42,10 +47,30 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
         paid_by: (initialData as any).paid_by || "",
         payment_mode: initialData.payment_mode,
         remarks: initialData.description || "",
+        boq_item_id: initialData.boq_item_id ? String(initialData.boq_item_id) : "",
         attachment: null,
       });
     }
   }, [initialData, isOpen]);
+
+  useEffect(() => {
+    const fetchBoqs = async () => {
+      if (!formData.project_id) {
+        setBoqItems([]);
+        return;
+      }
+      setIsFetchingBoqs(true);
+      try {
+        const items = await boqService.getBoqItems(Number(formData.project_id));
+        setBoqItems(items || []);
+      } catch (error) {
+        console.error("Failed to fetch BOQ items", error);
+      } finally {
+        setIsFetchingBoqs(false);
+      }
+    };
+    fetchBoqs();
+  }, [formData.project_id]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -64,9 +89,13 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
 
     setErrors({});
     const submissionData = {
-      ...formData,
-      amount: Number(formData.amount),
+      project_id: Number(formData.project_id),
+      category: formData.category.toLowerCase(),
       description: formData.remarks,
+      amount: Number(formData.amount),
+      expense_date: formData.expense_date,
+      payment_mode: formData.payment_mode,
+      boq_item_id: formData.boq_item_id ? Number(formData.boq_item_id) : undefined,
     };
 
     // Await the parent handler — it controls closing the modal on success/failure
@@ -140,6 +169,29 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                   ))}
                 </select>
               </div>
+
+              {formData.project_id && (
+                <div className="md:col-span-2 space-y-1">
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    BOQ Item (Mandatory for Project Expenses)
+                  </label>
+                  <select
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none"
+                    value={formData.boq_item_id}
+                    onChange={e => setFormData({ ...formData, boq_item_id: e.target.value })}
+                  >
+                    <option value="">Select BOQ Item...</option>
+                    {boqItems.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.description} ({item.uom})
+                      </option>
+                    ))}
+                  </select>
+                  {isFetchingBoqs && (
+                    <p className="text-[10px] text-primary animate-pulse font-bold ml-1">Fetching project items...</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -156,8 +208,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                 <input
                   type="number"
                   className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none font-bold ${errors.amount
-                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
                   placeholder="0"
                   value={formData.amount}
@@ -184,8 +236,8 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                 <input
                   type="text"
                   className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:ring-4 transition-all outline-none ${errors.paid_by
-                      ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
-                      : "border-gray-200 focus:ring-primary/10 focus:border-primary"
+                    ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
+                    : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                     }`}
                   placeholder="e.g. PM Name"
                   value={formData.paid_by}
@@ -213,11 +265,11 @@ const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
               </div>
 
               <div className="md:col-span-2 space-y-1">
-                <label className="block text-sm font-medium text-gray-600 mb-1">Remarks</label>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Description / Remarks</label>
                 <textarea
                   rows={2}
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all outline-none resize-none"
-                  placeholder="Any additional details..."
+                  placeholder="Describe this expense (maps to description in backend)..."
                   value={formData.remarks}
                   onChange={e => setFormData({ ...formData, remarks: e.target.value })}
                 />

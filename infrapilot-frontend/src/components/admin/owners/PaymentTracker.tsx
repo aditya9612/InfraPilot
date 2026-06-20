@@ -16,6 +16,10 @@ export interface PaymentTransaction {
   type: "Credit" | "Debit";
   description: string;
   isFallbackDate: boolean;
+  milestone_name?: string;
+  paid_amount?: number;
+  reference_code?: string;
+  project_id?: string;
 }
 
 export default function PaymentTracker() {
@@ -89,14 +93,15 @@ export default function PaymentTracker() {
           console.log("[PaymentTracker] Raw API response sample:", data[0]);
         }
 
-        const ownerObj = owners.find(o => o.id === selectedOwnerId);
-
         // Map API response to Component format
         const mappedData: PaymentTransaction[] = (data || []).map((txn: any) => {
-          // When "All Owners" is selected, resolve owner name from the owners list via txn.owner_id
-          const resolvedOwner = selectedOwnerId
-            ? ownerObj
-            : owners.find(o => o.id === String(txn.owner_id));
+          // Find matching owner from the owners list
+          const txnOwnerId = txn.owner_id || txn.ownerId;
+          const resolvedOwner = owners.find(o => String(o.id) === String(txnOwnerId));
+
+
+          // Try every plausible milestone field name
+          const resolvedMilestone = txn.milestone_name || txn.milestone || txn.milestoneName || txn.project_milestone || null;
 
           // Try every plausible date field name the API might return
           const rawDate =
@@ -112,7 +117,7 @@ export default function PaymentTracker() {
 
           return {
             id: String(txn.id),
-            ownerId: String(txn.owner_id || selectedOwnerId),
+            ownerId: String(txnOwnerId || selectedOwnerId),
             ownerName: resolvedOwner ? resolvedOwner.name : (txn.owner_name || "Unknown"),
             date: rawDate || new Date().toISOString().split("T")[0],
             amount: parseFloat(txn.amount) || 0,
@@ -120,7 +125,11 @@ export default function PaymentTracker() {
             reference: txn.reference_id ? `${txn.reference_type}-${txn.reference_id}` : (txn.reference || "-"),
             type: String(txn.type || "").toLowerCase() === "credit" ? "Credit" : "Debit",
             description: txn.description || txn.remarks || "N/A",
-            isFallbackDate: !rawDate
+            isFallbackDate: !rawDate,
+            milestone_name: resolvedMilestone,
+            paid_amount: parseFloat(txn.paid_amount) || 0,
+            reference_code: txn.reference_code,
+            project_id: String(txn.project_id)
           };
         });
 
@@ -142,7 +151,7 @@ export default function PaymentTracker() {
     };
     fetchPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedOwnerId, selectedProjectId, selectedStatus]);
+  }, [selectedOwnerId, selectedProjectId, selectedStatus, owners]);
 
   const filteredPayments = useMemo(() => {
     return payments.filter((txn) => {
@@ -460,6 +469,36 @@ export default function PaymentTracker() {
                 <span className="text-slate-500 text-sm">Status</span>
                 <span className="text-sm font-medium">
                   {selectedTxn.status}
+                </span>
+              </div>
+              <div className="flex justify-between pb-3 border-b border-slate-100">
+                <span className="text-slate-500 text-sm">Milestone</span>
+                <span className="text-slate-800 font-medium text-sm">
+                  {selectedTxn.milestone_name || "-"}
+                </span>
+              </div>
+              <div className="flex justify-between pb-3 border-b border-slate-100">
+                <span className="text-slate-500 text-sm">Paid Amount</span>
+                <span className="text-emerald-600 font-medium text-sm">
+                  ₹{selectedTxn.paid_amount ?? 0}
+                </span>
+              </div>
+              <div className="flex justify-between pb-3 border-b border-slate-100">
+                <span className="text-slate-500 text-sm">Pending Amount</span>
+                <span className="text-rose-600 font-medium text-sm">
+                  ₹{(selectedTxn.amount - (selectedTxn.paid_amount || 0)).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex justify-between pb-3 border-b border-slate-100">
+                <span className="text-slate-500 text-sm">Reference Code</span>
+                <span className="text-slate-800 font-mono text-xs">
+                  {selectedTxn.reference_code || "-"}
+                </span>
+              </div>
+              <div className="pb-3 border-b border-slate-100">
+                <span className="text-slate-500 text-sm block mb-1">Description</span>
+                <span className="text-slate-600 text-sm break-words">
+                  {selectedTxn.description}
                 </span>
               </div>
             </div>

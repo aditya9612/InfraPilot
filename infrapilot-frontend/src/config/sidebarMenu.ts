@@ -200,19 +200,16 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "folder",
       subNav: [
         { label: "Project List", path: "/manager/projects/list", icon: "list" },
-        { label: "Project Details", path: "/manager/projects/details", icon: "info" },
-        { label: "Milestones", path: "/manager/projects/milestones", icon: "activity" },
-        { label: "Project Timeline", path: "/manager/projects/timeline", icon: "calendar" },
       ]
     },
     {
       label: "Work Progress",
-      path: "/manager/progress",
+      path: "/manager/work-progress",
       icon: "trending-up",
       subNav: [
-        { label: "Daily Progress", path: "/manager/progress/daily", icon: "clipboard" },
-        { label: "Weekly Progress", path: "/manager/progress/weekly", icon: "calendar" },
-        { label: "Progress Reports", path: "/manager/progress/reports", icon: "file-text" },
+        { label: "Daily Progress", path: "/manager/work-progress/daily", icon: "clipboard" },
+        { label: "Weekly Progress", path: "/manager/work-progress/weekly", icon: "calendar" },
+        { label: "Progress Reports", path: "/manager/work-progress/reports", icon: "file-text" },
       ]
     },
     {
@@ -231,6 +228,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/manager/resources",
       icon: "users",
       subNav: [
+        { label: "Resource Hub", path: "/manager/resources/orchestrator", icon: "grid" },
         { label: "Labour", path: "/manager/resources/labour", icon: "users" },
         { label: "Equipment", path: "/manager/resources/equipment", icon: "tool" },
         { label: "Materials", path: "/manager/resources/materials", icon: "package" },
@@ -295,16 +293,8 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         { label: "Rejected", path: "/manager/approvals/rejected", icon: "rotate-ccw" },
       ]
     },
-    {
-      label: "Reports",
-      path: "/manager/reports",
-      icon: "bar-chart",
-      subNav: [
-        { label: "Progress Report", path: "/manager/reports/progress", icon: "trending-up" },
-        { label: "Cost Report", path: "/manager/reports/cost", icon: "dollar-sign" },
-        { label: "Resource Report", path: "/manager/reports/resource", icon: "users" },
-      ]
-    },
+    { label: "Reports", path: "/manager/reports", icon: "bar-chart", subNav: [{ label: "Progress Report", path: "/manager/reports/progress", icon: "trending-up" }, { label: "Cost Report", path: "/manager/reports/cost", icon: "dollar-sign" }, { label: "Resource Report", path: "/manager/reports/resource", icon: "users" },] },
+    { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Settings", path: "/manager/settings", icon: "settings" },
   ],
   SiteEngineer: [

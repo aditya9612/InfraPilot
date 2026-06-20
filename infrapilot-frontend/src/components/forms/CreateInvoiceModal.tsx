@@ -294,11 +294,11 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
         </div>
 
         {/* Work & Billing Details */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Work & Billing Details</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {!isLabour && formData.type !== "material" && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Work & Billing Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-            {!isLabour && (
               <div className="md:col-span-2">
                 <label className={labelClasses}>Description <span className="text-rose-500">*</span></label>
                 <textarea
@@ -309,9 +309,7 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                   onChange={e => setFormData({ ...formData, work_description: e.target.value })}
                 />
               </div>
-            )}
 
-            {!isLabour && formData.type !== "material" && (
               <div>
                 <label className={labelClasses}>Base Amount (₹) <span className="text-rose-500">*</span></label>
                 <input
@@ -323,25 +321,23 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                   onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
                 />
               </div>
-            )}
 
-            <div className={`grid ${isLabour ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
-              <div>
-                <label className={labelClasses}>GST (%)</label>
-                <select
-                  className={inputClasses()}
-                  value={formData.gst_percent}
-                  onChange={e => setFormData({ ...formData, gst_percent: parseInt(e.target.value) })}
-                >
-                  <option value={0}>0%</option>
-                  <option value={5}>5%</option>
-                  <option value={12}>12%</option>
-                  <option value={18}>18%</option>
-                  <option value={28}>28%</option>
-                </select>
-              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClasses}>GST (%)</label>
+                  <select
+                    className={inputClasses()}
+                    value={formData.gst_percent}
+                    onChange={e => setFormData({ ...formData, gst_percent: parseInt(e.target.value) })}
+                  >
+                    <option value={0}>0%</option>
+                    <option value={5}>5%</option>
+                    <option value={12}>12%</option>
+                    <option value={18}>18%</option>
+                    <option value={28}>28%</option>
+                  </select>
+                </div>
 
-              {!isLabour && formData.type !== "material" && (
                 <div>
                   <label className={labelClasses}>Payment Status</label>
                   <select
@@ -354,10 +350,8 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                     <option value="paid">Paid</option>
                   </select>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {!isLabour && formData.type !== "material" && (
               <div className="md:col-span-2">
                 <label className={labelClasses}>Attachment (BOQ/PDF)</label>
                 <div className="flex items-center justify-center w-full">
@@ -371,12 +365,12 @@ const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({
                 </div>
                 {formData.attachment && <p className="text-[10px] text-primary font-bold mt-1">Attached: {formData.attachment.name}</p>}
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Calculation Summary Card */}
-        {!isLabour && (
+        {!isLabour && formData.type !== "material" && (
           <div className="bg-slate-900 rounded-[28px] p-8 mt-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl"></div>
             <div className="grid grid-cols-3 gap-8">

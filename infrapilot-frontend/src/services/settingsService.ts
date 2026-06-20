@@ -148,6 +148,9 @@ export const settingsService = {
             if (data.aadhaar_number !== undefined) formData.append("aadhaar_number", data.aadhaar_number);
             if (data.designation !== undefined) formData.append("designation", data.designation);
             if (data.joining_date !== undefined) formData.append("joining_date", data.joining_date);
+            if (data.mobile_number !== undefined) formData.append("mobile_number", data.mobile_number);
+            if (data.email !== undefined) formData.append("email", data.email);
+            if (data.role !== undefined) formData.append("role", data.role);
             if (data.is_active !== undefined) formData.append("is_active", data.is_active ? "1" : "0");
 
             console.log("PUT /api/v1/settings/profile - Final FormData contents:");
@@ -160,8 +163,8 @@ export const settingsService = {
             });
 
             console.log("PUT /api/v1/settings/profile - SUCCESS response data:", response.data);
-            const finalProfile = { 
-                ...response.data, 
+            const finalProfile = {
+                ...response.data,
                 is_active: data.is_active, // Force preserve the requested status in local cache
                 // If we explicitly requested a removal, ensure local cache reflects it even if backend response is stale
                 profile_image: data.profile_image === null ? null : (response.data.profile_image || data.profile_image)

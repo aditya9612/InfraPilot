@@ -22,7 +22,7 @@ const ReportDateModal = ({
     const today = new Date().toISOString().split('T')[0];
     const firstDayOfYear = `${new Date().getFullYear()}-01-01`;
 
-    const [startDate, setStartDate] = useState(firstDayOfYear);
+    const [startDate, setStartDate] = useState(isRange ? firstDayOfYear : today);
     const [endDate, setEndDate] = useState(today);
 
     const handleConfirm = () => {
@@ -84,7 +84,10 @@ const ReportDateModal = ({
                                 <input
                                     type="date"
                                     value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
+                                    onChange={(e) => {
+                                        setEndDate(e.target.value);
+                                        setStartDate(e.target.value);
+                                    }}
                                     className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all"
                                 />
                             </div>

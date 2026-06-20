@@ -11,6 +11,7 @@ import type { Invoice, InvoiceSummary } from "../../types/invoice";
 import { projectService } from "../../services/projectService";
 import { financeService } from "../../services/financeService";
 import { expenseService } from "../../services/expenseService";
+import { ownerService } from "../../services/ownerService";
 import { generateInvoicePDF } from "../../utils/invoicePDFGenerator";
 import type { Project } from "../../types/project";
 import type { Expense } from "../../types/expense";
@@ -43,6 +44,7 @@ const FinancePage = () => {
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [owners, setOwners] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Modals
@@ -69,7 +71,15 @@ const FinancePage = () => {
       setProjects(projectList);
     } catch (error) {
       console.error("Finance: Failed to fetch projects", error);
-    } finally {
+    }
+  }, []);
+
+  const fetchOwners = useCallback(async () => {
+    try {
+      const res = await ownerService.getOwners();
+      setOwners(res);
+    } catch (error) {
+      console.error("Finance: Failed to fetch owners", error);
     }
   }, []);
 
@@ -113,8 +123,9 @@ const FinancePage = () => {
 
   useEffect(() => {
     fetchProjects();
+    fetchOwners();
     settingsService.getCompanySettings().then(setCompanySettings).catch(console.error);
-  }, [fetchProjects]);
+  }, [fetchProjects, fetchOwners]);
 
   // Fetch summary based on project selection
   useEffect(() => {
@@ -174,7 +185,18 @@ const FinancePage = () => {
         fetchInvoices();
         toast.success("Invoice updated successfully");
       } else {
-        const created = await financeService.createInvoice(data);
+        let created;
+        if (data.type === "labour") {
+          created = await financeService.createLabourInvoice({
+            project_id: data.project_id,
+            start_date: data.start_date,
+            end_date: data.end_date
+          });
+        } else if (data.type === "material") {
+          created = await financeService.createMaterialInvoice(data.project_id);
+        } else {
+          created = await financeService.createInvoice(data);
+        }
         setInvoices((prev) => [created, ...prev]);
         fetchInvoices();
         toast.success("Invoice created successfully");
@@ -903,6 +925,7 @@ const FinancePage = () => {
         onClose={() => setIsDetailsModalOpen(false)}
         invoice={selectedInvoice}
         projects={projects}
+        owners={owners}
         onMarkPaid={handleMarkPaid}
         onDownloadPDF={handleDownloadPDF}
       />
