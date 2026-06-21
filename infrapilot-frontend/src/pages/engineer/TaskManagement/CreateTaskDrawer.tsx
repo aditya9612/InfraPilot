@@ -4,7 +4,7 @@ import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
 import { labourService } from '../../../services/labourService';
 import { boqService } from '../../../services/boqService';
-import { workProgressService } from '../../../services/workProgressService';
+import { masterService } from '../../../services/masterService';
 import toast from 'react-hot-toast';
 
 interface CreateTaskModalProps {
@@ -59,7 +59,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                 const [ms, bq, act] = await Promise.all([
                     projectService.getMilestones(targetProjectId).catch(() => []),
                     boqService.getBoqItems(targetProjectId).catch(() => []),
-                    workProgressService.listActivities(targetProjectId).catch(() => [])
+                    masterService.getEntities('activity-types').catch(() => [])
                 ]);
                 setMilestones(Array.isArray(ms) ? ms : (ms as any).items || (ms as any).data || []);
                 setBoqs(Array.isArray(bq) ? bq : (bq as any).items || (bq as any).data || []);
@@ -509,7 +509,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                             >
                                 <option value="None">None</option>
                                 {activities.map((a: any) => (
-                                    <option key={a.id} value={a.id}>{a.activity_name || a.title}</option>
+                                    <option key={a.id} value={a.id}>{a.name || a.activity_name || a.title}</option>
                                 ))}
                             </select>
                         </div>
@@ -543,7 +543,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                             >
                                 <option value="None">None</option>
                                 {boqs.map((b: any) => (
-                                    <option key={b.id} value={b.id}>{b.name || b.item_description || `BOQ Item`}</option>
+                                    <option key={b.id} value={b.id}>{b.item_name || b.name || b.item_description || `BOQ Item`}</option>
                                 ))}
                             </select>
                         </div>

@@ -116,19 +116,25 @@ const LabourAttendancePage: React.FC = () => {
             const activeProjectId = getActiveProjectId();
             let fromDate = "";
             let toDate = "";
-            const today = new Date().toISOString().split('T')[0];
+            const date = new Date();
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            const today = `${year}-${String(month + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
             if (empDurationFilter === 'Today') {
                 fromDate = today;
                 toDate = today;
             } else if (empDurationFilter === 'Current Month') {
-                const date = new Date();
-                fromDate = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
-                toDate = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
+                fromDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+                const lastDay = new Date(year, month + 1, 0).getDate();
+                toDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
             } else if (empDurationFilter === 'Last Month') {
-                const date = new Date();
-                fromDate = new Date(date.getFullYear(), date.getMonth() - 1, 1).toISOString().split('T')[0];
-                toDate = new Date(date.getFullYear(), date.getMonth(), 0).toISOString().split('T')[0];
+                const lastMonthDate = new Date(year, month - 1, 1);
+                const lmYear = lastMonthDate.getFullYear();
+                const lmMonth = lastMonthDate.getMonth();
+                fromDate = `${lmYear}-${String(lmMonth + 1).padStart(2, '0')}-01`;
+                const lmLastDay = new Date(lmYear, lmMonth + 1, 0).getDate();
+                toDate = `${lmYear}-${String(lmMonth + 1).padStart(2, '0')}-${String(lmLastDay).padStart(2, '0')}`;
             } else {
                 fromDate = today;
                 toDate = today;
@@ -163,9 +169,14 @@ const LabourAttendancePage: React.FC = () => {
                 console.error("Failed to fetch labourers list for attendance", err);
             }
 
+            let fetchedTotal = 0;
+            let fetchedPresent = 0;
             try {
                 const stats = await labourService.getAttendanceDashboard(activeProjectId, fromDate || undefined, toDate || undefined);
-                if (stats) setDashboardStats({ total_labour: stats.total_labour || 0, present: stats.present || 0 });
+                if (stats) {
+                    fetchedTotal = stats.total_labour || 0;
+                    fetchedPresent = stats.present || 0;
+                }
             } catch (err) {
                 console.error("Failed to fetch dashboard stats", err);
             }
@@ -224,6 +235,19 @@ const LabourAttendancePage: React.FC = () => {
                 return (a.attendance_date > b.attendance_date) ? -1 : 1;
             });
 
+            const todayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            const clientPresentCount = enrichedAttendances.filter((a: any) => 
+                a.attendance_date === todayStr && 
+                a.status !== 'absent' && 
+                a.in_time && 
+                a.in_time !== '--:--'
+            ).length;
+
+            setDashboardStats({
+                total_labour: fetchedTotal || allLabourers.length || 0,
+                present: fetchedPresent > clientPresentCount ? fetchedPresent : clientPresentCount
+            });
+
             setLabourAttendances(enrichedAttendances);
         } catch (error) {
             console.error("Failed to fetch labour attendances", error);
@@ -251,7 +275,8 @@ const LabourAttendancePage: React.FC = () => {
             const activeProjectId = getActiveProjectId();
             let fromDate = "";
             let toDate = "";
-            const today = new Date().toISOString().split('T')[0];
+            const dObj = new Date();
+            const today = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
 
             if (historyFilter === 'Today') {
                 fromDate = today;
@@ -259,7 +284,7 @@ const LabourAttendancePage: React.FC = () => {
             } else if (historyFilter === 'Yesterday') {
                 const y = new Date();
                 y.setDate(y.getDate() - 1);
-                const yStr = y.toISOString().split('T')[0];
+                const yStr = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
                 fromDate = yStr;
                 toDate = yStr;
             } else if (historyFilter === 'Date' && historyDateInput) {
@@ -616,7 +641,7 @@ const LabourAttendancePage: React.FC = () => {
                                                     <span className={`text-[10px] font-bold ${lab.out_time ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogOut className="w-3 h-3" /> {lab.out_time || "-"}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{lab.working_hours || "-"}</span></td>
+                                            <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{lab.working_hours ? `${lab.working_hours}hr` : "-"}</span></td>
                                             <td className="px-6 py-4">
                                                 <span
                                                     className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer hover:underline"

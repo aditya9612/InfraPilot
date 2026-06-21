@@ -234,16 +234,30 @@ export const paymentService = {
      * GET /api/v1/labour/payroll/export
      */
     async exportPayrollExcel(filters?: { month?: number; year?: number; project_id?: number | string }): Promise<Blob> {
-        const cleanFilters = {
-            ...filters,
-            month: filters?.month ? filters.month.toString().padStart(2, '0') : undefined
-        };
+        const cleanFilters: any = {};
+        if (filters?.month !== undefined) cleanFilters.month = Number(filters.month);
+        if (filters?.year !== undefined) cleanFilters.year = Number(filters.year);
+        if (filters?.project_id !== undefined) cleanFilters.project_id = Number(filters.project_id);
+
         console.log("GET /api/v1/labour/payroll/export Request Params:", cleanFilters);
-        const response = await api.get("/labour/payroll/export", {
-            params: cleanFilters,
-            responseType: 'blob'
-        });
-        return response.data;
+        try {
+            const response = await api.get("/labour/payroll/export", {
+                params: cleanFilters,
+                responseType: 'blob'
+            });
+            return response.data;
+        } catch (err: any) {
+            if (err.response?.data instanceof Blob) {
+                const text = await err.response.data.text();
+                try {
+                    const parsed = JSON.parse(text);
+                    throw new Error(parsed.message || parsed.detail || "Validation failed on the backend.");
+                } catch (e) {
+                    throw new Error(text || "Failed to export payroll Excel.");
+                }
+            }
+            throw err;
+        }
     },
 
     /**
@@ -251,12 +265,30 @@ export const paymentService = {
      * GET /api/v1/labour/report/payroll/export/pdf
      */
     async exportPayrollPDF(filters?: any): Promise<Blob> {
-        console.log("GET /api/v1/labour/report/payroll/export/pdf Request Params:", filters);
-        const response = await api.get("/labour/report/payroll/export/pdf", {
-            params: filters,
-            responseType: 'blob'
-        });
-        return response.data;
+        const cleanFilters: any = {};
+        if (filters?.month !== undefined) cleanFilters.month = Number(filters.month);
+        if (filters?.year !== undefined) cleanFilters.year = Number(filters.year);
+        if (filters?.project_id !== undefined) cleanFilters.project_id = Number(filters.project_id);
+
+        console.log("GET /api/v1/labour/report/payroll/export/pdf Request Params:", cleanFilters);
+        try {
+            const response = await api.get("/labour/report/payroll/export/pdf", {
+                params: cleanFilters,
+                responseType: 'blob'
+            });
+            return response.data;
+        } catch (err: any) {
+            if (err.response?.data instanceof Blob) {
+                const text = await err.response.data.text();
+                try {
+                    const parsed = JSON.parse(text);
+                    throw new Error(parsed.message || parsed.detail || "Validation failed on the PDF export.");
+                } catch (e) {
+                    throw new Error(text || "Failed to export payroll PDF.");
+                }
+            }
+            throw err;
+        }
     },
 };
 

@@ -596,7 +596,9 @@ export const labourService = {
                 limit: 50,
                 offset: 0,
                 start_date: fromDate || today,
-                end_date: toDate || today
+                end_date: toDate || today,
+                from_date: fromDate || today,
+                to_date: toDate || today
             };
             if (projectId) params.project_id = projectId;
 
@@ -628,7 +630,14 @@ export const labourService = {
                 const stored = localStorage.getItem("mock_attendance_global");
                 if (stored) {
                     const mockList = JSON.parse(stored);
-                    mockList.forEach((mockItem: any) => {
+                    const start = fromDate || today;
+                    const end = toDate || today;
+                    const filteredMockList = mockList.filter((item: any) => {
+                        const itemDate = item.attendance_date;
+                        if (!itemDate) return false;
+                        return itemDate >= start && itemDate <= end;
+                    });
+                    filteredMockList.forEach((mockItem: any) => {
                         // Avoid duplicates if backend already returned it
                         if (!items.find((i: any) => i.labour_id === mockItem.labour_id && i.attendance_date === mockItem.attendance_date)) {
                             items.unshift({
@@ -652,7 +661,16 @@ export const labourService = {
                 list = stored ? JSON.parse(stored) : [];
             } catch (e) { }
 
-            const items = list.map((item: any) => ({
+            const today = new Date().toISOString().split('T')[0];
+            const start = fromDate || today;
+            const end = toDate || today;
+            const filteredMockList = list.filter((item: any) => {
+                const itemDate = item.attendance_date;
+                if (!itemDate) return false;
+                return itemDate >= start && itemDate <= end;
+            });
+
+            const items = filteredMockList.map((item: any) => ({
                 ...item,
                 id: item.id || item.attendance_id || item.labour_id,
                 labour_name: item.labour_name || "Unknown Worker",

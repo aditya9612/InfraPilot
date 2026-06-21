@@ -26,6 +26,7 @@ import {
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
 import { settingsService } from "../../../services/settingsService";
+import { dsrService } from "../../../services/dsrService";
 import type { QcItem } from "../../../services/qcService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
@@ -65,6 +66,8 @@ const QCInspectionPage = () => {
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [projectId, setProjectId] = useState<number | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [dsrs, setDsrs] = useState<any[]>([]);
 
     interface QcFormData {
         project_id: number | "";
@@ -181,6 +184,31 @@ const QCInspectionPage = () => {
             fetchProjects();
         }
     }, [isNewModalOpen, isEditModalOpen]);
+
+    useEffect(() => {
+        const fetchProjectRelatedData = async () => {
+            if (!formData.project_id) {
+                setTasks([]);
+                setDsrs([]);
+                return;
+            }
+            try {
+                const [tasksData, dsrsData] = await Promise.all([
+                    projectService.getTasks(Number(formData.project_id)).catch(() => []),
+                    dsrService.getDsrByProject(Number(formData.project_id)).catch(() => ({ items: [] }))
+                ]);
+                
+                const taskItems = Array.isArray(tasksData) ? tasksData : (tasksData.items || tasksData.data || []);
+                const dsrItems = dsrsData?.items || (Array.isArray(dsrsData) ? dsrsData : []);
+                
+                setTasks(taskItems);
+                setDsrs(dsrItems);
+            } catch (err) {
+                console.error("Failed to load project tasks or DSRs", err);
+            }
+        };
+        fetchProjectRelatedData();
+    }, [formData.project_id]);
 
     // â”€â”€â”€ INITIALIZATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -911,7 +939,7 @@ const QCInspectionPage = () => {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project_id *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project *</label>
                                 <select
                                     value={formData.project_id}
                                     onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
@@ -927,7 +955,7 @@ const QCInspectionPage = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">inspection_type *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">inspection type *</label>
                                 <select
                                     value={formData.inspection_type}
                                     onChange={(e) => setFormData({ ...formData, inspection_type: e.target.value })}
@@ -937,29 +965,50 @@ const QCInspectionPage = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">task_id <span className="normal-case text-slate-300">(optional)</span></label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    placeholder="Task ID..."
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">task <span className="normal-case text-slate-300">(optional)</span></label>
+                                <select
                                     value={formData.task_id || ""}
                                     onChange={(e) => setFormData({ ...formData, task_id: e.target.value ? Number(e.target.value) : null })}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
-                                />
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                >
+                                    <option value="">None</option>
+                                    {tasks.map(t => {
+                                        const cleanTitle = (t.title || "").replace(/^Task\s*#\d+\s*[-:]?\s*/i, "");
+                                        return (
+                                            <option key={t.id} value={t.id}>
+                                                {cleanTitle || `Task #${t.id}`}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">dsr_id <span className="normal-case text-slate-300">(optional)</span></label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    placeholder="DSR ID..."
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">dsr <span className="normal-case text-slate-300">(optional)</span></label>
+                                <select
                                     value={formData.dsr_id || ""}
                                     onChange={(e) => setFormData({ ...formData, dsr_id: e.target.value ? Number(e.target.value) : null })}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
-                                />
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                >
+                                    <option value="">None</option>
+                                    {dsrs.map(d => {
+                                        let workDoneStr = d.work_done || "";
+                                        
+                                        // Clean any leading "DSR #ID - " prefix
+                                        workDoneStr = workDoneStr.replace(/^DSR\s*#\d+\s*[-:]?\s*/i, "").trim();
+                                        
+                                        // Display clean work description
+                                        let display = workDoneStr || `DSR #${d.id}`;
+                                        
+                                        return (
+                                            <option key={d.id} value={d.id}>
+                                                {display}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">test_type *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">test type *</label>
                                 <select
                                     value={formData.test_type}
                                     onChange={(e) => setFormData({ ...formData, test_type: e.target.value })}
@@ -969,7 +1018,7 @@ const QCInspectionPage = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer_name *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer name *</label>
                                 <input
                                     type="text"
                                     placeholder="Enter auditor name..."
@@ -1005,7 +1054,7 @@ const QCInspectionPage = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">standard_value *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">standard value *</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -1106,12 +1155,24 @@ const QCInspectionPage = () => {
                                         <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedQc.engineer_name}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task ID</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedQc.task_id || "N/A"}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">
+                                            {selectedQc.task_id ? (tasks.find(t => t.id === selectedQc.task_id)?.title ? (tasks.find(t => t.id === selectedQc.task_id).title.replace(/^Task\s*#\d+\s*[-:]?\s*/i, "")) : `Task #${selectedQc.task_id}`) : "N/A"}
+                                        </p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR ID</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedQc.dsr_id || "N/A"}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">
+                                            {selectedQc.dsr_id ? (() => {
+                                                const d = dsrs.find(dsr => dsr.id === selectedQc.dsr_id);
+                                                if (d) {
+                                                    let workDoneStr = d.work_done || "";
+                                                    workDoneStr = workDoneStr.replace(/^DSR\s*#\d+\s*[-:]?\s*/i, "").trim();
+                                                    return workDoneStr || `DSR #${selectedQc.dsr_id}`;
+                                                }
+                                                return `DSR #${selectedQc.dsr_id}`;
+                                            })() : "N/A"}
+                                        </p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Inspection Category</p>

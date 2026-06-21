@@ -113,9 +113,9 @@ const PayrollReportPage: React.FC = () => {
             }, 100);
             
             toast.success('Excel exported successfully');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Export Excel Error:", error);
-            toast.error('Excel Export failed');
+            toast.error(error.message || 'Excel Export failed');
         } finally {
             setIsExportingExcel(false);
         }
@@ -138,9 +138,9 @@ const PayrollReportPage: React.FC = () => {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
             toast.success('PDF exported successfully');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Export PDF Error:", error);
-            toast.error('PDF Export failed');
+            toast.error(error.message || 'PDF Export failed');
         } finally {
             setIsExportingExcel(false);
         }

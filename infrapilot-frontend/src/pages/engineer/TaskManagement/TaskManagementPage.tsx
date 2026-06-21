@@ -226,18 +226,20 @@ const TaskManagementPage = () => {
     const fetchData = useCallback(async () => {
         if (!projectId) return;
         try {
-            const [fetchedTasks, fetchedMembers, fetchedMilestones, fetchedBoqs, fetchedActivities] = await Promise.all([
+            const [fetchedTasks, fetchedMembers, fetchedMilestones, fetchedBoqs, fetchedActivities, fetchedProjects] = await Promise.all([
                 projectService.getTasks(projectId),
                 projectService.getProjectMembers(projectId),
                 projectService.getMilestones(projectId).catch(() => []),
                 boqService.getBoqItems(projectId).catch(() => []),
-                workProgressService.listActivities(projectId).catch(() => [])
+                workProgressService.listActivities(projectId).catch(() => []),
+                projectService.getProjects(100, 0).catch(() => [])
             ]);
 
             const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
             const milestonesList = Array.isArray(fetchedMilestones) ? fetchedMilestones : ((fetchedMilestones as any).items || (fetchedMilestones as any).data || []);
             const boqsList = Array.isArray(fetchedBoqs) ? fetchedBoqs : ((fetchedBoqs as any).items || (fetchedBoqs as any).data || []);
             const activitiesList = Array.isArray(fetchedActivities) ? fetchedActivities : ((fetchedActivities as any).items || (fetchedActivities as any).data || []);
+            const projectsList = fetchedProjects ? (Array.isArray(fetchedProjects) ? fetchedProjects : (fetchedProjects.items || fetchedProjects.data || [])) : [];
 
             setProjectMilestones(milestonesList);
             setProjectBoqs(boqsList);
@@ -248,7 +250,8 @@ const TaskManagementPage = () => {
             if (userStr) {
                 const user = JSON.parse(userStr);
                 const assignedProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
-                const matched = assignedProjects.find((p: any) => (p.id || p.project_id) === projectId);
+                const matched = projectsList.find((p: any) => (p.id || p.project_id) === projectId) ||
+                                assignedProjects.find((p: any) => (p.id || p.project_id) === projectId);
                 if (matched) pName = matched.project_name || matched.name;
             }
 
@@ -261,8 +264,10 @@ const TaskManagementPage = () => {
                 if (t.project_id) {
                     const user = userStr ? JSON.parse(userStr) : null;
                     const assignedProjects = user ? (user.assigned_projects || user.user?.assigned_projects || []) : [];
-                    const matched = assignedProjects.find((p: any) => (p.id || p.project_id) === t.project_id);
+                    const matched = projectsList.find((p: any) => (p.id || p.project_id) === t.project_id) ||
+                                    assignedProjects.find((p: any) => (p.id || p.project_id) === t.project_id);
                     if (matched) taskProjectName = matched.project_name || matched.name;
+                    else taskProjectName = "Project " + t.project_id;
                 }
 
                 const creator = membersList.find(m => m.user_id === (t as any).created_by_user_id);
@@ -638,6 +643,11 @@ const TaskManagementPage = () => {
         return filteredTasks.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredTasks, currentPage, itemsPerPage]);
 
+    const currentProjectName = useMemo(() => {
+        const found = assignedProjects.find(p => (p.id || p.project_id) === projectId);
+        return found ? (found.project_name || found.name) : 'Current Project';
+    }, [assignedProjects, projectId]);
+
     useEffect(() => {
         setCurrentPage(1);
     }, [searchQuery, statusFilter, ownershipFilter, activeTab, departmentFilter]);
@@ -905,6 +915,10 @@ const TaskManagementPage = () => {
                                                         <div className={`w-2 h-2 rounded-full ${task.status === 'Cancelled' ? 'bg-rose-500' : task.status === 'Planned' ? 'bg-slate-400' : 'bg-blue-500'}`} />
                                                     </div>
 
+                                                    <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-1">
+                                                        <Folder className="w-3 h-3 text-indigo-500" />
+                                                        <span>{task.projectName}</span>
+                                                    </div>
                                                     <h3 className="text-base font-bold text-slate-800 mb-1">{task.title}</h3>
                                                     <p className="text-xs text-slate-500 mb-5 min-h-[32px] line-clamp-2">{task.description}</p>
 
@@ -1000,25 +1014,25 @@ const TaskManagementPage = () => {
                                             <thead className="hidden md:table-header-group">
                                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
 
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">project_id</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">milestone_id</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">boq_id</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">title</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">description</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">priority</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">status</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">start_date</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">end_date</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">created_by_user_id</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">assigned_users</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">completion_percentage</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">is_delayed</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">execution_duration</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">delay_days</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">actual_cost</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">planned_cost</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">audio_instruction_url</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">instruction_image_url</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Project</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Milestone</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">BOQ</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Title</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Description</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Start Date</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">End Date</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Created By</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned Users</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Completion %</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Is Delayed</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Execution Duration</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Delay Days</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Actual Cost</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Planned Cost</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Audio Instruction</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Instruction Image</th>
 
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
                                                 </tr>
@@ -1265,7 +1279,7 @@ const TaskManagementPage = () => {
 
                             {/* Project List */}
                             <div className="p-6 bg-slate-50 flex-1 space-y-4">
-                                {[{ id: projectId || 92, name: 'Current Project', tasksCount: filteredTasks.length, status: 'Planned' as ProjectStatus, tasks: filteredTasks }].map(project => {
+                                {[{ id: projectId || 92, name: currentProjectName, tasksCount: filteredTasks.length, status: 'Planned' as ProjectStatus, tasks: filteredTasks }].map(project => {
                                     const isExpanded = expandedProjects.includes(project.id);
                                     return (
                                         <div key={project.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -1421,30 +1435,28 @@ const TaskManagementPage = () => {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
                         {/* Modal Header */}
-                        <div className="bg-primary p-6 md:p-8 flex items-start justify-between relative overflow-hidden font-inter border-b border-primary/20">
+                        <div className="bg-primary py-5 px-6 flex items-center justify-between relative overflow-hidden font-inter border-b border-primary/20 shrink-0">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
                             <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4 pointer-events-none"></div>
 
-                            <div className="relative z-10 flex items-center gap-4 md:gap-6">
-                                <div className="relative">
-                                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center text-primary text-2xl font-bold border border-white/20">
-                                        <FileText className="w-8 h-8 md:w-10 md:h-10 text-primary" />
+                            <div className="relative z-10 flex items-center gap-4 flex-1 min-w-0 mr-4">
+                                <div className="relative shrink-0">
+                                    <div className="w-12 h-12 bg-white rounded-xl shadow-md flex items-center justify-center text-primary text-xl font-bold border border-white/20">
+                                        <FileText className="w-6 h-6 text-primary" />
                                     </div>
-                                    <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center animate-pulse">
-                                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center animate-pulse">
+                                        <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                                     </div>
                                 </div>
-                                <div>
-                                    <div className="flex items-center gap-3 mb-1">
-                                        <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-none">{selectedTask.title}</h2>
-                                    </div>
-                                    <p className="text-primary-50 text-xs md:text-sm font-medium tracking-wide">Detailed view of task assignments and progress</p>
+                                <div className="min-w-0">
+                                    <h2 className="text-xl md:text-2xl font-black text-white tracking-tight leading-tight break-words pr-2">{selectedTask.title}</h2>
+                                    <p className="text-blue-100 text-xs font-medium tracking-wide">Detailed view of task assignments and progress</p>
                                 </div>
                             </div>
 
                             <button
                                 onClick={() => setSelectedTask(null)}
-                                className="relative z-10 p-2.5 text-white/80 hover:text-white hover:bg-white/20 rounded-xl transition-colors backdrop-blur-sm"
+                                className="relative z-10 p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors backdrop-blur-sm shrink-0"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -2074,7 +2086,7 @@ const TaskManagementPage = () => {
                                     >
                                         <option value="">None</option>
                                         {projectBoqs.map((b: any) => (
-                                            <option key={b.id} value={b.id}>{b.name || b.item_description || `BOQ Item`}</option>
+                                            <option key={b.id} value={b.id}>{b.item_name || b.name || b.item_description || `BOQ Item`}</option>
                                         ))}
                                     </select>
                                 </div>

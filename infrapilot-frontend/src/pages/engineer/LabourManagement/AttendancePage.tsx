@@ -23,6 +23,19 @@ import SelfCheckInModal from './components/SelfCheckInModal';
 import SelfCheckOutModal from './components/SelfCheckOutModal';
 import { useAuth } from '../../../context/AuthContext';
 
+const LOCAL_CONTRACTOR_MAP: Record<number, string> = {
+    1: "string",
+    14: "Shree Constructions",
+    24: "Sai Infra93",
+    31: "Krushnakant",
+    32: "Sai Infra",
+    33: "Shree Constructions",
+    34: "Ashin Ramdas Kolhe",
+    38: "Sai Infras",
+    39: "sham Pandit sp",
+    40: "string"
+};
+
 type AttendanceState = "NOT_CHECKED_IN" | "CHECKED_IN" | "CHECKED_OUT";
 
 const AttendancePage: React.FC = () => {
@@ -124,7 +137,8 @@ const AttendancePage: React.FC = () => {
             // Assuming project_id=1 as per user request
             let fromDate = "";
             let toDate = "";
-            const today = new Date().toISOString().split('T')[0];
+            const dObj = new Date();
+            const today = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
 
             if (historyFilter === 'Today') {
                 fromDate = today;
@@ -132,7 +146,7 @@ const AttendancePage: React.FC = () => {
             } else if (historyFilter === 'Yesterday') {
                 const y = new Date();
                 y.setDate(y.getDate() - 1);
-                const yStr = y.toISOString().split('T')[0];
+                const yStr = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
                 fromDate = yStr;
                 toDate = yStr;
             } else if (historyFilter === 'Date' && historyDateInput) {
@@ -537,7 +551,7 @@ const AttendancePage: React.FC = () => {
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ? formatTime(parseTimeStr(rec.in_time) as Date) : '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ? formatTime(parseTimeStr(rec.out_time) as Date) : '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.working_hours ?? '-'}</span></td>
+                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.working_hours ? `${rec.working_hours}hr` : '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_hours ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_rate ?? '-'}</span></td>
                                                 <td className="px-6 py-4">
@@ -577,6 +591,7 @@ const AttendancePage: React.FC = () => {
                                                                     
                                                                 let userName = rec.user_name || 'Worker';
                                                                 let projectName = rec.project_name || '-';
+                                                                let contractorName = rec.contractor_name || '-';
                                                                 try {
                                                                     const uData = await userService.getUserById(rec.user_id || rec.labour_id);
                                                                     if (uData && (uData.full_name || uData.name)) userName = uData.full_name || uData.name;
@@ -584,7 +599,15 @@ const AttendancePage: React.FC = () => {
                                                                     const projId = detailedLabour.project_id || rec.project_id;
                                                                     if (projId) {
                                                                         const pData = await projectService.getProjectById(projId);
-                                                                        if (pData && pData.name) projectName = pData.name;
+                                                                        if (pData && (pData.project_name || pData.name)) projectName = pData.project_name || pData.name;
+                                                                    }
+
+                                                                    const cId = uData?.contractor_id || detailedLabour?.contractor_id || rec?.contractor_id;
+                                                                    const cName = uData?.contractor_name || detailedLabour?.contractor_name || rec?.contractor_name || (uData?.contractor && (uData.contractor.name || uData.contractor.project_name));
+                                                                    if (cName) {
+                                                                        contractorName = cName;
+                                                                    } else if (cId) {
+                                                                        contractorName = LOCAL_CONTRACTOR_MAP[Number(cId)] || `CONT-0${cId}`;
                                                                     }
                                                                 } catch(e) {}
                                                                     
@@ -607,7 +630,8 @@ const AttendancePage: React.FC = () => {
                                                                     isOutsideGeofence: detailedLabour.is_outside_geofence !== undefined ? String(detailedLabour.is_outside_geofence) : (rec.is_outside_geofence !== undefined ? String(rec.is_outside_geofence) : '-'),
                                                                     lateMinutes: detailedLabour.late_minutes || rec.late_minutes || '-',
                                                                     earlyMinutes: detailedLabour.early_minutes || rec.early_minutes || '-',
-                                                                    projectName: projectName
+                                                                    projectName: projectName,
+                                                                    contractorName: contractorName
                                                                 };
                                                                 
                                                                 setSelectedLabour(mappedData);
@@ -840,59 +864,63 @@ const AttendancePage: React.FC = () => {
                         <div className="px-6 py-5 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4 border-b border-slate-100">
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT NAME</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.projectName}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.projectName || selectedLabour.project_name || '-'}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR NAME</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.contractorName || selectedLabour.contractor_name || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">APP USER NAME</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.name}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.name || selectedLabour.labour_name || selectedLabour.user_name || 'Worker'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">DEPARTMENT</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.department}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.department || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">WORK LOCATION</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.workLocation}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.workLocation || selectedLabour.check_in_address || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CHECK-IN TIME</p>
-                                <p className="text-xs font-bold text-emerald-600">{selectedLabour.checkIn}</p>
+                                <p className="text-xs font-bold text-emerald-600">{selectedLabour.checkIn || selectedLabour.in_time || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CHECK-OUT TIME</p>
-                                <p className="text-xs font-bold text-slate-500">{selectedLabour.checkOut}</p>
+                                <p className="text-xs font-bold text-slate-500">{selectedLabour.checkOut || selectedLabour.out_time || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">TOTAL HOURS</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.hours}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.hours || selectedLabour.working_hours || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">ATTENDANCE STATUS</p>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-500 border border-emerald-100">{selectedLabour.attendanceStatus}</span>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-500 border border-emerald-100">{selectedLabour.attendanceStatus || (selectedLabour.is_late ? 'Late' : 'On Time')}</span>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">TASK DESCRIPTION</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.taskDescription}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.taskDescription || selectedLabour.task_description || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">REMARKS</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.remarks}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.remarks || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">APPROVED?</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.isApproved}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.isApproved || (selectedLabour.is_approved !== undefined ? String(selectedLabour.is_approved) : '-')}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">OUTSIDE GEOFENCE?</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.isOutsideGeofence}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.isOutsideGeofence || (selectedLabour.is_outside_geofence !== undefined ? String(selectedLabour.is_outside_geofence) : '-')}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">LATE MINS</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.lateMinutes}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.lateMinutes || selectedLabour.late_minutes || '-'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">EARLY MINS</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.earlyMinutes}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.earlyMinutes || selectedLabour.early_minutes || '-'}</p>
                             </div>
                         </div>
 
