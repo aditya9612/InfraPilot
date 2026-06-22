@@ -191,13 +191,15 @@ const LabourAttendancePage: React.FC = () => {
 
             // 3. Map Labourers to Attendances correctly
             let enrichedAttendances = attendances.map((att: any) => {
-                const lab = allLabourers.find((l: any) => Number(l.id) === Number(att.labour_id)) || {};
+                const attLabourId = att.labour_id || att.user_id;
+                const lab = allLabourers.find((l: any) => Number(l.id) === Number(attLabourId)) || {};
                 const resolvedContractorName = lab.contractor_name ||
                     contractorMap[Number(lab.contractor_id)] ||
                     (lab.contractor_id ? `CONT-0${lab.contractor_id}` : "-");
                 return {
                     ...lab,
                     ...att,
+                    labour_id: attLabourId,
                     labour_name: lab.labour_name || att.labour_name,
                     contractor_name: resolvedContractorName
                 };
@@ -205,8 +207,8 @@ const LabourAttendancePage: React.FC = () => {
 
             // Ensure every labourer has a row to allow check-in
             allLabourers.forEach((lab: any) => {
-                const hasAnyRecord = enrichedAttendances.some((a: any) => Number(a.labour_id) === Number(lab.id));
-                const hasTodayRecord = enrichedAttendances.some((a: any) => Number(a.labour_id) === Number(lab.id) && a.attendance_date === today);
+                const hasAnyRecord = enrichedAttendances.some((a: any) => Number(a.labour_id || a.user_id) === Number(lab.id));
+                const hasTodayRecord = enrichedAttendances.some((a: any) => Number(a.labour_id || a.user_id) === Number(lab.id) && a.attendance_date === today);
                 
                 const needsRow = empDurationFilter === 'Today' ? !hasTodayRecord : !hasAnyRecord;
 

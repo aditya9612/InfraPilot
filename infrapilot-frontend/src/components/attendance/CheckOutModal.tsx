@@ -11,9 +11,14 @@ interface Props {
     onSuccess: (checkOutTime?: Date) => void;
 }
 
+const getLocalDatetimeString = (date: Date = new Date()) => {
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return (new Date(date.getTime() - tzOffset)).toISOString().slice(0, 16);
+};
+
 const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess }) => {
     // ── State — fields matching Swagger API image exactly ──────────────────
-    const [outTime, setOutTime] = useState(new Date().toISOString().slice(0, 16));
+    const [outTime, setOutTime] = useState(getLocalDatetimeString());
     const [checkOutLatitude, setCheckOutLatitude] = useState<number | null>(null);
     const [checkOutLongitude, setCheckOutLongitude] = useState<number | null>(null);
     const [checkOutAddress, setCheckOutAddress] = useState('Fetching location...');
@@ -80,7 +85,7 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
         if (isOpen) {
             captureGPS();
             startCamera();
-            setOutTime(new Date().toISOString().slice(0, 16));
+            setOutTime(getLocalDatetimeString());
         } else {
             stopCamera();
             setCapturedImage(null);
@@ -98,7 +103,8 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
         try {
             const fd = new FormData();
             
-            fd.append("out_time", new Date(outTime).toISOString());
+            const formattedOutTime = outTime.length === 16 ? `${outTime}:00` : outTime;
+            fd.append("out_time", formattedOutTime);
             
             if (checkOutLatitude !== null) fd.append("check_out_latitude", checkOutLatitude.toString());
             if (checkOutLongitude !== null) fd.append("check_out_longitude", checkOutLongitude.toString());

@@ -405,20 +405,7 @@ export const labourService = {
                 });
             }
 
-            // If it's a mock ID from local storage, bypass the real API to prevent 404 error in Network tab
-            let isMock = false;
-            try {
-                const stored = localStorage.getItem("mock_attendance_global");
-                const list = stored ? JSON.parse(stored) : [];
-                if (list.find((a: any) => a.id === Number(attendanceId))) {
-                    isMock = true;
-                }
-            } catch (e) { }
-
-            if (isMock) {
-                console.warn("Bypassing API call for mock attendance ID to prevent 404 error");
-                throw new Error("Virtual Check-out");
-            }
+            // Always try the real API call first to show in Network tab; catch blocks handles mock check-out if it fails.
 
             console.log(`PUT /api/v1/attendance/${attendanceId}/check-out Request Body: FormData`);
             const response = await api.put(
@@ -613,17 +600,21 @@ export const labourService = {
                 rawItems = data.items || data.data || (Array.isArray(data) ? data : []);
             }
 
-            let items = rawItems.map((item: any) => ({
-                ...item,
-                id: item.id || item.attendance_id || item.labour_id,
-                labour_name: item.labour_name || item.name || "Unknown Worker",
-                worker_code: item.worker_code || `LAB-${item.labour_id || '??'}`,
-                in_time: item.in_time || "--:--",
-                out_time: item.out_time || null,
-                status: item.status?.toLowerCase() === 'absent' ? 'absent' : (item.out_time ? "completed" : "present"),
-                check_in_image: this.resolveUrl(item.check_in_image),
-                check_out_image: this.resolveUrl(item.check_out_image)
-            }));
+            let items = rawItems.map((item: any) => {
+                const resolvedLabourId = item.labour_id || item.user_id;
+                return {
+                    ...item,
+                    id: item.id || item.attendance_id || resolvedLabourId,
+                    labour_id: resolvedLabourId,
+                    labour_name: item.labour_name || item.name || "Unknown Worker",
+                    worker_code: item.worker_code || `LAB-${resolvedLabourId || '??'}`,
+                    in_time: item.in_time || "--:--",
+                    out_time: item.out_time || null,
+                    status: item.status?.toLowerCase() === 'absent' ? 'absent' : (item.out_time ? "completed" : "present"),
+                    check_in_image: this.resolveUrl(item.check_in_image),
+                    check_out_image: this.resolveUrl(item.check_out_image)
+                };
+            });
 
             // Merge with mock attendances so virtual check-ins appear in the list
             try {
@@ -670,17 +661,21 @@ export const labourService = {
                 return itemDate >= start && itemDate <= end;
             });
 
-            const items = filteredMockList.map((item: any) => ({
-                ...item,
-                id: item.id || item.attendance_id || item.labour_id,
-                labour_name: item.labour_name || "Unknown Worker",
-                worker_code: item.worker_code || `LAB-${item.labour_id || '??'}`,
-                in_time: item.in_time || "--:--",
-                out_time: item.out_time || null,
-                status: item.status?.toLowerCase() === 'absent' ? 'absent' : (item.out_time ? "completed" : "present"),
-                check_in_image: this.resolveUrl(item.check_in_image),
-                check_out_image: this.resolveUrl(item.check_out_image)
-            }));
+            const items = filteredMockList.map((item: any) => {
+                const resolvedLabourId = item.labour_id || item.user_id;
+                return {
+                    ...item,
+                    id: item.id || item.attendance_id || resolvedLabourId,
+                    labour_id: resolvedLabourId,
+                    labour_name: item.labour_name || "Unknown Worker",
+                    worker_code: item.worker_code || `LAB-${resolvedLabourId || '??'}`,
+                    in_time: item.in_time || "--:--",
+                    out_time: item.out_time || null,
+                    status: item.status?.toLowerCase() === 'absent' ? 'absent' : (item.out_time ? "completed" : "present"),
+                    check_in_image: this.resolveUrl(item.check_in_image),
+                    check_out_image: this.resolveUrl(item.check_out_image)
+                };
+            });
 
             return { items, total: items.length, limit: 50, offset: 0 };
         }
