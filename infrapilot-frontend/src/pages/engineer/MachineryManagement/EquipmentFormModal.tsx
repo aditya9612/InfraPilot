@@ -91,9 +91,8 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                     </div>
                     {!formData.id && <p className="text-[11px] text-blue-500 mb-4 ml-6">Equipment create hone ke baad automatically project assign ho jayega</p>}
                     <div className="ml-6">
-                        <label className={labelClasses}>SELECT PROJECT *</label>
+                        <label className={labelClasses}>SELECT PROJECT (OPTIONAL)</label>
                         <select
-                            required
                             value={formData.project_id || ''}
                             onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
                             className={inputClasses}
@@ -118,31 +117,31 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             <input type="text" required value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Operator Name</label>
-                            <input type="text" value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={inputClasses} />
+                            <label className={labelClasses}>Operator Name *</label>
+                            <input type="text" required value={formData.operator_name || ''} onChange={(e) => setFormData({ ...formData, operator_name: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Condition</label>
-                            <select value={formData.condition || ''} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} className={inputClasses}>
+                            <label className={labelClasses}>Condition *</label>
+                            <select required value={formData.condition || ''} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} className={inputClasses}>
                                 <option value="">Select condition</option>
                                 {Object.keys(conditionDisplay).map(k => <option key={k} value={k}>{conditionDisplay[k]}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className={labelClasses}>Working Hours</label>
-                            <input type="number" min="0" value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className={inputClasses} />
+                            <label className={labelClasses}>Working Hours *</label>
+                            <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Fuel Used (L)</label>
-                            <input type="number" min="0" value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className={inputClasses} />
+                            <label className={labelClasses}>Fuel Used (L) *</label>
+                            <input type="number" min="0" required value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Rental Cost (₹)</label>
-                            <input type="number" min="0" value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={inputClasses} />
+                            <label className={labelClasses}>Rental Cost (₹) *</label>
+                            <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Maintenance Date</label>
-                            <input type="date" value={formData.maintenance_date || ''} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className={inputClasses} />
+                            <label className={labelClasses}>Maintenance Date *</label>
+                            <input type="date" required value={formData.maintenance_date || ''} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className={inputClasses} />
                         </div>
                     </div>
                 </div>

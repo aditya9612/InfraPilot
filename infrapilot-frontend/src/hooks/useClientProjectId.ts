@@ -16,7 +16,7 @@ export function useClientProjectId() {
   const resolve = useCallback(async () => {
     try {
       setLoading(true);
-
+      
       // 1. Try dedicated selection key first (Independent of server defaults)
       const selectedId = localStorage.getItem("client_selected_project_id");
       if (selectedId && selectedId !== "null") {
@@ -65,7 +65,7 @@ export function useClientProjectId() {
     // Re-check when window regains focus (user might have switched back from settings tab)
     window.addEventListener("focus", resolve);
     window.addEventListener("storage", handleStorageChange);
-
+    
     return () => {
       window.removeEventListener("focus", resolve);
       window.removeEventListener("storage", handleStorageChange);

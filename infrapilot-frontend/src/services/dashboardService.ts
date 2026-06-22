@@ -121,25 +121,6 @@ export interface AdminDashboardData {
   };
 }
 
-export interface LabourDashboardData {
-  user_name: string;
-  project_name: string | null;
-  contractor_name: string;
-  check_in_status: string;
-  total_tasks: number;
-  completed_tasks: number;
-  pending_tasks: number;
-  this_month_earnings: number;
-  recent_tasks: any[];
-  recent_activity: any[];
-}
-
-export interface LabourDashboardResponse {
-  success: boolean;
-  message: string;
-  data: LabourDashboardData;
-}
-
 export const dashboardService = {
   /**
    * Get Client Dashboard stats
@@ -187,15 +168,6 @@ export const dashboardService = {
    */
   async getAccountantDashboard(): Promise<any> {
     const response = await api.get('/dashboard/accountant');
-    return response.data;
-  },
-
-  /**
-   * Get Labour Dashboard stats
-   * GET /api/v1/dashboard/labour
-   */
-  async getLabourDashboard(): Promise<LabourDashboardResponse> {
-    const response = await api.get<LabourDashboardResponse>('/dashboard/labour');
     return response.data;
   },
 };

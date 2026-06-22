@@ -79,11 +79,6 @@ const MaterialReceiptPage = () => {
             } catch (err) {}
         };
         fetchUnits();
-
-        // Refetch material transactions for ID 1 to show in the Network tab
-        materialService.getTransactions(1)
-            .then(data => console.log("Network tab refetched transactions:", data))
-            .catch(err => console.error("Error refetching material transactions:", err));
     }, []);
 
     const handleProjectChange = (newProjectId: number) => {
@@ -143,7 +138,7 @@ const MaterialReceiptPage = () => {
 
     const fetchPOs = async () => {
         setIsLoading(true);
-        try { const data = await materialService.listPurchaseOrders(undefined, 0, 500); setPurchaseOrders(data); }
+        try { const data = await materialService.listPurchaseOrders(0, 500); setPurchaseOrders(data); }
         catch (e) { toast.error("Failed to load POs"); }
         finally { setIsLoading(false); }
     };
@@ -172,22 +167,13 @@ const MaterialReceiptPage = () => {
     }, [activeTab, projectId]);
 
     // Derived Data
-    const filteredMaterials = useMemo(() => materials
-        .filter(m => m.material_name.toLowerCase().includes(searchTerm.toLowerCase()) || m.material_code?.toLowerCase().includes(searchTerm.toLowerCase()))
-        .sort((a, b) => b.id - a.id), 
-    [materials, searchTerm]);
+    const filteredMaterials = useMemo(() => materials.filter(m => m.material_name.toLowerCase().includes(searchTerm.toLowerCase()) || m.material_code?.toLowerCase().includes(searchTerm.toLowerCase())), [materials, searchTerm]);
     const paginatedMaterials = useMemo(() => filteredMaterials.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredMaterials, currentPage, itemsPerPage]);
 
-    const filteredSuppliers = useMemo(() => suppliers
-        .filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()))
-        .sort((a, b) => b.id - a.id), 
-    [suppliers, searchTerm]);
+    const filteredSuppliers = useMemo(() => suppliers.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())), [suppliers, searchTerm]);
     const paginatedSuppliers = useMemo(() => filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredSuppliers, currentPage, itemsPerPage]);
 
-    const filteredPOs = useMemo(() => purchaseOrders
-        .filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase()))
-        .sort((a, b) => b.id - a.id), 
-    [purchaseOrders, searchTerm]);
+    const filteredPOs = useMemo(() => purchaseOrders.filter(p => p.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [purchaseOrders, searchTerm]);
     const paginatedPOs = useMemo(() => filteredPOs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredPOs, currentPage, itemsPerPage]);
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
@@ -220,20 +206,17 @@ const MaterialReceiptPage = () => {
         
         // Front-end validations
         const nameRegex = /^[a-zA-Z\s]+$/;
-        if (!supplierForm.name || !supplierForm.name.trim()) {
-            return toast.error("Supplier name is required.");
-        }
-        if (!nameRegex.test(supplierForm.name)) {
+        if (!nameRegex.test(supplierForm.name || "")) {
             return toast.error("Supplier name must contain only letters and spaces.");
         }
-        if (supplierForm.contactPerson && supplierForm.contactPerson.trim() && !nameRegex.test(supplierForm.contactPerson)) {
+        if (!nameRegex.test(supplierForm.contactPerson || "")) {
             return toast.error("Contact person must contain only letters and spaces.");
         }
-        if (supplierForm.contact && supplierForm.contact.trim() && !/^[0-9]{10}$/.test(supplierForm.contact)) {
+        if (!/^[0-9]{10}$/.test(supplierForm.contact || "")) {
             return toast.error("Phone number must be exactly 10 digits.");
         }
         const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}[Z]{1}[0-9A-Z]{1}$/;
-        if (supplierForm.gst && supplierForm.gst.trim() && !gstRegex.test(supplierForm.gst)) {
+        if (!gstRegex.test(supplierForm.gst || "")) {
             return toast.error("Invalid GST Number format. e.g. 27ABCDE1234F1Z5");
         }
 
@@ -241,9 +224,9 @@ const MaterialReceiptPage = () => {
         try {
             const payload = {
                 name: supplierForm.name,
-                contactPerson: supplierForm.contactPerson || "",
-                contact: supplierForm.contact || "",
-                gst: supplierForm.gst || "",
+                contactPerson: supplierForm.contactPerson,
+                contact: supplierForm.contact,
+                gst: supplierForm.gst,
                 address: supplierForm.address || ""
             };
 
@@ -372,14 +355,12 @@ const MaterialReceiptPage = () => {
                     </div>
                     
                     {/* Project Filter */}
-                    {(activeTab === "Materials" || activeTab === "Dashboard") && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-500">Project:</span>
-                            <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
-                                {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
-                            </select>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-500">Project:</span>
+                        <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
+                        </select>
+                    </div>
                 </div>
 
                 {/* Dashboard Tab */}
@@ -483,7 +464,6 @@ const MaterialReceiptPage = () => {
                                     )}
                                     {activeTab === "Purchase Orders" && (
                                         <tr>
-                                            <th className="px-6 py-4">Project</th>
                                             <th className="px-6 py-4">Material</th>
                                             <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Total</th>
                                             <th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Actions</th>
@@ -567,11 +547,6 @@ const MaterialReceiptPage = () => {
                                             </tr>
                                         )) : paginatedPOs.map(p => (
                                             <tr key={p.id} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-700">
-                                                    {projectsList.find(proj => Number(proj.id) === Number(p.project_id))?.project_name ||
-                                                        projectsList.find(proj => Number(proj.id) === Number(p.project_id))?.name ||
-                                                        `Project #${p.project_id}`}
-                                                </td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800">{p.material_name}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{p.quantity}</td>
                                                 <td className="px-6 py-4 text-sm text-slate-800 text-right">{formatINR(p.rate)}</td>
@@ -729,9 +704,9 @@ const MaterialReceiptPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Supplier Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
-                            <div><label className={labelClasses}>Contact Person</label><input value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
-                            <div><label className={labelClasses}>Phone</label><input type="tel" maxLength={10} value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses} placeholder="10-digit Mobile number" /></div>
-                            <div><label className={labelClasses}>GST Number</label><input value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
+                            <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
+                            <div><label className={labelClasses}>Phone / Email *</label><input required value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={inputClasses} placeholder="Mobile number or Email" /></div>
+                            <div><label className={labelClasses}>GST Number *</label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
                     </div>

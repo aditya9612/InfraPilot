@@ -175,6 +175,10 @@ const CreateTaskModal = ({
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) newErrors.title = "Title is required.";
+    if (!formData.description.trim()) newErrors.description = "Description is required.";
+    if (!formData.start_date) newErrors.start_date = "Start date is required.";
+    if (!formData.end_date) newErrors.end_date = "End date is required.";
+    if (!formData.assigned_user_id) newErrors.assigned_user_id = "Assigned user is required.";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -289,7 +293,6 @@ const CreateTaskModal = ({
       maxWidth="max-w-3xl"
     >
       <form id="create-task-form" onSubmit={handleSubmit} noValidate className="space-y-6">
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Column 1: Details */}
           <div className="space-y-6">

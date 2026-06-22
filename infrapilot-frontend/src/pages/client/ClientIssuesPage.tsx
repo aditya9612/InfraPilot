@@ -399,142 +399,102 @@ const ClientIssuesPage = () => {
         </div>
       </div>
 
-      {/* View Detail Modal - Constraint Intelligence Insight */}
+      {/* View Detail Modal - High Fidelity */}
       <Modal
         isOpen={isViewModalOpen}
         onClose={() => {
           setIsViewModalOpen(false);
           setSelectedIssue(null);
         }}
-        title="Constraint Intelligence Insight"
-        maxWidth="max-w-lg"
+        title=""
+        maxWidth="max-w-2xl"
       >
-        <div className="font-inter">
+        <div className="pt-2 font-inter">
+          <div className="flex items-center justify-between mb-8 font-inter">
+            <h3 className="text-xl font-black text-slate-700 tracking-tight font-inter">Constraint Intelligence Overview</h3>
+          </div>
+
           {fetchingDetail ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-4">
-              <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Extracting Archive Intelligence...</p>
+            <div className="flex flex-col items-center justify-center py-20 space-y-4 font-inter">
+              <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin font-inter" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Extracting Archive Intelligence...</p>
             </div>
           ) : selectedIssue && (
-            <div className="space-y-6">
+            <div className="space-y-10 font-inter">
+              {/* Hero Header */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2rem] p-10 text-white relative overflow-hidden shadow-2xl font-inter">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl opacity-50 font-inter" />
+                <div className="relative z-10 font-inter">
+                  <div className="flex items-center gap-4 mb-4 font-inter">
+                    <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/20 font-inter">
+                      {selectedIssue.category?.toUpperCase() || 'GENERAL'}
+                    </span>
+                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-inter ${selectedIssue.priority?.toLowerCase() === 'critical' ? 'bg-red-600 text-white border-red-600 shadow-lg' : 'bg-white/10 border-white/20'
+                      }`}>
+                      {selectedIssue.priority?.toUpperCase()} PRIORITY
+                    </span>
+                  </div>
+                  <h2 className="text-3xl font-black tracking-tight leading-snug mb-6 font-inter">{selectedIssue.title}</h2>
 
-              {/* Blue Hero Card */}
-              <div className="bg-blue-600 rounded-2xl p-5 flex items-center gap-4 relative overflow-hidden">
-                {/* Avatar */}
-                <div className="relative shrink-0">
-                  <div className="w-16 h-16 bg-blue-500/60 rounded-2xl flex items-center justify-center">
-                    <span className="text-2xl font-black text-white">
-                      {(selectedIssue.title || 'I').charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  {/* Green online dot */}
-                  <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-blue-600" />
-                </div>
-
-                {/* Right side info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-xl font-black text-white truncate">{selectedIssue.title}</h2>
-                    <span className="shrink-0 px-2 py-0.5 bg-white/20 text-white text-[9px] font-black uppercase tracking-widest rounded-full border border-white/30">
-                      {(selectedIssue.status || 'OPEN').toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <svg className="w-3 h-3 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-[10px] font-black text-blue-200 uppercase tracking-wider">
-                      ISSUE.REF-#{selectedIssue.business_id || selectedIssue.id}
-                    </span>
-                  </div>
-                  <div className="inline-block px-4 py-1.5 bg-white/15 border border-white/25 rounded-xl">
-                    <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                      PRIORITY: {(selectedIssue.priority || 'MEDIUM').toUpperCase()}
-                    </span>
+                  <div className="grid grid-cols-2 gap-8 border-t border-white/10 pt-8 font-inter">
+                    <div className="flex items-center gap-3 font-inter">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/50 font-inter">
+                        <Clock className="w-5 h-5 font-inter font-inter" />
+                      </div>
+                      <div className="font-inter">
+                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest font-inter">REPORTED ON</p>
+                        <p className="text-sm font-bold text-white font-inter">{selectedIssue.reported_date}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 font-inter">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/50 font-inter font-inter">
+                        <CheckCircle2 className="w-5 h-5 font-inter font-inter" />
+                      </div>
+                      <div className="font-inter font-inter">
+                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest font-inter">VAULT ID</p>
+                        <p className="text-sm font-bold text-white font-inter">{selectedIssue.business_id || `ISS-${selectedIssue.id}`}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Issue Parameters */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                  </div>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Issue Parameters</h4>
+              {/* Description */}
+              <div className="space-y-4 px-2 font-inter">
+                <div className="flex items-center gap-3 font-inter">
+                  <History className="w-4 h-4 text-blue-500 font-inter" />
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Detailed Observation</h4>
                 </div>
-
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">PROJECT</p>
-                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{projectName}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">CATEGORY</p>
-                    <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{selectedIssue.category || 'General'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">PRIORITY</p>
-                    <p className={`text-sm font-black uppercase tracking-tight ${
-                      selectedIssue.priority?.toLowerCase() === 'critical' ? 'text-red-600' :
-                      selectedIssue.priority?.toLowerCase() === 'high' ? 'text-rose-500' :
-                      selectedIssue.priority?.toLowerCase() === 'medium' ? 'text-amber-500' :
-                      'text-blue-500'
-                    }`}>{(selectedIssue.priority || 'Medium').toUpperCase()}</p>
-                  </div>
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-8 relative font-inter font-inter">
+                  <p className="text-base text-slate-600 font-bold italic leading-relaxed font-inter font-inter">
+                    "{selectedIssue.description}"
+                  </p>
                 </div>
+              </div>
 
-                {/* Description */}
-                <div className="mb-1">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">DESCRIPTION</p>
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
-                    <p className="text-sm text-slate-700 font-medium leading-relaxed">
-                      "{selectedIssue.description || 'No description provided.'}"
+              {/* Resolution */}
+              {selectedIssue.resolution && (
+                <div className="space-y-4 px-2 font-inter">
+                  <div className="flex items-center gap-3 font-inter">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 font-inter" />
+                    <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest font-inter">Official Resolution Narrative</h4>
+                  </div>
+                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-8 font-inter font-inter">
+                    <p className="text-base font-black text-emerald-900 leading-relaxed font-inter font-inter">
+                      {selectedIssue.resolution}
                     </p>
                   </div>
                 </div>
-              </div>
-
-              {/* Resolution if exists */}
-              {selectedIssue.resolution && (
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                  <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-2">RESOLUTION</p>
-                  <p className="text-sm text-emerald-800 font-semibold leading-relaxed">{selectedIssue.resolution}</p>
-                </div>
               )}
 
-              {/* Sequence Audit */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sequence Audit</h4>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">REPORTED</p>
-                    <p className="text-sm font-black text-slate-800">{selectedIssue.reported_date || new Date(selectedIssue.created_at).toLocaleDateString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">REFERENCE</p>
-                    <p className="text-sm font-black text-slate-800">{selectedIssue.business_id || `ISS-#${selectedIssue.id}`}</p>
-                  </div>
-                </div>
+              <div className="pt-6 border-t border-slate-100 flex justify-end font-inter">
+                <button
+                  onClick={() => setIsViewModalOpen(false)}
+                  className="px-10 py-4 bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-900 transition-all shadow-xl shadow-slate-900/10 active:scale-95 font-inter"
+                >
+                  Dismiss Archive
+                </button>
               </div>
-
-              {/* Dismiss Button */}
-              <button
-                onClick={() => setIsViewModalOpen(false)}
-                className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-blue-500/20 active:scale-[0.98]"
-              >
-                Dismiss
-              </button>
             </div>
           )}
         </div>

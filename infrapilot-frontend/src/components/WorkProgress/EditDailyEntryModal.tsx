@@ -29,10 +29,11 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (formData.today_progress !== "" && formData.today_progress !== undefined) {
-      if (Number(formData.today_progress) < 0) {
-        errs.today_progress = "Quantity cannot be negative";
-      }
+    if (!formData.today_progress || formData.today_progress <= 0) {
+      errs.today_progress = "Quantity must be greater than 0";
+    }
+    if (!formData.remarks.trim()) {
+      errs.remarks = "Remarks are required for audit trail";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -121,9 +122,9 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
             Execution Details
           </h3>
           <div>
-            <label className={labelClasses}>Today Progress</label>
+            <label className={labelClasses}>Today Progress <span className="text-rose-500">*</span></label>
             <input
-              type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
+              required type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
               className={inputClasses(errors.today_progress)}
               value={formData.today_progress} onChange={handleChange}
             />
@@ -136,7 +137,7 @@ const EditDailyEntryModal = ({ isOpen, onClose, onSubmit, entry }: EditDailyEntr
           <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
             Additional Information
           </h3>
-          <label className={labelClasses}>Remarks</label>
+          <label className={labelClasses}>Remarks <span className="text-rose-500">*</span></label>
           <textarea
             name="remarks" rows={3} className={`${inputClasses(errors.remarks)} resize-none font-inter`}
             placeholder="Describe site conditions or progress..."

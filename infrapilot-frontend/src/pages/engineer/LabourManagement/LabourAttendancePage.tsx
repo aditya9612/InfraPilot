@@ -14,9 +14,7 @@ import {
     ArrowRight,
     Eye,
     X,
-    User,
-    Users,
-    UserCheck
+    User
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -98,7 +96,6 @@ const LabourAttendancePage: React.FC = () => {
 
     const [labourAttendances, setLabourAttendances] = useState<any[]>([]);
     const [contractorMap] = useState<Record<number, string>>(LOCAL_CONTRACTOR_MAP);
-    const [dashboardStats, setDashboardStats] = useState({ total_labour: 0, present: 0 });
 
     const getActiveProjectId = () => {
         try {
@@ -116,25 +113,19 @@ const LabourAttendancePage: React.FC = () => {
             const activeProjectId = getActiveProjectId();
             let fromDate = "";
             let toDate = "";
-            const date = new Date();
-            const year = date.getFullYear();
-            const month = date.getMonth();
-            const today = `${year}-${String(month + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            const today = new Date().toISOString().split('T')[0];
 
             if (empDurationFilter === 'Today') {
                 fromDate = today;
                 toDate = today;
             } else if (empDurationFilter === 'Current Month') {
-                fromDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-                const lastDay = new Date(year, month + 1, 0).getDate();
-                toDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+                const date = new Date();
+                fromDate = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+                toDate = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
             } else if (empDurationFilter === 'Last Month') {
-                const lastMonthDate = new Date(year, month - 1, 1);
-                const lmYear = lastMonthDate.getFullYear();
-                const lmMonth = lastMonthDate.getMonth();
-                fromDate = `${lmYear}-${String(lmMonth + 1).padStart(2, '0')}-01`;
-                const lmLastDay = new Date(lmYear, lmMonth + 1, 0).getDate();
-                toDate = `${lmYear}-${String(lmMonth + 1).padStart(2, '0')}-${String(lmLastDay).padStart(2, '0')}`;
+                const date = new Date();
+                fromDate = new Date(date.getFullYear(), date.getMonth() - 1, 1).toISOString().split('T')[0];
+                toDate = new Date(date.getFullYear(), date.getMonth(), 0).toISOString().split('T')[0];
             } else {
                 fromDate = today;
                 toDate = today;
@@ -169,85 +160,42 @@ const LabourAttendancePage: React.FC = () => {
                 console.error("Failed to fetch labourers list for attendance", err);
             }
 
-            let fetchedTotal = 0;
-            let fetchedPresent = 0;
-            try {
-                const stats = await labourService.getAttendanceDashboard(activeProjectId, fromDate || undefined, toDate || undefined);
-                if (stats) {
-                    fetchedTotal = stats.total_labour || 0;
-                    fetchedPresent = stats.present || 0;
-                }
-            } catch (err) {
-                console.error("Failed to fetch dashboard stats", err);
-            }
-
+            // 2. Fetch Attendances
             const data = await labourService.getAttendanceList(activeProjectId, fromDate || undefined, toDate || undefined);
-            let attendances = data.items || (data as any).data || [];
+            const attendances = data.items || (data as any).data || [];
 
-            // If "Today" is selected, strictly filter out any open records from past dates returned by the backend
-            if (empDurationFilter === 'Today') {
-                attendances = attendances.filter((a: any) => a.attendance_date === today);
-            }
-
-            // 3. Map Labourers to Attendances correctly
-            let enrichedAttendances = attendances.map((att: any) => {
-                const attLabourId = att.labour_id || att.user_id;
-                const lab = allLabourers.find((l: any) => Number(l.id) === Number(attLabourId)) || {};
+            // 3. Map Labourers to Attendances
+            const enrichedAttendances = allLabourers.map((lab: any) => {
+                const att = attendances.find((a: any) => Number(a.labour_id) === Number(lab.id));
                 const resolvedContractorName = lab.contractor_name ||
                     contractorMap[Number(lab.contractor_id)] ||
                     (lab.contractor_id ? `CONT-0${lab.contractor_id}` : "-");
-                return {
-                    ...lab,
-                    ...att,
-                    labour_id: attLabourId,
-                    labour_name: lab.labour_name || att.labour_name,
-                    contractor_name: resolvedContractorName
-                };
-            });
-
-            // Ensure every labourer has a row to allow check-in
-            allLabourers.forEach((lab: any) => {
-                const hasAnyRecord = enrichedAttendances.some((a: any) => Number(a.labour_id || a.user_id) === Number(lab.id));
-                const hasTodayRecord = enrichedAttendances.some((a: any) => Number(a.labour_id || a.user_id) === Number(lab.id) && a.attendance_date === today);
-                
-                const needsRow = empDurationFilter === 'Today' ? !hasTodayRecord : !hasAnyRecord;
-
-                if (needsRow) {
-                    const resolvedContractorName = lab.contractor_name ||
-                        contractorMap[Number(lab.contractor_id)] ||
-                        (lab.contractor_id ? `CONT-0${lab.contractor_id}` : "-");
-                    enrichedAttendances.push({
+                if (att) {
+                    return {
+                        ...lab,
+                        ...att,
+                        labour_name: lab.labour_name || att.labour_name,
+                        contractor_name: resolvedContractorName
+                    };
+                } else {
+                    return {
                         ...lab,
                         labour_id: lab.id,
-                        attendance_date: empDurationFilter === 'Today' ? today : (fromDate || today),
+                        attendance_date: fromDate || today,
                         status: 'absent',
                         in_time: null,
                         out_time: null,
                         contractor_name: resolvedContractorName,
                         department: lab.skill_type || "-",
-                    });
+                    };
                 }
             });
 
-            // Sort by attendance date descending so newer records appear first
-            enrichedAttendances.sort((a: any, b: any) => {
-                if (a.attendance_date === b.attendance_date) {
-                    return (a.labour_name || "").localeCompare(b.labour_name || "");
+            // Also add any attendances that don't match a local labourer (just in case)
+            attendances.forEach((att: any) => {
+                if (!enrichedAttendances.find((e: any) => Number(e.labour_id) === Number(att.labour_id))) {
+                    enrichedAttendances.push(att);
                 }
-                return (a.attendance_date > b.attendance_date) ? -1 : 1;
-            });
-
-            const todayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-            const clientPresentCount = enrichedAttendances.filter((a: any) => 
-                a.attendance_date === todayStr && 
-                a.status !== 'absent' && 
-                a.in_time && 
-                a.in_time !== '--:--'
-            ).length;
-
-            setDashboardStats({
-                total_labour: fetchedTotal || allLabourers.length || 0,
-                present: fetchedPresent > clientPresentCount ? fetchedPresent : clientPresentCount
             });
 
             setLabourAttendances(enrichedAttendances);
@@ -277,8 +225,7 @@ const LabourAttendancePage: React.FC = () => {
             const activeProjectId = getActiveProjectId();
             let fromDate = "";
             let toDate = "";
-            const dObj = new Date();
-            const today = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
+            const today = new Date().toISOString().split('T')[0];
 
             if (historyFilter === 'Today') {
                 fromDate = today;
@@ -286,7 +233,7 @@ const LabourAttendancePage: React.FC = () => {
             } else if (historyFilter === 'Yesterday') {
                 const y = new Date();
                 y.setDate(y.getDate() - 1);
-                const yStr = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+                const yStr = y.toISOString().split('T')[0];
                 fromDate = yStr;
                 toDate = yStr;
             } else if (historyFilter === 'Date' && historyDateInput) {
@@ -409,23 +356,14 @@ const LabourAttendancePage: React.FC = () => {
 
 
     const filteredLabourAttendances = labourAttendances.filter(lab => {
-        const matchesSearch = !empSearch || 
-            (lab.labour_name && lab.labour_name.toLowerCase().includes(empSearch.toLowerCase())) ||
-            (lab.worker_code && lab.worker_code.toLowerCase().includes(empSearch.toLowerCase()));
-
-        const isLate = lab.is_late === true;
-        const hasCheckedIn = lab.in_time && lab.in_time !== "--:--";
-
-        const matchesStatus = empStatusFilter === "All Status" 
-            || (empStatusFilter === "Late" && isLate)
-            || (empStatusFilter === "On Time" && hasCheckedIn && !isLate)
-            || (empStatusFilter === "Present" && (lab.status === "present" || hasCheckedIn))
-            || (empStatusFilter === "Absent" && (lab.status === "absent" && !hasCheckedIn));
-
-        const matchesContractor = empContractorFilter === "All Contractors" 
-            || (lab.contractor_name && lab.contractor_name === empContractorFilter);
-
-        return matchesSearch && matchesStatus && matchesContractor;
+        // We can add logic to filter API data if it returned those fields, 
+        // for now just basic text search
+        if (empSearch) {
+            const searchLower = empSearch.toLowerCase();
+            return (lab.labour_name && lab.labour_name.toLowerCase().includes(searchLower)) ||
+                (lab.worker_code && lab.worker_code.toLowerCase().includes(searchLower));
+        }
+        return true;
     });
 
     return (
@@ -471,27 +409,7 @@ const LabourAttendancePage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Dashboard Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
-                            <Users className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Total Labour</p>
-                            <h3 className="text-2xl font-black text-slate-800">{dashboardStats.total_labour}</h3>
-                        </div>
-                    </div>
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
-                            <UserCheck className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Present Today</p>
-                            <h3 className="text-2xl font-black text-slate-800">{dashboardStats.present}</h3>
-                        </div>
-                    </div>
-                </div>
+                {/* Self Attendance Content */}
 
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col flex-1">
                     <div className="p-5 border-b border-slate-100">
@@ -522,8 +440,6 @@ const LabourAttendancePage: React.FC = () => {
                                         onChange={e => setEmpStatusFilter(e.target.value)}
                                     >
                                         <option value="All Status">All Status</option>
-                                        <option value="Present">Present</option>
-                                        <option value="Absent">Absent</option>
                                         <option value="On Time">On Time</option>
                                         <option value="Late">Late</option>
                                     </select>
@@ -643,7 +559,7 @@ const LabourAttendancePage: React.FC = () => {
                                                     <span className={`text-[10px] font-bold ${lab.out_time ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogOut className="w-3 h-3" /> {lab.out_time || "-"}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{lab.working_hours ? `${lab.working_hours}hr` : "-"}</span></td>
+                                            <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{lab.working_hours || "-"}</span></td>
                                             <td className="px-6 py-4">
                                                 <span
                                                     className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer hover:underline"
@@ -670,20 +586,16 @@ const LabourAttendancePage: React.FC = () => {
                                                             <LogIn className="w-4 h-4" />
                                                         </button>
                                                     ) : (!lab.out_time || lab.out_time === "--:--") ? (
-                                                        lab.attendance_date && lab.attendance_date < `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` ? (
-                                                            <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest bg-rose-50 px-2 py-1 rounded-full">Missed Out</span>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setSelectedLabour(lab);
-                                                                    setIsLabourCheckOutFormOpen(true);
-                                                                }}
-                                                                className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-100 active:scale-95 flex items-center justify-center font-inter"
-                                                                title="Check Out"
-                                                            >
-                                                                <LogOut className="w-4 h-4" />
-                                                            </button>
-                                                        )
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedLabour(lab);
+                                                                setIsLabourCheckOutFormOpen(true);
+                                                            }}
+                                                            className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-100 active:scale-95 flex items-center justify-center font-inter"
+                                                            title="Check Out"
+                                                        >
+                                                            <LogOut className="w-4 h-4" />
+                                                        </button>
                                                     ) : null}
                                                     <button
                                                         onClick={async () => {

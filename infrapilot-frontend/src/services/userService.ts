@@ -17,13 +17,7 @@ export const userService = {
       if (error.response?.data) {
         console.error("Get Users API Error details:", error.response.data);
       }
-      // Fallback for demonstration/testing to ensure UI shows success if user lacks permissions (e.g. 403)
-      return [
-        { id: 1, user_id: 1, name: "System Admin", username: "admin", first_name: "System", last_name: "Admin" },
-        { id: 2, user_id: 2, name: "Project Manager", username: "pm", first_name: "Project", last_name: "Manager" },
-        { id: 3, user_id: 3, name: "Site Engineer", username: "engineer", first_name: "Site", last_name: "Engineer" },
-        { id: 32, user_id: 32, name: "John Doe", username: "johndoe", first_name: "John", last_name: "Doe" }
-      ];
+      throw error;
     }
   },
 

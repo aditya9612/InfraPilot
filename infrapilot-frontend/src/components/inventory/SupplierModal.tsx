@@ -73,9 +73,12 @@ export default function SupplierModal({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = "Supplier name is required.";
+    if (!formData.contactPerson.trim()) newErrors.contactPerson = "Contact person is required.";
 
     const val = formData.contact.trim();
-    if (val) {
+    if (!val) {
+      newErrors.contact = "Phone number or email address is required.";
+    } else {
       const isPhone = /^\d{10}$/.test(val);
       const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
       if (!isPhone && !isEmail) {
@@ -83,11 +86,8 @@ export default function SupplierModal({
       }
     }
 
-    if (formData.gst.trim()) {
-      if (formData.gst.length !== 15) {
-        newErrors.gst = "GST Number must be 15 characters.";
-      }
-    }
+    if (!formData.gst.trim()) newErrors.gst = "GST Number is required.";
+    else if (formData.gst.length !== 15) newErrors.gst = "GST Number must be 15 characters.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -169,7 +169,7 @@ export default function SupplierModal({
               </div>
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Contact Person
+                  Contact Person <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -187,7 +187,7 @@ export default function SupplierModal({
 
               <div className="md:col-span-2 space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Phone Number or Email
+                  Phone Number or Email <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -208,7 +208,7 @@ export default function SupplierModal({
 
               <div className="md:col-span-2 space-y-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  GST Number
+                  GST Number <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"

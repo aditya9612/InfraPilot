@@ -7,19 +7,17 @@ import TaskDetailModal from '../../components/labour/TaskDetailModal';
 import PageTransition from '../../components/common/PageTransition';
 import Navbar from '../../components/common/Navbar';
 import { useNavigate } from 'react-router-dom';
-import { dashboardService } from '../../services/dashboardService';
-import type { LabourDashboardData } from '../../services/dashboardService';
-import { useEffect } from 'react';
 import {
     Clipboard,
     CheckCircle,
-    XCircle,
     AlertCircle,
+    Calendar,
     Volume2,
     Briefcase,
     User,
     TrendingUp,
     ArrowRight,
+    Camera,
     Play
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -42,46 +40,15 @@ const LabourDashboard: React.FC = () => {
     const { user } = useAuth();
     const { speak } = useTextToAudio();
     const navigate = useNavigate();
-    const [isPresent, setIsPresent] = useState(false);
+    const [isCheckedIn, setIsCheckedIn] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-    const [dashboardData, setDashboardData] = useState<LabourDashboardData | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
 
-    const [tasks, setTasks] = useState<Task[]>([]);
-
-    useEffect(() => {
-        const fetchDashboard = async () => {
-            try {
-                const response = await dashboardService.getLabourDashboard();
-                if (response.success) {
-                    setDashboardData(response.data);
-                    setIsPresent(response.data.check_in_status === 'PRESENT');
-                    
-                    // Map recent tasks from API
-                    const mappedTasks: Task[] = response.data.recent_tasks.map((t: any) => ({
-                        id: t.id || `T-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
-                        name: t.name || 'UNNAMED TASK',
-                        project: response.data.project_name || 'NO PROJECT',
-                        description: t.description || '',
-                        status: t.status || 'Pending',
-                        priority: t.priority || 'Medium',
-                        startDate: t.start_date || '',
-                        endDate: t.end_date || '',
-                        progress: t.progress || 0
-                    }));
-                    setTasks(mappedTasks);
-                }
-            } catch (error) {
-                console.error('Error fetching labour dashboard:', error);
-                toast.error('Failed to load dashboard data');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchDashboard();
-    }, []);
+    const [tasks] = useState<Task[]>([
+        { id: 'T-001', name: 'FOUNDATION REINFORCEMENT', project: 'Urban Heights', description: 'Reinforcing foundation columns', status: 'In Progress', priority: 'High', startDate: '2026-05-27', endDate: '2026-05-30', progress: 65 },
+        { id: 'T-002', name: 'CONCRETING SECTION B', project: 'Urban Heights', description: 'Pouring concrete for section B', status: 'Pending', priority: 'Medium', startDate: '2026-05-28', endDate: '2026-06-02', progress: 0 },
+        { id: 'T-003', name: 'CLEAR DEBRIS', project: 'Urban Heights', description: 'Remove construction waste', status: 'Completed', priority: 'Low', startDate: '2026-05-26', endDate: '2026-05-28', progress: 100 },
+    ]);
 
     const handleUpdateTask = (_id: string, status: string) => {
         toast.success(`Task ${status}!`);
@@ -89,29 +56,18 @@ const LabourDashboard: React.FC = () => {
     };
 
     const stats = [
-        { label: 'Total Tasks', value: dashboardData?.total_tasks || 0, icon: Clipboard, color: 'text-blue-500', bg: 'bg-blue-50' },
-        { label: 'Completed', value: dashboardData?.completed_tasks || 0, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { label: 'Pending', value: dashboardData?.pending_tasks || 0, icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
-        { label: 'This Month Earnings', value: `₹${dashboardData?.this_month_earnings?.toLocaleString() || '0'}`, icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+        { label: 'Total Tasks', value: 12, icon: Clipboard, color: 'text-blue-500', bg: 'bg-blue-50' },
+        { label: 'Completed', value: 8, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+        { label: 'Pending', value: 3, icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
+        { label: 'This Month Earnings', value: '₹14,500', icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
     ];
 
     const quickActions = [
-        { label: 'Check In', icon: CheckCircle, color: 'bg-emerald-500', onClick: () => navigate('/labour/attendance') },
-        { label: 'Check Out', icon: XCircle, color: 'bg-rose-500', onClick: () => navigate('/labour/attendance') },
+        { label: 'Check In', icon: Camera, color: 'bg-emerald-500', onClick: () => navigate('/labour/attendance') },
+        { label: 'Check Out', icon: Calendar, color: 'bg-rose-500', onClick: () => navigate('/labour/attendance') },
         { label: 'View Tasks', icon: Clipboard, color: 'bg-blue-500', onClick: () => navigate('/labour/tasks') },
         { label: 'Work Updates', icon: Play, color: 'bg-indigo-500', onClick: () => navigate('/labour/work-updates') },
     ];
-
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Loading Dashboard...</p>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <>
@@ -130,20 +86,20 @@ const LabourDashboard: React.FC = () => {
                             <div>
                                 <div className="flex items-center gap-2">
                                     <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-                                        Welcome, {dashboardData?.user_name || user?.name || 'User'}
+                                        Welcome, {user?.name || 'Gopal Yadav'}
                                     </h1>
-                                    <button onClick={() => speak(`Welcome, ${dashboardData?.user_name || user?.name || 'User'}`)} className="text-slate-300 hover:text-indigo-500">
+                                    <button onClick={() => speak(`Welcome, ${user?.name || 'Gopal Yadav'}`)} className="text-slate-300 hover:text-indigo-500">
                                         <Volume2 className="w-5 h-5" />
                                     </button>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-1">
                                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest">
                                         <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
-                                        {dashboardData?.project_name || 'No Project Assigned'}
+                                        Urban Heights
                                     </div>
                                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest">
                                         <User className="w-3.5 h-3.5 text-emerald-500" />
-                                        {dashboardData?.contractor_name || 'Independent'}
+                                        M/S Sharma Contractors
                                     </div>
                                 </div>
                             </div>
@@ -151,9 +107,9 @@ const LabourDashboard: React.FC = () => {
                     </div>
                     <div className="flex items-center lg:justify-end">
                         <AttendanceCard
-                            isPresent={isPresent}
-                            onPresent={() => { setIsPresent(true); toast.success("Marked as Present"); }}
-                            onAbsent={() => { setIsPresent(false); toast.error("Marked as Absent"); }}
+                            isCheckedIn={isCheckedIn}
+                            onCheckIn={() => setIsCheckedIn(true)}
+                            onCheckOut={() => setIsCheckedIn(false)}
                         />
                     </div>
                 </div>
@@ -210,49 +166,6 @@ const LabourDashboard: React.FC = () => {
                                 onSelectTask={(t) => { setSelectedTask(t as any); setIsTaskModalOpen(true); }}
                                 onSelfAssign={(id) => handleUpdateTask(id, 'In Progress')}
                             />
-                        </div>
-
-                        {/* Recent Activities */}
-                        <div>
-                            <div className="flex justify-between items-center mb-6 px-1">
-                                <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Recent Activities</h2>
-                            </div>
-                            <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden p-6">
-                                {dashboardData?.recent_activity && dashboardData.recent_activity.length > 0 ? (
-                                    <div className="space-y-6">
-                                        {dashboardData.recent_activity.map((activity: any, idx: number) => (
-                                            <div key={idx} className="flex gap-4 group">
-                                                <div className="relative">
-                                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${
-                                                        activity.type === 'Task' ? 'bg-blue-50 text-blue-600' :
-                                                        activity.type === 'Attendance' ? 'bg-emerald-50 text-emerald-600' :
-                                                        'bg-slate-50 text-slate-600'
-                                                    }`}>
-                                                        {activity.type === 'Task' ? <Clipboard className="w-5 h-5" /> :
-                                                         activity.type === 'Attendance' ? <CheckCircle className="w-5 h-5" /> :
-                                                         <Briefcase className="w-5 h-5" />}
-                                                    </div>
-                                                    {idx !== dashboardData.recent_activity.length - 1 && (
-                                                        <div className="absolute top-10 left-1/2 -translate-x-1/2 w-px h-6 bg-slate-100" />
-                                                    )}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className="text-sm font-bold text-slate-800 mb-0.5">{activity.description}</p>
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{activity.time || 'Just now'}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                                        <div className="w-16 h-16 rounded-3xl bg-slate-50 flex items-center justify-center mb-4">
-                                            <TrendingUp className="w-8 h-8 text-slate-300" />
-                                        </div>
-                                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">No activities yet</h3>
-                                        <p className="text-xs text-slate-400 mt-1 max-w-[200px]">Your recent work updates and attendance will appear here.</p>
-                                    </div>
-                                )}
-                            </div>
                         </div>
                     </div>
 

@@ -117,46 +117,12 @@ const reportTypes: ReportType[] = [
         accentBar: "bg-rose-500",
         lastGenerated: "Today, 11:30 AM",
         size: "0.5 MB",
-        frequency: "Daily", // Changed to Daily so it shows in the filtered list
+        frequency: "As needed",
         metrics: [
             { label: "Open Issues", value: "3", accent: "text-rose-500" },
             { label: "Resolved Today", value: "2", accent: "text-emerald-600" },
             { label: "Weather Delay", value: "4 hrs", accent: "text-amber-600" },
             { label: "Manpower Gap", value: "6%", accent: "text-amber-600" },
-        ],
-    },
-    {
-        id: "monthly",
-        name: "Monthly Executive Summary",
-        description: "Comprehensive 30-day overview covering budget variance, schedule adherence, and major milestones achieved.",
-        icon: "📊",
-        badgeColor: "bg-purple-50 text-purple-600",
-        accentBar: "bg-purple-500",
-        lastGenerated: "1st of Month, 09:00 AM",
-        size: "8.4 MB",
-        frequency: "Monthly",
-        metrics: [
-            { label: "Budget Variance", value: "-2%", accent: "text-emerald-600" },
-            { label: "Schedule Status", value: "On Track" },
-            { label: "Milestones", value: "4 Completed" },
-            { label: "Total Spend", value: "₹2.4 Cr", accent: "text-rose-500" },
-        ],
-    },
-    {
-        id: "quarterly",
-        name: "Quarterly Performance Audit",
-        description: "High-level 90-day strategic review detailing contractor performance, total financial expenditure, and structural compliance.",
-        icon: "🏢",
-        badgeColor: "bg-cyan-50 text-cyan-600",
-        accentBar: "bg-cyan-500",
-        lastGenerated: "End of Quarter",
-        size: "15.2 MB",
-        frequency: "Quarterly",
-        metrics: [
-            { label: "Overall Compliance", value: "98%", accent: "text-emerald-600" },
-            { label: "Contractor Rating", value: "4.5/5" },
-            { label: "Safety Score", value: "A+" },
-            { label: "Capital Deployed", value: "₹8.5 Cr" },
         ],
     },
 ];
@@ -166,13 +132,12 @@ const reportTypes: ReportType[] = [
 const ReportsPage = () => {
     const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
     const [loadingId, setLoadingId] = useState<string | null>(null);
-    const [activeFilter, setActiveFilter] = useState("daily");
+    const [activeFilter, setActiveFilter] = useState("All");
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Recent" | "Large" | "Issues">("All");
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [dynamicReports, setDynamicReports] = useState<ReportType[]>(reportTypes);
     const [searchTerm, setSearchTerm] = useState("");
-    const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
-    const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
     const [projectId, setProjectId] = useState<number | null>(null);
 
     // Resolve Project ID from session & listen for changes
@@ -215,7 +180,7 @@ const ReportsPage = () => {
 
             // 1. Daily Report Mapping (DSR)
             try {
-                const dailyRes = await dsrService.getDsrByProject(projectId, { start_date: startDate, end_date: endDate });
+                const dailyRes = await dsrService.getDsrByProject(projectId, { start_date: selectedDate, end_date: selectedDate });
                 const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
                 if (dailyIdx !== -1) {
                     if (dailyRes && dailyRes.items && dailyRes.items.length > 0) {
@@ -337,7 +302,7 @@ const ReportsPage = () => {
 
             // 4. Material Mapping
             try {
-                const materialRes = await materialService.listMaterials(projectId, { start_date: startDate, end_date: endDate } as any);
+                const materialRes = await materialService.listMaterials(projectId, { start_date: selectedDate, end_date: selectedDate } as any);
                 const materialIdx = updatedReports.findIndex(r => r.id === "material");
                 if (materialIdx !== -1) {
                     let totalStock = 0;
@@ -399,96 +364,267 @@ const ReportsPage = () => {
         } finally {
             setIsInitialLoading(false);
         }
-    }, [projectId, startDate, endDate]);
+    }, [projectId, selectedDate]);
 
     useEffect(() => {
         fetchReports();
     }, [fetchReports]);
 
-    const handleExportCSV = async () => {
-        const toastId = toast.loading("Generating Project Excel Report...");
-        try {
-            const dateParts = startDate.split("-");
-            const year = dateParts[0];
-            const month = dateParts[1];
-            const type = activeFilter;
-            
-            const params = new URLSearchParams({
-                project_id: String(projectId || 92),
-                type: type,
-                report_date: startDate,
-                start_date: startDate,
-                end_date: endDate,
-                month: month,
-                year: year
-            });
-            
-            const response = await api.get(`/reports/project/export/excel?${params.toString()}`, {
-                responseType: "blob",
-                headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream' }
-            });
+    const handleExportCSV = () => {
+        const headers = [
+            "Report Name",
+            "Description",
+            "Frequency",
+            "File Size",
+            "Last Generated",
+            "Metric 1",
+            "Metric 2",
+            "Metric 3",
+            "Metric 4"
+        ];
+        const escape = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
 
-            if (response.data.type === "application/json") {
-                const errorText = await response.data.text();
-                throw new Error(errorText);
+        const rows = filtered.map((r: ReportType) => {
+            const rowData = [
+                escape(r.name),
+                escape(r.description),
+                escape(r.frequency),
+                escape(r.size),
+                escape(r.lastGenerated)
+            ];
+
+            // Add up to 4 metrics
+            for (let i = 0; i < 4; i++) {
+                const metric = r.metrics[i];
+                if (metric) {
+                    rowData.push(escape(`${metric.label}: ${metric.value}`));
+                } else {
+                    rowData.push(escape("—"));
+                }
             }
 
-            const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `Project_Report_${type}_${startDate}_to_${endDate}.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            toast.success("Excel Report downloaded!", { id: toastId });
-        } catch (error: any) {
-            console.error("Failed to generate Excel", error);
-            toast.error("Failed to generate Excel Report", { id: toastId });
-        }
+            return rowData.join(",");
+        });
+
+        const csvContent = [headers.join(","), ...rows].join("\n");
+        const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Site_Reports_Summary_${new Date().toISOString().split("T")[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Excel report exported successfully");
     };
 
-    const handleExportPDF = async () => {
-        const toastId = toast.loading("Generating Project PDF Report...");
-        try {
-            const dateParts = startDate.split("-");
-            const year = dateParts[0];
-            const month = dateParts[1];
-            const type = activeFilter;
-            
-            const params = new URLSearchParams({
-                project_id: String(projectId || 92),
-                type: type,
-                report_date: startDate,
-                start_date: startDate,
-                end_date: endDate,
-                month: month,
-                year: year
-            });
-            
-            const response = await api.get(`/reports/project/export/pdf?${params.toString()}`, {
-                responseType: "blob",
-                headers: { 'Accept': 'application/pdf, application/octet-stream' }
-            });
-
-            if (response.data.type === "application/json") {
-                const errorText = await response.data.text();
-                throw new Error(errorText);
-            }
-
-            const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `Project_Report_${type}_${startDate}_to_${endDate}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            toast.success("PDF Report downloaded!", { id: toastId });
-        } catch (error: any) {
-            console.error("Failed to generate PDF", error);
-            toast.error("Failed to generate PDF Report", { id: toastId });
+    const handleExportPDF = () => {
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) {
+            toast.error("Popup blocker blocked print preview. Please allow popups.");
+            return;
         }
+
+        const dateStr = new Date(selectedDate).toLocaleDateString("en-US", {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        const reportRowsHtml = filtered.map((r: ReportType) => {
+            const metricsHtml = r.metrics.map((m) => `
+                <div class="metric-box">
+                    <div class="metric-label">${m.label.toUpperCase()}</div>
+                    <div class="metric-value">${m.value}</div>
+                </div>
+            `).join("");
+
+            return `
+                <div class="report-card">
+                    <div class="report-header">
+                        <div class="report-title-group">
+                            <span class="report-icon">${r.icon}</span>
+                            <div>
+                                <div class="report-freq">${r.frequency.toUpperCase()}</div>
+                                <h3 class="report-name">${r.name}</h3>
+                            </div>
+                        </div>
+                        <div class="report-size">${r.size}</div>
+                    </div>
+                    <p class="report-desc">${r.description}</p>
+                    <div class="metrics-grid">
+                        ${metricsHtml}
+                    </div>
+                    <div class="report-footer">
+                        <span class="status-dot"></span>
+                        <span>Generated: ${r.lastGenerated}</span>
+                    </div>
+                </div>
+            `;
+        }).join("");
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Site Operations Reports Summary</title>
+                <style>
+                    body {
+                        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                        color: #1e293b;
+                        background: #fff;
+                        margin: 40px;
+                        padding: 0;
+                    }
+                    .header {
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 20px;
+                        margin-bottom: 30px;
+                    }
+                    .brand {
+                        font-size: 10px;
+                        font-weight: 800;
+                        color: #64748b;
+                        text-transform: uppercase;
+                        letter-spacing: 0.15em;
+                    }
+                    .title {
+                        font-size: 26px;
+                        font-weight: 800;
+                        color: #0f172a;
+                        margin: 5px 0 10px 0;
+                        letter-spacing: -0.02em;
+                    }
+                    .subtitle {
+                        font-size: 12px;
+                        color: #64748b;
+                        margin: 0;
+                        font-weight: 500;
+                    }
+                    .meta-info {
+                        margin-top: 15px;
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: #3b82f6;
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                    }
+                    .report-card {
+                        border: 1px solid #e2e8f0;
+                        border-radius: 16px;
+                        padding: 20px;
+                        margin-bottom: 25px;
+                        page-break-inside: avoid;
+                        background: #f8fafc;
+                    }
+                    .report-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        margin-bottom: 12px;
+                    }
+                    .report-title-group {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                    }
+                    .report-icon {
+                        font-size: 24px;
+                    }
+                    .report-freq {
+                        font-size: 9px;
+                        font-weight: 800;
+                        color: #64748b;
+                        letter-spacing: 0.1em;
+                    }
+                    .report-name {
+                        font-size: 16px;
+                        font-weight: 800;
+                        color: #0f172a;
+                        margin: 2px 0 0 0;
+                    }
+                    .report-size {
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: #64748b;
+                    }
+                    .report-desc {
+                        font-size: 12px;
+                        color: #475569;
+                        line-height: 1.6;
+                        margin: 0 0 15px 0;
+                    }
+                    .metrics-grid {
+                        display: grid;
+                        grid-template-columns: repeat(4, 1fr);
+                        gap: 15px;
+                        padding: 15px 0;
+                        border-top: 1px dashed #e2e8f0;
+                        border-bottom: 1px dashed #e2e8f0;
+                        margin-bottom: 12px;
+                    }
+                    .metric-box {
+                        display: flex;
+                        flex-direction: column;
+                    }
+                    .metric-label {
+                        font-size: 8px;
+                        font-weight: 800;
+                        color: #64748b;
+                        letter-spacing: 0.1em;
+                        margin-bottom: 2px;
+                    }
+                    .metric-value {
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: #0f172a;
+                    }
+                    .report-footer {
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                        font-size: 10px;
+                        font-weight: 700;
+                        color: #64748b;
+                    }
+                    .status-dot {
+                        width: 6px;
+                        height: 6px;
+                        background: #10b981;
+                        border-radius: 50%;
+                    }
+                    @media print {
+                        body {
+                            margin: 20px;
+                        }
+                        .report-card {
+                            background: #fff !important;
+                            border: 1px solid #cbd5e1 !important;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="brand">InfraPilot Operational Intelligence</div>
+                    <h1 class="title">Operational Reports Register</h1>
+                    <p class="subtitle">Exported document listing site status, performance audits, and resource metrics.</p>
+                    <div class="meta-info">As of: ${dateStr}</div>
+                </div>
+                
+                <div class="report-list">
+                    ${reportRowsHtml}
+                </div>
+
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        window.onafterprint = function() {
+                            window.close();
+                        };
+                    };
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        toast.success("PDF Print dialog opened successfully!");
     };
 
     const handleCardPDF = async (report: ReportType) => {
@@ -529,7 +665,7 @@ const ReportsPage = () => {
                     return;
                 }
 
-                const response = await api.get(`/reports/daily/export/pdf?project_id=${projectId || 92}&report_date=${startDate}&_t=${Date.now()}`, {
+                const response = await api.get(`/reports/daily/export/pdf?project_id=${projectId || 92}&report_date=${selectedDate}&_t=${Date.now()}`, {
                     responseType: "blob",
                     headers: { 'Accept': 'application/pdf, application/octet-stream' }
                 });
@@ -550,7 +686,7 @@ const ReportsPage = () => {
                 const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
                 const link = document.createElement("a");
                 link.href = url;
-                link.setAttribute("download", `Daily_Report_${startDate}.pdf`);
+                link.setAttribute("download", `Daily_Report_${selectedDate}.pdf`);
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
@@ -701,7 +837,7 @@ const ReportsPage = () => {
                     return;
                 }
 
-                const response = await api.get(`/dsr/project/${projectId || 92}/export?start_date=${startDate}&end_date=${endDate}&contractor_name=&_t=${Date.now()}`, {
+                const response = await api.get(`/dsr/project/${projectId || 92}/export?start_date=${selectedDate}&end_date=${selectedDate}&contractor_name=&_t=${Date.now()}`, {
                     responseType: "blob",
                     headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream' }
                 });
@@ -722,7 +858,7 @@ const ReportsPage = () => {
                 const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
                 const link = document.createElement("a");
                 link.href = url;
-                link.setAttribute("download", `Daily_Report_${startDate}_to_${endDate}.xlsx`);
+                link.setAttribute("download", `Daily_Report_${selectedDate}.xlsx`);
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
@@ -852,7 +988,9 @@ const ReportsPage = () => {
     };
 
     const filtered = useMemo(() => {
-        let data = dynamicReports.filter(r => r.frequency.toLowerCase() === activeFilter.toLowerCase());
+        let data = activeFilter === "All"
+            ? dynamicReports
+            : dynamicReports.filter(r => r.frequency === activeFilter);
 
         if (activeStatFilter === "Recent") {
             data = data.filter(r => r.lastGenerated.toLowerCase().includes("today"));
@@ -1013,29 +1151,16 @@ const ReportsPage = () => {
                         </div>
                     </div>
 
-                    {/* Date Pickers */}
-                    <div className="flex gap-4 min-w-[250px]">
-                        <div className="flex flex-col gap-0.5 w-1/2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Start Date</label>
-                            <div className="relative">
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex flex-col gap-0.5 w-1/2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">End Date</label>
-                            <div className="relative">
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer"
-                                />
-                            </div>
+                    {/* Date Picker */}
+                    <div className="flex flex-col gap-0.5 min-w-[150px]">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Report Date</label>
+                        <div className="relative">
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => setSelectedDate(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer"
+                            />
                         </div>
                     </div>
 
@@ -1048,10 +1173,10 @@ const ReportsPage = () => {
                                 onChange={(e) => setActiveFilter(e.target.value)}
                                 className="w-full appearance-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none transition-all cursor-pointer pr-8"
                             >
-                                <option value="daily">daily</option>
-                                <option value="weekly">weekly</option>
-                                <option value="monthly">monthly</option>
-                                <option value="quarterly">quarterly</option>
+                                <option value="All">All Cycles</option>
+                                <option value="Daily">Daily</option>
+                                <option value="Weekly">Weekly</option>
+                                <option value="Monthly">Monthly</option>
                             </select>
                             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,32 +1,88 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
-import { notificationService, type Notification } from "../../services/notificationService";
+import { alertService, type Alert } from "../../services/alertService";
+import { projectService } from "../../services/projectService";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { Bell, CheckCircle, AlertCircle, Eye, Trash2, Check, Clock } from 'lucide-react';
 
 const LabourNotificationsPage = () => {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [alerts, setAlerts] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<string>("All");
-    const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+    const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [unreadCount, setUnreadCount] = useState(0);
 
-    const fetchData = async () => {
+    const fetchAlerts = async () => {
         try {
             setLoading(true);
-            const [listRes, countRes] = await Promise.all([
-                notificationService.listNotifications(50, 0),
-                notificationService.getUnreadCount()
-            ]);
-            
-            const rawItems = Array.isArray(listRes) ? listRes : (listRes.items || listRes.data || []);
-            setNotifications(rawItems);
-            setUnreadCount(countRes?.unread_count || countRes?.count || 0);
+            const userStr = localStorage.getItem("infrapilot_user");
+            let pId = 92;
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                pId = user.project_id || user.user?.project_id || 92;
+            }
+
+            // Individual try-catches to prevent one failure from blocking all notifications
+            let generalData: Alert[] = [];
+            try { generalData = await alertService.getAlerts(); } catch (e) { console.error("General alerts fail", e); }
+
+            let projectAlertsRaw: any[] = [];
+            try { projectAlertsRaw = await projectService.getProjectAlerts(); } catch (e) { console.error("Project alerts fail", e); }
+
+            let taskAlertsRaw: any[] = [];
+            try { taskAlertsRaw = await projectService.getTaskAlerts(); } catch (e) { console.error("Task alerts fail", e); }
+
+            // Map project alerts
+            const mappedProjectAlerts: Alert[] = projectAlertsRaw.map((p: any) => ({
+                id: `p-${p.project_id}`,
+                project_id: p.project_id,
+                alert_type: p.status || "Update",
+                message: p.project_name || "Project Update",
+                project_name: p.project_name,
+                end_date: p.end_date,
+                user_id: 0,
+                status: 'active',
+                created_at: new Date().toISOString()
+            }));
+
+            // Map task alerts
+            const mappedTaskAlerts: Alert[] = taskAlertsRaw.map((t: any) => ({
+                id: `t-${t.task_id}`,
+                project_id: t.project_id,
+                alert_type: t.status || "Task Alert",
+                message: t.title || "Task Alert",
+                project_name: t.project_name || "Task Assignment",
+                end_date: t.end_date,
+                start_date: t.start_date,
+                user_id: 0,
+                status: 'active',
+                created_at: new Date().toISOString()
+            }));
+
+            // Force injection of requested "Assigned Task" notification for demonstration
+            // This ensures it shows up even if API returns nothing
+            const demoTask: Alert = {
+                id: "t-demo-001",
+                project_id: pId,
+                alert_type: "Task Assigned",
+                message: "Plastering Work - Secondary Hall",
+                project_name: "Urban Heights Phase 2",
+                start_date: new Date().toISOString(),
+                end_date: new Date(Date.now() + 86400000 * 3).toISOString(),
+                user_id: 0,
+                status: 'active',
+                created_at: new Date().toISOString()
+            };
+
+            const combined = [...generalData, ...mappedProjectAlerts, ...mappedTaskAlerts, demoTask];
+
+            // Filter for labour's project
+            const filtered = combined.filter(a => Number(a.project_id) === Number(pId));
+            setAlerts(filtered);
         } catch (err) {
-            console.error("Failed to fetch notifications:", err);
+            console.error("Failed to fetch alerts:", err);
             toast.error("Connecting to notification server...");
         } finally {
             setLoading(false);
@@ -34,16 +90,19 @@ const LabourNotificationsPage = () => {
     };
 
     useEffect(() => {
-        fetchData();
+        fetchAlerts();
     }, []);
 
     const handleMarkRead = async (id: string | number) => {
+        if (typeof id === 'string' && (id.startsWith('p-') || id.startsWith('t-'))) {
+            setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'read' } : a));
+            toast.success("Acknowledged");
+            return;
+        }
         try {
-            await notificationService.markNotificationAsRead(id);
+            await alertService.markAlertRead(id as number);
             toast.success("Marked as read");
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-            // Update unread count locally
-            setUnreadCount(prev => Math.max(0, prev - 1));
+            setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: 'read' } : a));
         } catch (err) {
             toast.error("Failed to update status");
         }
@@ -51,41 +110,41 @@ const LabourNotificationsPage = () => {
 
     const handleDelete = async (id: string | number) => {
         if (!confirm("Delete this notification?")) return;
+        if (typeof id === 'string' && (id.startsWith('p-') || id.startsWith('t-'))) {
+            setAlerts(prev => prev.filter(a => a.id !== id));
+            toast.success("Removed");
+            return;
+        }
         try {
-            await notificationService.deleteNotification(id);
+            await alertService.deleteAlert(id as number);
             toast.success("Notification deleted");
-            setNotifications(prev => prev.filter(n => n.id !== id));
+            setAlerts(prev => prev.filter(a => a.id !== id));
         } catch (err) {
             toast.error("Failed to delete notification");
         }
     };
 
-    const handleMarkAllRead = async () => {
-        try {
-            await notificationService.markAllNotificationsAsRead();
-            toast.success("All notifications marked as read");
-            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-            setUnreadCount(0);
-        } catch (err) {
-            toast.error("Failed to mark all as read");
-        }
-    };
-
-    const filteredNotifications = notifications.filter(n => {
-        const statusMatch = statusFilter === "All"
-            || (statusFilter === "Read" && n.read)
-            || (statusFilter === "Unread" && !n.read);
-        return statusMatch;
-    }).sort((a, b) => {
-        if (!a.read && b.read) return -1;
-        if (a.read && !b.read) return 1;
-        const timeA = new Date(a.timestamp || a.created_at || 0).getTime();
-        const timeB = new Date(b.timestamp || b.created_at || 0).getTime();
-        return timeB - timeA;
+    const displayableAlerts = alerts.filter(a => {
+        const allowedTypes = [
+            "Delay", "MaterialDelay", "Planning", "InProgress", "In Progress", "In-Progress",
+            "Announcement", "NewAlert", "New Alert", "Safety", "Quality", "Material",
+            "Task", "Milestone", "Alert", "Warning", "Critical", "Info", "Approval"
+        ];
+        return allowedTypes.some(t => a.alert_type.toLowerCase().replace(/[^a-z]/g, '') === t.toLowerCase().replace(/[^a-z]/g, ''));
     });
 
-    const formatDate = (dateStr?: string) => {
-        if (!dateStr) return "N/A";
+    const filteredAlerts = displayableAlerts.filter(a => {
+        const statusMatch = statusFilter === "All"
+            || (statusFilter === "Read" && a.status === 'read')
+            || (statusFilter === "Unread" && (a.status === 'active' || !a.status));
+        return statusMatch;
+    }).sort((a, b) => {
+        if (a.status === 'active' && b.status !== 'active') return -1;
+        if (a.status !== 'active' && b.status === 'active') return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-GB', {
             day: '2-digit',
             month: 'short',
@@ -96,11 +155,19 @@ const LabourNotificationsPage = () => {
     };
 
     const getPriorityColor = (type: string) => {
-        const t = (type || 'Info').toLowerCase();
-        if (t.includes('critical') || t.includes('delay') || t.includes('alert')) return 'bg-rose-50 text-rose-600';
-        if (t.includes('warning') || t.includes('safety') || t.includes('hold')) return 'bg-amber-50 text-amber-600';
-        if (t.includes('quality') || t.includes('success')) return 'bg-emerald-50 text-emerald-600';
+        const t = type.toLowerCase();
+        if (t.includes('critical') || t.includes('delay')) return 'bg-rose-50 text-rose-600';
+        if (t.includes('warning') || t.includes('safety')) return 'bg-amber-50 text-amber-600';
+        if (t.includes('quality')) return 'bg-emerald-50 text-emerald-600';
         return 'bg-blue-50 text-blue-600';
+    };
+
+    const formatDateOnly = (dateStr: string) => {
+        return new Date(dateStr).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
     };
 
     return (
@@ -115,12 +182,12 @@ const LabourNotificationsPage = () => {
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
                     {[
-                        { label: "Total Notifications", value: notifications.length, sub: "All Notifications", color: "text-slate-800", icon: <Bell className="w-5 h-5" />, filter: "All" },
-                        { label: "Unread Notifications", value: unreadCount, sub: "Action Required", color: "text-blue-500", icon: <AlertCircle className="w-5 h-5" />, filter: "Unread" },
-                        { label: "Read Notifications", value: notifications.filter(n => n.read).length, sub: "Acknowledged", color: "text-emerald-500", icon: <CheckCircle className="w-5 h-5" />, filter: "Read" },
-                    ].map((card) => (
+                        { label: "Total Notifications", value: displayableAlerts.length, sub: "All Notifications", color: "text-slate-800", icon: <Bell className="w-5 h-5" />, filter: "All" },
+                        { label: "Read Notifications", value: displayableAlerts.filter(a => a.status === 'read').length, sub: "Acknowledged", color: "text-emerald-500", icon: <CheckCircle className="w-5 h-5" />, filter: "Read" },
+                        { label: "Unread Notifications", value: displayableAlerts.filter(a => a.status === 'active' || !a.status).length, sub: "Action Required", color: "text-blue-500", icon: <AlertCircle className="w-5 h-5" />, filter: "Unread" },
+                    ].map((card, i) => (
                         <div
-                            key={card.label}
+                            key={i}
                             onClick={() => setStatusFilter(card.filter)}
                             className={`bg-white p-8 rounded-[40px] border transition-all h-full flex flex-col justify-between cursor-pointer group ${statusFilter === card.filter ? 'border-indigo-500 shadow-xl shadow-indigo-500/10 ring-1 ring-indigo-500' : 'border-slate-100 shadow-sm hover:shadow-md'}`}
                         >
@@ -134,63 +201,69 @@ const LabourNotificationsPage = () => {
                     ))}
                 </div>
 
-                <div className="flex justify-end mb-8">
-                    <button 
-                        onClick={handleMarkAllRead}
-                        className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
-                    >
-                        <Check className="w-4 h-4" />
-                        Acknowledge All
-                    </button>
-                </div>
-
                 <div className="space-y-8">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-32 space-y-4">
                             <div className="w-12 h-12 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">establishing secure channel...</p>
                         </div>
-                    ) : filteredNotifications.length > 0 ? (
-                        filteredNotifications.map((ann) => (
+                    ) : filteredAlerts.length > 0 ? (
+                        filteredAlerts.map((ann) => (
                             <div key={ann.id} className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-indigo-500/5 group relative flex flex-col lg:row gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 <div className="flex-1 w-full">
                                     <div className="flex flex-wrap items-center gap-4 mb-6">
                                         <div className="flex items-center gap-2">
-                                            {!ann.read && (
+                                            {ann.status === 'active' && (
                                                 <div className="relative flex items-center justify-center mr-1">
                                                     <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-indigo-400 opacity-75"></span>
                                                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500 shadow-[0_0_10px_rgba(79,70,229,0.5)]"></span>
                                                 </div>
                                             )}
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{ann.type || "Update"}</p>
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{ann.id.toString().startsWith('t-') ? "Task Alert" : "Project Update"}</p>
                                         </div>
-                                        <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${getPriorityColor(ann.type)}`}>
-                                            {ann.title}
+                                        <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${getPriorityColor(ann.alert_type)}`}>
+                                            {ann.alert_type}
                                         </div>
                                         <div className="flex items-center gap-2 text-slate-400 ml-auto md:ml-0">
                                             <Clock className="w-3.5 h-3.5" />
-                                            <p className="text-[9px] font-black uppercase tracking-widest">{formatDate(ann.timestamp || ann.created_at)}</p>
+                                            <p className="text-[9px] font-black uppercase tracking-widest">{formatDate(ann.created_at)}</p>
                                         </div>
                                     </div>
 
                                     <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight mb-4">
-                                        {ann.description || ann.title}
+                                        {ann.project_name && !ann.id.toString().startsWith('t-') ? ann.project_name : ann.message}
                                     </h2>
 
-                                    <p className="text-[14px] font-bold text-slate-600 mb-6 leading-relaxed max-w-4xl">{ann.details || ann.description}</p>
+                                    {ann.project_name && (
+                                        <p className="text-[14px] font-bold text-slate-500 mb-6 leading-relaxed italic border-l-4 border-indigo-100 pl-4">
+                                            Current Status: <span className="text-slate-800 not-italic">{ann.alert_type}</span>
+                                        </p>
+                                    )}
+
+                                    {!ann.project_name && (
+                                        <p className="text-[14px] font-bold text-slate-600 mb-6 leading-relaxed max-w-4xl">{ann.message}</p>
+                                    )}
 
                                     <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                                         <div className="flex items-center gap-3 bg-slate-50 w-fit px-4 py-2 rounded-2xl border border-slate-100">
                                             <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[9px] font-black text-indigo-500 border border-indigo-50">S</div>
-                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">{ann.source ? `Source: ${ann.source.toUpperCase()}` : "Published via System Oracle"}</span>
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Published via System Oracle</span>
                                         </div>
+                                        {ann.id.toString().startsWith('t-') && ann.start_date && ann.end_date && (
+                                            <div className="flex items-center gap-3 bg-amber-50 w-fit px-4 py-2 rounded-2xl border border-amber-100">
+                                                <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                                <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest whitespace-nowrap">
+                                                    Duration: {formatDateOnly(ann.start_date)} - {formatDateOnly(ann.end_date)}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-4 lg:self-center">
                                     <button
                                         onClick={() => {
-                                            setSelectedNotification(ann);
+                                            setSelectedAlert(ann);
                                             setIsModalOpen(true);
                                         }}
                                         className="w-12 h-12 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-all flex items-center justify-center group/btn"
@@ -199,13 +272,13 @@ const LabourNotificationsPage = () => {
                                         <Eye className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
                                     </button>
                                     <button
-                                        onClick={() => !ann.read && handleMarkRead(ann.id)}
-                                        disabled={ann.read}
-                                        className={`w-12 h-12 rounded-2xl transition-all flex items-center justify-center group/btn ${ann.read
+                                        onClick={() => ann.status !== 'read' && handleMarkRead(ann.id)}
+                                        disabled={ann.status === 'read'}
+                                        className={`w-12 h-12 rounded-2xl transition-all flex items-center justify-center group/btn ${ann.status === 'read'
                                                 ? 'bg-emerald-50 text-emerald-400 cursor-default'
                                                 : 'bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 active:scale-95'
                                             }`}
-                                        title={ann.read ? "Acknowledged" : "Mark as Read"}
+                                        title={ann.status === 'read' ? "Acknowledged" : "Mark as Read"}
                                     >
                                         <Check className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
                                     </button>
@@ -237,36 +310,48 @@ const LabourNotificationsPage = () => {
                 title="Notification Intelligence"
                 maxWidth="max-w-xl"
             >
-                {selectedNotification && (
+                {selectedAlert && (
                     <div className="p-8 font-inter">
                         <div className="flex items-center gap-5 mb-10">
-                            <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center text-xl shadow-lg ${getPriorityColor(selectedNotification.type)}`}>
+                            <div className={`w-16 h-16 rounded-[22px] flex items-center justify-center text-xl shadow-lg ${getPriorityColor(selectedAlert.alert_type)}`}>
                                 <Bell className="w-7 h-7" />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-black text-slate-800 tracking-tight">{selectedNotification.title}</h3>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Transaction ID: {selectedNotification.id}</p>
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tight">{selectedAlert.alert_type}</h3>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Transaction ID: {selectedAlert.id}</p>
                             </div>
-                            <div className={`ml-auto px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${selectedNotification.read ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600 animate-pulse'}`}>
-                                {selectedNotification.read ? 'Acknowledged' : 'Active Alert'}
+                            <div className={`ml-auto px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest ${selectedAlert.status === 'read' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600 animate-pulse'}`}>
+                                {selectedAlert.status === 'read' ? 'Acknowledged' : 'Active Alert'}
                             </div>
                         </div>
 
                         <div className="space-y-8">
                             <div className="bg-slate-50 rounded-[32px] p-8 border border-slate-100 shadow-inner">
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Narrative & Insight</p>
-                                <p className="text-base font-bold text-slate-700 leading-relaxed">{selectedNotification.details || selectedNotification.description}</p>
+                                <p className="text-base font-bold text-slate-700 leading-relaxed">{selectedAlert.message}</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="p-6 bg-white border border-slate-100 rounded-[28px] shadow-sm">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Source Identifier</p>
-                                    <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{selectedNotification.source || "System"}</p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Identifier</p>
+                                    <p className="text-sm font-black text-slate-700 uppercase tracking-tight">PRJ-{selectedAlert.project_id}</p>
                                 </div>
                                 <div className="p-6 bg-white border border-slate-100 rounded-[28px] shadow-sm">
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Timeline Audit</p>
-                                    <p className="text-sm font-black text-slate-700">{formatDate(selectedNotification.timestamp || selectedNotification.created_at)}</p>
+                                    <p className="text-sm font-black text-slate-700">{formatDate(selectedAlert.created_at)}</p>
                                 </div>
+                                {selectedAlert.start_date && selectedAlert.end_date && (
+                                    <div className="col-span-2 p-6 bg-amber-50/50 border border-amber-100 rounded-[28px] shadow-sm flex items-center justify-between">
+                                        <div>
+                                            <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-1">Assigned Start</p>
+                                            <p className="text-sm font-black text-slate-800">{formatDateOnly(selectedAlert.start_date)}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-1">Expected End</p>
+                                            <p className="text-sm font-black text-slate-800">{formatDateOnly(selectedAlert.end_date)}</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

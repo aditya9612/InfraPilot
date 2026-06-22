@@ -277,11 +277,9 @@ export const workProgressService = {
   /**
    * Get delay report
    */
-  async getDelayReport(project_id?: number): Promise<{ limit: number; offset: number; page_count: number; data: ActivityItem[] }> {
+  async getDelayReport(): Promise<{ limit: number; offset: number; page_count: number; data: ActivityItem[] }> {
     try {
-      const params: Record<string, any> = {};
-      if (project_id) params.project_id = project_id;
-      const response = await api.get("/work-progress/delay-report", { params });
+      const response = await api.get("/work-progress/delay-report");
       return response.data;
     } catch (error: any) {
       console.warn("getDelayReport API error, using virtual success fallback:", error.message);
@@ -293,22 +291,6 @@ export const workProgressService = {
         data: delayed
       };
     }
-  },
-
-  async downloadPdfReport(projectId: number): Promise<Blob> {
-    const response = await api.get(`/work-progress/reports/pdf`, {
-      params: { project_id: projectId },
-      responseType: 'blob'
-    });
-    return response.data;
-  },
-
-  async downloadExcelReport(projectId: number): Promise<Blob> {
-    const response = await api.get(`/work-progress/reports/excel`, {
-      params: { project_id: projectId },
-      responseType: 'blob'
-    });
-    return response.data;
   },
 
   async getActivityHistory(id: number): Promise<{ data: any[] }> {

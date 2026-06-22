@@ -3,20 +3,16 @@ import { X, Camera, AlertCircle, Mic, MessageSquare, Play, Pause, BarChart2, Cal
 import VoiceSubmission from './VoiceSubmission';
 
 interface Task {
-    id: string | number;
-    title?: string;
-    name?: string;
+    id: string;
+    name: string;
     project: string;
     contractorId?: string;
-    assignedBy?: string;
-    assignedFrom?: string;
-    assignedTo?: string;
+    assignedFrom?: 'Self' | 'Site Engineer';
     description: string;
     status: 'Pending' | 'In Progress' | 'Completed' | 'Hold';
     priority: 'High' | 'Medium' | 'Low';
     startDate: string;
-    deadline?: string;
-    endDate?: string;
+    endDate: string;
     progress: number;
     beforeImages?: string[];
     afterImages?: string[];
@@ -24,7 +20,7 @@ interface Task {
 }
 
 interface TaskDetailModalProps {
-    task: Task | any | null;
+    task: Task | null;
     isOpen: boolean;
     onClose: () => void;
     onUpdateStatus: (id: string, status: string) => void;
@@ -55,12 +51,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                     <div className="min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                             <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] block">Task Detail</span>
-                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${statusColors[task.status as keyof typeof statusColors] || 'bg-slate-100'}`}>
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${statusColors[task.status]}`}>
                                 {task.status}
                             </span>
                         </div>
                         <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight mb-2 truncate">
-                            {task.title || task.name}
+                            {task.name}
                         </h2>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                             <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -83,30 +79,23 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Project</label>
-                            <p className="flex items-center gap-2 text-sm font-black text-slate-800 truncate">
+                            <p className="flex items-center gap-2 text-sm font-black text-slate-800">
                                 <Briefcase className="w-4 h-4 text-indigo-500" />
                                 {task.project}
                             </p>
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Contractor</label>
-                            <p className="flex items-center gap-2 text-sm font-black text-slate-800 truncate">
+                            <p className="flex items-center gap-2 text-sm font-black text-slate-800">
                                 <User className="w-4 h-4 text-emerald-500" />
                                 {task.contractorId || 'SHARMA-01'}
                             </p>
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Assigned By</label>
-                            <p className="flex items-center gap-2 text-sm font-black text-slate-800 truncate">
+                            <p className="flex items-center gap-2 text-sm font-black text-slate-800">
                                 <User className="w-4 h-4 text-blue-500" />
-                                {task.assignedBy || task.assignedFrom || 'Site Engineer'}
-                            </p>
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">Assigned To</label>
-                            <p className="flex items-center gap-2 text-sm font-black text-indigo-600 truncate">
-                                <User className="w-4 h-4 text-indigo-600" />
-                                {task.assignedTo || 'Ramesh sharma'}
+                                {task.assignedFrom || 'Site Engineer'}
                             </p>
                         </div>
                         <div className="space-y-1">
@@ -120,7 +109,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block">End Date</label>
                             <p className="flex items-center gap-2 text-sm font-black text-slate-800">
                                 <Calendar className="w-4 h-4 text-rose-500" />
-                                {task.deadline || task.endDate}
+                                {task.endDate}
                             </p>
                         </div>
                     </div>

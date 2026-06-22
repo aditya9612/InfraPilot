@@ -164,7 +164,7 @@ export const dsrService = {
     const formData = new FormData();
     formData.append("file", file);
     const response = await api.post<{ status: string; uploaded: string[] }>(
-      `/dsr/${dsr_id}/photos`,
+      `/dsr/${dsr_id}/photo`,
       formData,
       {
         headers: { "Content-Type": "multipart/form-data" },

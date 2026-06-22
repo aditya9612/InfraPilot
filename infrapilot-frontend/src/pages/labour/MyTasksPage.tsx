@@ -1,20 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
-import {
+import { 
     Filter, Search, Calendar,
     CheckCircle, Clock, XCircle, List, Grid,
-    UserCheck, Eye, MoreVertical, Loader2,
-    Volume2, Download
+    UserCheck, Eye, MoreVertical
 } from 'lucide-react';
-import { projectService } from '../../services/projectService';
-import { useAuth } from '../../context/AuthContext';
-import { useEffect } from 'react';
-import toast from 'react-hot-toast';
-import TaskDetailModal from '../../components/labour/TaskDetailModal';
 
 interface Task {
-    id: number | string;
+    id: string;
     title: string;
     project: string;
     assignedBy: string;
@@ -23,103 +17,70 @@ interface Task {
     priority: 'Low' | 'Medium' | 'High';
     startDate: string;
     deadline: string;
-    status: 'Planned' | 'In Progress' | 'Completed' | 'Cancelled' | 'Ongoing' | 'On Hold' | 'Delayed';
+    status: 'Planned' | 'In Progress' | 'Completed' | 'Cancelled';
     completion_percentage: number;
 }
 
 const MyTasksPage: React.FC = () => {
-    const { user } = useAuth();
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [activeTab, setActiveTab] = useState('All Tasks');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All Status');
-    const [departmentFilter, setDepartmentFilter] = useState('ALL DEPARTMENTS');
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [selectedTask, setSelectedTask] = useState<any>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isFetchingDetail, setIsFetchingDetail] = useState(false);
+    const [departmentFilter, setDepartmentFilter] = useState('All Departments');
 
-    const fetchTasks = async () => {
-        setIsLoading(true);
-        try {
-            const params: any = {
-                limit: 20,
-                offset: 0
-            };
-
-            // Backend filtering based on active tab
-            if (activeTab === 'All Tasks') {
-                // Fetch all tasks for All Tasks tab
-            } else if (activeTab === 'My Tasks') {
-                params.assigned_user_id = user?.id ? Number(user.id) : 181;
-            } else if (activeTab === 'Project Tasks') {
-                // No specific status or user filter for project tasks
-            }
-
-            const projectId = 92; // Using the project ID 92 from the user's reference
-            const response = await projectService.getTasks(projectId, params);
-
-            const taskItems = Array.isArray(response) ? response : (response.items || []);
-
-            const mappedTasks: Task[] = taskItems.map((t: any) => {
-                // Determine assignee from assigned_users array
-                const assignee = t.assigned_users && t.assigned_users.length > 0
-                    ? (t.assigned_users[0].full_name || t.assigned_users[0].name || t.assigned_users[0].username || 'Assigned')
-                    : (user?.name || 'Labour');
-
-                return {
-                    id: t.id,
-                    title: t.title || 'Untitled Task',
-                    project: 'Project ID: ' + (t.project_id || projectId),
-                    assignedBy: t.assigned_by_name || 'Site Engineer',
-                    assignedTo: assignee,
-                    assignment: t.description || 'No details provided',
-                    priority: (t.priority === 'Low' || t.priority === 'Medium' || t.priority === 'High') ? t.priority : 'Medium',
-                    startDate: t.start_date || '',
-                    deadline: t.end_date || '',
-                    status: t.status as any,
-                    completion_percentage: t.completion_percentage || 0
-                };
-            });
-
-            setTasks(mappedTasks);
-        } catch (error) {
-            console.error('Error fetching tasks:', error);
-            toast.error('Failed to load tasks');
-        } finally {
-            setIsLoading(false);
+    const [tasks] = useState<Task[]>([
+        { 
+            id: 'T-001', 
+            title: 'Foundation Reinforcement', 
+            project: 'New Sara City', 
+            assignedBy: 'Eng. Sharma', 
+            assignedTo: 'Gopal Yadav',
+            assignment: 'Rebar Placement',
+            priority: 'High', 
+            startDate: '2026-06-15',
+            deadline: '2026-06-20', 
+            status: 'In Progress',
+            completion_percentage: 65 
+        },
+        { 
+            id: 'T-002', 
+            title: 'Concreting Section B', 
+            project: 'New Sara City', 
+            assignedBy: 'Eng. Verma', 
+            assignedTo: 'Gopal Yadav',
+            assignment: 'Concrete Pouring',
+            priority: 'Medium', 
+            startDate: '2026-06-18',
+            deadline: '2026-06-21', 
+            status: 'Planned',
+            completion_percentage: 0 
+        },
+        { 
+            id: 'T-003', 
+            title: 'Site Cleaning', 
+            project: 'Green Valley', 
+            assignedBy: 'Admin', 
+            assignedTo: 'Gopal Yadav',
+            assignment: 'Debris Removal',
+            priority: 'Low', 
+            startDate: '2026-06-17',
+            deadline: '2026-06-18', 
+            status: 'Completed',
+            completion_percentage: 100 
         }
-    };
-
-    useEffect(() => {
-        fetchTasks();
-    }, [user?.id, activeTab]);
+    ]);
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
             const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                 String(t.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                 (t.assignment || '').toLowerCase().includes(searchQuery.toLowerCase());
-            
+                                t.id.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesStatus = statusFilter === 'All Status' || t.status === statusFilter;
-            
-            const matchesDepartment = departmentFilter === 'ALL DEPARTMENTS' || 
-                                     (t.assignment || '').toUpperCase().includes(departmentFilter.toUpperCase());
-            
-            const matchesTab = activeTab === 'All Tasks' || 
-                               (activeTab === 'My Tasks' && (
-                                   (t.assignedTo || '').toLowerCase() === (user?.name || '').toLowerCase() ||
-                                   (t.assignedTo || '').toLowerCase() === 'labour'
-                               )) ||
-                               (activeTab === 'Project Tasks');
-
-            return matchesSearch && matchesStatus && matchesDepartment && matchesTab;
+            return matchesSearch && matchesStatus;
         });
-    }, [tasks, searchQuery, statusFilter, departmentFilter, activeTab, user?.name]);
+    }, [tasks, searchQuery, statusFilter]);
 
     const priorityBadge = (priority: string) => {
-        switch (priority) {
+        switch(priority) {
             case 'High': return 'bg-rose-500 text-white';
             case 'Medium': return 'bg-blue-500 text-white';
             case 'Low': return 'bg-emerald-500 text-white';
@@ -128,78 +89,20 @@ const MyTasksPage: React.FC = () => {
     };
 
     const statusBadge = (status: string) => {
-        switch (status) {
+        switch(status) {
             case 'Completed': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
             case 'In Progress': return 'bg-blue-50 text-blue-600 border-blue-100';
             case 'Planned': return 'bg-slate-50 text-slate-600 border-slate-100';
             case 'Cancelled': return 'bg-rose-50 text-rose-600 border-rose-100';
-            case 'Ongoing': return 'bg-blue-50 text-blue-600 border-blue-100';
-            case 'On Hold': return 'bg-amber-50 text-amber-600 border-amber-100';
-            case 'Delayed': return 'bg-rose-50 text-rose-600 border-rose-100';
             default: return 'bg-slate-50 text-slate-600';
         }
     };
-
-    const handleViewTask = async (taskId: number | string) => {
-        setIsFetchingDetail(true);
-        try {
-            const data = await projectService.getTask(1, Number(taskId));
-            // Map API response to Modal's expected Task interface
-            const mappedTask = {
-                id: String(data.id),
-                name: data.title || 'Untitled Task',
-                project: 'Project ' + (data.project_id || '1'),
-                description: data.description || 'No description provided.',
-                status: data.status === 'Planned' ? 'Pending' :
-                    data.status === 'Completed' ? 'Completed' :
-                        data.status === 'On Hold' ? 'Hold' : 'In Progress',
-                priority: (data.priority === 'High' || data.priority === 'Medium' || data.priority === 'Low') ? data.priority : 'Medium',
-                startDate: data.start_date || '',
-                endDate: data.end_date || '',
-                progress: data.completion_percentage || 0,
-                assignedFrom: data.created_by_user_id === 1 ? 'Site Engineer' : 'Manager'
-            };
-            setSelectedTask(mappedTask);
-            setIsModalOpen(true);
-        } catch (error) {
-            console.error('Error fetching task details:', error);
-            toast.error('Failed to load task details');
-        } finally {
-            setIsFetchingDetail(false);
-        }
-    };
-
-    const handleUpdateTaskStatus = async (taskId: string, newStatus: string) => {
-        try {
-            // Map modal status back to API status if needed
-            const apiStatus = newStatus === 'Pending' ? 'Planned' :
-                newStatus === 'Hold' ? 'On Hold' : newStatus;
-
-            await projectService.updateTaskStatus(1, Number(taskId), apiStatus);
-            toast.success('Status updated successfully');
-            fetchTasks(); // Refresh list
-            setIsModalOpen(false);
-        } catch (error) {
-            toast.error('Failed to update status');
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Syncing Task Matrix...</p>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <>
             <Navbar title="Task Management" breadcrumb={['Labour', 'Task Management']} />
             <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen font-inter pb-32">
-
+                
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <div>
@@ -210,7 +113,7 @@ const MyTasksPage: React.FC = () => {
 
                 {/* Tabs */}
                 <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm w-fit mb-10">
-                    {['All Tasks', 'My Tasks', 'Project Tasks'].map(tab => (
+                    {['All Tasks', 'Project Tasks'].map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -230,7 +133,7 @@ const MyTasksPage: React.FC = () => {
                         { label: 'COMPLETED', count: tasks.filter(t => t.status === 'Completed').length, icon: CheckCircle, color: 'emerald', status: 'Completed' },
                         { label: 'CANCELLED', count: tasks.filter(t => t.status === 'Cancelled').length, icon: XCircle, color: 'rose', status: 'Cancelled' },
                     ].map(stat => (
-                        <div
+                        <div 
                             key={stat.label}
                             onClick={() => setStatusFilter(stat.status)}
                             className={`bg-white p-6 rounded-[32px] border-2 transition-all cursor-pointer group hover:-translate-y-1 ${statusFilter === stat.status ? `border-${stat.color}-500 shadow-xl shadow-${stat.color}-50` : 'border-transparent shadow-sm hover:border-slate-100'}`}
@@ -250,7 +153,7 @@ const MyTasksPage: React.FC = () => {
 
                 {/* Filters View Table Container */}
                 <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
-
+                    
                     {/* Filter Bar */}
                     <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row items-center justify-between gap-8 bg-slate-50/20">
                         <div className="flex flex-col md:flex-row items-center gap-8 w-full xl:w-auto">
@@ -276,7 +179,7 @@ const MyTasksPage: React.FC = () => {
                         <div className="flex flex-wrap items-center gap-6 w-full xl:w-auto justify-end">
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Status</span>
-                                <select
+                                <select 
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
                                     className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-all min-w-[140px]"
@@ -291,7 +194,7 @@ const MyTasksPage: React.FC = () => {
 
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Filter</span>
-                                <select
+                                <select 
                                     className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-all min-w-[140px]"
                                 >
                                     <option>ALL TASKS</option>
@@ -301,7 +204,7 @@ const MyTasksPage: React.FC = () => {
 
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Department</span>
-                                <select
+                                <select 
                                     value={departmentFilter}
                                     onChange={(e) => setDepartmentFilter(e.target.value)}
                                     className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-all min-w-[160px]"
@@ -334,7 +237,7 @@ const MyTasksPage: React.FC = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/50">
-                                    {['TASK', 'PROJECT', 'ASSIGNED BY', 'ASSIGNED TO', 'ASSIGNMENT', 'PRIORITY', 'TIMELINE', 'VOICE MSG', 'STATUS', 'ACTION'].map(header => (
+                                    {['TASK', 'PROJECT', 'ASSIGNED BY', 'ASSIGNED TO', 'ASSIGNMENT', 'PRIORITY', 'TIMELINE', 'STATUS', 'ACTIONS'].map(header => (
                                         <th key={header} className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
                                             {header}
                                         </th>
@@ -393,33 +296,54 @@ const MyTasksPage: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <button 
-                                                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all"
-                                                title="Play Voice Message"
-                                            >
-                                                <Volume2 className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                        <td className="px-8 py-6">
                                             <span className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${statusBadge(task.status)}`}>
                                                 {task.status}
                                             </span>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => handleViewTask(task.id)}
-                                                    disabled={isFetchingDetail}
-                                                    className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-all disabled:opacity-50"
-                                                    title="View"
-                                                >
-                                                    {isFetchingDetail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                                            <div className="flex items-center gap-1">
+                                                {/* Eye - View */}
+                                                <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="View">
+                                                    <Eye className="w-4 h-4" />
                                                 </button>
-                                                <button 
-                                                    className="p-2 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl transition-all"
-                                                    title="Download"
-                                                >
-                                                    <Download className="w-4 h-4" />
+
+                                                {/* UserCheck - Assignment info tooltip */}
+                                                <div className="relative group/action">
+                                                    <button 
+                                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                                        title="Assignment Info"
+                                                    >
+                                                        <UserCheck className="w-4 h-4" />
+                                                    </button>
+                                                    {/* Tooltip */}
+                                                    <div className="absolute right-0 bottom-full mb-2 w-56 bg-slate-900 text-white rounded-2xl shadow-2xl p-4 opacity-0 group-hover/action:opacity-100 pointer-events-none transition-all duration-200 z-50 translate-y-1 group-hover/action:translate-y-0">
+                                                        <div className="space-y-3">
+                                                            <div>
+                                                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">ASSIGNED BY</p>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[9px] font-black text-white shrink-0">
+                                                                        {task.assignedBy.charAt(0)}
+                                                                    </div>
+                                                                    <p className="text-xs font-black text-white truncate">{task.assignedBy}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="border-t border-slate-700 pt-3">
+                                                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">ASSIGNED TO</p>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[9px] font-black text-white shrink-0">
+                                                                        {task.assignedTo.charAt(0)}
+                                                                    </div>
+                                                                    <p className="text-xs font-black text-indigo-300 truncate">{task.assignedTo}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="absolute -bottom-1.5 right-4 w-3 h-3 bg-slate-900 rotate-45" />
+                                                    </div>
+                                                </div>
+
+                                                {/* More Options */}
+                                                <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all" title="More">
+                                                    <MoreVertical className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>
@@ -427,7 +351,7 @@ const MyTasksPage: React.FC = () => {
                                 ))}
                             </tbody>
                         </table>
-
+                        
                         {filteredTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 px-8">
                                 <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center mb-6">
@@ -440,13 +364,6 @@ const MyTasksPage: React.FC = () => {
                     </div>
                 </div>
             </PageTransition>
-
-            <TaskDetailModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                task={selectedTask}
-                onUpdateStatus={handleUpdateTaskStatus}
-            />
         </>
     );
 };

@@ -746,7 +746,7 @@ const ChecklistsPage = () => {
                                 />
                             </div>
                             <div className="font-inter">
-                                <label className={labelClasses}>Type <span className="text-rose-500">*</span></label>
+                                <label className={labelClasses}>Domain Category <span className="text-rose-500">*</span></label>
                                 <select
                                     value={newChecklistType}
                                     onChange={(e) => setNewChecklistType(e.target.value)}

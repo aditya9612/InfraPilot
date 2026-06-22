@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
 import { reportService } from "../../services/reportService";
-import { materialService } from "../../services/materialService";
 import { dsrService } from "../../services/dsrService";
 import { workProgressService } from "../../services/workProgressService";
 import { issueService } from "../../services/issueService";
@@ -113,8 +112,8 @@ const ClientReportsPage = () => {
       const [daily, weekly, material, issues, labour] = await Promise.all([
         reportService.getDailyReport(pid, reportDate),
         workProgressService.listActivities(pid),
-        materialService.listMaterials(pid, 0, 50),
-        issueService.listIssuesByProject(pid, { limit: 1000 }),
+        reportService.getMaterialReport(pid),
+        issueService.listIssuesByProject(pid),
         reportService.getLabourReport(pid)
       ]);
       setDailyReport(daily.dsr || daily);
@@ -146,23 +145,13 @@ const ClientReportsPage = () => {
       const issueList = Array.isArray(issues) ? issues : ((issues as any)?.items || (issues as any)?.data?.items || []);
       const projectIssues = issueList.filter((i: any) => Number(i.project_id) === Number(pid));
 
-      if (Number(pid) === 92) {
-        setIssueSummary({
-          items: projectIssues,
-          open: 20,
-          closed: 1,
-          critical: 7,
-          total: 21
-        });
-      } else {
-        setIssueSummary({
-          items: projectIssues,
-          open: projectIssues.filter((i: any) => i.status !== 'Resolved').length,
-          closed: projectIssues.filter((i: any) => i.status === 'Resolved').length,
-          critical: projectIssues.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length,
-          total: projectIssues.length
-        });
-      }
+      setIssueSummary({
+        items: projectIssues,
+        open: projectIssues.filter((i: any) => i.status !== 'Resolved').length,
+        closed: projectIssues.filter((i: any) => i.status === 'Resolved').length,
+        critical: projectIssues.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length,
+        total: projectIssues.length
+      });
       setLabourSummary(labour);
     } catch (error) {
       console.error("Failed to fetch reports:", error);
@@ -786,26 +775,20 @@ const ClientReportsPage = () => {
     if (!projectId) return;
     try {
       toast.loading("Generating Site Issues Report...", { id: "issue-pdf" });
-      const issuesRes = await issueService.listIssuesByProject(projectId, { limit: 1000 });
+      const issuesRes = await issueService.listIssuesByProject(projectId);
       const rawItems = (issuesRes as any).items || (issuesRes as any).data?.items || (Array.isArray(issuesRes) ? issuesRes : []);
       const items = rawItems.filter((i: any) => Number(i.project_id) === Number(projectId));
       const openCount = items.filter((i: any) => i.status !== 'Resolved').length;
-
-      const totalIssuesVal = Number(projectId) === 92 ? "21" : items.length.toString();
-      const openIssuesVal = Number(projectId) === 92 ? "20" : openCount.toString();
-      const resolvedIssuesVal = Number(projectId) === 92 ? "1" : (items.length - openCount).toString();
-      const criticalIssuesVal = Number(projectId) === 92 ? "7" : items.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length.toString();
-      const statusVal = Number(projectId) === 92 ? "Critical" : (openCount > 5 ? "Critical" : "Stable");
 
       generatePremiumPDF({
         title: "Site Issues Report",
         subtitle: `Project ID: ${projectId} | Outstanding as of ${new Date().toLocaleDateString('en-GB')}`,
         summaryStats: [
-          { label: "Total Issues", value: totalIssuesVal },
-          { label: "Open Issues", value: openIssuesVal },
-          { label: "Resolved", value: resolvedIssuesVal },
-          { label: "Critical", value: criticalIssuesVal },
-          { label: "Status", value: statusVal }
+          { label: "Total Issues", value: items.length.toString() },
+          { label: "Open Issues", value: openCount.toString() },
+          { label: "Resolved", value: (items.length - openCount).toString() },
+          { label: "Critical", value: items.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length.toString() },
+          { label: "Status", value: openCount > 5 ? "Critical" : "Stable" }
         ],
         tableHeaders: [["ID", "Issue Title/Description", "Status", "Priority", "Reported By"]],
         tableBody: items.map((i: any) => [
@@ -982,7 +965,7 @@ const ClientReportsPage = () => {
         if (activeTab === "issues" && report.title !== "Issue Report") return false;
         return matchesSearch && matchesFrequency;
       });
-
+      
       const summaryData = filteredReports.map(r => ({
         Level: r.level,
         Report_Type: r.title,
@@ -1152,105 +1135,105 @@ const ClientReportsPage = () => {
               ))}
           </div>
         )}
-        <Modal
-          isOpen={showInsight}
-          onClose={() => setShowInsight(false)}
-          title="Report Insight"
-          maxWidth="max-w-2xl"
-        >
-          <div className="font-inter">
-            {/* Main Blue Card */}
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-[2.5rem] p-10 text-white shadow-xl shadow-blue-200/50 relative overflow-hidden mb-12">
-              <div className="relative z-10">
-                <p className="text-[10px] font-black opacity-60 uppercase tracking-[0.2em] mb-3">Analytics Registry</p>
-                <div className="flex justify-between items-center mb-10">
-                  <h3 className="text-3xl font-black tracking-tight">{selectedInsight?.title}</h3>
-                  <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-                    </svg>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/10">
-                    <p className="text-[9px] font-black opacity-60 uppercase tracking-widest mb-2">File Context</p>
-                    <p className="text-xl font-black">{selectedInsight?.size}</p>
-                  </div>
-                  <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/10">
-                    <p className="text-[9px] font-black opacity-60 uppercase tracking-widest mb-2">Frequency</p>
-                    <p className="text-xl font-black">{selectedInsight?.level}</p>
-                  </div>
+      <Modal
+        isOpen={showInsight}
+        onClose={() => setShowInsight(false)}
+        title="Report Insight"
+        maxWidth="max-w-2xl"
+      >
+        <div className="font-inter">
+          {/* Main Blue Card */}
+          <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-[2.5rem] p-10 text-white shadow-xl shadow-blue-200/50 relative overflow-hidden mb-12">
+            <div className="relative z-10">
+              <p className="text-[10px] font-black opacity-60 uppercase tracking-[0.2em] mb-3">Analytics Registry</p>
+              <div className="flex justify-between items-center mb-10">
+                <h3 className="text-3xl font-black tracking-tight">{selectedInsight?.title}</h3>
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+                  </svg>
                 </div>
               </div>
 
-              {/* Decorative circles */}
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
-              <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/10">
+                  <p className="text-[9px] font-black opacity-60 uppercase tracking-widest mb-2">File Context</p>
+                  <p className="text-xl font-black">{selectedInsight?.size}</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md rounded-3xl p-6 border border-white/10">
+                  <p className="text-[9px] font-black opacity-60 uppercase tracking-widest mb-2">Frequency</p>
+                  <p className="text-xl font-black">{selectedInsight?.level}</p>
+                </div>
+              </div>
             </div>
-
-            <div className="px-2">
-              {/* Identity Group */}
-              <div className="mb-10">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-6">Report Identity</p>
-
-                <div className="mb-8">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Description & Scope</p>
-                  <p className="text-[13px] font-bold text-slate-600 leading-relaxed italic">
-                    {selectedInsight?.description}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-8">
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Last Generated</p>
-                    <p className="text-sm font-black text-slate-700">{selectedInsight?.time}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">System Status</p>
-                    <p className="text-sm font-black text-green-600 tracking-tight">{selectedInsight?.status}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Performance Metrics */}
-              <div className="mb-12">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-8">Performance Metrics</p>
-                <div className="grid grid-cols-2 gap-y-8 gap-x-12">
-                  {selectedInsight?.metrics?.map((metric: any, index: number) => (
-                    <div key={index}>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{metric.label}</p>
-                      <p className={`text-base font-black tracking-tight ${metric.color || 'text-slate-800'}`}>
-                        {metric.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Metadata Box */}
-              <div className="mb-10">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4">Report Metadata</p>
-                <div className="bg-slate-50/80 rounded-2xl p-5 border border-slate-100/50">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] text-center italic">
-                    Generation Logic: Standardized System Export | Integrity: 100% Secure
-                  </p>
-                </div>
-              </div>
-
-              {/* Close Button */}
-              <button
-                onClick={() => setShowInsight(false)}
-                className="w-full py-4 bg-slate-50 text-slate-500 text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-slate-100 transition-all active:scale-[0.98] border border-slate-100"
-              >
-                Close
-              </button>
-            </div>
+            
+            {/* Decorative circles */}
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
           </div>
-        </Modal>
-      </div>
+
+          <div className="px-2">
+            {/* Identity Group */}
+            <div className="mb-10">
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-6">Report Identity</p>
+              
+              <div className="mb-8">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Description & Scope</p>
+                <p className="text-[13px] font-bold text-slate-600 leading-relaxed italic">
+                  {selectedInsight?.description}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Last Generated</p>
+                  <p className="text-sm font-black text-slate-700">{selectedInsight?.time}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">System Status</p>
+                  <p className="text-sm font-black text-green-600 tracking-tight">{selectedInsight?.status}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Metrics */}
+            <div className="mb-12">
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-8">Performance Metrics</p>
+              <div className="grid grid-cols-2 gap-y-8 gap-x-12">
+                {selectedInsight?.metrics?.map((metric: any, index: number) => (
+                  <div key={index}>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{metric.label}</p>
+                    <p className={`text-base font-black tracking-tight ${metric.color || 'text-slate-800'}`}>
+                      {metric.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Metadata Box */}
+            <div className="mb-10">
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4">Report Metadata</p>
+              <div className="bg-slate-50/80 rounded-2xl p-5 border border-slate-100/50">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em] text-center italic">
+                  Generation Logic: Standardized System Export | Integrity: 100% Secure
+                </p>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowInsight(false)}
+              className="w-full py-4 bg-slate-50 text-slate-500 text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-slate-100 transition-all active:scale-[0.98] border border-slate-100"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
-  );
+  </div>
+);
 };
 
 export default ClientReportsPage;
