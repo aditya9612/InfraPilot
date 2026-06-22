@@ -96,8 +96,8 @@ const LabourDashboard: React.FC = () => {
     ];
 
     const quickActions = [
-        { label: 'Mark Present', icon: CheckCircle, color: 'bg-emerald-500', onClick: () => navigate('/labour/attendance') },
-        { label: 'Mark Absent', icon: XCircle, color: 'bg-rose-500', onClick: () => navigate('/labour/attendance') },
+        { label: 'Check In', icon: CheckCircle, color: 'bg-emerald-500', onClick: () => navigate('/labour/attendance') },
+        { label: 'Check Out', icon: XCircle, color: 'bg-rose-500', onClick: () => navigate('/labour/attendance') },
         { label: 'View Tasks', icon: Clipboard, color: 'bg-blue-500', onClick: () => navigate('/labour/tasks') },
         { label: 'Work Updates', icon: Play, color: 'bg-indigo-500', onClick: () => navigate('/labour/work-updates') },
     ];
@@ -152,8 +152,8 @@ const LabourDashboard: React.FC = () => {
                     <div className="flex items-center lg:justify-end">
                         <AttendanceCard
                             isPresent={isPresent}
-                            onPresent={() => setIsPresent(true)}
-                            onAbsent={() => setIsPresent(false)}
+                            onPresent={() => { setIsPresent(true); toast.success("Marked as Present"); }}
+                            onAbsent={() => { setIsPresent(false); toast.error("Marked as Absent"); }}
                         />
                     </div>
                 </div>

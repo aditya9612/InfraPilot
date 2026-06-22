@@ -8,7 +8,8 @@ import {
     ArrowRight,
     Info,
     ChevronRight,
-    Loader2
+    Loader2,
+    User
 } from 'lucide-react';
 import { attendanceService } from '../../services/attendanceService';
 import type { AttendanceRecord, TodayStatusResponse } from '../../services/attendanceService';
@@ -239,11 +240,12 @@ const AttendancePage: React.FC = () => {
                                     <thead className="bg-slate-50/50">
                                         <tr>
                                             {[
-                                                'labour_name', 'task_id', 'worker_code', 'attendance_date',
-                                                'in_time', 'out_time', 'working_hours', 'overtime_hours'
+                                                'date', 'labour name', 'labour Id', 'Department', 
+                                                'work location', 'checkin', 'checkout', 'hours', 
+                                                'location', 'selfie', 'status', 'work summary'
                                             ].map(head => (
                                                 <th key={head} className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 whitespace-nowrap">
-                                                    {head.replace(/_/g, ' ')}
+                                                    {head}
                                                 </th>
                                             ))}
                                         </tr>
@@ -252,6 +254,9 @@ const AttendancePage: React.FC = () => {
                                         {attendanceList.length > 0 ? (
                                             attendanceList.map((record) => (
                                                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-600">
+                                                        {record.attendance_date}
+                                                    </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 uppercase">
@@ -259,6 +264,16 @@ const AttendancePage: React.FC = () => {
                                                             </div>
                                                             <span className="text-sm font-bold text-slate-700">{record.full_name || 'Labour'}</span>
                                                         </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-xs font-black text-slate-500">
+                                                        #{record.user_id || 'N/A'}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-500">
+                                                        {/* Department Placeholder */}
+                                                        Site Ops
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-500">
+                                                        {record.work_location_type || 'Field'}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-600">
                                                         {record.in_time ? new Date(record.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
@@ -269,12 +284,29 @@ const AttendancePage: React.FC = () => {
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-800">
                                                         {record.working_hours || 0} hrs
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-amber-600">{record.overtime_hours || 0} hrs</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <p className="text-[10px] font-bold text-slate-400 max-w-[150px] truncate" title={record.check_in_address || ''}>
+                                                            {record.check_in_address || 'N/A'}
+                                                        </p>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center">
+                                                            <User className="w-5 h-5 text-slate-300" />
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${record.is_approved ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                            {record.is_approved ? 'Approved' : 'Pending'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-500">
+                                                        {record.work_summary || 'No summary'}
+                                                    </td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={8} className="py-20 text-center">
+                                                <td colSpan={12} className="py-20 text-center">
                                                     <div className="flex flex-col items-center justify-center space-y-4">
                                                         <div className="w-16 h-16 rounded-3xl bg-slate-50 flex items-center justify-center">
                                                             <Info className="w-8 h-8 text-slate-200" />
