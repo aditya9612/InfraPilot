@@ -14,7 +14,11 @@ import { userService } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 
 
-const NotificationsPage = () => {
+interface NotificationsPageProps {
+  filter?: "alerts" | "system";
+}
+
+const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   const { user } = useAuth();
   const [alerts, setAlerts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,11 +72,17 @@ const NotificationsPage = () => {
 
   const filteredAlerts = useMemo(() => {
     const list = alerts.filter(a => {
+      // Filter by source based on the 'filter' prop
+      const matchesFilter = !filter ||
+        (filter === "alerts" && (a.source === "project" || a.source === "task")) ||
+        (filter === "system" && (a.source === "general" || !a.source));
+
       const matchProject = selectedProjectId === "all" || String(a.project_id) === selectedProjectId;
       const matchSearch = (a.message || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a.alert_type || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a.status || "Normal").toLowerCase().includes(searchTerm.toLowerCase());
-      return matchProject && matchSearch;
+
+      return matchesFilter && matchProject && matchSearch;
     });
 
     return [...list].sort((a, b) => {
@@ -80,12 +90,12 @@ const NotificationsPage = () => {
       const bVal = new Date(b.created_at || 0).getTime();
       return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
     });
-  }, [alerts, searchTerm, sortOrder, selectedProjectId]);
+  }, [alerts, searchTerm, sortOrder, selectedProjectId, filter]);
 
   useEffect(() => {
     setCurrentPage(0);
     setSelectedIds(new Set());
-  }, [searchTerm, sortOrder, selectedProjectId]);
+  }, [searchTerm, sortOrder, selectedProjectId, filter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAlerts.length / PAGE_SIZE));
   const pagedAlerts = filteredAlerts.slice(
@@ -196,13 +206,22 @@ const NotificationsPage = () => {
 
   return (
     <>
-      <Navbar title="Notifications & Alerts" breadcrumb={["Admin", "Notifications"]} />
+      <Navbar
+        title={filter === "alerts" ? "Project Alerts" : filter === "system" ? "System Notifications" : "Notifications & Alerts"}
+        breadcrumb={["Admin", filter === "alerts" ? "Alerts" : "Notifications"]}
+      />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">System Alerts & Notifications</h1>
-            <p className="text-slate-500 text-sm">Monitor critical project signals, budget overruns, and safety compliance.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              {filter === "alerts" ? "Project Alerts" : filter === "system" ? "System Notifications" : "System Alerts & Notifications"}
+            </h1>
+            <p className="text-slate-500 text-sm">
+              {filter === "alerts"
+                ? "Monitor critical project signals, task updates, and delays."
+                : "Manage system-wide broadcasts and administrative updates."}
+            </p>
           </div>
           <div className="flex gap-2">
             {selectedIds.size > 0 && (

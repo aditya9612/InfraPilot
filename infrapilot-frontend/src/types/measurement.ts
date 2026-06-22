@@ -1,21 +1,35 @@
 export interface Measurement {
   id: number;
   project_id: number;
+  task_id: number;
+  boq_item_id: number;
   final_area: number;
   approved_rate: number;
   extra_area: number;
   extra_rate: number;
-  total_amount?: number; // Calculated on backend or frontend
+  measured_qty: number;
+  certified_qty: number;
+  rejected_qty: number;
+  retention_amount: number;
+  status: string;
+  total_amount?: number;
   created_at?: string;
   updated_at?: string;
 }
 
 export interface MeasurementCreateData {
   project_id: number;
+  task_id: number;
+  boq_item_id: number;
   final_area: number;
   approved_rate: number;
   extra_area: number;
   extra_rate: number;
+  measured_qty: number;
+  certified_qty: number;
+  rejected_qty: number;
+  retention_amount: number;
+  status: string;
 }
 
 export interface MeasurementUpdateData {
@@ -23,4 +37,9 @@ export interface MeasurementUpdateData {
   approved_rate?: number;
   extra_area?: number;
   extra_rate?: number;
+  measured_qty?: number;
+  certified_qty?: number;
+  rejected_qty?: number;
+  retention_amount?: number;
+  status?: string;
 }

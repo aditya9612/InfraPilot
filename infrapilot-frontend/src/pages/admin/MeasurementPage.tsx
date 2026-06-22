@@ -17,7 +17,10 @@ import {
   Search,
   Edit3
 } from "lucide-react";
-import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
+import { boqService } from "../../services/boqService";
+import type { BoqItem } from "../../types/boq";
+import type { Task } from "../../types/project";
+import { formatCompactCurrency } from "../../utils/currencyUtils";
 
 const MeasurementPage = () => {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
@@ -31,13 +34,25 @@ const MeasurementPage = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [targetId, setTargetId] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<Measurement | null>(null);
+  const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+  const [projectBoqItems, setProjectBoqItems] = useState<BoqItem[]>([]);
+  // Use isDataLoading for potential UI loading states
+  const [isDataLoading, setIsDataLoading] = useState(false);
+  console.log("Reference Data Loading Status:", isDataLoading);
 
   const [formData, setFormData] = useState({
     project_id: "",
+    task_id: "",
+    boq_item_id: "",
     final_area: "",
     approved_rate: "",
     extra_area: "",
-    extra_rate: ""
+    extra_rate: "",
+    measured_qty: "",
+    certified_qty: "",
+    rejected_qty: "",
+    retention_amount: "",
+    status: "DRAFT"
   });
 
   // Initial load of projects
@@ -78,6 +93,32 @@ const MeasurementPage = () => {
     setCurrentPage(0);
   }, [fetchData, sortOrder]);
 
+  // Fetch tasks and BOQ items when project changes
+  useEffect(() => {
+    const fetchReferenceData = async () => {
+      const pid = formData.project_id || selectedProject;
+      if (!pid) return;
+
+      try {
+        setIsDataLoading(true);
+        const [tasks, boqs] = await Promise.all([
+          projectService.getTasks(Number(pid)),
+          boqService.getBoqItems(Number(pid))
+        ]);
+        setProjectTasks(tasks || []);
+        setProjectBoqItems(boqs || []);
+      } catch (error) {
+        console.error("Failed to fetch reference data:", error);
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+
+    if (isModalOpen) {
+      fetchReferenceData();
+    }
+  }, [formData.project_id, isModalOpen, selectedProject]);
+
   const sortedMeasurements = useMemo(() => {
     return [...measurements].sort((a, b) => {
       const aVal = a.id;
@@ -103,10 +144,17 @@ const MeasurementPage = () => {
       toast.loading("Broadcasting field data...", { id: "save" });
       const data = {
         project_id: Number(formData.project_id),
+        task_id: Number(formData.task_id || 0),
+        boq_item_id: Number(formData.boq_item_id || 0),
         final_area: Number(formData.final_area),
         approved_rate: Number(formData.approved_rate),
         extra_area: Number(formData.extra_area || 0),
-        extra_rate: Number(formData.extra_rate || 0)
+        extra_rate: Number(formData.extra_rate || 0),
+        measured_qty: Number(formData.measured_qty || 0),
+        certified_qty: Number(formData.certified_qty || 0),
+        rejected_qty: Number(formData.rejected_qty || 0),
+        retention_amount: Number(formData.retention_amount || 0),
+        status: formData.status
       };
 
       if (editingItem) {
@@ -121,10 +169,17 @@ const MeasurementPage = () => {
       setEditingItem(null);
       setFormData({
         project_id: selectedProject,
+        task_id: "",
+        boq_item_id: "",
         final_area: "",
         approved_rate: "",
         extra_area: "",
-        extra_rate: ""
+        extra_rate: "",
+        measured_qty: "",
+        certified_qty: "",
+        rejected_qty: "",
+        retention_amount: "",
+        status: "DRAFT"
       });
       fetchData();
     } catch (error) {
@@ -136,10 +191,17 @@ const MeasurementPage = () => {
     setEditingItem(m);
     setFormData({
       project_id: m.project_id.toString(),
+      task_id: (m as any).task_id?.toString() || "",
+      boq_item_id: (m as any).boq_item_id?.toString() || "",
       final_area: m.final_area.toString(),
       approved_rate: m.approved_rate.toString(),
       extra_area: m.extra_area.toString(),
-      extra_rate: m.extra_rate.toString()
+      extra_rate: m.extra_rate.toString(),
+      measured_qty: (m as any).measured_qty?.toString() || "",
+      certified_qty: (m as any).certified_qty?.toString() || "",
+      rejected_qty: (m as any).rejected_qty?.toString() || "",
+      retention_amount: (m as any).retention_amount?.toString() || "",
+      status: (m as any).status || "DRAFT"
     });
     setIsModalOpen(true);
   };
@@ -385,34 +447,105 @@ const MeasurementPage = () => {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-6 bg-blue-500 rounded-full" />
+                <h3 className="font-semibold text-gray-700">Reference Nodes</h3>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Target Task</label>
+                  <select
+                    value={formData.task_id}
+                    onChange={(e) => setFormData({ ...formData, task_id: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 rounded-xl transition-all outline-none font-semibold appearance-none"
+                  >
+                    <option value="0">Select Task</option>
+                    {projectTasks.map(t => (
+                      <option key={t.id} value={t.id}>{t.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">BOQ Item</label>
+                  <select
+                    value={formData.boq_item_id}
+                    onChange={(e) => setFormData({ ...formData, boq_item_id: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-blue-200 focus:border-blue-400 rounded-xl transition-all outline-none font-semibold appearance-none"
+                  >
+                    <option value="0">Select BOQ Item</option>
+                    {projectBoqItems.map(b => (
+                      <option key={b.id} value={b.id}>{b.item_name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-1 h-6 bg-indigo-500 rounded-full" />
+                <h3 className="font-semibold text-gray-700">Status & Retention</h3>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Retention Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.retention_amount}
+                    onChange={(e) => setFormData({ ...formData, retention_amount: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 rounded-xl transition-all outline-none font-semibold"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Current Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 rounded-xl transition-all outline-none font-semibold"
+                  >
+                    <option value="DRAFT">DRAFT</option>
+                    <option value="CERTIFIED">CERTIFIED</option>
+                    <option value="REJECTED">REJECTED</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-6 bg-emerald-500 rounded-full" />
                 <h3 className="font-semibold text-gray-700">Standard Certs</h3>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Final Area</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.final_area}
-                    onChange={(e) => setFormData({ ...formData, final_area: e.target.value })}
-                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Approved Rate</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.approved_rate}
-                    onChange={(e) => setFormData({ ...formData, approved_rate: e.target.value })}
-                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
-                    placeholder="0.00"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Final Area</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.final_area}
+                      onChange={(e) => setFormData({ ...formData, final_area: e.target.value })}
+                      className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Apprv. Rate</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.approved_rate}
+                      onChange={(e) => setFormData({ ...formData, approved_rate: e.target.value })}
+                      className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -423,28 +556,72 @@ const MeasurementPage = () => {
                 <h3 className="font-semibold text-gray-700">Extra Deviations</h3>
               </div>
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Extra Area</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.extra_area}
-                    onChange={(e) => setFormData({ ...formData, extra_area: e.target.value })}
-                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400 rounded-xl transition-all outline-none font-semibold"
-                    placeholder="0.00"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Extra Area</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.extra_area}
+                      onChange={(e) => setFormData({ ...formData, extra_area: e.target.value })}
+                      className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400 rounded-xl transition-all outline-none font-semibold"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Extra Rate</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.extra_rate}
+                      onChange={(e) => setFormData({ ...formData, extra_rate: e.target.value })}
+                      className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400 rounded-xl transition-all outline-none font-semibold"
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Extra Rate</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.extra_rate}
-                    onChange={(e) => setFormData({ ...formData, extra_rate: e.target.value })}
-                    className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-amber-200 focus:border-amber-400 rounded-xl transition-all outline-none font-semibold"
-                    placeholder="0.00"
-                  />
-                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1 h-6 bg-purple-500 rounded-full" />
+              <h3 className="font-semibold text-gray-700">Quantity Analysis</h3>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">Measured Qty</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.measured_qty}
+                  onChange={(e) => setFormData({ ...formData, measured_qty: e.target.value })}
+                  className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-purple-200 focus:border-purple-400 rounded-xl transition-all outline-none font-semibold"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">Certified Qty</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.certified_qty}
+                  onChange={(e) => setFormData({ ...formData, certified_qty: e.target.value })}
+                  className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 rounded-xl transition-all outline-none font-semibold"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-600 mb-1">Rejected Qty</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.rejected_qty}
+                  onChange={(e) => setFormData({ ...formData, rejected_qty: e.target.value })}
+                  className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-rose-200 focus:border-rose-400 rounded-xl transition-all outline-none font-semibold"
+                  placeholder="0.00"
+                />
               </div>
             </div>
           </div>
