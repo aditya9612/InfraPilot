@@ -208,20 +208,8 @@ function AppRoutes() {
               <Route path="/admin/finance/payments" element={<FinancePage />} />
               <Route path="/admin/finance/expenses" element={<FinancePage />} />
               <Route path="/admin/finance/profit" element={<FinancePage />} />
-              <Route path="approvals" element={<ApprovalsPage />} />
+              <Route path="/admin/approvals" element={<ApprovalsPage />} />
               <Route path="compliance/qc" element={<QCGovernancePage />} />
-              <Route
-                path="/admin/approvals/material"
-                element={<ApprovalsPage />}
-              />
-              <Route
-                path="/admin/approvals/billing"
-                element={<ApprovalsPage />}
-              />
-              <Route
-                path="/admin/approvals/expense"
-                element={<ApprovalsPage />}
-              />
               <Route path="/admin/reports" element={<ReportsPage />} />
               <Route path="/admin/reports/progress" element={<ReportsPage />} />
               <Route
@@ -240,6 +228,14 @@ function AppRoutes() {
               <Route
                 path="/admin/notifications"
                 element={<NotificationsPage />}
+              />
+              <Route
+                path="/admin/notifications/alerts"
+                element={<NotificationsPage filter="alerts" />}
+              />
+              <Route
+                path="/admin/notifications/system"
+                element={<NotificationsPage filter="system" />}
               />
               <Route path="/admin/documents" element={<DocumentsPage />} />
               <Route path="/admin/measurements" element={<MeasurementPage />} />

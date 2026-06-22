@@ -124,19 +124,9 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "check-circle",
       subNav: [
         {
-          label: "Material Approval",
-          path: "/admin/approvals/material",
-          icon: "package",
-        },
-        {
-          label: "Billing Approval",
-          path: "/admin/approvals/billing",
-          icon: "file-text",
-        },
-        {
-          label: "Expense Approval",
-          path: "/admin/approvals/expense",
-          icon: "dollar-sign",
+          label: "Approval Requests",
+          path: "/admin/approvals",
+          icon: "list",
         },
       ],
     },
@@ -163,7 +153,15 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         },
       ],
     },
-    { label: "Notifications", path: "/admin/notifications", icon: "bell" },
+    {
+      label: "Notifications",
+      path: "/admin/notifications",
+      icon: "bell",
+      subNav: [
+        { label: "Alerts", path: "/admin/notifications/alerts", icon: "alert-circle" },
+        { label: "System Notifications", path: "/admin/notifications/system", icon: "info" },
+      ]
+    },
     { label: "Documents", path: "/admin/documents", icon: "file-text" },
     {
       label: "Master Data",

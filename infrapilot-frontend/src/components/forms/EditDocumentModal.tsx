@@ -20,7 +20,10 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         title: "",
         document_type: "",
         remarks: "",
+        status: "PENDING",
+        version: "1.0",
     });
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     useEffect(() => {
         if (document) {
@@ -28,7 +31,10 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                 title: document.title || "",
                 document_type: document.document_type || "General",
                 remarks: document.remarks || "",
+                status: document.status || "PENDING",
+                version: document.version || "1.0",
             });
+            setSelectedFile(null);
         }
     }, [document]);
 
@@ -36,9 +42,20 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!document) return;
+
         setIsSubmitting(true);
         try {
-            await onSubmit(document.id, formData);
+            // If there's a file, we might need to send it differently (FormData)
+            // But the DocumentUpdateParams interface doesn't have 'file'.
+            // Swagger shows 'file' in multipart/form-data.
+
+            const data: any = { ...formData };
+            if (selectedFile) {
+                data.file = selectedFile;
+            }
+
+            await onSubmit(document.id, data);
             onClose();
         } catch (error) {
             console.error("Update Error:", error);
@@ -88,23 +105,84 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                     </div>
 
                     {!document.is_folder && (
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Document Type <span className="text-rose-500">*</span>
-                            </label>
-                            <select
-                                required
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer"
-                                value={formData.document_type || "General"}
-                                onChange={(e) => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
-                            >
-                                <option value="General">General</option>
-                                <option value="Drawing">Drawing</option>
-                                <option value="Contract">Contract</option>
-                                <option value="Invoice">Invoice</option>
-                                <option value="Report">Report</option>
-                                <option value="Blueprint">Blueprint</option>
-                            </select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Document Type <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    required
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
+                                    value={formData.document_type || "General"}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
+                                >
+                                    <option value="General">General</option>
+                                    <option value="Drawing">Drawing</option>
+                                    <option value="Contract">Contract</option>
+                                    <option value="Invoice">Invoice</option>
+                                    <option value="Report">Report</option>
+                                    <option value="Blueprint">Blueprint</option>
+                                </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Status <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    required
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold appearance-none cursor-pointer text-slate-800"
+                                    value={formData.status || "PENDING"}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+                                >
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                </select>
+                            </div>
+                        </div>
+                    )}
+
+                    {!document.is_folder && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Version <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. 1.0"
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
+                                    value={formData.version || ""}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Update File
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        id="edit-file-upload"
+                                        className="hidden"
+                                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                    />
+                                    <label
+                                        htmlFor="edit-file-upload"
+                                        className="flex items-center justify-between w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer hover:bg-slate-100 transition-all"
+                                    >
+                                        <span className="text-slate-500 font-bold truncate max-w-[120px]">
+                                            {selectedFile ? selectedFile.name : "Choose file..."}
+                                        </span>
+                                        <div className="bg-amber-500 text-white p-1 rounded-lg">
+                                            <Save size={14} strokeWidth={3} />
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     )}
 

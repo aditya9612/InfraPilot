@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import { useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
@@ -12,11 +11,8 @@ import type { ApprovalItem } from "../../services/approvalService";
 import { userService } from "../../services/userService";
 
 const ApprovalsPage = () => {
-  const location = useLocation();
-  const subPageRaw = location.pathname.split("/").pop() || "material";
-  const subPage = subPageRaw === "approvals" ? "material" : subPageRaw;
-
   const [searchTerm, setSearchTerm] = useState("");
+  const [entityCategory, setEntityCategory] = useState<string>("all");
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -55,40 +51,17 @@ const ApprovalsPage = () => {
 
   useEffect(() => {
     fetchApprovals();
-    // Reset local view state when switching categories
-    setSearchTerm("");
-    setSelectedIds([]);
-    setCurrentPage(0);
-  }, [location.pathname]);
+  }, []);
 
   // Reset to page 0 on filter changes
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, entityCategory]);
 
   const filteredApprovals = Array.isArray(approvals) ? approvals.filter(a => {
-    // 1. Route-based Category Filtering
     const type = (a.entity_type || "").toUpperCase();
-    let matchesCategory = false;
-
-    const materialTypes = ["MATERIAL", "EQUIPMENT", "STOCK", "INVENTORY", "ASSET", "MACHINERY", "TOOL", "DESIGN"];
-    const billingTypes = ["BILL", "INVOICE", "QUOTATION", "MEASUREMENT", "PAYMENT", "VOUCHER", "TAX", "ESTIMATE", "VARIATION"];
-    const expenseTypes = ["EXPENSE", "PETTY", "CASH", "LABOUR", "SALARY", "ADVANCE", "TRAVEL", "REIMBURSEMENT", "SITE_EXPENSE", "WORK"];
-
-    const isMaterial = materialTypes.some(t => type.includes(t));
-    const isBilling = billingTypes.some(t => type.includes(t));
-
-    if (subPage.includes("material")) {
-      matchesCategory = isMaterial;
-    } else if (subPage.includes("billing") || subPage.includes("bill")) {
-      matchesCategory = isBilling;
-    } else if (subPage.includes("expense")) {
-      matchesCategory = (!isMaterial && !isBilling) || expenseTypes.some(t => type.includes(t));
-    } else {
-      matchesCategory = true;
-    }
-
-    if (!matchesCategory) return false;
+    // 1. Entity Type Filtering
+    if (entityCategory !== "all" && type !== entityCategory.toUpperCase()) return false;
 
     // 2. Status filter
     if (statusFilter !== "all" && (a.status || "").toLowerCase() !== statusFilter) return false;
@@ -189,13 +162,13 @@ const ApprovalsPage = () => {
 
   return (
     <>
-      <Navbar title="Approvals & Workflow" breadcrumb={["Admin", "Approvals", subPage.charAt(0).toUpperCase() + subPage.slice(1)]} />
+      <Navbar title="Approvals & Workflow" breadcrumb={["Admin", "Approvals", "Requests"]} />
 
-      <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
+      <PageTransition className="p-6 bg-slate-50 min-h-screen">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{subPage.charAt(0).toUpperCase() + subPage.slice(1)} Approvals</h1>
-            <p className="text-slate-500 text-sm">Review and authorize site requests for materials, billing, and expenses.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Approval Requests</h1>
+            <p className="text-slate-500 text-sm">Review and authorize site requests across all categories with unified filtering.</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -250,12 +223,22 @@ const ApprovalsPage = () => {
                 </span>
                 <input
                   type="text"
-                  placeholder="Search by entity type, id, remarks..."
+                  placeholder="Search by type, id..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
               </div>
+              <select
+                value={entityCategory}
+                onChange={(e) => setEntityCategory(e.target.value)}
+                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 pr-8"
+              >
+                <option value="all">Every Type</option>
+                {Array.from(new Set(approvals.map(a => a.entity_type?.toUpperCase()).filter(Boolean))).sort().map(type => (
+                  <option key={type} value={type?.toLowerCase()}>{type}</option>
+                ))}
+              </select>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
               <select
                 value={statusFilter}

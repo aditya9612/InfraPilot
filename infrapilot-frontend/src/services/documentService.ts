@@ -87,9 +87,27 @@ export const documentService = {
      * PUT /api/v1/documents/{id}
      */
     async updateDocument(id: number, data: DocumentUpdateParams | FormData): Promise<Document> {
-        const isFormData = data instanceof FormData;
-        const response = await api.put(`/documents/${id}`, data, {
-            headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined
+        if (data instanceof FormData) {
+            const response = await api.put(`/documents/${id}`, data, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+            return response.data;
+        }
+
+        const formData = new FormData();
+        if (data.title) formData.append("title", data.title);
+        if (data.document_type) formData.append("document_type", data.document_type);
+        if (data.status) formData.append("status", data.status);
+        if (data.remarks) formData.append("remarks", data.remarks);
+        if (data.version) formData.append("version", data.version);
+        if (data.file) formData.append("file", data.file);
+        // Add HEAD specific fields if they are sent as part of update
+        if (data.file_url) formData.append("file_url", data.file_url);
+
+        const response = await api.put(`/documents/${id}`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
         });
         return response.data;
     },
@@ -119,7 +137,7 @@ export const documentService = {
         const response = await api.get(`/documents/${id}/download`, {
             responseType: 'blob'
         });
-        
+
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
