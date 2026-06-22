@@ -397,11 +397,9 @@ export const boqService = {
    * Generate tasks from BOQ items
    * POST /api/v1/boq/{boq_id}/generate-tasks
    */
-  async generateTasksFromBoq(boqId: number, milestoneId?: number): Promise<any> {
+  async generateTasksFromBoq(boqId: number): Promise<any> {
     try {
-      const response = await api.post(`/boq/${boqId}/generate-tasks`, null, {
-        params: milestoneId ? { milestone_id: milestoneId } : {}
-      });
+      const response = await api.post(`/boq/${boqId}/generate-tasks`);
       return response.data;
     } catch (error: any) {
       console.error(

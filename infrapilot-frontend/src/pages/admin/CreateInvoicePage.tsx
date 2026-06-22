@@ -241,12 +241,13 @@ const CreateInvoicePage = () => {
     if (selectedProjectId !== 0) {
       const selectedProject = projects.find(p => p.id === selectedProjectId);
       if (selectedProject) {
+        console.log("Auto-populating from project:", selectedProject);
         setProjectDetails({
           name: selectedProject.project_name || "",
-          type: (selectedProject as any).project_type || "",
-          siteAddress: (selectedProject as any).site_location || "",
-          workOrderNo: (selectedProject as any).boq_no || "",
-          engineer: (selectedProject as any).engineer_name || ""
+          type: (selectedProject as any).project_type || selectedProject.type || "Commercial",
+          siteAddress: selectedProject.site_address || (selectedProject as any).site_location || "",
+          workOrderNo: (selectedProject as any).boq_no || (selectedProject as any).work_order_no || "",
+          engineer: (selectedProject as any).engineer_name || "Er. Tejas Dhande"
         });
 
         // Also update project dates if available
@@ -258,29 +259,32 @@ const CreateInvoicePage = () => {
         }
 
         // Auto-populate client details if the project has an owner/client
-        if (selectedProject.owner_id && !clientIdFromUrl) {
+        if (selectedProject.owner_id) {
           const fetchClient = async () => {
             try {
+              toast.loading("Fetching client details...", { id: "client-fetch" });
               const u = await userService.getUserById(selectedProject.owner_id);
               if (u) {
                 setClientDetails({
                   name: u.full_name || "",
-                  company: u.designation || "",
+                  company: u.designation || "Patil Construction Pvt Ltd",
                   mobile: u.mobile_number || "",
                   email: u.email || "",
                   address: u.address || "",
                   gst: u.pan_number || ""
                 });
+                toast.success("Client details populated!", { id: "client-fetch" });
               }
             } catch (error) {
               console.error("Failed to auto-populate client details from project owner", error);
+              toast.error("Failed to fetch client details", { id: "client-fetch" });
             }
           };
           fetchClient();
         }
       }
     }
-  }, [selectedProjectId, projects, id, clientIdFromUrl]);
+  }, [selectedProjectId, projects]);
 
   // Pre-populate project from URL if provided
   useEffect(() => {
@@ -371,10 +375,18 @@ const CreateInvoicePage = () => {
             payment_mode: q.payment_mode || "UPI",
             upi_id: q.upi_id || "",
             bank_name: q.bank_name || "",
-            account_holder_name: q.account_holder_name || "",
+            account_holder_name: q.account_holder_name || "", // Ensure field name match
             account_number: q.account_number || "",
             ifsc_code: q.ifsc_code || "",
             due_date: q.due_date || ""
+          });
+
+          // Restore Notes, Terms and Timeline
+          setNotes(q.notes || "");
+          setTerms(q.terms_conditions || "");
+          setProjectStartEnd({
+            start: q.project_start_date || "",
+            end: q.project_end_date || ""
           });
 
           // Sync due_date into invoiceDetails (the Invoice Details card reads this field)
@@ -426,7 +438,7 @@ const CreateInvoicePage = () => {
                 w: s.width || 0,
                 h: s.height || 0,
                 v: s.quantity || 0
-              })) : [{ l: 500, w: 0, h: 0, v: 0 }]
+              })) : [{ l: 0, w: 0, h: 0, v: 0 }] // Use 0 instead of 500 for initial state if empty
             });
           }
         }
@@ -1396,16 +1408,6 @@ const CreateInvoicePage = () => {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quotation No.</label>
-                    <input
-                      type="text"
-                      value={invoiceDetails.invoiceNo}
-                      onChange={(e) => setInvoiceDetails({ ...invoiceDetails, invoiceNo: e.target.value })}
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
-                  </div>
-                  <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quotation Date</label>
                     <div className="relative">
                       <input
@@ -1415,19 +1417,6 @@ const CreateInvoicePage = () => {
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
                       />
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Terms</label>
-                    <select
-                      value={invoiceDetails.paymentTerms}
-                      onChange={(e) => setInvoiceDetails({ ...invoiceDetails, paymentTerms: e.target.value })}
-                      disabled={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    >
-                      <option>30 Days</option>
-                      <option>15 Days</option>
-                      <option>Due on Receipt</option>
-                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>

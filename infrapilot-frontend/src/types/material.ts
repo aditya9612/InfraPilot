@@ -82,7 +82,6 @@ export interface UsagePayload {
   quantity: number;
   project_id: number;
   issue_type: IssueType;
-  task_id?: number;
 }
 
 export interface PurchasePayload {
@@ -167,9 +166,6 @@ export interface MaterialReport {
   total_cost: number;
   payment_pending: number;
   project_id?: number;
-  material_code?: string;
-  category?: string;
-  supplier_name?: string;
 }
 
 export interface PriceHistory {

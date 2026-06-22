@@ -41,16 +41,8 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
     if (!formData.activity_id) errs.activity_id = "Activity selection is required";
     if (!formData.entry_date) errs.entry_date = "Date is required";
 
-    if (!formData.today_progress || Number(formData.today_progress) <= 0) {
+    if (!formData.today_progress || formData.today_progress <= 0) {
       errs.today_progress = "Executed quantity must be greater than 0";
-    } else {
-      const selectedActivity = activity || activitiesList.find(a => String(a.id) === formData.activity_id);
-      if (selectedActivity) {
-        const remaining = Number(selectedActivity.planned_quantity || 0) - Number(selectedActivity.total_completed || 0);
-        if (Number(formData.today_progress) > remaining) {
-          errs.today_progress = "Progress cannot exceed remaining quantity";
-        }
-      }
     }
 
     setErrors(errs);
@@ -200,9 +192,9 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
               {errors.entry_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entry_date}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Today Progress {selectedActivity ? `(${selectedActivity.unit})` : ""}</label>
+              <label className={labelClasses}>Today Progress {selectedActivity ? `(${selectedActivity.unit})` : ""} <span className="text-rose-500">*</span></label>
               <input
-                type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
+                required type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
                 className={inputClasses(errors.today_progress)}
                 value={formData.today_progress} onChange={handleChange}
               />

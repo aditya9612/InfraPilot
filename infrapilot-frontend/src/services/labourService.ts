@@ -70,8 +70,7 @@ export const labourService = {
                 { params: queryParams }
             );
             console.log("POST /api/v1/labour - SUCCESS", response.data);
-            const createdData = response.data?.items ? response.data.items[0] : (Array.isArray(response.data) ? response.data[0] : response.data);
-            return this._normalizeLabour(createdData);
+            return this._normalizeLabour(response.data);
         } catch (error: any) {
             console.warn("createLabour API error, using virtual success fallback:", error.message);
             const newId = Math.floor(Math.random() * 10000) + 5000;
@@ -96,8 +95,7 @@ export const labourService = {
             console.log(`PUT /api/v1/labour/${id} Request Body:`, data);
             const response = await api.put<any>(`/labour/${id}`, data);
             console.log(`PUT /api/v1/labour/${id} Raw Response:`, response.data);
-            const updatedData = response.data?.items ? response.data.items[0] : (Array.isArray(response.data) ? response.data[0] : response.data);
-            return this._normalizeLabour(updatedData);
+            return this._normalizeLabour(response.data);
         } catch (error: any) {
             console.warn("updateLabour API error, using virtual success fallback:", error.message);
             const index = this._mockLabours.findIndex((l: any) => l.id === id);
@@ -142,18 +140,12 @@ export const labourService = {
                 rawItems = data;
                 meta.total = data.length;
             } else if (data && typeof data === 'object') {
-                // Check for double-nested items array: { items: [ { items: [...] } ] }
-                if (Array.isArray(data.items) && data.items.length === 1 && data.items[0].items) {
-                    rawItems = data.items[0].items;
-                    meta = data.items[0].meta || { total: rawItems.length, limit: queryParams.limit, offset: queryParams.offset };
-                } else {
-                    rawItems = data.items || data.data || (Array.isArray(data) ? data : []);
-                    meta = data.meta || {
-                        total: rawItems.length,
-                        limit: data.limit || queryParams.limit,
-                        offset: data.offset || queryParams.offset
-                    };
-                }
+                rawItems = data.items || data.data || (Array.isArray(data) ? data : []);
+                meta = data.meta || {
+                    total: rawItems.length,
+                    limit: data.limit || queryParams.limit,
+                    offset: data.offset || queryParams.offset
+                };
             }
 
             // Map field aliases to ensure UI compatibility
@@ -405,7 +397,20 @@ export const labourService = {
                 });
             }
 
-            // Always try the real API call first to show in Network tab; catch blocks handles mock check-out if it fails.
+            // If it's a mock ID from local storage, bypass the real API to prevent 404 error in Network tab
+            let isMock = false;
+            try {
+                const stored = localStorage.getItem("mock_attendance_global");
+                const list = stored ? JSON.parse(stored) : [];
+                if (list.find((a: any) => a.id === Number(attendanceId))) {
+                    isMock = true;
+                }
+            } catch (e) { }
+
+            if (isMock) {
+                console.warn("Bypassing API call for mock attendance ID to prevent 404 error");
+                throw new Error("Virtual Check-out");
+            }
 
             console.log(`PUT /api/v1/attendance/${attendanceId}/check-out Request Body: FormData`);
             const response = await api.put(
@@ -583,9 +588,7 @@ export const labourService = {
                 limit: 50,
                 offset: 0,
                 start_date: fromDate || today,
-                end_date: toDate || today,
-                from_date: fromDate || today,
-                to_date: toDate || today
+                end_date: toDate || today
             };
             if (projectId) params.project_id = projectId;
 
@@ -600,35 +603,24 @@ export const labourService = {
                 rawItems = data.items || data.data || (Array.isArray(data) ? data : []);
             }
 
-            let items = rawItems.map((item: any) => {
-                const resolvedLabourId = item.labour_id || item.user_id;
-                return {
-                    ...item,
-                    id: item.id || item.attendance_id || resolvedLabourId,
-                    labour_id: resolvedLabourId,
-                    labour_name: item.labour_name || item.name || "Unknown Worker",
-                    worker_code: item.worker_code || `LAB-${resolvedLabourId || '??'}`,
-                    in_time: item.in_time || "--:--",
-                    out_time: item.out_time || null,
-                    status: item.status?.toLowerCase() === 'absent' ? 'absent' : (item.out_time ? "completed" : "present"),
-                    check_in_image: this.resolveUrl(item.check_in_image),
-                    check_out_image: this.resolveUrl(item.check_out_image)
-                };
-            });
+            let items = rawItems.map((item: any) => ({
+                ...item,
+                id: item.id || item.attendance_id || item.labour_id,
+                labour_name: item.labour_name || item.name || "Unknown Worker",
+                worker_code: item.worker_code || `LAB-${item.labour_id || '??'}`,
+                in_time: item.in_time || "--:--",
+                out_time: item.out_time || null,
+                status: item.status?.toLowerCase() === 'absent' ? 'absent' : (item.out_time ? "completed" : "present"),
+                check_in_image: this.resolveUrl(item.check_in_image),
+                check_out_image: this.resolveUrl(item.check_out_image)
+            }));
 
             // Merge with mock attendances so virtual check-ins appear in the list
             try {
                 const stored = localStorage.getItem("mock_attendance_global");
                 if (stored) {
                     const mockList = JSON.parse(stored);
-                    const start = fromDate || today;
-                    const end = toDate || today;
-                    const filteredMockList = mockList.filter((item: any) => {
-                        const itemDate = item.attendance_date;
-                        if (!itemDate) return false;
-                        return itemDate >= start && itemDate <= end;
-                    });
-                    filteredMockList.forEach((mockItem: any) => {
+                    mockList.forEach((mockItem: any) => {
                         // Avoid duplicates if backend already returned it
                         if (!items.find((i: any) => i.labour_id === mockItem.labour_id && i.attendance_date === mockItem.attendance_date)) {
                             items.unshift({
@@ -652,30 +644,17 @@ export const labourService = {
                 list = stored ? JSON.parse(stored) : [];
             } catch (e) { }
 
-            const today = new Date().toISOString().split('T')[0];
-            const start = fromDate || today;
-            const end = toDate || today;
-            const filteredMockList = list.filter((item: any) => {
-                const itemDate = item.attendance_date;
-                if (!itemDate) return false;
-                return itemDate >= start && itemDate <= end;
-            });
-
-            const items = filteredMockList.map((item: any) => {
-                const resolvedLabourId = item.labour_id || item.user_id;
-                return {
-                    ...item,
-                    id: item.id || item.attendance_id || resolvedLabourId,
-                    labour_id: resolvedLabourId,
-                    labour_name: item.labour_name || "Unknown Worker",
-                    worker_code: item.worker_code || `LAB-${resolvedLabourId || '??'}`,
-                    in_time: item.in_time || "--:--",
-                    out_time: item.out_time || null,
-                    status: item.status?.toLowerCase() === 'absent' ? 'absent' : (item.out_time ? "completed" : "present"),
-                    check_in_image: this.resolveUrl(item.check_in_image),
-                    check_out_image: this.resolveUrl(item.check_out_image)
-                };
-            });
+            const items = list.map((item: any) => ({
+                ...item,
+                id: item.id || item.attendance_id || item.labour_id,
+                labour_name: item.labour_name || "Unknown Worker",
+                worker_code: item.worker_code || `LAB-${item.labour_id || '??'}`,
+                in_time: item.in_time || "--:--",
+                out_time: item.out_time || null,
+                status: item.status?.toLowerCase() === 'absent' ? 'absent' : (item.out_time ? "completed" : "present"),
+                check_in_image: this.resolveUrl(item.check_in_image),
+                check_out_image: this.resolveUrl(item.check_out_image)
+            }));
 
             return { items, total: items.length, limit: 50, offset: 0 };
         }
@@ -741,24 +720,6 @@ export const labourService = {
     async updateAttendance(attendanceId: number, data: any): Promise<any> {
         const response = await api.put(`/labour/attendance/${attendanceId}`, data);
         return response.data;
-    },
-    /**
-     * Get Attendance Dashboard Stats
-     * GET /api/v1/labour/attendance/dashboard
-     */
-    async getAttendanceDashboard(projectId: number | string, fromDate?: string, toDate?: string) {
-        const params: any = { project_id: projectId };
-        if (fromDate) params.from_date = fromDate;
-        if (toDate) params.to_date = toDate;
-        
-        console.log(`GET /api/v1/labour/attendance/dashboard params:`, params);
-        try {
-            const response = await api.get("/labour/attendance/dashboard", { params });
-            return response.data;
-        } catch (error) {
-            console.error("Failed to fetch attendance dashboard stats", error);
-            return { total_labour: 0, present: 0 };
-        }
     },
 
     /**

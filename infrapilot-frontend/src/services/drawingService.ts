@@ -162,19 +162,7 @@ export const drawingService = {
             return response.data;
         } catch (error: any) {
             console.warn(`Update Drawing API Error:`, error.response?.data || error.message);
-            
-            // Fallback for demonstration/testing to ensure UI shows success (200 OK equivalent)
-            return {
-                project_id: data.project_id || 92,
-                drawing_name: data.drawing_name,
-                version: data.version,
-                date: data.date,
-                remarks: data.remarks,
-                id: Number(id),
-                file_url: data.file_url || "uploads/drawings/sample.png",
-                approval_status: null,
-                approval_id: null
-            };
+            throw error;
         }
     },
 

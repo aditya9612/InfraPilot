@@ -30,7 +30,6 @@ const MaterialStockPage = () => {
     const [reports, setReports] = useState<MaterialReport[]>([]);
     const [adjustments, setAdjustments] = useState<MaterialLog[]>([]);
     const [valuation, setValuation] = useState({ total_value: 0 });
-    const [reportSummary, setReportSummary] = useState<any>({});
     const [projectsList, setProjectsList] = useState<any[]>([]);
 
     useEffect(() => {
@@ -73,46 +72,34 @@ const MaterialStockPage = () => {
     const [adjustmentForm, setAdjustmentForm] = useState({ material_id: 0, new_stock: 0, reason: "" });
     const [selectedInventoryForAdj, setSelectedInventoryForAdj] = useState<InventoryItem | null>(null);
 
+    // Filters & Pagination
     const [searchTerm, setSearchTerm] = useState("");
-    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
-    const [logType, setLogType] = useState<string>("ADJUSTMENT");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
     const fetchStock = async () => {
         setIsLoading(true);
         try {
-            const [inv, val, reportData] = await Promise.all([
+            const [inv, val] = await Promise.all([
                 materialService.getProjectInventory(projectId),
-                materialService.getInventoryValuation(),
-                materialService.getMaterialReport(projectId).catch(() => ({ summary: {}, materials: [] }))
+                materialService.getInventoryValuation()
             ]);
             setInventory(inv);
             setValuation(val);
-            if (reportData.summary) {
-                setReportSummary(reportData.summary);
-            }
         } catch (e) { toast.error("Failed to load stock data"); }
         finally { setIsLoading(false); }
     };
 
     const fetchReports = async () => {
         setIsLoading(true);
-        try { 
-            const data = await materialService.getMaterialReport(projectId); 
-            setReports(data.materials); 
-            setReportSummary(data.summary);
-        }
+        try { const data = await materialService.getMaterialReport(projectId); setReports(data); }
         catch (e) { toast.error("Failed to load reports"); }
         finally { setIsLoading(false); }
     };
 
     const fetchAdjustments = async () => {
         setIsLoading(true);
-        try { 
-            const data = await materialService.getLogs({ project_id: projectId, type: logType === "" ? undefined : logType }); 
-            setAdjustments(data); 
-        }
+        try { const data = await materialService.getLogs({ project_id: projectId, type: "ADJUSTMENT" }); setAdjustments(data); }
         catch (e) { toast.error("Failed to load adjustments"); }
         finally { setIsLoading(false); }
     };
@@ -130,7 +117,7 @@ const MaterialStockPage = () => {
         else if (activeTab === "Global Inventory") fetchGlobalInventory();
         else if (activeTab === "Reports") fetchReports();
         else if (activeTab === "Inventory Adjustment") { fetchAdjustments(); fetchStock(); }
-    }, [activeTab, projectId, logType]);
+    }, [activeTab, projectId]);
 
     const stats = useMemo(() => {
         return {
@@ -147,11 +134,7 @@ const MaterialStockPage = () => {
     const filteredGlobalInventory = useMemo(() => globalInventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [globalInventory, searchTerm]);
     const paginatedGlobalInventory = useMemo(() => filteredGlobalInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredGlobalInventory, currentPage, itemsPerPage]);
 
-    const filteredReports = useMemo(() => {
-        let res = reports.filter(r => r.material_name.toLowerCase().includes(searchTerm.toLowerCase()));
-        res.sort((a, b) => sortOrder === "latest" ? b.material_id - a.material_id : a.material_id - b.material_id);
-        return res;
-    }, [reports, searchTerm, sortOrder]);
+    const filteredReports = useMemo(() => reports.filter(r => r.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [reports, searchTerm]);
     const paginatedReports = useMemo(() => filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredReports, currentPage, itemsPerPage]);
 
     const filteredAdjustments = useMemo(() => adjustments.filter(a => a.issue_type.toLowerCase().includes(searchTerm.toLowerCase())), [adjustments, searchTerm]);
@@ -163,15 +146,12 @@ const MaterialStockPage = () => {
         const t = toast.loading(`Generating ${type.toUpperCase()}...`);
         try {
             if (type === 'pdf') {
-                await materialService.exportPdf(projectId, sortOrder);
+                await materialService.exportPdf(projectId);
             } else {
-                await materialService.exportExcel(projectId, sortOrder);
+                await materialService.exportExcel(projectId);
             }
-            toast.success("Download complete", { id: t });
-        } catch (e) { 
-            toast.error("Export failed", { id: t }); 
-            console.error(e);
-        }
+            toast.success("Download started", { id: t });
+        } catch (e) { toast.error("Export failed", { id: t }); }
         finally { setIsExporting(false); }
     };
 
@@ -270,14 +250,12 @@ const MaterialStockPage = () => {
                     </div>
 
                     {/* Project Filter */}
-                    {activeTab !== "Global Inventory" && (
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-500">Project:</span>
-                            <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
-                                {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
-                            </select>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-500">Project:</span>
+                        <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
+                        </select>
+                    </div>
                 </div>
 
                 {/* Tab Content */}
@@ -285,66 +263,36 @@ const MaterialStockPage = () => {
                     <div className="space-y-8 flex-1 flex flex-col min-h-0">
                         <div>
                             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Stock Valuation Stats</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                                 {[
                                     {
-                                        title: "Total Materials",
-                                        value: reportSummary?.total_materials || stats.totalItems,
-                                        sub: "Types Configured",
+                                        title: "Inventory Scope",
+                                        value: stats.totalItems.toString(),
+                                        sub: "Resource Types",
                                         accent: "text-blue-500",
                                     },
                                     {
-                                        title: "Total Purchased",
-                                        value: reportSummary?.total_purchased || 0,
-                                        sub: "Lifetime Purchase",
-                                        accent: "text-indigo-500",
-                                    },
-                                    {
-                                        title: "Total Used",
-                                        value: reportSummary?.total_used || 0,
-                                        sub: "Total Consumption",
-                                        accent: "text-orange-500",
-                                    },
-                                    {
-                                        title: "Total Remaining",
-                                        value: reportSummary?.total_remaining || 0,
-                                        sub: "Available Stock Qty",
+                                        title: "Gross Valuation",
+                                        value: formatINR(stats.totalValue),
+                                        sub: "Current Stock Value",
                                         accent: "text-emerald-500",
                                     },
                                     {
-                                        title: "Gross Stock Value",
-                                        value: formatINR(reportSummary?.total_stock_value || stats.totalValue),
-                                        sub: "Valuation of Remaining",
-                                        accent: "text-teal-600",
-                                    },
-                                    {
-                                        title: "Total Payment Given",
-                                        value: formatINR(reportSummary?.total_payment_given || 0),
-                                        sub: "Paid to Suppliers",
-                                        accent: "text-purple-600",
-                                    },
-                                    {
-                                        title: "Pending Payments",
-                                        value: formatINR(reportSummary?.total_payment_pending || 0),
-                                        sub: "Outstanding Due",
+                                        title: "Critical Stock",
+                                        value: stats.criticalCount.toString(),
+                                        sub: "Refill Required",
                                         accent: "text-rose-500",
                                     },
-                                    {
-                                        title: "Stock Status",
-                                        value: `${reportSummary?.in_stock_count || 0} In`,
-                                        sub: `${reportSummary?.low_stock_count || 0} Low, ${reportSummary?.out_of_stock_count || 0} Out`,
-                                        accent: "text-slate-700",
-                                    },
-                                ].map((s, i) => (
+                                ].map((s) => (
                                     <div
-                                        key={i}
-                                        className={`bg-white rounded-xl p-4 shadow-sm border border-slate-100 transition-all cursor-default hover:scale-[1.02] flex flex-col justify-center`}
+                                        key={s.title}
+                                        className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-default hover:scale-[1.01]`}
                                     >
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
                                             {s.title}
                                         </p>
-                                        <p className={`text-xl font-bold truncate ${s.accent}`}>{s.value}</p>
-                                        <p className="text-[10px] text-slate-400 mt-1 font-medium truncate">
+                                        <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
+                                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium">
                                             {s.sub}
                                         </p>
                                     </div>
@@ -432,12 +380,6 @@ const MaterialStockPage = () => {
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                 <input type="text" placeholder="Search reports..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer shadow-sm">
-                                    <option value="latest">LATEST FIRST</option>
-                                    <option value="oldest">OLDEST FIRST</option>
-                                </select>
-                            </div>
                             <button onClick={fetchReports} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                         </div>
                         <div className="flex-1 overflow-auto scrollbar-thin">
@@ -472,16 +414,6 @@ const MaterialStockPage = () => {
                             <div className="relative flex-1 max-w-md">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                 <input type="text" placeholder="Search adjustments..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <select value={logType} onChange={(e) => setLogType(e.target.value)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer shadow-sm">
-                                    <option value="">-- All Types --</option>
-                                    <option value="PURCHASE">PURCHASE</option>
-                                    <option value="USAGE">USAGE</option>
-                                    <option value="TRANSFER_IN">TRANSFER_IN</option>
-                                    <option value="TRANSFER_OUT">TRANSFER_OUT</option>
-                                    <option value="ADJUSTMENT">ADJUSTMENT</option>
-                                </select>
                             </div>
                             <button onClick={fetchAdjustments} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                         </div>

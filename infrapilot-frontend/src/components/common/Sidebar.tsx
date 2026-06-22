@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { NavLink, Link, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { sidebarMenus, type MenuItem } from "../../config/sidebarMenu";
@@ -1009,7 +1009,6 @@ const SidebarItem = ({
   depth?: number;
 }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { unreadTotal } = useChat();
   const [isOpen, setIsOpen] = useState(location.pathname.startsWith(item.path));
   const hasSubNav = item.subNav && item.subNav.length > 0;
@@ -1020,18 +1019,7 @@ const SidebarItem = ({
     return (
       <div className={`mb-0.5 ${isDisabled ? "opacity-50 pointer-events-none" : ""}`}>
         <button
-          onClick={() => {
-            if (!isDisabled) {
-              setIsOpen(!isOpen);
-              if (!isParentActive) {
-                if (hasSubNav && item.subNav?.[0]) {
-                  navigate(item.subNav[0].path);
-                } else {
-                  navigate(item.path);
-                }
-              }
-            }
-          }}
+          onClick={() => !isDisabled && setIsOpen(!isOpen)}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${isParentActive
             ? "text-primary bg-blue-50/50 font-semibold"
             : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
