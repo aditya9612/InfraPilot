@@ -4,11 +4,16 @@ import PageTransition from '../../components/common/PageTransition';
 import { 
     Filter, Search, Calendar,
     CheckCircle, Clock, XCircle, List, Grid,
-    UserCheck, Eye, MoreVertical
+    UserCheck, Eye, MoreVertical, Loader2
 } from 'lucide-react';
+import { projectService } from '../../services/projectService';
+import { useAuth } from '../../context/AuthContext';
+import { useEffect } from 'react';
+import toast from 'react-hot-toast';
+import TaskDetailModal from '../../components/labour/TaskDetailModal';
 
 interface Task {
-    id: string;
+    id: number | string;
     title: string;
     project: string;
     assignedBy: string;
@@ -17,67 +22,70 @@ interface Task {
     priority: 'Low' | 'Medium' | 'High';
     startDate: string;
     deadline: string;
-    status: 'Planned' | 'In Progress' | 'Completed' | 'Cancelled';
+    status: 'Planned' | 'In Progress' | 'Completed' | 'Cancelled' | 'Ongoing' | 'On Hold' | 'Delayed';
     completion_percentage: number;
 }
 
 const MyTasksPage: React.FC = () => {
+    const { user } = useAuth();
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [activeTab, setActiveTab] = useState('All Tasks');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All Status');
     const [departmentFilter, setDepartmentFilter] = useState('All Departments');
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [selectedTask, setSelectedTask] = useState<any>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isFetchingDetail, setIsFetchingDetail] = useState(false);
 
-    const [tasks] = useState<Task[]>([
-        { 
-            id: 'T-001', 
-            title: 'Foundation Reinforcement', 
-            project: 'New Sara City', 
-            assignedBy: 'Eng. Sharma', 
-            assignedTo: 'Gopal Yadav',
-            assignment: 'Rebar Placement',
-            priority: 'High', 
-            startDate: '2026-06-15',
-            deadline: '2026-06-20', 
-            status: 'In Progress',
-            completion_percentage: 65 
-        },
-        { 
-            id: 'T-002', 
-            title: 'Concreting Section B', 
-            project: 'New Sara City', 
-            assignedBy: 'Eng. Verma', 
-            assignedTo: 'Gopal Yadav',
-            assignment: 'Concrete Pouring',
-            priority: 'Medium', 
-            startDate: '2026-06-18',
-            deadline: '2026-06-21', 
-            status: 'Planned',
-            completion_percentage: 0 
-        },
-        { 
-            id: 'T-003', 
-            title: 'Site Cleaning', 
-            project: 'Green Valley', 
-            assignedBy: 'Admin', 
-            assignedTo: 'Gopal Yadav',
-            assignment: 'Debris Removal',
-            priority: 'Low', 
-            startDate: '2026-06-17',
-            deadline: '2026-06-18', 
-            status: 'Completed',
-            completion_percentage: 100 
+    const fetchTasks = async () => {
+        setIsLoading(true);
+        try {
+            // Using project ID 1 as per user request example
+            const response = await projectService.getTasks(1, { 
+                assigned_user_id: user?.id ? Number(user.id) : undefined,
+                limit: 20
+            });
+            
+            const taskItems = Array.isArray(response) ? response : (response.items || []);
+            
+            const mappedTasks: Task[] = taskItems.map((t: any) => ({
+                id: t.id,
+                title: t.title || 'Untitled Task',
+                project: 'Project ID: ' + (t.project_id || '1'),
+                assignedBy: 'System Admin',
+                assignedTo: user?.name || 'Labour',
+                assignment: t.description || 'No details provided',
+                priority: (t.priority === 'Low' || t.priority === 'Medium' || t.priority === 'High') ? t.priority : 'Medium',
+                startDate: t.start_date || '',
+                deadline: t.end_date || '',
+                status: t.status as any,
+                completion_percentage: t.completion_percentage || 0
+            }));
+            
+            setTasks(mappedTasks);
+        } catch (error) {
+            console.error('Error fetching tasks:', error);
+            toast.error('Failed to load tasks');
+        } finally {
+            setIsLoading(false);
         }
-    ]);
+    };
+
+    useEffect(() => {
+        fetchTasks();
+    }, [user?.id]);
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
             const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                t.id.toLowerCase().includes(searchQuery.toLowerCase());
+                                String(t.id).toLowerCase().includes(searchQuery.toLowerCase());
             const matchesStatus = statusFilter === 'All Status' || t.status === statusFilter;
-            return matchesSearch && matchesStatus;
+            const matchesDepartment = departmentFilter === 'ALL DEPARTMENTS' || t.assignment.toUpperCase().includes(departmentFilter);
+            return matchesSearch && matchesStatus && matchesDepartment;
         });
-    }, [tasks, searchQuery, statusFilter]);
+    }, [tasks, searchQuery, statusFilter, departmentFilter]);
 
     const priorityBadge = (priority: string) => {
         switch(priority) {
@@ -94,9 +102,67 @@ const MyTasksPage: React.FC = () => {
             case 'In Progress': return 'bg-blue-50 text-blue-600 border-blue-100';
             case 'Planned': return 'bg-slate-50 text-slate-600 border-slate-100';
             case 'Cancelled': return 'bg-rose-50 text-rose-600 border-rose-100';
+            case 'Ongoing': return 'bg-blue-50 text-blue-600 border-blue-100';
+            case 'On Hold': return 'bg-amber-50 text-amber-600 border-amber-100';
+            case 'Delayed': return 'bg-rose-50 text-rose-600 border-rose-100';
             default: return 'bg-slate-50 text-slate-600';
         }
     };
+
+    const handleViewTask = async (taskId: number | string) => {
+        setIsFetchingDetail(true);
+        try {
+            const data = await projectService.getTask(1, Number(taskId));
+            // Map API response to Modal's expected Task interface
+            const mappedTask = {
+                id: String(data.id),
+                name: data.title || 'Untitled Task',
+                project: 'Project ' + (data.project_id || '1'),
+                description: data.description || 'No description provided.',
+                status: data.status === 'Planned' ? 'Pending' : 
+                        data.status === 'Completed' ? 'Completed' : 
+                        data.status === 'On Hold' ? 'Hold' : 'In Progress',
+                priority: (data.priority === 'High' || data.priority === 'Medium' || data.priority === 'Low') ? data.priority : 'Medium',
+                startDate: data.start_date || '',
+                endDate: data.end_date || '',
+                progress: data.completion_percentage || 0,
+                assignedFrom: data.created_by_user_id === 1 ? 'Site Engineer' : 'Manager'
+            };
+            setSelectedTask(mappedTask);
+            setIsModalOpen(true);
+        } catch (error) {
+            console.error('Error fetching task details:', error);
+            toast.error('Failed to load task details');
+        } finally {
+            setIsFetchingDetail(false);
+        }
+    };
+
+    const handleUpdateTaskStatus = async (taskId: string, newStatus: string) => {
+        try {
+            // Map modal status back to API status if needed
+            const apiStatus = newStatus === 'Pending' ? 'Planned' : 
+                              newStatus === 'Hold' ? 'On Hold' : newStatus;
+            
+            await projectService.updateTaskStatus(1, Number(taskId), apiStatus);
+            toast.success('Status updated successfully');
+            fetchTasks(); // Refresh list
+            setIsModalOpen(false);
+        } catch (error) {
+            toast.error('Failed to update status');
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Syncing Task Matrix...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>
@@ -303,8 +369,13 @@ const MyTasksPage: React.FC = () => {
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-1">
                                                 {/* Eye - View */}
-                                                <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="View">
-                                                    <Eye className="w-4 h-4" />
+                                                <button 
+                                                    onClick={() => handleViewTask(task.id)}
+                                                    disabled={isFetchingDetail}
+                                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all disabled:opacity-50" 
+                                                    title="View"
+                                                >
+                                                    {isFetchingDetail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
                                                 </button>
 
                                                 {/* UserCheck - Assignment info tooltip */}
@@ -364,6 +435,13 @@ const MyTasksPage: React.FC = () => {
                     </div>
                 </div>
             </PageTransition>
+
+            <TaskDetailModal 
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                task={selectedTask}
+                onUpdateStatus={handleUpdateTaskStatus}
+            />
         </>
     );
 };

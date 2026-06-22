@@ -4,24 +4,47 @@ export interface AttendanceRecord {
     id: number;
     user_id: number;
     full_name?: string;
+    in_time?: string;
+    out_time?: string;
     check_in_time?: string;
     check_out_time?: string;
     work_hours?: number;
+    working_hours?: number;
     overtime_hours?: number;
     attendance_date: string;
-    project_id?: number;
-    work_location_type?: string;
+    project_id?: number | null;
+    work_location_type?: string | null;
     is_outside_geofence?: boolean;
     is_late?: boolean;
     late_minutes?: number;
     is_early_departure?: boolean;
     early_minutes?: number;
     is_approved?: boolean;
-    approved_by_id?: number;
-    remarks?: string;
+    approved_by_id?: number | null;
+    remarks?: string | null;
     work_summary?: string;
     task_deadline_reason?: string;
     work_report_pdf?: string;
+    check_in_address?: string | null;
+    check_out_address?: string | null;
+    task_id?: string | null;
+    task_description?: string | null;
+}
+
+export interface AttendanceListResponse {
+    data: AttendanceRecord[];
+    total_count: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+}
+
+export interface TodayStatusResponse {
+    checked_in: boolean;
+    checked_out: boolean;
+    attendance: AttendanceRecord | null;
+    running_hours: number;
+    date: string;
 }
 
 export const attendanceService = {
@@ -78,5 +101,43 @@ export const attendanceService = {
             console.error(`Get User ${userId} Attendance Error:`, error.response?.data || error.message);
             return [];
         }
+    },
+
+    /**
+     * Labour Module: Check In
+     * POST /api/v1/attendance/check-in
+     */
+    async checkIn(formData: FormData) {
+        const response = await api.post("/attendance/check-in", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        return response.data;
+    },
+
+    /**
+     * Labour Module: Check Out
+     * PUT /api/v1/attendance/check-out/{id}
+     */
+    async checkOut(id: number, data: any) {
+        const response = await api.put(`/attendance/check-out/${id}`, data);
+        return response.data;
+    },
+
+    /**
+     * Labour Module: Today's Status
+     * GET /api/v1/attendance/today
+     */
+    async getTodayStatus(): Promise<TodayStatusResponse> {
+        const response = await api.get<TodayStatusResponse>("/attendance/today");
+        return response.data;
+    },
+
+    /**
+     * Labour Module: List Attendance
+     * GET /api/v1/attendance/list
+     */
+    async getListAttendance(params: { user_id?: number; project_id?: number; page?: number; page_size?: number } = {}): Promise<AttendanceListResponse> {
+        const response = await api.get<AttendanceListResponse>("/attendance/list", { params });
+        return response.data;
     },
 };
