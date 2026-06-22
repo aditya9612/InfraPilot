@@ -1,8 +1,9 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { projectService } from "../../services/projectService";
+import { sitePhotoService } from "../../services/sitePhotoService";
 import type { Project } from "../../types/project";
 import KanbanBoard from "../../components/projects/KanbanBoard";
 import MilestoneTimeline from "../../components/projects/MilestoneTimeline";
@@ -15,18 +16,20 @@ import { generateProjectReport } from "../../utils/reportGenerator";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ScheduleProjectModal from "../../components/projects/ScheduleProjectModal";
-import { useEffect, useCallback, useRef } from "react";
-import { parseCSV } from "../../utils/csvParser";
 
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const projectId = id ? parseInt(id) : 0;
 
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const initialTab = (queryParams.get("tab") as any) || "Overview";
+
   // State for tabs
   const [activeTab, setActiveTab] = useState<
-    "Overview" | "Tasks" | "Milestones" | "Finance" | "Members"
-  >("Overview");
+    "Overview" | "Schedule" | "Members" | "Progress" | "Profit & Loss" | "Photos" | "Logs"
+  >(initialTab);
 
   // State for data
   const [project, setProject] = useState<Project | null>(null);
@@ -57,6 +60,8 @@ const ProjectDetailsPage = () => {
   // Profit & Loss and Expenses (Still partially mock/local for and, but connected to stats)
   const [profitLoss, setProfitLoss] = useState<any>(null);
   const [expenses, _setExpenses] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
 
   const fetchProjectData = useCallback(async () => {
     if (!projectId) return;
@@ -78,7 +83,7 @@ const ProjectDetailsPage = () => {
       // Stage 2: Load secondary data modules in parallel
       // We don't await this entire block before showing the page
       const loadSecondaryData = async () => {
-        const [mData, msData, tData, sData, prData, plData] = await Promise.all([
+        const [mData, msData, tData, sData, prData, plData, phData, lData] = await Promise.all([
           projectService.getProjectMembers(projectId).catch((err) => {
             console.warn("Members Load Failure:", err);
             return [];
@@ -94,6 +99,8 @@ const ProjectDetailsPage = () => {
           projectService.getProjectSchedule(projectId).catch(() => null),
           projectService.getProjectProgress(projectId).catch(() => null),
           projectService.getProjectProfitLoss(projectId).catch(() => null),
+          sitePhotoService.getPhotos({ project_id: projectId }).catch(() => ({ items: [] })),
+          projectService.getProjectLogs(projectId).catch(() => []),
         ]);
 
         // Process Members
@@ -116,6 +123,18 @@ const ProjectDetailsPage = () => {
         setSchedule(sData);
         setProgress(prData);
         setProfitLoss(plData);
+        // Process Photos & Logs defensively
+        const normalizedPhotos = Array.isArray(phData) ? phData : ((phData as any)?.items || (phData as any)?.data || []);
+        const normalizedLogs = Array.isArray(lData) ? lData : ((lData as any)?.items || (lData as any)?.data || []);
+
+        setPhotos(normalizedPhotos);
+        setLogs(normalizedLogs);
+
+        // Fallback or process expenses if plData contains them (demo items handled by component)
+        // If plData has a list of items, we would use it here.
+        if (plData && plData.expenses) {
+          _setExpenses(plData.expenses);
+        }
       };
 
       loadSecondaryData();
@@ -326,59 +345,6 @@ const ProjectDetailsPage = () => {
     }
   };
 
-  // --- CSV Import Handlers ---
-  const taskInputRef = useRef<HTMLInputElement>(null);
-  const milestoneInputRef = useRef<HTMLInputElement>(null);
-
-  const handleImportCSV = async (file: File, type: "task" | "milestone") => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const text = e.target?.result as string;
-      const data = parseCSV(text);
-
-      if (data.length === 0) {
-        toast.error("Invalid CSV or empty file.");
-        return;
-      }
-
-      const toastId = toast.loading(`Importing ${data.length} ${type}s...`);
-
-      try {
-        let successCount = 0;
-        for (const item of data) {
-          try {
-            if (type === "task") {
-              await projectService.createTask(projectId, {
-                title: item.title || item.name || "Untitled Task",
-                description: item.description || item.desc || "",
-                status: item.status || "To Do",
-                priority: item.priority || "Medium",
-                start_date: item.start_date || project?.start_date || "",
-                end_date: item.end_date || project?.end_date || "",
-              });
-            } else {
-              await projectService.createMilestone(projectId, {
-                title: item.title || item.name || "Untitled Milestone",
-                description: item.description || item.desc || "",
-                status: item.status || "Pending",
-                start_date: item.start_date || project?.start_date || "",
-                end_date: item.end_date || project?.end_date || "",
-              });
-            }
-            successCount++;
-          } catch (err) {
-            console.error(`Failed to import ${type}:`, item, err);
-          }
-        }
-
-        toast.success(`Successfully imported ${successCount} ${type}s.`, { id: toastId });
-        fetchProjectData();
-      } catch (error) {
-        toast.error(`Failed to complete ${type} import.`, { id: toastId });
-      }
-    };
-    reader.readAsText(file);
-  };
 
   if (loading) {
     return (
@@ -449,95 +415,11 @@ const ProjectDetailsPage = () => {
           </div>
 
           <div className="flex gap-3">
-            <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-              <button
-                onClick={() => setIsEditModalOpen(true)}
-                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-r border-slate-100"
-              >
-                Edit
-              </button>
-              <button
-                onClick={async () => {
-                  const toastId = toast.loading("Downloading PDF intelligence report...");
-                  try {
-                    const blob = new Blob([await projectService.exportProjectPdf(projectId)], { type: "application/pdf" });
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.setAttribute(
-                      "download",
-                      `Project_${projectId}_Report.pdf`,
-                    );
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    window.URL.revokeObjectURL(url);
-                    toast.success("PDF Downloaded", { id: toastId });
-                  } catch (error) {
-                    toast.error("PDF export failed");
-                    toast.dismiss(toastId);
-                  }
-                }}
-                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-r border-slate-100"
-                title="Download Intelligence PDF"
-              >
-                PDF
-              </button>
-              <button
-                onClick={async () => {
-                  const toastId = toast.loading("Downloading Excel report...");
-                  try {
-                    const blob = new Blob([await projectService.exportProjectExcel(projectId)], { type: "text/csv;charset=utf-8;" });
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.setAttribute(
-                      "download",
-                      `Project_${projectId}_Report.csv`,
-                    );
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    window.URL.revokeObjectURL(url);
-                    toast.success("CSV Downloaded", { id: toastId });
-                  } catch (error) {
-                    toast.error("Excel export failed");
-                    toast.dismiss(toastId);
-                  }
-                }}
-                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all"
-                title="Download Excel"
-              >
-                CSV
-              </button>
-              <button
-                onClick={() => milestoneInputRef.current?.click()}
-                className="px-4 py-2.5 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all border-l border-slate-100"
-                title="Import Milestones from CSV"
-              >
-                Import
-              </button>
-              <input
-                type="file"
-                ref={milestoneInputRef}
-                className="hidden"
-                accept=".csv"
-                onChange={(e) => e.target.files?.[0] && handleImportCSV(e.target.files[0], "milestone")}
-              />
-              <input
-                type="file"
-                ref={taskInputRef}
-                className="hidden"
-                accept=".csv"
-                onChange={(e) => e.target.files?.[0] && handleImportCSV(e.target.files[0], "task")}
-              />
-            </div>
-
             <button
-              onClick={() => taskInputRef.current?.click()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 hover:bg-slate-900 transition-all active:scale-95"
+              onClick={() => setIsEditModalOpen(true)}
+              className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all active:scale-95"
             >
-              Import Tasks (CSV)
+              Edit
             </button>
 
             <button
@@ -568,7 +450,7 @@ const ProjectDetailsPage = () => {
         {/* Tabs Navigation */}
         <div className="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar">
           {(
-            ["Overview", "Tasks", "Milestones", "Finance", "Members"] as const
+            ["Overview", "Schedule", "Members", "Progress", "Profit & Loss", "Photos", "Logs"] as const
           ).map((tab) => (
             <button
               key={tab}
@@ -732,8 +614,22 @@ const ProjectDetailsPage = () => {
             </div>
           )}
 
-          {activeTab === "Tasks" && (
-            <div className="h-[calc(100vh-280px)]">
+          {activeTab === "Progress" && (
+            <div className="space-y-6 h-[calc(100vh-280px)] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Calculated Completion</p>
+                  <p className="text-2xl font-black text-primary">{progress?.completion_percentage || displayProgress}%</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status</p>
+                  <p className="text-2xl font-black text-slate-700">{progress?.status || project.status}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Tasks</p>
+                  <p className="text-2xl font-black text-slate-700">{tasks.length}</p>
+                </div>
+              </div>
               <KanbanBoard
                 tasks={tasks}
                 projectId={projectId}
@@ -747,8 +643,28 @@ const ProjectDetailsPage = () => {
             </div>
           )}
 
-          {activeTab === "Milestones" && (
-            <div className="w-full">
+          {activeTab === "Schedule" && (
+            <div className="space-y-6 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
+                    <p className="text-lg font-black text-slate-700">{new Date(schedule?.start_date || project.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                  <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-primary">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  </div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Target End Date</p>
+                    <p className="text-lg font-black text-slate-700">{new Date(schedule?.end_date || project.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  </div>
+                  <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </div>
+                </div>
+              </div>
               <MilestoneTimeline
                 milestones={milestones}
                 projectId={projectId}
@@ -759,7 +675,7 @@ const ProjectDetailsPage = () => {
             </div>
           )}
 
-          {activeTab === "Finance" && (
+          {activeTab === "Profit & Loss" && (
             <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-300">
               <div className="bg-primary rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
@@ -772,16 +688,29 @@ const ProjectDetailsPage = () => {
                       Financial Ledger: {project.project_name}
                     </h4>
                   </div>
-                  <div className="flex gap-4">
-                    <div className="px-4 py-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
-                      <p className="text-[9px] font-bold uppercase text-white/50">
-                        Total Site Expense
+                  <div className="flex flex-wrap gap-4">
+                    <div className="px-4 py-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                      <p className="text-[9px] font-bold uppercase text-white/50 mb-1">
+                        Total Invoiced
                       </p>
-                      <p className="text-lg font-black">
-                        ₹
-                        {expenses
-                          .reduce((acc, curr) => acc + curr.amount, 0)
-                          .toLocaleString()}
+                      <p className="text-xl font-black">
+                        ₹{profitLoss?.total_invoice?.toLocaleString() || "0"}
+                      </p>
+                    </div>
+                    <div className="px-4 py-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                      <p className="text-[9px] font-bold uppercase text-white/50 mb-1">
+                        Total Expenses
+                      </p>
+                      <p className="text-xl font-black">
+                        ₹{(profitLoss?.total_expense || expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0)).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className={`px-4 py-3 backdrop-blur-md rounded-xl border ${profitLoss?.status === 'profit' ? 'bg-emerald-500/20 border-emerald-400/30' : 'bg-red-500/20 border-red-400/30'}`}>
+                      <p className="text-[9px] font-bold uppercase text-white/50 mb-1">
+                        Net {profitLoss?.status || 'Position'}
+                      </p>
+                      <p className="text-xl font-black">
+                        ₹{profitLoss?.profit?.toLocaleString() || "0"}
                       </p>
                     </div>
                   </div>
@@ -798,6 +727,46 @@ const ProjectDetailsPage = () => {
                 onAssignClick={() => setIsAssignModalOpen(true)}
                 onRemoveMember={handleRemoveMemberClick}
               />
+            </div>
+          )}
+
+          {activeTab === "Photos" && (
+            <div className="w-full">
+              {/* Photo Gallery mapping placeholder */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {photos.map((photo) => (
+                  <div key={photo.id} className="aspect-square bg-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                    <img src={sitePhotoService.resolveUrl(photo.url) || ""} alt={photo.description} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+              {photos.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-100 italic text-slate-400">
+                  <p>No site photos uploaded yet.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "Logs" && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+              <h3 className="font-bold text-slate-800 mb-6 uppercase tracking-widest text-xs">Project Activity Logs</h3>
+              <div className="space-y-4">
+                {logs.map((log, i) => (
+                  <div key={i} className="flex gap-4 pb-4 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-all p-2 rounded-lg">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-slate-700">{log.message || log.action || "Activity logged"}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{new Date(log.created_at || log.timestamp).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))}
+                {logs.length === 0 && (
+                  <div className="text-center py-12 text-slate-400 italic text-sm">
+                    No logs found for this project.
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

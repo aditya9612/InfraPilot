@@ -232,9 +232,11 @@ export const financeService = {
    * Create Material Invoice
    * POST /api/v1/invoices/material
    */
-  async createMaterialInvoice(data: InvoiceCreateData): Promise<Invoice> {
+  async createMaterialInvoice(projectId: number): Promise<Invoice> {
     try {
-      const response = await api.post("/invoices/material", data);
+      const response = await api.post("/invoices/material", null, {
+        params: { project_id: projectId }
+      });
       return response.data;
     } catch (error: any) {
       console.error("Create Material Invoice Error:", error.response?.data || error.message);

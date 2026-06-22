@@ -367,7 +367,7 @@ function AppRoutes() {
                 path="/client/approved-items"
                 element={<ClientApprovalsPage />}
               />
-              
+
               {/* Payment */}
               <Route path="/client/payment" element={<Navigate to="/client/payment/quotation" replace />} />
               <Route path="/client/payment/:tab" element={<ClientPaymentPage />} />

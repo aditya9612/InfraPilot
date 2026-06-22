@@ -1,4 +1,5 @@
 import { AuthProvider } from "./context/AuthContext";
+import { ProjectProvider } from "./context/ProjectContext";
 import { ChatProvider } from "./context/ChatContext";
 import AppRoutes from "./routes/AppRoutes";
 import { Toaster } from "react-hot-toast";
@@ -6,10 +7,12 @@ import { Toaster } from "react-hot-toast";
 function App() {
   return (
     <AuthProvider>
-      <ChatProvider>
-        <AppRoutes />
-        <Toaster position="top-right" reverseOrder={false} />
-      </ChatProvider>
+      <ProjectProvider>
+        <ChatProvider>
+          <AppRoutes />
+          <Toaster position="top-right" reverseOrder={false} />
+        </ChatProvider>
+      </ProjectProvider>
     </AuthProvider>
   );
 }

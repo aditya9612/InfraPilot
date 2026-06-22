@@ -312,7 +312,11 @@ export const projectService = {
 
   async createTask(projectId: number, taskData: any) {
     try {
-      const response = await api.post(`/projects/${projectId}/tasks`, taskData);
+      const response = await api.post(`/projects/${projectId}/tasks`, taskData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
       return response.data;
     } catch (error: any) {
       console.error("Create Task API Error:", error.response?.data || error.message);
@@ -356,7 +360,11 @@ export const projectService = {
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
     try {
-      const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData);
+      const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
       return response.data;
     } catch (error: any) {
       console.error(`Update Task ${taskId} API Error:`, error.response?.data || error.message);
@@ -488,5 +496,41 @@ export const projectService = {
         }
       ];
     }
-  }
+  },
+  /**
+   * Get list of projects assigned to a specific user (Manager/Engineer)
+   * This is a utility method since the backend /projects doesn't filter by user assignment yet.
+   */
+  async getAssignedProjects(userId: number) {
+    try {
+      // 1. Fetch some projects (limit 100 for now)
+      const pRes = await this.getProjects(100, 0);
+      const projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
+
+      // 2. Check membership for each project
+      // Note: This is an expensive operation but mirrors existing logic in ProjectsPage.tsx
+      const memberChecks = await Promise.all(
+        projectList.map(async (p: any) => {
+          try {
+            const mems = await this.getProjectMembers(p.id);
+            const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
+            const isAssigned = memberList.some((m: any) =>
+              String(m.user_id) === String(userId) ||
+              String(m.user?.id) === String(userId) ||
+              String(m.userId) === String(userId)
+            );
+            return { project: p, isAssigned };
+          } catch (err) {
+            console.error(`Failed to check members for project ${p.id}:`, err);
+            return { project: p, isAssigned: false };
+          }
+        })
+      );
+
+      return memberChecks.filter(c => c.isAssigned).map(c => c.project);
+    } catch (error) {
+      console.error("Failed to fetch assigned projects:", error);
+      throw error;
+    }
+  },
 };

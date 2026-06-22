@@ -19,6 +19,20 @@ export interface User {
   designation: string;
   joining_date: string;
   is_active: boolean;
+  department?: string;
+  project_id?: number;
+  project_name?: string;
+}
+
+export interface RoleCounts {
+  Admin?: number;
+  ProjectManager?: number;
+  SiteEngineer?: number;
+  Accountant?: number;
+  Client?: number;
+  Labour?: number;
+  total?: number;
+  [key: string]: number | undefined;
 }
 
 export interface Role {

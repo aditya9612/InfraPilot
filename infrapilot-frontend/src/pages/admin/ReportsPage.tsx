@@ -39,7 +39,7 @@ interface ReportType {
 }
 
 const REPORT_TYPES: ReportType[] = [
-  { id: "daily", name: "Daily Progress Report", category: "Operations", description: "Comprehensive summary of daily site activities, issues, and planned work.", icon: <FileText size={18} />, exportType: "Both", requiresDate: true },
+  { id: "daily", name: "Daily Progress Report", category: "Operations", description: "Comprehensive summary of daily site activities, issues, and planned work.", icon: <FileText size={18} />, exportType: "PDF", requiresDate: true },
   { id: "weekly", name: "Weekly Progress Summary", category: "Operations", description: "Aggregated progress percentage and task completion metrics for the week.", icon: <BarChart3 size={18} />, exportType: "Both" },
   { id: "work-summary", name: "Work Category Summary", category: "Operations", description: "Efficiency analysis and status breakdown by work category.", icon: <TrendingUp size={18} />, exportType: "Both" },
   { id: "issues", name: "Site Issues Report", category: "Operations", description: "Critical analysis of open vs closed site issues and bottlenecks.", icon: <AlertCircle size={18} />, exportType: "Both" },
@@ -100,6 +100,7 @@ const ReportsPage = () => {
     name: string;
     format: "PDF" | "Excel";
     isRange: boolean;
+    action?: "export" | "view";
   } | null>(null);
 
   const [stats, setStats] = useState({
@@ -236,7 +237,8 @@ const ReportsPage = () => {
           id: reportId,
           name: reportType.name,
           format: format,
-          isRange: !!reportType.requiresRange
+          isRange: !!reportType.requiresRange,
+          action: "export"
         });
         setIsDateSelectionOpen(true);
         return;
@@ -335,8 +337,8 @@ const ReportsPage = () => {
         }
         case "project-report":
           blob = format === "PDF"
-            ? await reportService.exportProjectReportPDF(pid)
-            : await reportService.exportProjectReportExcel(pid);
+            ? await reportService.exportProjectReportPDF({ project_id: pid, type: "monthly" })
+            : await reportService.exportProjectReportExcel({ project_id: pid, type: "monthly" });
           break;
         case "audit-pdf":
         case "quarterly-audit":
@@ -404,24 +406,45 @@ const ReportsPage = () => {
         return;
       }
 
+      const dateObj = new Date(effectiveEnd);
+      const month = dateObj.getMonth() + 1;
+      const year = dateObj.getFullYear();
+
+      let blob: Blob;
+
       if (format === "PDF") {
-        const blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Combined_Project_Report_${effectiveEnd}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
+        blob = await reportService.exportProjectReportPDF({
+          project_id: pid,
+          type: "monthly",
+          month,
+          year,
+          start_date: effectiveStart,
+          end_date: effectiveEnd
+        });
       } else {
-        const data = await reportService.getCombinedReportData(pid, effectiveStart, effectiveEnd);
-        generateCSV(data, "Combined_Project_Intelligence");
+        blob = await reportService.exportProjectReportExcel({
+          project_id: pid,
+          type: "monthly",
+          month,
+          year,
+          start_date: effectiveStart,
+          end_date: effectiveEnd
+        });
       }
 
-      toast.success(`Combined ${format} exported`, { id: toastId });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const extension = format.toLowerCase() === "pdf" ? "pdf" : "xlsx";
+      link.setAttribute('download', `Project_Report_${month}_${year}.${extension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Project ${format} exported`, { id: toastId });
     } catch (error) {
-      toast.error("Combined export failed", { id: toastId });
+      toast.error("Export failed", { id: toastId });
     }
   };
 
@@ -450,7 +473,7 @@ const ReportsPage = () => {
       throw error;
     }
   };
-  const handleViewSummary = async (report: ReportType) => {
+  const handleViewSummary = async (report: ReportType, selectedDate?: string) => {
     const toastId = toast.loading(`Fetching ${report.name} data...`);
     try {
       let data: any;
@@ -463,7 +486,20 @@ const ReportsPage = () => {
         return;
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      if ((report.requiresDate || report.requiresRange) && !selectedDate) {
+        toast.dismiss(toastId);
+        setDateModalConfig({
+          id: report.id,
+          name: report.name,
+          format: "PDF",
+          isRange: false,
+          action: "view"
+        });
+        setIsDateSelectionOpen(true);
+        return;
+      }
+
+      const today = selectedDate || new Date().toISOString().split('T')[0];
 
       switch (report.id) {
         case "daily": data = await reportService.getDailyReport(pid, today); break;
@@ -735,11 +771,14 @@ const ReportsPage = () => {
         reportName={dateModalConfig?.name || ""}
         format={dateModalConfig?.format || "PDF"}
         isRange={dateModalConfig?.isRange}
-        onConfirm={(start, end) => {
+        onConfirm={async (start, end) => {
           setStartDate(start);
           setEndDate(end);
           if (dateModalConfig?.id === "combined") {
             handleExportCombined(dateModalConfig.format, start, end);
+          } else if (dateModalConfig?.action === "view") {
+            const report = REPORT_TYPES.find(r => r.id === dateModalConfig.id);
+            if (report) await handleViewSummary(report, dateModalConfig.isRange ? start : end);
           } else if (dateModalConfig) {
             handleExport(dateModalConfig.id, dateModalConfig.format, start, end);
           }
