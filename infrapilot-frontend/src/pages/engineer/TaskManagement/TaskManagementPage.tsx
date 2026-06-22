@@ -1449,8 +1449,8 @@ const TaskManagementPage = () => {
                                     </div>
                                 </div>
                                 <div className="min-w-0">
-                                    <h2 className="text-xl md:text-2xl font-black text-white tracking-tight leading-tight break-words pr-2">{selectedTask.title}</h2>
-                                    <p className="text-blue-100 text-xs font-medium tracking-wide">Detailed view of task assignments and progress</p>
+                                    <h2 className="text-xl md:text-2xl font-black text-white tracking-tight leading-tight truncate pr-2" title={selectedTask.title}>{selectedTask.title}</h2>
+                                    <p className="text-blue-100 text-xs font-medium tracking-wide truncate">Detailed view of task assignments and progress</p>
                                 </div>
                             </div>
 
@@ -1463,22 +1463,22 @@ const TaskManagementPage = () => {
                         </div>
 
                         {/* Modal Tabs */}
-                        <div className="flex bg-white border-b border-slate-200 px-6 pt-4 gap-4 overflow-x-auto custom-scrollbar">
+                        <div className="flex bg-white border-b border-slate-200 px-6 pt-4 pb-3 gap-2 overflow-x-auto custom-scrollbar">
                             <button
                                 onClick={() => setModalTab("Details")}
-                                className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${modalTab === 'Details' ? 'border-slate-800 text-slate-800 bg-slate-100 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${modalTab === 'Details' ? 'bg-slate-100 text-slate-800' : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
                             >
                                 Details
                             </button>
                             <button
                                 onClick={() => setModalTab("Activity")}
-                                className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${modalTab === 'Activity' ? 'border-slate-800 text-slate-800 bg-slate-100 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${modalTab === 'Activity' ? 'bg-slate-100 text-slate-800' : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
                             >
                                 Activity
                             </button>
                             <button
                                 onClick={() => setModalTab("Comments")}
-                                className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${modalTab === 'Comments' ? 'border-slate-800 text-slate-800 bg-slate-100 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                                className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${modalTab === 'Comments' ? 'bg-slate-100 text-slate-800' : 'bg-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
                             >
                                 Comments
                             </button>
@@ -1488,12 +1488,6 @@ const TaskManagementPage = () => {
                         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
                             {modalTab === "Details" && (
                                 <div className="space-y-4 font-inter">
-                                    <div className="grid grid-cols-1 gap-4">
-                                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                            <p className="text-xs font-bold text-slate-400 mb-1">Task Title</p>
-                                            <p className="text-sm font-bold text-slate-800">{selectedTask.title}</p>
-                                        </div>
-                                    </div>
 
                                     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                         <div className="flex items-center gap-2 mb-3">
@@ -2045,7 +2039,7 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Activity Type ID
+                                        Activity Type
                                     </label>
                                     <select
                                         name="activity_type_id"
@@ -2061,7 +2055,7 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Milestone ID
+                                        Milestone
                                     </label>
                                     <select
                                         name="milestone_id"
@@ -2077,7 +2071,7 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        BOQ ID
+                                        BOQ
                                     </label>
                                     <select
                                         name="boq_id"

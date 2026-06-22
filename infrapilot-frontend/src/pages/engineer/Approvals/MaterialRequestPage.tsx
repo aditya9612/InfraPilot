@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
-import StatCard from "../../../components/common/StatCard";
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
@@ -50,6 +49,7 @@ const MaterialRequestPage = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject">("Select");
+    const [resourceTypeFilter, setResourceTypeFilter] = useState<"All" | "Material" | "Equipment" | "Labour">("All");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     const [formData, setFormData] = useState({
@@ -224,6 +224,11 @@ const MaterialRequestPage = () => {
             data = data.filter(r => r.status === "Rejected");
         }
 
+        // Apply Resource Type Filter
+        if (resourceTypeFilter !== "All") {
+            data = data.filter(r => r.request_type && r.request_type.toLowerCase() === resourceTypeFilter.toLowerCase());
+        }
+
         // Apply Sort Order
         data.sort((a, b) => {
             if (sortOrder === "latest") {
@@ -234,7 +239,7 @@ const MaterialRequestPage = () => {
         });
 
         return data;
-    }, [baseFilteredRequests, activeFilter, sortOrder]);
+    }, [baseFilteredRequests, activeFilter, resourceTypeFilter, sortOrder]);
 
     const paginatedRequests = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -244,7 +249,7 @@ const MaterialRequestPage = () => {
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, activeFilter]);
+    }, [searchTerm, activeFilter, resourceTypeFilter]);
 
     const stats = {
         total: baseFilteredRequests.length,
@@ -387,6 +392,18 @@ const MaterialRequestPage = () => {
                                 <option value="Approved">Approved</option>
                                 <option value="Pending">Pending</option>
                                 <option value="Reject">Reject</option>
+                            </select>
+
+                            {/* Resource Type Filter */}
+                            <select
+                                value={resourceTypeFilter}
+                                onChange={(e) => setResourceTypeFilter(e.target.value as any)}
+                                className="bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm px-3 py-1 outline-none cursor-pointer"
+                            >
+                                <option value="All">All Resources</option>
+                                <option value="Material">Material</option>
+                                <option value="Equipment">Equipment</option>
+                                <option value="Labour">Labour</option>
                             </select>
 
                             {/* Sort Filter */}
