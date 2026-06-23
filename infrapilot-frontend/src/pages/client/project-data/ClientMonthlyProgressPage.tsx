@@ -121,7 +121,12 @@ const ClientMonthlyProgressPage = () => {
       const month = dateObj.getMonth() + 1;
       const year = dateObj.getFullYear();
       
-      const blob = await reportService.exportProjectReportExcel(projectId, reportType.toLowerCase(), month, year);
+      const blob = await reportService.exportProjectReportExcel({
+        project_id: projectId,
+        type: reportType.toLowerCase(),
+        month,
+        year
+      });
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
@@ -146,7 +151,12 @@ const ClientMonthlyProgressPage = () => {
       const month = dateObj.getMonth() + 1;
       const year = dateObj.getFullYear();
 
-      const blob = await reportService.exportProjectReportPDF(projectId, reportType.toLowerCase(), month, year);
+      const blob = await reportService.exportProjectReportPDF({
+        project_id: projectId,
+        type: reportType.toLowerCase(),
+        month,
+        year
+      });
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
@@ -166,7 +176,7 @@ const ClientMonthlyProgressPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Reports", "Report Summary"]} />
+      <Navbar title="Report Summary" breadcrumb={["InfraPilot", "Client", "Reports", "Report Summary"]} />
       <div className="p-8 bg-[#F8FAFC] min-h-screen font-inter pb-20">
         {/* Page Header */}
         <div className="mb-10 flex flex-col lg:flex-row lg:items-end justify-between gap-8">

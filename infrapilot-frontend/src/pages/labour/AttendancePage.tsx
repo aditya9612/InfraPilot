@@ -89,18 +89,32 @@ const AttendancePage: React.FC = () => {
         if (!statusData?.attendance?.id) return;
         setIsActionLoading(true);
         try {
-            await attendanceService.checkOut(statusData.attendance.id, {
-                out_time: new Date().toISOString(),
-                check_out_address: data.location_address || "Pune", // Static or dynamic
-                remarks: data.remarks || "Work completed",
-                status: 'present'
-            });
+            const checkoutId = statusData.attendance.id;
+            const formData = new FormData();
+            
+            formData.append('out_time', new Date().toISOString());
+            formData.append('check_out_latitude', data.latitude?.toString() || "");
+            formData.append('check_out_longitude', data.longitude?.toString() || "");
+            formData.append('check_out_address', data.resolved_address || data.location_address || "Pune");
+            formData.append('remarks', data.remarks || "Work completed");
+            formData.append('attendance_date', new Date().toISOString().split('T')[0]);
+            formData.append('status', 'present');
+            formData.append('overtime_hours', (data.overtime_hours || 0).toString());
+            formData.append('overtime_rate', (data.overtime_rate || 0).toString());
+            
+            if (data.check_out_image) {
+                const blob = await (await fetch(data.check_out_image)).blob();
+                formData.append('check_out_image', blob, 'checkout.png');
+            }
+
+            await attendanceService.checkOut(Number(checkoutId), formData);
             toast.success('Check-out successful!');
             fetchData();
             setIsCheckOutModalOpen(false);
-        } catch (error) {
-            console.error('Check-out error:', error);
-            toast.error('Check-out failed');
+        } catch (error: any) {
+            console.error('Check-out error:', error.response?.data || error.message);
+            const errorMsg = error.response?.data?.message || 'Check-out failed';
+            toast.error(errorMsg);
         } finally {
             setIsActionLoading(false);
         }
@@ -240,7 +254,7 @@ const AttendancePage: React.FC = () => {
                                     <thead className="bg-slate-50/50">
                                         <tr>
                                             {[
-                                                'date', 'labour name', 'labour Id', 'Department', 
+                                                'date', 'labour name', 'Department', 
                                                 'work location', 'checkin', 'checkout', 'hours', 
                                                 'location', 'selfie', 'status', 'work summary'
                                             ].map(head => (
@@ -264,9 +278,6 @@ const AttendancePage: React.FC = () => {
                                                             </div>
                                                             <span className="text-sm font-bold text-slate-700">{record.full_name || 'Labour'}</span>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-xs font-black text-slate-500">
-                                                        #{record.user_id || 'N/A'}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-500">
                                                         {/* Department Placeholder */}

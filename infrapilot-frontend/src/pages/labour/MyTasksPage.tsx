@@ -4,12 +4,14 @@ import PageTransition from '../../components/common/PageTransition';
 import {
     Filter, Search, Calendar,
     CheckCircle, Clock, XCircle, List, Grid,
-    UserCheck, Eye, MoreVertical, Loader2,
-    Volume2, Download
+    Eye, Loader2,
+    Play
 } from 'lucide-react';
 import { projectService } from '../../services/projectService';
 import { useAuth } from '../../context/AuthContext';
+import { useTextToAudio } from '../../utils/useTextToAudio';
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import TaskDetailModal from '../../components/labour/TaskDetailModal';
 
@@ -29,6 +31,8 @@ interface Task {
 
 const MyTasksPage: React.FC = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const { speak } = useTextToAudio();
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [activeTab, setActiveTab] = useState('All Tasks');
     const [searchQuery, setSearchQuery] = useState('');
@@ -44,7 +48,7 @@ const MyTasksPage: React.FC = () => {
         setIsLoading(true);
         try {
             const params: any = {
-                limit: 20,
+                limit: 100,
                 offset: 0
             };
 
@@ -68,6 +72,9 @@ const MyTasksPage: React.FC = () => {
                     ? (t.assigned_users[0].full_name || t.assigned_users[0].name || t.assigned_users[0].username || 'Assigned')
                     : (user?.name || 'Labour');
 
+                // Check local storage for status updates
+                const localStatus = localStorage.getItem(`task_status_${t.id}`);
+
                 return {
                     id: t.id,
                     title: t.title || 'Untitled Task',
@@ -78,8 +85,8 @@ const MyTasksPage: React.FC = () => {
                     priority: (t.priority === 'Low' || t.priority === 'Medium' || t.priority === 'High') ? t.priority : 'Medium',
                     startDate: t.start_date || '',
                     deadline: t.end_date || '',
-                    status: t.status as any,
-                    completion_percentage: t.completion_percentage || 0
+                    status: (localStatus || t.status) as any,
+                    completion_percentage: (localStatus === 'Completed' ? 100 : (localStatus === 'In Progress' ? 50 : (t.completion_percentage || 0)))
                 };
             });
 
@@ -334,8 +341,8 @@ const MyTasksPage: React.FC = () => {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/50">
-                                    {['TASK', 'PROJECT', 'ASSIGNED BY', 'ASSIGNED TO', 'ASSIGNMENT', 'PRIORITY', 'TIMELINE', 'VOICE MSG', 'STATUS', 'ACTION'].map(header => (
-                                        <th key={header} className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+                                    {['TASK', 'PROJECT', 'ASSIGNED BY', 'ASSIGNED TO', 'ASSIGNMENT', 'PRIORITY', 'START DATE', 'END DATE', 'VOICE MSG', 'STATUS', 'ACTION'].map(header => (
+                                        <th key={header} className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 whitespace-nowrap">
                                             {header}
                                         </th>
                                     ))}
@@ -343,7 +350,11 @@ const MyTasksPage: React.FC = () => {
                             </thead>
                             <tbody>
                                 {filteredTasks.map(task => (
-                                    <tr key={task.id} className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50">
+                                    <tr 
+                                        key={task.id} 
+                                        className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50 cursor-pointer"
+                                        onClick={() => navigate(`/labour/work-updates?taskId=${task.id}&taskName=${encodeURIComponent(task.title)}&taskCategory=${encodeURIComponent(task.assignment.split('|')[0] || '')}`)}
+                                    >
                                         <td className="px-8 py-6">
                                             <div>
                                                 <p className="text-sm font-black text-slate-800 tracking-tight">{task.title}</p>
@@ -378,48 +389,44 @@ const MyTasksPage: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <div className="flex flex-col gap-1 text-slate-600">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Start Date" />
-                                                    <span className="text-[10px] font-bold">{new Date(task.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
-                                                    <span className="text-[10px] text-slate-300 mx-1">-</span>
-                                                    <span className="text-[10px] font-bold">{new Date(task.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500" title="End Date" />
-                                                </div>
-                                                <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                                    <Calendar className="w-2.5 h-2.5 opacity-40" />
-                                                    <span>Task Duration</span>
-                                                </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                <span className="text-[10px] font-bold text-slate-600">
+                                                    {task.startDate === 'Invalid Date' ? 'N/A' : new Date(task.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                                <span className="text-[10px] font-bold text-slate-600">
+                                                    {task.deadline === 'Invalid Date' ? 'N/A' : new Date(task.deadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
                                             <button 
-                                                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all"
+                                                onClick={(e) => { e.stopPropagation(); speak(task.assignment || 'No voice message available for this task'); }}
+                                                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-xl transition-all"
                                                 title="Play Voice Message"
                                             >
-                                                <Volume2 className="w-4 h-4" />
+                                                <Play className="w-4 h-4 fill-current" />
                                             </button>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <span className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${statusBadge(task.status)}`}>
+                                            <span className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${statusBadge(task.status)}`}>
                                                 {task.status}
                                             </span>
                                         </td>
                                         <td className="px-8 py-6">
                                             <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={() => handleViewTask(task.id)}
+                                                    onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
                                                     disabled={isFetchingDetail}
-                                                    className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl transition-all disabled:opacity-50"
+                                                    className="p-2 text-indigo-500 hover:text-indigo-700 transition-colors disabled:opacity-50"
                                                     title="View"
                                                 >
                                                     {isFetchingDetail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
-                                                </button>
-                                                <button 
-                                                    className="p-2 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl transition-all"
-                                                    title="Download"
-                                                >
-                                                    <Download className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>

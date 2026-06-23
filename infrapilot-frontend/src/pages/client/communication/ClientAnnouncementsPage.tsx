@@ -140,7 +140,7 @@ const ClientAnnouncementsPage = () => {
   return (
     <>
       <Navbar
-        title="Project Transparency Portal"
+        title="Notifications"
         breadcrumb={["InfraPilot", "Client", "Communication", "Announcements"]}
       />
       <div className="p-8 bg-[#f8fafc] min-h-screen font-inter pb-20">

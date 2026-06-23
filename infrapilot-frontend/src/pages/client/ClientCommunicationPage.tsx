@@ -18,7 +18,7 @@ const ClientCommunicationPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Chat"]} />
+      <Navbar title="Chat" breadcrumb={["InfraPilot", "Client", "Chat"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-6">
         <div className="mb-6">
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">Chat</h1>

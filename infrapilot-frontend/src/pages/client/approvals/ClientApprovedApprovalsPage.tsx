@@ -27,7 +27,7 @@ const ClientApprovedApprovalsPage = () => {
   if (loading) {
     return (
       <>
-        <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Approvals", "Approved"]} />
+        <Navbar title="Approved Approvals" breadcrumb={["InfraPilot", "Client", "Approvals", "Approved"]} />
         <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
           <p className="text-slate-600">Loading approved approvals...</p>
         </div>
@@ -37,7 +37,7 @@ const ClientApprovedApprovalsPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Approvals", "Approved"]} />
+      <Navbar title="Approved Approvals" breadcrumb={["InfraPilot", "Client", "Approvals", "Approved"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-6">Approved Approvals</h1>
         {invoices.length === 0 ? (

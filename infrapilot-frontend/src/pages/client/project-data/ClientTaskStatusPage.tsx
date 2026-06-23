@@ -95,7 +95,7 @@ const ClientTaskStatusPage = () => {
   return (
     <>
       <Navbar
-        title="Project Transparency Portal"
+        title="Work Summary"
         breadcrumb={["InfraPilot", "Client", "Reports", "Work Summary"]}
       />
       <div className="p-6 bg-slate-50 min-h-screen pb-12">

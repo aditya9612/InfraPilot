@@ -65,7 +65,7 @@ export const labourService = {
         try {
             const { profile_image, ...queryParams } = data;
             console.log("POST /api/v1/labour Request Query Params:", queryParams);
-            const response = await api.post<any>("/labour", 
+            const response = await api.post<any>("labour", 
                 profile_image ? { profile_image } : {}, 
                 { params: queryParams }
             );
@@ -94,7 +94,7 @@ export const labourService = {
     async updateLabour(id: number, data: Partial<LabourItem>): Promise<LabourItem> {
         try {
             console.log(`PUT /api/v1/labour/${id} Request Body:`, data);
-            const response = await api.put<any>(`/labour/${id}`, data);
+            const response = await api.put<any>(`labour/${id}`, data);
             console.log(`PUT /api/v1/labour/${id} Raw Response:`, response.data);
             const updatedData = response.data?.items ? response.data.items[0] : (Array.isArray(response.data) ? response.data[0] : response.data);
             return this._normalizeLabour(updatedData);
@@ -128,7 +128,7 @@ export const labourService = {
 
         try {
             console.log("GET /api/v1/labour Request Params:", queryParams);
-            const response = await api.get<any>("/labour", {
+            const response = await api.get<any>("labour", {
                 params: queryParams,
             });
             const data = response.data;
@@ -192,7 +192,7 @@ export const labourService = {
      */
     async getLabourById(labourId: number): Promise<LabourItem> {
         try {
-            const response = await api.get<LabourItem>(`/labour/${labourId}`);
+            const response = await api.get<LabourItem>(`labour/${labourId}`);
             return response.data;
         } catch (error: any) {
             console.warn("getLabourById API error, using virtual success fallback:", error.message);
@@ -204,7 +204,7 @@ export const labourService = {
 
     async deleteLabour(labourId: number): Promise<any> {
         try {
-            const response = await api.delete(`/labour/${labourId}`);
+            const response = await api.delete(`labour/${labourId}`);
             return response.data;
         } catch (err: any) {
             console.warn(`deleteLabour API error, using virtual success fallback:`, err.message);
@@ -221,7 +221,7 @@ export const labourService = {
     async assignLabourToProject(labourId: number | string, projectId: number | string) {
         try {
             console.log(`Assigning Labour ${labourId} to Project ${projectId} via PUT /labour/${labourId}`);
-            const response = await api.put(`/labour/${labourId}`, {
+            const response = await api.put(`labour/${labourId}`, {
                 project_id: Number(projectId),
             });
             console.log("labourService.assignLabourToProject Success (200 OK):", response.data);
@@ -262,7 +262,7 @@ export const labourService = {
 
             console.log(`POST /api/v1/attendance/check-in Request Body: FormData`);
             const response = await api.post(
-                `/attendance/check-in`,
+                `attendance/check-in`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
@@ -336,7 +336,7 @@ export const labourService = {
         try {
             console.log("POST /api/v1/attendance/check-in");
             const response = await api.post(
-                "/attendance/check-in",
+                "attendance/check-in",
                 payload,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
@@ -409,7 +409,7 @@ export const labourService = {
 
             console.log(`PUT /api/v1/attendance/${attendanceId}/check-out Request Body: FormData`);
             const response = await api.put(
-                `/attendance/${attendanceId}/check-out`,
+                `attendance/${attendanceId}/check-out`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
@@ -467,7 +467,7 @@ export const labourService = {
         try {
             console.log(`PUT /api/v1/attendance/check-out/${attendanceId}`);
             const response = await api.put(
-                `/attendance/check-out/${attendanceId}`,
+                `attendance/check-out/${attendanceId}`,
                 payload,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
@@ -509,7 +509,7 @@ export const labourService = {
             if (params?.limit) cleanParams.limit = params.limit;
 
             console.log("GET /api/v1/attendance/list", cleanParams);
-            const response = await api.get("/attendance/list", { params: cleanParams });
+            const response = await api.get("attendance/list", { params: cleanParams });
             const data = response.data;
             let items = [];
             if (Array.isArray(data)) items = data;
@@ -548,7 +548,7 @@ export const labourService = {
             if (toDate) params.end_date = toDate;
 
             console.log(`GET /api/v1/labour/${labourId}/attendance`, params);
-            const response = await api.get(`/labour/${labourId}/attendance`, { params });
+            const response = await api.get(`labour/${labourId}/attendance`, { params });
 
             const backendData = Array.isArray(response.data) ? response.data : (response.data?.items || []);
 
@@ -590,7 +590,7 @@ export const labourService = {
             if (projectId) params.project_id = projectId;
 
             console.log("GET /api/v1/attendance/list", params);
-            const response = await api.get<any>("/attendance/list", { params });
+            const response = await api.get<any>("attendance/list", { params });
             const data = response.data;
 
             let rawItems = [];
@@ -682,7 +682,7 @@ export const labourService = {
     },
     async deleteAttendance(attendanceId: number): Promise<any> {
         try {
-            const response = await api.delete(`/labour/attendance/${attendanceId}`);
+            const response = await api.delete(`labour/attendance/${attendanceId}`);
             return response.data;
         } catch (err: any) {
             console.error(`Error for Delete Attendance ${attendanceId}`, err);
@@ -701,7 +701,7 @@ export const labourService = {
                 params.user_id = userId;
             }
             console.log("GET /api/v1/attendance/today", params);
-            const response = await api.get<any>("/attendance/today", { params });
+            const response = await api.get<any>("attendance/today", { params });
             const data = response.data;
             
             // Resolve relative URLs from backend
@@ -739,7 +739,7 @@ export const labourService = {
         }
     },
     async updateAttendance(attendanceId: number, data: any): Promise<any> {
-        const response = await api.put(`/labour/attendance/${attendanceId}`, data);
+        const response = await api.put(`labour/attendance/${attendanceId}`, data);
         return response.data;
     },
     /**
@@ -753,7 +753,7 @@ export const labourService = {
         
         console.log(`GET /api/v1/labour/attendance/dashboard params:`, params);
         try {
-            const response = await api.get("/labour/attendance/dashboard", { params });
+            const response = await api.get("labour/attendance/dashboard", { params });
             return response.data;
         } catch (error) {
             console.error("Failed to fetch attendance dashboard stats", error);
@@ -767,7 +767,7 @@ export const labourService = {
      */
     async exportExcel(projectId: number | string) {
         console.log(`GET /api/v1/labour/report/export?project_id=${projectId}`);
-        const response = await api.get("/labour/report/export", {
+        const response = await api.get("labour/report/export", {
             params: { project_id: projectId },
             responseType: "blob",
         });
@@ -787,7 +787,7 @@ export const labourService = {
             end_date: toDate || today
         };
         console.log("GET /api/v1/labour/attendance/export Request Params:", params);
-        const response = await api.get("/labour/attendance/export", {
+        const response = await api.get("labour/attendance/export", {
             params,
             responseType: "blob",
         });

@@ -207,7 +207,7 @@ const ClientApprovalsPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Approvals"]} />
+      <Navbar title="Approvals" breadcrumb={["InfraPilot", "Client", "Approvals"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>
@@ -321,7 +321,7 @@ const ClientApprovalsPage = () => {
                       <button
                         onClick={() => handleViewDetails(apr)}
                         title="View Details"
-                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-blue-500 rounded-xl transition-all"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />

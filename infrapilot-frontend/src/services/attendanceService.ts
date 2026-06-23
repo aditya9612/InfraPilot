@@ -61,7 +61,7 @@ export const attendanceService = {
         offset?: number;
     } = {}): Promise<{ items: AttendanceRecord[]; total: number }> {
         try {
-            const response = await api.get("/users/attendance", { params });
+            const response = await api.get("users/attendance", { params });
             const data = response.data;
             const items = Array.isArray(data) ? data : (data.items || data.data || []);
             return { items, total: data.total ?? items.length };
@@ -77,7 +77,7 @@ export const attendanceService = {
      */
     async approveAttendance(id: number, is_approved: boolean, remarks?: string) {
         try {
-            const response = await api.put(`/users/attendance/${id}/approve`, {
+            const response = await api.put(`users/attendance/${id}/approve`, {
                 is_approved,
                 remarks,
             });
@@ -94,7 +94,7 @@ export const attendanceService = {
      */
     async getUserAttendance(userId: number, params: { date?: string; limit?: number } = {}) {
         try {
-            const response = await api.get(`/users/${userId}/attendance`, { params });
+            const response = await api.get(`users/${userId}/attendance`, { params });
             const data = response.data;
             return Array.isArray(data) ? data : (data.items || data.data || []);
         } catch (error: any) {
@@ -108,7 +108,7 @@ export const attendanceService = {
      * POST /api/v1/attendance/check-in
      */
     async checkIn(formData: FormData) {
-        const response = await api.post("/attendance/check-in", formData, {
+        const response = await api.post("attendance/check-in", formData, {
             headers: { "Content-Type": "multipart/form-data" },
         });
         return response.data;
@@ -119,7 +119,10 @@ export const attendanceService = {
      * PUT /api/v1/attendance/check-out/{id}
      */
     async checkOut(id: number, data: any) {
-        const response = await api.put(`/attendance/check-out/${id}`, data);
+        const isFormData = data instanceof FormData;
+        const response = await api.put(`attendance/${id}/check-out`, data, {
+            headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+        });
         return response.data;
     },
 
@@ -128,7 +131,7 @@ export const attendanceService = {
      * GET /api/v1/attendance/today
      */
     async getTodayStatus(): Promise<TodayStatusResponse> {
-        const response = await api.get<TodayStatusResponse>("/attendance/today");
+        const response = await api.get<TodayStatusResponse>("attendance/today");
         return response.data;
     },
 
@@ -137,7 +140,7 @@ export const attendanceService = {
      * GET /api/v1/attendance/list
      */
     async getListAttendance(params: { user_id?: number; project_id?: number; page?: number; page_size?: number } = {}): Promise<AttendanceListResponse> {
-        const response = await api.get<AttendanceListResponse>("/attendance/list", { params });
+        const response = await api.get<AttendanceListResponse>("attendance/list", { params });
         return response.data;
     },
 };

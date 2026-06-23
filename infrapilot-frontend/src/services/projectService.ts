@@ -16,7 +16,7 @@ export const projectService = {
     }
 
     try {
-      const response = await api.get('/projects', { params });
+      const response = await api.get('projects', { params });
       const data = response.data;
 
       // Handle different possible response structures (array or wrapper object)
@@ -64,7 +64,7 @@ export const projectService = {
    */
   async getProjectById(projectId: number) {
     try {
-      const response = await api.get(`/projects/${projectId}`);
+      const response = await api.get(`projects/${projectId}`);
       const p = response.data;
       return { ...p, id: p.project_id || p.id };
     } catch (error: any) {
@@ -79,7 +79,7 @@ export const projectService = {
    */
   async createProject(projectData: any) {
     try {
-      const response = await api.post('/projects', projectData);
+      const response = await api.post('projects', projectData);
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -97,7 +97,7 @@ export const projectService = {
     try {
       // Ensure we don't send project_id in body if it causes issues, 
       // though the user request includes it in the sample body.
-      const response = await api.put(`/projects/${projectId}`, projectData);
+      const response = await api.put(`projects/${projectId}`, projectData);
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -113,7 +113,7 @@ export const projectService = {
    */
   async deleteProject(projectId: number) {
     try {
-      const response = await api.delete(`/projects/${projectId}`);
+      const response = await api.delete(`projects/${projectId}`);
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
@@ -127,25 +127,25 @@ export const projectService = {
 
   async scheduleProject(projectId: number, scheduleData: any) {
     const { start_date, end_date } = scheduleData;
-    const response = await api.post(`/projects/${projectId}/schedule`, null, {
+    const response = await api.post(`projects/${projectId}/schedule`, null, {
       params: { start_date, end_date }
     });
     return response.data;
   },
 
   async getProjectSchedule(projectId: number) {
-    const response = await api.get(`/projects/${projectId}/schedule`);
+    const response = await api.get(`projects/${projectId}/schedule`);
     return response.data;
   },
 
   async getProjectProgress(projectId: number) {
-    const response = await api.get(`/projects/${projectId}/progress`);
+    const response = await api.get(`projects/${projectId}/progress`);
     return response.data;
   },
 
   async getProjectAlerts() {
     try {
-      const response = await api.get('/projects/alerts/projects');
+      const response = await api.get('projects/alerts/projects');
       const data = response.data;
       return Array.isArray(data) ? data : (data.items || data.data || []);
     } catch (error) {
@@ -156,7 +156,7 @@ export const projectService = {
 
   async getTaskAlerts() {
     try {
-      const response = await api.get('/projects/alerts/tasks');
+      const response = await api.get('projects/alerts/tasks');
       const data = response.data;
       return Array.isArray(data) ? data : (data.items || data.data || []);
     } catch (error) {
@@ -168,39 +168,39 @@ export const projectService = {
   // === Member Management ===
 
   async assignMember(projectId: number, userId: number) {
-    const response = await api.post(`/projects/${projectId}/members/${userId}`);
+    const response = await api.post(`projects/${projectId}/members/${userId}`);
     return response.data;
   },
 
   async removeMember(projectId: number, userId: number) {
-    const response = await api.delete(`/projects/${projectId}/members/${userId}`);
+    const response = await api.delete(`projects/${projectId}/members/${userId}`);
     return response.data;
   },
 
   async getProjectMembers(projectId: number) {
-    const response = await api.get(`/projects/${projectId}/members`);
+    const response = await api.get(`projects/${projectId}/members`);
     return response.data;
   },
 
   // === Reporting & Finance ===
 
   async getProjectLogs(projectId: number) {
-    const response = await api.get(`/projects/${projectId}/logs`);
+    const response = await api.get(`projects/${projectId}/logs`);
     return response.data;
   },
 
   async getProjectProfitLoss(projectId: number) {
-    const response = await api.get(`/projects/${projectId}/profit-loss`);
+    const response = await api.get(`projects/${projectId}/profit-loss`);
     return response.data;
   },
 
   async exportProjectExcel(projectId: number) {
-    const response = await api.get(`/projects/${projectId}/report/excel`, { responseType: 'blob' });
+    const response = await api.get(`projects/${projectId}/report/excel`, { responseType: 'blob' });
     return response.data;
   },
 
   async exportProjectPdf(projectId: number) {
-    const response = await api.get(`/projects/${projectId}/report/pdf`, { responseType: 'blob' });
+    const response = await api.get(`projects/${projectId}/report/pdf`, { responseType: 'blob' });
     return response.data;
   },
 
@@ -208,7 +208,7 @@ export const projectService = {
 
   async getMilestones(projectId: number) {
     try {
-      const response = await api.get(`/projects/${projectId}/milestones`);
+      const response = await api.get(`projects/${projectId}/milestones`);
       const rawData = response.data;
       let items = Array.isArray(rawData) ? rawData : (rawData.items || rawData.data || []);
 
@@ -233,22 +233,22 @@ export const projectService = {
   },
 
   async createMilestone(projectId: number, milestoneData: any) {
-    const response = await api.post(`/projects/${projectId}/milestones`, milestoneData);
+    const response = await api.post(`projects/${projectId}/milestones`, milestoneData);
     return response.data;
   },
 
   async getMilestone(projectId: number, milestoneId: number) {
-    const response = await api.get(`/projects/${projectId}/milestones/${milestoneId}`);
+    const response = await api.get(`projects/${projectId}/milestones/${milestoneId}`);
     return response.data;
   },
 
   async updateMilestone(projectId: number, milestoneId: number, milestoneData: any) {
-    const response = await api.put(`/projects/${projectId}/milestones/${milestoneId}`, milestoneData);
+    const response = await api.put(`projects/${projectId}/milestones/${milestoneId}`, milestoneData);
     return response.data;
   },
 
   async deleteMilestone(projectId: number, milestoneId: number) {
-    const response = await api.delete(`/projects/${projectId}/milestones/${milestoneId}`);
+    const response = await api.delete(`projects/${projectId}/milestones/${milestoneId}`);
     return response.data;
   },
 
@@ -256,7 +256,7 @@ export const projectService = {
 
   async getTasks(projectId: number, params: { limit?: number; offset?: number; assigned_user_id?: number; status?: string } = {}) {
     try {
-      const response = await api.get(`/projects/${projectId}/tasks`, {
+      const response = await api.get(`projects/${projectId}/tasks`, {
         params: { limit: 100, offset: 0, ...params }
       });
       const data = response.data;
@@ -312,7 +312,7 @@ export const projectService = {
 
   async createTask(projectId: number, taskData: any) {
     try {
-      const response = await api.post(`/projects/${projectId}/tasks`, taskData, {
+      const response = await api.post(`projects/${projectId}/tasks`, taskData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -326,7 +326,7 @@ export const projectService = {
 
   async getTask(projectId: number, taskId: number) {
     try {
-      const response = await api.get(`/projects/${projectId}/tasks/${taskId}`);
+      const response = await api.get(`projects/${projectId}/tasks/${taskId}`);
       return response.data;
     } catch (error: any) {
       console.error(`Get Task ${taskId} API Error:`, error.response?.data || error.message);
@@ -360,7 +360,7 @@ export const projectService = {
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
     try {
-      const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData, {
+      const response = await api.put(`projects/${projectId}/tasks/${taskId}`, taskData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -374,7 +374,7 @@ export const projectService = {
 
   async updateTaskStatus(projectId: number, taskId: number, status: string) {
     try {
-      const response = await api.patch(`/projects/${projectId}/tasks/${taskId}/status`, { status });
+      const response = await api.patch(`projects/${projectId}/tasks/${taskId}/status`, { status });
       return response.data;
     } catch (error: any) {
       console.error(`Update Task Status ${taskId} API Error:`, error.response?.data || error.message);
@@ -384,7 +384,7 @@ export const projectService = {
 
   async deleteTask(projectId: number, taskId: number) {
     try {
-      const response = await api.delete(`/projects/${projectId}/tasks/${taskId}`);
+      const response = await api.delete(`projects/${projectId}/tasks/${taskId}`);
       return response.data;
     } catch (error: any) {
       console.warn(`Delete Task ${taskId} API Error, using virtual success fallback:`, error.message);
@@ -394,7 +394,7 @@ export const projectService = {
 
   async passTask(projectId: number, taskId: number, passData: any) {
     try {
-      const response = await api.post(`/projects/${projectId}/tasks/${taskId}/pass`, passData);
+      const response = await api.post(`projects/${projectId}/tasks/${taskId}/pass`, passData);
       return response.data;
     } catch (error: any) {
       console.error(`Pass Task ${taskId} API Error:`, error.response?.data || error.message);
@@ -404,7 +404,7 @@ export const projectService = {
 
   async updateTaskProgress(projectId: number, taskId: number, progressData: any) {
     try {
-      const response = await api.post(`/projects/${projectId}/tasks/${taskId}/progress`, progressData);
+      const response = await api.post(`projects/${projectId}/tasks/${taskId}/progress`, progressData);
       return response.data;
     } catch (error: any) {
       console.error(`Update Task Progress ${taskId} API Error:`, error.response?.data || error.message);
@@ -414,7 +414,7 @@ export const projectService = {
 
   async getTaskProgressHistory(projectId: number, taskId: number, limit = 20, offset = 0) {
     try {
-      const response = await api.get(`/projects/${projectId}/tasks/${taskId}/progress`, {
+      const response = await api.get(`projects/${projectId}/tasks/${taskId}/progress`, {
         params: { limit, offset }
       });
       return response.data;
@@ -426,7 +426,7 @@ export const projectService = {
 
   async createTaskComment(projectId: number, taskId: number, commentData: any) {
     try {
-      const response = await api.post(`/projects/${projectId}/tasks/${taskId}/comments`, commentData);
+      const response = await api.post(`projects/${projectId}/tasks/${taskId}/comments`, commentData);
       return response.data;
     } catch (error: any) {
       console.error(`Create Task Comment ${taskId} API Error:`, error.response?.data || error.message);
@@ -436,7 +436,7 @@ export const projectService = {
 
   async getTaskComments(projectId: number, taskId: number, limit = 20, offset = 0) {
     try {
-      const response = await api.get(`/projects/${projectId}/tasks/${taskId}/comments`, {
+      const response = await api.get(`projects/${projectId}/tasks/${taskId}/comments`, {
         params: { limit, offset }
       });
       return response.data;
@@ -452,7 +452,7 @@ export const projectService = {
    */
   async getWorkProgressActivities(projectId: number, engineerId?: number) {
     try {
-      const response = await api.get('/work-progress/activities', {
+      const response = await api.get('work-progress/activities', {
         params: { project_id: projectId, engineer_id: engineerId }
       });
       const rawData = response.data;

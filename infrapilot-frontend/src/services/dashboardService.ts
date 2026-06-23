@@ -195,7 +195,7 @@ export const dashboardService = {
    * GET /api/v1/dashboard/labour
    */
   async getLabourDashboard(): Promise<LabourDashboardResponse> {
-    const response = await api.get<LabourDashboardResponse>('/dashboard/labour');
+    const response = await api.get<LabourDashboardResponse>('dashboard/labour');
     return response.data;
   },
 };

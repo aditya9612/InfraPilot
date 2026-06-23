@@ -167,7 +167,7 @@ const ClientIssuesPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Issues & Risks"]} />
+      <Navbar title="Issues & Risks" breadcrumb={["InfraPilot", "Client", "Issues & Risks"]} />
       <div className="p-8 bg-[#f8fafc] min-h-screen font-inter pb-20">
 
         {/* Page Header */}

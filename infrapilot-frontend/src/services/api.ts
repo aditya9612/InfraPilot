@@ -1,6 +1,7 @@
 import axios from "axios";
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL;
+// Ensure API_BASE_URL doesn't have double slashes when used with relative paths
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -20,15 +21,17 @@ api.interceptors.request.use(
         const token = user.token?.access_token || user.token;
         if (token && typeof token === 'string') {
           config.headers.Authorization = `Bearer ${token}`;
-        } else {
-          console.warn("Auth Interceptor: Token not found in user object", user);
         }
       } catch (e) {
         console.error("Auth Interceptor: Failed to parse user object", e);
       }
-    } else {
-      console.warn("Auth Interceptor: No user found in localStorage");
     }
+    
+    // Ensure the URL doesn't start with a slash if we want it to be relative to baseURL
+    if (config.url?.startsWith('/')) {
+        config.url = config.url.substring(1);
+    }
+    
     return config;
   },
   (error) => Promise.reject(error),
@@ -39,46 +42,28 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Ignore 401s from known buggy or sensitive endpoints to prevent aggressive logouts
       const url = error.config?.url ?? '';
-      const isIgnored =
-        url.includes('/invoices') ||
-        url.includes('/communication') ||
-        url.includes('/alerts') ||
-        url.includes('/projects/alerts') ||
-        url.includes('/chats') ||
-        url.includes('/chat') ||
-        url.includes('/settings') ||
-        url.includes('/notifications');
+      
+      // Endpoints that shouldn't trigger a hard logout on 401
+      const isIgnored = 
+        url.includes('invoices') ||
+        url.includes('communication') ||
+        url.includes('alerts') ||
+        url.includes('chats') ||
+        url.includes('chat') ||
+        url.includes('settings') ||
+        url.includes('notifications');
 
-      if (isIgnored) {
-        const userString = localStorage.getItem("infrapilot_user");
-        let isLabour = false;
-        try { if (userString) isLabour = JSON.parse(userString).role === 'Labour'; } catch { /* ignore */ }
-
-        if (!isLabour) {
-          console.warn("Auth Interceptor: Ignoring 401 from endpoint to prevent logout:", url);
+      if (!isIgnored) {
+        const path = window.location.pathname;
+        // Don't logout if we're already on login or home
+        if (path !== '/login' && path !== '/') {
+          console.warn("Auth Interceptor: 401 Unauthorized. Redirecting to login...", url);
+          localStorage.removeItem('infrapilot_user');
+          window.location.href = '/login?expired=true';
         }
       } else {
-        const userString = localStorage.getItem("infrapilot_user");
-        let isLabour = false;
-        try {
-          if (userString) {
-            const user = JSON.parse(userString);
-            isLabour = user.role === 'Labour';
-          }
-        } catch (e) { /* ignore */ }
-
-        if (isLabour) {
-          console.warn("Auth Interceptor: Labour role 401 on non-ignored endpoint, but skipping logout for stability:", url);
-          return Promise.reject(error);
-        }
-
-        const path = window.location.pathname;
-        if (path !== '/login' && path !== '/') {
-          localStorage.removeItem('infrapilot_user');
-          window.location.href = '/login';
-        }
+        console.warn("Auth Interceptor: 401 for ignored endpoint, skipping logout:", url);
       }
     }
     return Promise.reject(error);

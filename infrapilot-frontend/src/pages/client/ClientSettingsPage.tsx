@@ -2,7 +2,6 @@ import Navbar from "../../components/common/Navbar";
 import { useState, useEffect, useRef } from "react";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
-import { masterService, type MasterEntity } from "../../services/masterService";
 import { useAuth } from "../../context/AuthContext";
 import type { UserProfile, UserSettings } from "../../types/settings";
 import toast from "react-hot-toast";
@@ -27,11 +26,9 @@ const ClientSettingsPage = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // System Settings State
     const [settings, setSettings] = useState<UserSettings>({
         user_id: 0,
         default_project_id: null,
-        unit: "Metric",
         notifications_enabled: true,
         preferences: {
             language: "English",
@@ -54,28 +51,17 @@ const ClientSettingsPage = () => {
         invoice_format: "standard",
         payment_terms: "30 days"
     });
-    // Additional unit selections
-    const [masterUnits, setMasterUnits] = useState<MasterEntity[]>([]);
-    const [massUnit, setMassUnit] = useState<string>("Kg");
-    const [lengthUnit, setLengthUnit] = useState<string>("Meter");
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [profileData, settingsData, projectsResult, unitsData] = await Promise.all([
+                const [profileData, settingsData, projectsResult] = await Promise.all([
                     settingsService.getProfile(),
                     settingsService.getSettings(),
                     projectService.getProjects(20, 0).catch(() => []),
-                    masterService.getEntities("units").catch(() => [])
                 ]);
                 const projectsList = Array.isArray(projectsResult) ? projectsResult : (projectsResult?.items || projectsResult?.data || []);
                 setProjects(projectsList);
-                setMasterUnits(unitsData);
-
-                const massToUse = localStorage.getItem("client_mass_unit") || settingsData.preferences?.mass_unit || "Kg";
-                const lengthToUse = localStorage.getItem("client_length_unit") || settingsData.preferences?.length_unit || "Meter";
-                setMassUnit(massToUse);
-                setLengthUnit(lengthToUse);
 
                 if (projectsList.length > 0) {
                     const localSavedId = localStorage.getItem("client_selected_project_id");
@@ -86,17 +72,11 @@ const ClientSettingsPage = () => {
                 setPreviewUrl(null);
                 setSelectedFile(null);
 
-                const savedUnit = localStorage.getItem("client_unit_system");
-                const unitToUse = savedUnit || settingsData?.unit || "Metric";
-
                 setSettings({
                     ...settingsData,
-                    unit: unitToUse,
                     currency: settingsData?.currency || "INR",
                     preferences: {
                         ...settingsData?.preferences,
-                        mass_unit: massToUse,
-                        length_unit: lengthToUse,
                         language: settingsData?.preferences?.language || "English",
                         timezone: settingsData?.preferences?.timezone || "IST (UTC+5:30)",
                         date_format: settingsData?.preferences?.date_format || "DD/MM/YYYY",
@@ -169,21 +149,11 @@ const ClientSettingsPage = () => {
             let settingsError: any = null;
             let profileError: any = null;
 
-            try {
-                // Prepare final settings with sub-units included in preferences
-                const finalSettings = {
-                    ...settings,
-                    default_project_id: activeProjectId,
-                    preferences: {
-                        ...settings.preferences,
-                        mass_unit: massUnit,
-                        length_unit: lengthUnit
-                    }
-                };
-
-                await settingsService.updateSettings(finalSettings);
-                localStorage.setItem("client_mass_unit", massUnit);
-                localStorage.setItem("client_length_unit", lengthUnit);
+                try {
+                    await settingsService.updateSettings({
+                        ...settings,
+                        default_project_id: activeProjectId
+                    });
                 
                 // Persist notification preferences locally to ensure consistency across refreshes
                 localStorage.setItem("client_notif_email", String(settings.preferences?.notif_email ?? true));
@@ -266,7 +236,7 @@ const ClientSettingsPage = () => {
 
     return (
         <>
-            <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Portal Settings"]} />
+            <Navbar title="Settings" breadcrumb={["InfraPilot", "Client", "Portal Settings"]} />
             <div className="p-8 bg-slate-50 min-h-screen font-inter pb-20">
 
                 {/* Header Section */}
@@ -289,10 +259,9 @@ const ClientSettingsPage = () => {
                 {/* Current Configuration Bar */}
                 <div className="mb-12">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Current Configuration</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {[
                             { label: "Active Project", value: getActiveProjectName(), sub: "Primary project workspace", color: "text-blue-600" },
-                            { label: "Unit System", value: settings.unit, sub: "Feet · Meter", color: "text-emerald-500" },
                             { label: "Notifications", value: `${[settings.preferences?.notif_email, settings.preferences?.notif_sms, settings.preferences?.notif_push, settings.preferences?.notif_dsr, settings.preferences?.notif_issue, settings.preferences?.notif_material].filter(Boolean).length} / 6`, sub: "Channels enabled", color: "text-amber-500" },
                             { label: "Language", value: settings.preferences?.language || "English", sub: settings.preferences?.timezone || "IST (UTC+5:30)", color: "text-slate-800" },
                         ].map((card, i) => (
@@ -430,115 +399,24 @@ const ClientSettingsPage = () => {
                         </div>
                     </div>
 
-                    {/* Project Selection & Units Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-3 mb-8">
-                                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                                <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Project Selection</h2>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Active Project</label>
-                                <select
-                                    value={activeProjectId ?? ''}
-                                    onChange={(e) => {
-                                      const newId = Number(e.target.value);
-                                      setActiveProjectId(newId);
-                                    }}
-                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                                >
-                                    {projects.map(p => <option key={p.id} value={p.id}>{p.name || p.project_name}</option>)}
-                                </select>
-                            </div>
+                    {/* Project Selection */}
+                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                        <div className="flex items-center gap-3 mb-8">
+                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Project Selection</h2>
                         </div>
-
-                        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-3 mb-10">
-                                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center">
-                                    <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-                                </div>
-                                <h2 className="text-[13px] font-black text-slate-500 uppercase tracking-[0.2em]">Units</h2>
-                            </div>
-
-                            <div className="space-y-10">
-                                {/* Unit System */}
-                                <div className="space-y-4">
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Unit System</p>
-                                    <div className="flex gap-4">
-                                        {["Metric", "Imperial"].map(u => (
-                                            <button
-                                                key={u}
-                                                onClick={() => {
-                                                    setSettings(s => ({ ...s, unit: u }));
-                                                    localStorage.setItem("client_unit_system", u);
-                                                }}
-                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${settings.unit?.toLowerCase() === u.toLowerCase() ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
-                                            >
-                                                {u}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Mass / Weight - Driven by API but UI preserved */}
-                                <div className="space-y-4">
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Mass / Weight</p>
-                                    <div className="flex gap-4">
-                                        {(masterUnits.filter(u => u.category === 'Mass').length > 0
-                                            ? masterUnits.filter(u => u.category === 'Mass').map(u => u.name)
-                                            : ["Kg", "Feet", "Meter"] // Exact fallback UI
-                                        ).map(u => (
-                                            <button
-                                                key={u}
-                                                onClick={() => {
-                                                    setMassUnit(u);
-                                                    localStorage.setItem("client_mass_unit", u);
-                                                    setSettings(s => ({ ...s, mass_unit: u }));
-                                                }}
-                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${massUnit === u ? 'bg-[#2563eb] text-white border-[#2563eb] shadow-lg shadow-blue-500/20' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
-                                            >
-                                                {u}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Length / Distance - Driven by API but UI preserved */}
-                                <div className="space-y-4">
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">Length / Distance</p>
-                                    <div className="flex gap-4">
-                                        {(masterUnits.filter(u => u.category === 'Length').length > 0
-                                            ? masterUnits.filter(u => u.category === 'Length').map(u => u.name)
-                                            : ["Meter", "Feet", "Inch", "Cm"] // Exact fallback UI
-                                        ).map(u => (
-                                            <button
-                                                key={u}
-                                                onClick={() => {
-                                                    setLengthUnit(u);
-                                                    localStorage.setItem("client_length_unit", u);
-                                                    setSettings(s => ({ ...s, length_unit: u }));
-                                                }}
-                                                className={`flex-1 py-4 rounded-2xl text-[14px] font-black transition-all border ${lengthUnit === u ? 'bg-[#2563eb] text-white border-[#2563eb] shadow-lg shadow-blue-500/20' : 'bg-white text-slate-400 border-slate-100 hover:border-slate-200'}`}
-                                            >
-                                                {u}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Current Units Summary */}
-                                <div className="bg-slate-50/50 p-8 rounded-[24px] flex items-center justify-between border border-slate-100/50 mt-4 h-24">
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Current Units</p>
-                                        <p className="text-[18px] font-black text-slate-800 tracking-tight">
-                                            {settings.unit} <span className="text-slate-300 mx-1">·</span> {massUnit} <span className="text-slate-300 mx-1">·</span> {lengthUnit}
-                                        </p>
-                                    </div>
-                                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-50">
-                                        <span className="text-2xl">⚖️</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Active Project</label>
+                            <select
+                                value={activeProjectId ?? ''}
+                                onChange={(e) => {
+                                    const newId = Number(e.target.value);
+                                    setActiveProjectId(newId);
+                                }}
+                                className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-[13px] font-bold text-slate-700 outline-none focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                            >
+                                {projects.map(p => <option key={p.id} value={p.id}>{p.name || p.project_name}</option>)}
+                            </select>
                         </div>
                     </div>
 

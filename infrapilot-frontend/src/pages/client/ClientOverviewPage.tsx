@@ -90,7 +90,7 @@ const ClientOverviewPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Project Overview"]} />
+      <Navbar title="Project Overview" breadcrumb={["InfraPilot", "Client", "Project Overview"]} />
       <div className="p-8 bg-[#F8FAFC] min-h-screen font-inter pb-16">
 
         {/* Header */}

@@ -44,7 +44,7 @@ const ClientFinancialsPage = () => {
   if (loading) {
     return (
       <>
-        <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Financials"]} />
+        <Navbar title="Financials" breadcrumb={["InfraPilot", "Client", "Financials"]} />
         <div className="flex items-center justify-center min-h-screen bg-slate-50">
           <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
         </div>
@@ -54,7 +54,7 @@ const ClientFinancialsPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Financials"]} />
+      <Navbar title="Financials" breadcrumb={["InfraPilot", "Client", "Financials"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <div className="mb-8">
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">{projectData?.project_name || "Financials"}</h1>
