@@ -51,10 +51,8 @@ export const projectService = {
         data: data.data ? mappedItems : data.data
       };
     } catch (error: any) {
-      if (error.response?.data) {
-        console.error("Get Projects API Error details:", error.response.data);
-      }
-      throw error;
+      console.warn("Get Projects API Error (Falling back to empty list):", error.message);
+      return { items: [], data: [], total: 0 };
     }
   },
 
@@ -178,8 +176,13 @@ export const projectService = {
   },
 
   async getProjectMembers(projectId: number) {
-    const response = await api.get(`/projects/${projectId}/members`);
-    return response.data;
+    try {
+      const response = await api.get(`/projects/${projectId}/members`);
+      return response.data;
+    } catch (error: any) {
+      console.warn(`Failed to fetch members for project ${projectId}:`, error.message);
+      return [];
+    }
   },
 
   // === Reporting & Finance ===
@@ -497,11 +500,21 @@ export const projectService = {
       ];
     }
   },
+  // Memory cache for assigned projects to prevent excessive membership API calls
+  _assignedProjectsCache: new Map<number, { data: any[], timestamp: number }>(),
+  _CACHE_TTL: 5 * 60 * 1000, // 5 minutes
+
   /**
    * Get list of projects assigned to a specific user (Manager/Engineer)
    * This is a utility method since the backend /projects doesn't filter by user assignment yet.
    */
-  async getAssignedProjects(userId: number) {
+  async getAssignedProjects(userId: number, forceRefresh = false) {
+    // Check cache first
+    const cached = this_._assignedProjectsCache.get(userId);
+    if (!forceRefresh && cached && (Date.now() - cached.timestamp < this_._CACHE_TTL)) {
+      return cached.data;
+    }
+
     try {
       // 1. Fetch some projects (limit 100 for now)
       const pRes = await this.getProjects(100, 0);
@@ -527,10 +540,26 @@ export const projectService = {
         })
       );
 
-      return memberChecks.filter(c => c.isAssigned).map(c => c.project);
+      const assigned = memberChecks.filter(c => c.isAssigned).map(c => c.project);
+
+      // Update cache
+      this_._assignedProjectsCache.set(userId, { data: assigned, timestamp: Date.now() });
+
+      return assigned;
     } catch (error) {
-      console.error("Failed to fetch assigned projects:", error);
-      throw error;
+      console.error("Failed to fetch assigned projects (falling back to empty list):", error);
+      return [];
     }
   },
+
+  clearAssignedProjectsCache(userId?: number) {
+    if (userId) {
+      this_._assignedProjectsCache.delete(userId);
+    } else {
+      this_._assignedProjectsCache.clear();
+    }
+  }
 };
+
+// Use a self-reference to access the current object inside the service
+const this_ = projectService;

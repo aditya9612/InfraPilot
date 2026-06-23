@@ -51,6 +51,7 @@ import ManagerSafetyPage from "../pages/manager/ManagerSafetyPage";
 import LabourRegistryPage from "../pages/manager/Resources/LabourRegistryPage";
 import EquipmentRegistryPage from "../pages/manager/Resources/EquipmentRegistryPage";
 import MaterialInventoryPage from "../pages/manager/Resources/MaterialInventoryPage";
+import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -285,6 +286,7 @@ function AppRoutes() {
               <Route path="tasks" element={<ManagerTasksPage />} />
               <Route path="tasks/:tab" element={<ManagerTasksPage />} />
               <Route path="approvals" element={<ManagerApprovalsPage />} />
+              <Route path="approvals/:tab" element={<ManagerApprovalsPage />} />
               <Route path="approvals/dsr" element={<DSRApprovalPage />} />
               <Route path="approvals/material" element={<ManagerApprovalsPage />} />
               <Route path="approvals/expense" element={<ManagerApprovalsPage />} />
@@ -304,6 +306,8 @@ function AppRoutes() {
               <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
               <Route path="compliance/qc" element={<QCGovernancePage />} />
               <Route path="compliance/safety" element={<SafetyManagementPage />} />
+              <Route path="documents" element={<ManagerDocumentsPage />} />
+              <Route path="documents/:tab" element={<ManagerDocumentsPage />} />
               <Route path="settings" element={<ManagerSettingsPage />} />
             </Route>
 

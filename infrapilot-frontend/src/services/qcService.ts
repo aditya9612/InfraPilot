@@ -47,8 +47,13 @@ export const qcService = {
         if (filters?.status) params.status = filters.status;
         if (filters?.inspection_type) params.inspection_type = filters.inspection_type;
 
-        const response = await api.get('/qc', { params });
-        return response.data;
+        try {
+            const response = await api.get('/qc', { params });
+            return response.data;
+        } catch (error: any) {
+            console.warn("QC List Fetch Failed (Falling back to empty list):", error.message);
+            return { items: [], meta: { total: 0, limit: 10, offset: 0 } };
+        }
     },
 
     getQc: async (qc_id: number): Promise<QcItem> => {

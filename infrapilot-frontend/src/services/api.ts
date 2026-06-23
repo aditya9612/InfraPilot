@@ -38,18 +38,27 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const url = error.config?.url ?? "";
+
+    // Handle 502 Bad Gateway and 504 Gateway Timeout
+    if (status === 502 || status === 504) {
+      console.warn(`Gateway Error (${status}) on ${url}. The server might be restarting or unstable.`);
+      // We don't logout for gateway errors as they are often temporary backend issues
+      return Promise.reject(error);
+    }
+
+    if (status === 401) {
       // Ignore 401s from known buggy or sensitive endpoints to prevent aggressive logouts
-      const url = error.config?.url ?? '';
       const isIgnored =
-        url.includes('/invoices') ||
-        url.includes('/communication') ||
-        url.includes('/alerts') ||
-        url.includes('/projects/alerts') ||
-        url.includes('/chats') ||
-        url.includes('/chat') ||
-        url.includes('/settings') ||
-        url.includes('/notifications');
+        url.includes("/invoices") ||
+        url.includes("/communication") ||
+        url.includes("/alerts") ||
+        url.includes("/projects/alerts") ||
+        url.includes("/chats") ||
+        url.includes("/chat") ||
+        url.includes("/settings") ||
+        url.includes("/notifications");
 
       if (isIgnored) {
         const userString = localStorage.getItem("infrapilot_user");
