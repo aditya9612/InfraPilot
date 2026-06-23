@@ -170,4 +170,136 @@ export const dashboardService = {
     const response = await api.get('/dashboard/accountant');
     return response.data;
   },
+
+  /**
+   * PM Dashboard APIs
+   */
+
+  /**
+   * Get PM Command Center stats
+   * GET /api/v1/dashboard/pm-command-center
+   */
+  async getPMCommandCenter(projectId?: number): Promise<any> {
+    try {
+      const response = await api.get('/dashboard/pm-command-center', {
+        params: projectId ? { project_id: projectId } : {}
+      });
+      return response.data;
+    } catch (err) {
+      console.warn("Failed to fetch PM Command Center stats:", err);
+      return {};
+    }
+  },
+
+  /**
+   * Get Combined Graph data
+   * GET /api/v1/dashboard/graph/combined
+   */
+  async getPMGraphCombined(projectId?: number): Promise<any> {
+    try {
+      const response = await api.get('/dashboard/graph/combined', {
+        params: projectId ? { project_id: projectId } : {}
+      });
+      return response.data;
+    } catch (err) {
+      console.warn("Failed to fetch Combined Graph data:", err);
+      return { data: [] };
+    }
+  },
+
+  /**
+   * Get Labour Graph data
+   * GET /api/v1/dashboard/graph/labour
+   */
+  async getPMGraphLabour(projectId?: number): Promise<any> {
+    try {
+      const response = await api.get('/dashboard/graph/labour', {
+        params: projectId ? { project_id: projectId } : {}
+      });
+      return response.data;
+    } catch (err) {
+      console.warn("Failed to fetch Labour Graph data:", err);
+      return { data: [] };
+    }
+  },
+
+  /**
+   * Get Expense Graph data
+   * GET /api/v1/dashboard/graph/expense
+   */
+  async getPMGraphExpense(projectId?: number): Promise<any> {
+    try {
+      const response = await api.get('/dashboard/graph/expense', {
+        params: projectId ? { project_id: projectId } : {}
+      });
+      return response.data;
+    } catch (err) {
+      console.warn("Failed to fetch Expense Graph data:", err);
+      return { data: [] };
+    }
+  },
+
+  /**
+   * Get Forecast Graph data
+   * GET /api/v1/dashboard/graph/forecast
+   */
+  async getPMGraphForecast(projectId?: number): Promise<any> {
+    try {
+      const response = await api.get('/dashboard/graph/forecast', {
+        params: projectId ? { project_id: projectId } : {}
+      });
+      return response.data;
+    } catch (err) {
+      console.warn("Failed to fetch Forecast Graph data:", err);
+      return { data: [] };
+    }
+  },
+
+  /**
+   * Get Alerts
+   * GET /api/v1/alerts
+   */
+  async getAlerts(projectId?: number): Promise<any> {
+    try {
+      const response = await api.get('/alerts', {
+        params: projectId ? { project_id: projectId } : {}
+      });
+      return response.data;
+    } catch (err) {
+      console.warn("Failed to fetch Alerts:", err);
+      return { items: [] };
+    }
+  },
+
+  /**
+   * Get Project Module Summary
+   * GET /api/v1/projects/module-summary
+   */
+  async getProjectModuleSummary(projectId?: number): Promise<any> {
+    try {
+      const response = await api.get('/projects/module-summary', {
+        params: projectId ? { project_id: projectId } : {}
+      });
+      return response.data;
+    } catch (err) {
+      console.warn("Failed to fetch Project Module Summary:", err);
+      return {};
+    }
+  },
+
+  /**
+   * Get Project Manager Summary
+   * GET /api/v1/dashboard/project-manager-summary
+   */
+  async getPMProjectSummary(projectId?: number): Promise<any> {
+    try {
+      const response = await api.get('/dashboard/project-manager-summary', {
+        params: projectId ? { project_id: projectId } : {}
+      });
+      return response.data;
+    } catch (err) {
+      console.warn("Failed to fetch PM Project Summary:", err);
+      return {};
+    }
+  },
 };

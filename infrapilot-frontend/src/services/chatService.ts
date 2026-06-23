@@ -27,13 +27,23 @@ export const chatService = {
 
     // --- Chat List ---
     async getChatList(): Promise<Conversation[]> {
-        const response = await api.get<Conversation[]>("/chats/");
-        return response.data;
+        try {
+            const response = await api.get<Conversation[]>("/chats/");
+            return response.data;
+        } catch (error) {
+            console.warn("getChatList API Error:", error);
+            return [];
+        }
     },
 
     async getEnhancedChatList(): Promise<Conversation[]> {
-        const response = await api.get<Conversation[]>("/chats/enhanced");
-        return response.data;
+        try {
+            const response = await api.get<Conversation[]>("/chats/enhanced");
+            return response.data;
+        } catch (error) {
+            console.warn("getEnhancedChatList API Error:", error);
+            return [];
+        }
     },
 
     async getUnreadCount(chatId: number): Promise<{ unread: number }> {
@@ -42,8 +52,13 @@ export const chatService = {
     },
 
     async getPinnedChats(): Promise<Conversation[]> {
-        const response = await api.get<Conversation[]>("/chats/pinned");
-        return response.data;
+        try {
+            const response = await api.get<Conversation[]>("/chats/pinned");
+            return response.data;
+        } catch (error) {
+            console.warn("getPinnedChats API Error:", error);
+            return [];
+        }
     },
 
     async softDeleteChat(chatId: number): Promise<{ status: string }> {

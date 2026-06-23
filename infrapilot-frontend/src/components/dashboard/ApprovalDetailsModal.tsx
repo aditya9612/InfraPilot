@@ -2,11 +2,12 @@ import React from "react";
 import Modal from "../common/Modal";
 import { CheckCircle, XCircle, Clock, User, Briefcase, Calendar, Loader2 } from "lucide-react";
 import { boqService } from "../../services/boqService";
+import type { ApprovalItem } from "../../services/approvalService";
 
 interface ApprovalDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  approval: any | null;
+  approval: ApprovalItem | null;
   onApprove: (id: number) => void;
   onReject: (id: number) => void;
 }
@@ -115,7 +116,7 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
 
             <div className="text-center md:text-left">
               <div className="flex flex-col md:flex-row items-center gap-3">
-                <h3 className="text-2xl font-black tracking-tight">{approval.type}</h3>
+                <h3 className="text-2xl font-black tracking-tight">{approval.entity_type}</h3>
                 <span className="px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest">
                   {approval.status}
                 </span>
@@ -131,16 +132,16 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
         {/* Details Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
           <Section icon={<User size={16} />} title="Requester Info">
-            <InfoItem label="Requested By" value={approval.requested_by?.toString() || approval.requestedBy} />
-            <InfoItem label="Project Site" value={entityDetails?.project_name || entityDetails?.project_id?.toString() || approval.project} />
+            <InfoItem label="Requested By" value={approval.requested_by_name || approval.requested_by} />
+            <InfoItem label="Project Site" value={approval.project_name || entityDetails?.project_name || "Enterprise Global"} />
           </Section>
 
           <Section icon={<Briefcase size={16} />} title="Request Details">
             <InfoItem
-              label="Amount / Quantity"
-              value={entityDetails ? `₹${entityDetails.unit_cost?.toLocaleString()} (Qty: ${entityDetails.quantity} ${entityDetails.unit})` : approval.detail}
+              label="Summary"
+              value={approval.detail || (entityDetails ? `${entityDetails.quantity} ${entityDetails.unit}` : "No specific details")}
             />
-            <InfoItem label="Category" value={entityDetails?.category || approval.type} />
+            <InfoItem label="Entity Reference" value={`#${approval.entity_id} (${approval.entity_type})`} />
           </Section>
 
           <Section icon={<CheckCircle size={16} />} title="Workflow History" fullWidth>
@@ -156,8 +157,14 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
               </div>
               <div className="flex justify-between items-center border-t border-slate-200 pt-4">
                 <span className="text-sm font-bold text-slate-700">Reviewed By</span>
-                <span className="text-sm font-medium text-slate-500">{approval.approvedBy}</span>
+                <span className="text-sm font-medium text-slate-500">{approval.reviewer_name || "—"}</span>
               </div>
+              {approval.remarks && (
+                <div className="flex flex-col border-t border-slate-200 pt-4 mt-2">
+                  <span className="text-sm font-bold text-slate-700 mb-1">Remarks</span>
+                  <p className="text-sm text-slate-500 italic">"{approval.remarks}"</p>
+                </div>
+              )}
             </div>
           </Section>
         </div>
