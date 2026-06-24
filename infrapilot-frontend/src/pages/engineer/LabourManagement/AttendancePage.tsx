@@ -92,8 +92,8 @@ const AttendancePage: React.FC = () => {
 
             const activeProjectId = getActiveProjectId();
             // Assuming project_id=1 as per user request
-            let fromDate = "";
-            let toDate = "";
+            let fromDate: string | null = null;
+            let toDate: string | null = null;
             const today = new Date().toISOString().split('T')[0];
 
             if (historyFilter === 'Today') {
@@ -105,6 +105,9 @@ const AttendancePage: React.FC = () => {
                 const yStr = y.toISOString().split('T')[0];
                 fromDate = yStr;
                 toDate = yStr;
+            } else if (historyFilter === 'All') {
+                fromDate = 'ALL';
+                toDate = 'ALL';
             } else if (historyFilter === 'Date' && historyDateInput) {
                 fromDate = historyDateInput;
                 toDate = historyDateInput;

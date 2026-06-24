@@ -115,7 +115,7 @@ export const workProgressService = {
    */
   async addDailyProgress(data: DailyProgressRequest): Promise<any> {
     try {
-      const { created_by, ...payload } = data;
+      const { created_by, photos, ...payload } = data;
       const response = await api.post("/work-progress/daily-entry", payload);
       return response.data;
     } catch (error: any) {

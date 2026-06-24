@@ -131,14 +131,14 @@ const MaterialReceiptPage = () => {
 
     const fetchSuppliers = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getSuppliers(); setSuppliers(data); }
+        try { const data = await materialService.getSuppliers(projectId); setSuppliers(data); }
         catch (e) { toast.error("Failed to load suppliers"); }
         finally { setIsLoading(false); }
     };
 
     const fetchPOs = async () => {
         setIsLoading(true);
-        try { const data = await materialService.listPurchaseOrders(0, 500); setPurchaseOrders(data); }
+        try { const data = await materialService.listPurchaseOrders(projectId, 0, 500); setPurchaseOrders(data); }
         catch (e) { toast.error("Failed to load POs"); }
         finally { setIsLoading(false); }
     };

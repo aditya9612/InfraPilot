@@ -234,7 +234,7 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                                 <option value="">Select DSR...</option>
                                 {dsrs.map(d => (
                                     <option key={d.id} value={d.id}>
-                                        {d.contractor_name ? d.contractor_name : 'DSR'}
+                                        {`DSR #${d.id}`}
                                     </option>
                                 ))}
                             </select>
