@@ -46,42 +46,42 @@ const WorkUpdatesPage: React.FC = () => {
     // Calculated state
     const [totalHours, setTotalHours] = useState('8h 30m');
 
+    // Persistence keys
+    const persistenceKey = taskId ? `work_update_data_${taskId}` : `work_update_data_last_draft`;
+    const historyKey = taskId ? `task_history_photos_${taskId}` : `task_history_photos_global`;
+
     // Persistence: Load data on mount
     useEffect(() => {
-        if (taskId) {
-            // Load current update data
-            const savedData = localStorage.getItem(`work_update_data_${taskId}`);
-            if (savedData) {
-                const data = JSON.parse(savedData);
-                if (data.description) setDescription(data.description);
-                if (data.beforePhotos) setBeforePhotos(data.beforePhotos);
-                if (data.afterPhotos) setAfterPhotos(data.afterPhotos);
-                if (data.workDate) setWorkDate(data.workDate);
-                if (data.startTime) setStartTime(data.startTime);
-                if (data.endTime) setEndTime(data.endTime);
-                if (data.category) setCategory(data.category);
-                if (data.location) setLocation(data.location);
-                if (data.remarks) setRemarks(data.remarks);
-            }
-
-            // Load Historical Photos
-            const savedHistory = localStorage.getItem(`task_history_photos_${taskId}`);
-            if (savedHistory) {
-                setPriorPhotos(JSON.parse(savedHistory));
-            }
+        // Load current update data
+        const savedData = localStorage.getItem(persistenceKey);
+        if (savedData) {
+            const data = JSON.parse(savedData);
+            if (data.description !== undefined) setDescription(data.description);
+            if (data.beforePhotos) setBeforePhotos(data.beforePhotos);
+            if (data.afterPhotos) setAfterPhotos(data.afterPhotos);
+            if (data.workDate) setWorkDate(data.workDate);
+            if (data.startTime) setStartTime(data.startTime);
+            if (data.endTime) setEndTime(data.endTime);
+            if (data.category) setCategory(data.category);
+            if (data.location) setLocation(data.location);
+            if (data.remarks !== undefined) setRemarks(data.remarks);
         }
-    }, [taskId]);
+
+        // Load Historical Photos
+        const savedHistory = localStorage.getItem(historyKey);
+        if (savedHistory) {
+            setPriorPhotos(JSON.parse(savedHistory));
+        }
+    }, [persistenceKey, historyKey]);
 
     // Persistence: Save data on any change
     useEffect(() => {
-        if (taskId) {
-            const dataToSave = {
-                description, beforePhotos, afterPhotos, workDate, 
-                startTime, endTime, category, location, remarks
-            };
-            localStorage.setItem(`work_update_data_${taskId}`, JSON.stringify(dataToSave));
-        }
-    }, [description, beforePhotos, afterPhotos, workDate, startTime, endTime, category, location, remarks, taskId]);
+        const dataToSave = {
+            description, beforePhotos, afterPhotos, workDate, 
+            startTime, endTime, category, location, remarks
+        };
+        localStorage.setItem(persistenceKey, JSON.stringify(dataToSave));
+    }, [description, beforePhotos, afterPhotos, workDate, startTime, endTime, category, location, remarks, persistenceKey]);
 
     // Handle time calculation
     useEffect(() => {
@@ -114,6 +114,12 @@ const WorkUpdatesPage: React.FC = () => {
         reader.onloadend = () => {
             const base64String = reader.result as string;
             
+            // Add to Prior Site History immediately as requested
+            const currentHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            const updatedHistory = [base64String, ...currentHistory].slice(0, 4);
+            localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
+            setPriorPhotos(updatedHistory);
+
             if (type === 'before') {
                 if (beforePhotos.length >= 4) return toast.error("Max 4 photos allowed");
                 setBeforePhotos(prev => [...prev, base64String]);
@@ -121,9 +127,9 @@ const WorkUpdatesPage: React.FC = () => {
                 // Sync status to In Progress
                 if (taskId) {
                     localStorage.setItem(`task_status_${taskId}`, 'In Progress');
-                    toast.success("Before photo attached - Task status updated to In Progress");
+                    toast.success("Added to history & attached as Before photo");
                 } else {
-                    toast.success("Before photo attached");
+                    toast.success("Added to history & attached");
                 }
             } else {
                 if (afterPhotos.length >= 4) return toast.error("Max 4 photos allowed");
@@ -132,9 +138,9 @@ const WorkUpdatesPage: React.FC = () => {
                 // Sync status to Completed
                 if (taskId) {
                     localStorage.setItem(`task_status_${taskId}`, 'Completed');
-                    toast.success("After photo attached - Task marked as Completed");
+                    toast.success("Added to history & attached as After photo");
                 } else {
-                    toast.success("After photo attached");
+                    toast.success("Added to history & attached");
                 }
             }
         };
@@ -166,6 +172,10 @@ const WorkUpdatesPage: React.FC = () => {
                 const existingHistory = JSON.parse(localStorage.getItem(`task_history_photos_${taskId}`) || '[]');
                 const newHistory = [...beforePhotos, ...afterPhotos, ...existingHistory].slice(0, 4);
                 localStorage.setItem(`task_history_photos_${taskId}`, JSON.stringify(newHistory));
+                
+                // Update final status to Completed in local storage
+                localStorage.setItem(`task_status_${taskId}`, 'Completed');
+                
                 setPriorPhotos(newHistory);
                 localStorage.removeItem(`work_update_data_${taskId}`);
             }

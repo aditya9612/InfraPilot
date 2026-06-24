@@ -94,7 +94,8 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
                 canvasRef.current.width = videoRef.current.videoWidth;
                 canvasRef.current.height = videoRef.current.videoHeight;
                 ctx.drawImage(videoRef.current, 0, 0);
-                const dataUrl = canvasRef.current.toDataURL("image/png");
+                // Use JPEG — backend rejects PNG ("Invalid image type")
+                const dataUrl = canvasRef.current.toDataURL("image/jpeg", 0.85);
                 setCapturedImage(dataUrl);
                 setIsPhotoCaptured(true);
                 stopCamera();
@@ -155,15 +156,16 @@ const CheckInModal = ({ isOpen, onClose, onSubmit, projectId, workers = [] }: Ch
                 task_id: taskId,
                 latitude,
                 longitude,
-                location_address: workLocationType,
+                location_address: resolvedAddress,
                 resolved_address: resolvedAddress,
-                task_description: taskDescription || "Work",
+                task_description: taskDescription,
+                work_location_type: workLocationType,
                 check_in_image: capturedImage,
             };
             await onSubmit(payload);
-            onClose();
+            // Parent (AttendancePage) controls closing the modal after success
         } catch (err) {
-            console.error(err);
+            console.error('CheckInModal submit error:', err);
         } finally {
             setIsLoading(false);
         }
