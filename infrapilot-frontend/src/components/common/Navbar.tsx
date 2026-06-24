@@ -6,6 +6,8 @@ import { useState, useRef, useEffect } from "react";
 import { LogOut, User as UserIcon, Settings, Bell, CheckCheck } from "lucide-react";
 import Modal from "./Modal";
 import { notificationService, type Notification } from "../../services/notificationService";
+import { alertService } from "../../services/alertService";
+import { projectService } from "../../services/projectService";
 import { getFullImageUrl } from "../../utils/imageUtils";
 interface BreadcrumbItem {
   label: string;
@@ -65,9 +67,6 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           // Use project-aware fetching for Clients
           const projectIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("mock_settings") ? JSON.parse(localStorage.getItem("mock_settings") || "{}").project_id : null;
           const projectId = projectIdStr ? Number(projectIdStr) : null;
-
-          const { alertService } = await import("../../services/alertService");
-          const { projectService } = await import("../../services/projectService");
 
           const [generalData, projectAlertsRaw, taskAlertsRaw] = await Promise.all([
             alertService.getAlerts(),

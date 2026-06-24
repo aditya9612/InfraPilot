@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { X as XIcon, Upload } from "lucide-react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
-import StatCard from "../../../components/common/StatCard";
+
 import Modal from "../../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
@@ -23,8 +23,10 @@ import {
 } from "lucide-react";
 import { drawingService } from "../../../services/drawingService";
 import { projectService } from "../../../services/projectService";
+import { documentService } from "../../../services/documentService";
+import DocumentPreviewModal from "../../../components/dashboard/DocumentPreviewModal";
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ————————————————————————————————————————————————————————————————————————————————
 interface DrawingRecord {
     id: string | number;
     drawing_name: string;
@@ -37,12 +39,21 @@ interface DrawingRecord {
     approval_status?: string | null;
     approval_id?: string | null;
     project_id?: string | number;
-    is_folder?: boolean;
+
+    // Additional fields for Documents
+    title?: string;
+    document_type?: string | null;
+    file_size?: number | null;
+    status?: string;
     type?: string;
+    is_folder?: boolean;
     parent_id?: number | null;
+    uploaded_at?: string;
+    uploaded_by_user_id?: number;
+    project_name?: string;
 }
 
-// â”€â”€â”€ Initial State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ————————————————————————————————————————————————————————————————————————————————
 const initialFormData = {
     project_id: "",
     drawing_name: "",
@@ -66,6 +77,7 @@ const DrawingsDocumentsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [formData, setFormData] = useState<any>(initialFormData);
     const [projects, setProjects] = useState<any[]>([]);
+    const [usersMap, setUsersMap] = useState<Record<string, string>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -78,44 +90,75 @@ const DrawingsDocumentsPage = () => {
 
     const [approvalHistory, setApprovalHistory] = useState<any[]>([]);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+    const [folderFormData, setFolderFormData] = useState({ project_id: 92, title: "", parent_id: "" as string | number });
+
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+    const [viewingDoc, setViewingDoc] = useState<any>(null);
+
+    const [isDocEditModalOpen, setIsDocEditModalOpen] = useState(false);
+    const [docEditFormData, setDocEditFormData] = useState<any>({
+        id: 0, title: "", document_type: "", remarks: "", status: "PENDING", version: "v1.0", file: null
+    });
+
+    const [isDocCreateModalOpen, setIsDocCreateModalOpen] = useState(false);
+    const [docCreateFormData, setDocCreateFormData] = useState<any>({
+        project_id: 92, title: "", document_type: "", parent_id: "", remarks: "", file: null
+    });
 
     const [projectId, setProjectId] = useState<number>(92);
 
 
     // Type filter tabs: All / Documents / Drawings
-    const [typeFilter, setTypeFilter] = useState<"All" | "Documents" | "Drawings">("All");
+    const [typeFilter, setTypeFilter] = useState<"All" | "Documents" | "Drawings">("Drawings");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+    const [apiStats, setApiStats] = useState<any>(null);
 
 
-    // Resolve Project ID and fetch projects list
+    // Resolve Project ID and fetch projects and users
     useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const data = await projectService.getProjects(100, 0);
+                setProjects(Array.isArray(data) ? data : (data.items || data.data || []));
+            } catch (error) {
+                console.error("Failed to fetch projects", error);
+            }
+        };
+        
+        let resolvedProjectId = 92;
         const userStr = localStorage.getItem("infrapilot_user");
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
                 const pId = user?.default_project_id || user?.project_id || user?.user?.project_id;
                 if (pId) {
-                    setProjectId(Number(pId));
-                } else {
-                    setProjectId(92);
+                    resolvedProjectId = Number(pId);
                 }
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(92);
             }
         }
+        setProjectId(resolvedProjectId);
 
-        // Fetch all assigned projects
-        const fetchProjects = async () => {
+        const fetchUsers = async (pId: number) => {
             try {
-                const res = await projectService.getProjects(100, 0);
-                const list = Array.isArray(res) ? res : (res.items || res.data || []);
-                setProjects(list);
+                const res = await projectService.getProjectMembers(pId);
+                const usersList = Array.isArray(res) ? res : res.data || res.items || [];
+                const map: Record<string, string> = {};
+                usersList.forEach((u: any) => {
+                    const id = u.id || u.user_id;
+                    const name = u.name || (u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : null) || u.username;
+                    if (id && name) map[String(id)] = name;
+                });
+                setUsersMap(map);
             } catch (error) {
-                console.error("Failed to fetch projects", error);
+                console.error("Failed to fetch users", error);
             }
         };
+
         fetchProjects();
+        fetchUsers(resolvedProjectId);
     }, []);
 
     const fetchDrawings = useCallback(async () => {
@@ -128,27 +171,29 @@ const DrawingsDocumentsPage = () => {
 
             const promises: Promise<any>[] = [];
 
-            // 1. Fetch Drawings (Versions)
-            if (currentParentId === null) {
+            // 1. Fetch Drawings (Versions & Latest)
+            if (typeFilter === "Drawings" || typeFilter === "All") {
+                if (currentParentId === null) {
+                    promises.push(
+                        drawingService.getVersions(activeProjectId)
+                            .then(res => versionsResult = { status: 'fulfilled', value: res })
+                            .catch(err => versionsResult = { status: 'rejected', reason: err })
+                    );
+                }
                 promises.push(
-                    drawingService.getVersions(activeProjectId)
-                        .then(res => versionsResult = { status: 'fulfilled', value: res })
-                        .catch(err => versionsResult = { status: 'rejected', reason: err })
+                    drawingService.getLatest(activeProjectId)
+                        .catch(err => console.error(err))
                 );
             }
 
             // 2. Fetch Documents
-            promises.push(
-                drawingService.getDocuments({ project_id: activeProjectId, parent_id: currentParentId, limit: 100 })
-                    .then(res => docsResult = { status: 'fulfilled', value: res })
-                    .catch(err => docsResult = { status: 'rejected', reason: err })
-            );
-
-            // 3. Fetch Latest
-            promises.push(
-                drawingService.getLatest(activeProjectId)
-                    .catch(err => console.error(err))
-            );
+            if (typeFilter === "Documents" || typeFilter === "All") {
+                promises.push(
+                    drawingService.getDocuments({ project_id: activeProjectId, parent_id: currentParentId, limit: 100 })
+                        .then(res => docsResult = { status: 'fulfilled', value: res })
+                        .catch(err => docsResult = { status: 'rejected', reason: err })
+                );
+            }
 
             await Promise.allSettled(promises);
 
@@ -179,6 +224,7 @@ const DrawingsDocumentsPage = () => {
 
             const mappedDocs = apiDocs
                 .map((d: any) => ({
+                    ...d,
                     id: d.id,
                     drawing_name: d.title || d.drawing_name,
                     version: d.version || "v1.0",
@@ -191,27 +237,67 @@ const DrawingsDocumentsPage = () => {
                     is_folder: d.is_folder,
                     parent_id: d.parent_id,
                     document_type: d.document_type,
-                    type: d.is_folder ? "Folder" : "Document"
+                    type: d.is_folder ? "Folder" : "Document",
+                    // Preserve all raw fields for exact display
+                    project_name: d.project_name,
+                    title: d.title,
+                    file_size: d.file_size,
+                    status: d.status,
+                    uploaded_by_user_id: d.uploaded_by_user_id,
+                    uploaded_at: d.uploaded_at
                 }));
 
             const combined = [...mappedDrawings, ...mappedDocs].sort((a, b) => b.id - a.id);
             setDrawingData(combined);
+
+            try {
+                const stats = await documentService.getStats();
+                setApiStats(stats);
+            } catch (e) {
+                console.error("Failed to fetch API stats", e);
+            }
 
         } catch (error) {
             toast.error("Vault Sync Interrupted");
         } finally {
             setIsLoading(false);
         }
-    }, [projectId, currentParentId]);
+    }, [projectId, currentParentId, typeFilter]);
 
     useEffect(() => {
         fetchDrawings();
     }, [fetchDrawings]);
 
-    // Reset pagination on filter change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm]);
+    const openFolderModal = () => {
+        setFolderFormData({
+            project_id: projectId || 92,
+            title: "",
+            parent_id: currentParentId || ""
+        });
+        setIsFolderModalOpen(true);
+    };
+
+    const handleCreateFolder = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!folderFormData.title.trim()) return;
+
+        setIsSubmitting(true);
+        const toastId = toast.loading("Creating folder...");
+        try {
+            await documentService.createFolder({
+                project_id: Number(folderFormData.project_id),
+                title: folderFormData.title.trim(),
+                parent_id: folderFormData.parent_id ? Number(folderFormData.parent_id) : null
+            });
+            toast.success("Folder created successfully", { id: toastId });
+            setIsFolderModalOpen(false);
+            fetchDrawings();
+        } catch (error) {
+            toast.error("Failed to create folder", { id: toastId });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -229,7 +315,7 @@ const DrawingsDocumentsPage = () => {
         const newErrors: Record<string, string> = {};
         if (!formData.drawing_name?.trim()) newErrors.drawing_name = "Required";
         if (!formData.version?.trim()) newErrors.version = "Required";
-        if (!formData.project_id) newErrors.project_id = "Required";
+        if (!isEditMode && !formData.project_id) newErrors.project_id = "Required";
         if (!isEditMode && !formData.file) newErrors.file = "Blueprint file is required";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -257,15 +343,10 @@ const DrawingsDocumentsPage = () => {
             if (isEditMode) {
                 try {
                     const updatePayload = {
-                        project_id: Number(formData.project_id),
                         drawing_name: formData.drawing_name,
                         version: formData.version,
                         date: formData.date || new Date().toISOString().split('T')[0],
-                        remarks: formData.remarks || "Uploaded from dashboard",
-                        id: formData.id,
-                        file_url: formData.file_url || null,
-                        approval_status: formData.approval_status || null,
-                        approval_id: formData.approval_id || null
+                        remarks: formData.remarks || ""
                     };
                     const response = await drawingService.updateDrawing(formData.id, updatePayload);
                     toast.success("Asset updated successfully", { id: toastId, duration: 3000 });
@@ -314,6 +395,19 @@ const DrawingsDocumentsPage = () => {
     };
 
     const handleViewDocument = async (drawing: DrawingRecord) => {
+        if (typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder") {
+            const toastId = toast.loading("Fetching document metadata...");
+            try {
+                const data = await documentService.getDocument(Number(drawing.id));
+                setViewingDoc(data);
+                setIsPreviewModalOpen(true);
+                toast.dismiss(toastId);
+            } catch (error) {
+                toast.error("Failed to fetch document metadata", { id: toastId });
+            }
+            return;
+        }
+
         setSelectedDrawing(drawing);
         setViewBlobUrl(null);
         setIsViewLoading(true);
@@ -347,6 +441,20 @@ const DrawingsDocumentsPage = () => {
     };
 
     const handleEditClick = (drawing: DrawingRecord) => {
+        if (typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder") {
+            setDocEditFormData({
+                id: Number(drawing.id),
+                title: drawing.title || drawing.drawing_name || "",
+                document_type: drawing.document_type || "",
+                remarks: drawing.remarks || "",
+                status: drawing.status || drawing.approval_status || "PENDING",
+                version: drawing.version || "v1.0",
+                file: null
+            });
+            setIsDocEditModalOpen(true);
+            return;
+        }
+
         setFormData({
             project_id: (drawing as any).project_id || "",
             id: drawing.id,
@@ -363,9 +471,109 @@ const DrawingsDocumentsPage = () => {
         setIsFormModalOpen(true);
     };
 
-    const handleDownloadDocument = async (drawing: DrawingRecord) => {
-        const toastId = toast.loading(`Downloading ${drawing.drawing_name}...`);
+    const handleDocEditSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        const toastId = toast.loading("Updating document...");
         try {
+            const formData = new FormData();
+            if (docEditFormData.title) formData.append("title", docEditFormData.title);
+            if (docEditFormData.document_type) formData.append("document_type", docEditFormData.document_type);
+            if (docEditFormData.remarks) formData.append("remarks", docEditFormData.remarks);
+            if (docEditFormData.status) formData.append("status", docEditFormData.status);
+            if (docEditFormData.version) formData.append("version", docEditFormData.version);
+            if (docEditFormData.file) formData.append("file", docEditFormData.file);
+
+            await documentService.updateDocument(docEditFormData.id, formData);
+            toast.success("Document updated successfully", { id: toastId });
+            setIsDocEditModalOpen(false);
+            fetchDrawings();
+        } catch (error) {
+            toast.error("Failed to update document", { id: toastId });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDocCreateSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!docCreateFormData.file) {
+            toast.error("Please select a file to upload.");
+            return;
+        }
+        setIsSubmitting(true);
+        const toastId = toast.loading("Creating document...");
+        try {
+            await documentService.uploadDocument({
+                project_id: docCreateFormData.project_id || projectId || 92,
+                title: docCreateFormData.title,
+                document_type: docCreateFormData.document_type || "Other",
+                parent_id: docCreateFormData.parent_id ? Number(docCreateFormData.parent_id) : currentParentId || null,
+                remarks: docCreateFormData.remarks,
+                file: docCreateFormData.file
+            });
+            toast.success("Document created successfully", { id: toastId });
+            setIsDocCreateModalOpen(false);
+            setDocCreateFormData({ project_id: projectId || 92, title: "", document_type: "", parent_id: "", remarks: "", file: null });
+            fetchDrawings();
+        } catch (error) {
+            toast.error("Failed to create document", { id: toastId });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const buildFileUrl = (file_url: string) => {
+        if (!file_url) return "";
+        const normalizedUrl = file_url.replace(/\\/g, '/');
+        if (normalizedUrl.startsWith('http')) return normalizedUrl;
+        const path = normalizedUrl.startsWith('/') ? normalizedUrl : `/${normalizedUrl}`;
+        let baseUrl = import.meta.env.VITE_API_URL || '';
+        if (baseUrl.startsWith('http')) {
+            baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+        } else {
+            baseUrl = 'https://infrapilot.in';
+        }
+        return `${baseUrl}${path}`;
+    };
+
+    const handleDownloadDocument = async (drawing: DrawingRecord) => {
+        const toastId = toast.loading(`Downloading ${drawing.drawing_name || drawing.title || "document"}...`);
+        try {
+            if (typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder") {
+                let file_url = drawing.file_url;
+                if (!file_url) {
+                    const data = await documentService.getDownloadUrl(Number(drawing.id));
+                    file_url = typeof data === 'string' ? data : (data as any)?.file_url;
+                }
+                if (!file_url) throw new Error("File path not available");
+
+                const fullUrl = buildFileUrl(file_url);
+
+                const userString = localStorage.getItem("infrapilot_user");
+                const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
+                
+                const response = await fetch(fullUrl, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = objectUrl;
+                const extension = file_url.replace(/\\/g, '/').split('.').pop()?.split('?')[0] || '';
+                const downloadName = (drawing.title || drawing.drawing_name || 'document').toLowerCase().endsWith(`.${extension.toLowerCase()}`)
+                    ? (drawing.title || drawing.drawing_name || 'document')
+                    : `${drawing.title || drawing.drawing_name || 'document'}.${extension}`;
+                link.download = downloadName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(objectUrl);
+                toast.success("Download successful", { id: toastId });
+                return;
+            }
+
             const originalUrl = drawing.file_url || drawing.upload_file;
             await drawingService.downloadDocument(drawing.id, drawing.drawing_name, originalUrl);
             toast.success("Download successful", { id: toastId });
@@ -436,7 +644,6 @@ const DrawingsDocumentsPage = () => {
         return filteredDrawings.slice(startIndex, startIndex + itemsPerPage);
     }, [filteredDrawings, currentPage, itemsPerPage]);
 
-
     const stats = useMemo(() => {
         let allCount = 0;
         let docsCount = 0;
@@ -460,6 +667,15 @@ const DrawingsDocumentsPage = () => {
             drawings: drawingsCount
         };
     }, [drawingData]);
+
+    const formatBytes = (bytes: number) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
     const inputClasses = (error?: string) => `
@@ -488,27 +704,102 @@ const DrawingsDocumentsPage = () => {
                         >
                             <RefreshCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
-                        <button
-                            onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
-                            className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Log Document
-                        </button>
+                        {typeFilter === "Documents" ? (
+                            <>
+                                <button
+                                    onClick={openFolderModal}
+                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
+                                >
+                                    <Folder className="w-4 h-4 text-primary" />
+                                    Folder
+                                </button>
+                                <button
+                                    onClick={() => { 
+                                        setDocCreateFormData({
+                                            project_id: projectId || 92, 
+                                            title: "", 
+                                            document_type: "Other", 
+                                            parent_id: currentParentId || "", 
+                                            remarks: "", 
+                                            file: null
+                                        }); 
+                                        setIsDocCreateModalOpen(true); 
+                                    }}
+                                    className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Upload Document
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
+                                className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Upload Drawing
+                            </button>
+                        )}
                     </div>
                 </div>
 
+                {typeFilter === "Documents" ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-slate-800 tracking-tight">{apiStats?.total_documents || stats.all}</span>
+                            </div>
+                            <span className="text-xs text-slate-500 font-medium mt-1">All Vault Assets</span>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Approvals</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-amber-500 tracking-tight">{apiStats?.pending_approvals || 0}</span>
+                            </div>
+                            <span className="text-xs text-slate-500 font-medium mt-1">Awaiting Review</span>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Storage Used</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-indigo-500 tracking-tight">{apiStats?.total_storage_bytes ? formatBytes(apiStats.total_storage_bytes) : "0 B"}</span>
+                            </div>
+                            <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">All Files</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-slate-800 tracking-tight">{stats.all}</span>
+                            </div>
+                            <span className="text-xs text-slate-500 font-medium mt-1">Total Assets</span>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Drawings</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-amber-500 tracking-tight">{stats.drawings}</span>
+                            </div>
+                            <span className="text-xs text-slate-500 font-medium mt-1">Images & CAD</span>
+                        </div>
+                    </div>
+                )}
+
                 {/* —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————— */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
-                    <div onClick={() => { setTypeFilter("All"); setCurrentPage(1); }} className={`cursor-pointer group transition-all rounded-xl ${typeFilter === "All" ? "ring-2 ring-primary/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="All Files" value={stats.all.toString()} sub="Total Assets" accent="text-slate-800" />
-                    </div>
-                    <div onClick={() => { setTypeFilter("Documents"); setCurrentPage(1); }} className={`cursor-pointer group transition-all rounded-xl ${typeFilter === "Documents" ? "ring-2 ring-blue-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Documents" value={stats.documents.toString()} sub="PDFs, Docs, Excels" accent="text-blue-500" />
-                    </div>
-                    <div onClick={() => { setTypeFilter("Drawings"); setCurrentPage(1); }} className={`cursor-pointer group transition-all rounded-xl ${typeFilter === "Drawings" ? "ring-2 ring-amber-500/20 bg-white shadow-sm scale-[1.02]" : "hover:scale-[1.01]"}`}>
-                        <StatCard title="Drawings" value={stats.drawings.toString()} sub="Images & CAD" accent="text-amber-500" />
-                    </div>
+                <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 md:mb-8 max-w-full overflow-x-auto scrollbar-none font-inter">
+                    <button
+                        onClick={() => { setTypeFilter("Drawings"); setCurrentPage(1); }}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${typeFilter === "Drawings" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+                    >
+                        Drawings List
+                    </button>
+                    <button
+                        onClick={() => { setTypeFilter("Documents"); setCurrentPage(1); }}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${typeFilter === "Documents" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+                    >
+                        Documents List
+                    </button>
                 </div>
 
                 {/* ———————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————— */}
@@ -526,22 +817,6 @@ const DrawingsDocumentsPage = () => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                             />
-                        </div>
-
-                        {/* Type Filter Tabs */}
-                        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl font-inter">
-                            {(["All", "Documents", "Drawings"] as const).map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => { setTypeFilter(tab); setCurrentPage(1); }}
-                                    className={`px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all font-inter ${typeFilter === tab
-                                        ? "bg-white text-primary shadow-sm"
-                                        : "text-slate-500 hover:text-slate-700"
-                                        }`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
                         </div>
 
                         {/* Sort Filter */}
@@ -575,148 +850,231 @@ const DrawingsDocumentsPage = () => {
 
                     <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter mt-2">
                         <table className="w-full text-left font-inter min-w-[1200px]">
-                            <thead>
-                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                    <th className="px-6 py-4 font-inter">Asset</th>
-                                    <th className="px-6 py-4 font-inter">Engineering Asset</th>
-                                    <th className="px-6 py-4 font-inter">Version Profile</th>
-                                    <th className="px-6 py-4 font-inter">Approval Status</th>
-                                    <th className="px-6 py-4 font-inter">Vault Date</th>
-                                    <th className="px-6 py-4 text-right font-inter">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50 font-inter">
-                                {isLoading ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-20 text-center font-inter">
-                                            <div className="flex flex-col items-center gap-3 font-inter">
-                                                <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing vault intelligence...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : paginatedDrawings.length > 0 ? (
-                                    paginatedDrawings.map((drawing, index) => (
-                                        <tr key={`${drawing.type}_${drawing.id}_${index}`} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                            <td className="px-6 py-4 font-inter">
-                                                {(() => {
-                                                    if (drawing.is_folder || drawing.type === "Folder") {
-                                                        return (
-                                                            <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
-                                                                <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest leading-none">DIR</span>
-                                                                <Folder className="w-5 h-5 text-indigo-500" />
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    const fileUrl = (drawing.file_url || drawing.upload_file || "").toLowerCase();
-                                                    const isPdf = fileUrl.endsWith(".pdf");
-                                                    const isDoc = fileUrl.endsWith(".doc") || fileUrl.endsWith(".docx");
-                                                    const isExcel = fileUrl.endsWith(".xls") || fileUrl.endsWith(".xlsx") || fileUrl.endsWith(".csv");
-                                                    const isDwg = fileUrl.endsWith(".dwg") || fileUrl.endsWith(".dxf");
-                                                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(fileUrl);
-
-                                                    if (isPdf) return (
-                                                        <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
-                                                            <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest leading-none">PDF</span>
-                                                            <FileText className="w-5 h-5 text-rose-500" />
-                                                        </div>
-                                                    );
-                                                    if (isDoc) return (
-                                                        <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
-                                                            <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-none">DOC</span>
-                                                            <FileText className="w-5 h-5 text-blue-500" />
-                                                        </div>
-                                                    );
-                                                    if (isExcel) return (
-                                                        <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
-                                                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest leading-none">XLS</span>
-                                                            <FileText className="w-5 h-5 text-emerald-500" />
-                                                        </div>
-                                                    );
-                                                    if (isDwg) return (
-                                                        <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
-                                                            <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest leading-none">DWG</span>
-                                                            <FileText className="w-5 h-5 text-amber-500" />
-                                                        </div>
-                                                    );
-                                                    if (isImage) return (
-                                                        <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
-                                                            <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest leading-none">IMG</span>
-                                                            <FileText className="w-5 h-5 text-purple-500" />
-                                                        </div>
-                                                    );
-                                                    // Unknown / no extension — generic doc icon
-                                                    return (
-                                                        <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 shadow-sm group-hover:scale-105 transition-transform flex items-center justify-center font-inter">
-                                                            <FileText className="w-6 h-6 text-slate-400" />
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </td>
-                                            <td className="px-6 py-4 font-inter">
-                                                <div className="flex flex-col font-inter">
-                                                    {(drawing.is_folder || drawing.type === "Folder") ? (
-                                                        <button
-                                                            onClick={() => handleFolderClick(drawing)}
-                                                            className="text-sm font-bold text-indigo-600 hover:text-indigo-800 text-left hover:underline font-inter w-fit"
-                                                        >
-                                                            {drawing.drawing_name}
-                                                        </button>
-                                                    ) : (
-                                                        <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
-                                                    )}
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
-                                                        {drawing.file_url || drawing.upload_file || ((drawing.is_folder || drawing.type === "Folder") ? "Directory" : "Cloud Sync")}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 font-inter">
-                                                <span className="px-2.5 py-1 bg-slate-100 text-[10px] font-bold text-slate-500 rounded-lg uppercase tracking-widest border border-slate-200 font-inter">
-                                                    {drawing.version}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 font-inter">
-                                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${drawing.approval_status === "Approved"
-                                                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                                                    : drawing.approval_status === "Pending"
-                                                        ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                        : "bg-slate-50 text-slate-500 border-slate-200"
-                                                    }`}>
-                                                    {drawing.approval_status || "Pending"}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 font-inter">
-                                                <span className="text-xs font-bold text-slate-500 font-inter">{drawing.date}</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-inter">
-                                                <div className="flex items-center justify-end gap-1.5 font-inter">
-                                                    <button onClick={() => handleViewDocument(drawing)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleEditClick(drawing)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Edit Asset">
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleDownloadDocument(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
-                                                        <Download className="w-4 h-4" />
-                                                    </button>
-                                                    <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
-                                                        <button onClick={() => handleViewHistory(drawing)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="View approval history">
-                                                            <History className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </td>
+                            {typeFilter === "Documents" ? (
+                                <>
+                                    <thead>
+                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter whitespace-nowrap">
+                                            <th className="px-4 py-4">project_name</th>
+                                            <th className="px-4 py-4">title</th>
+                                            <th className="px-4 py-4">document_type</th>
+                                            <th className="px-4 py-4">file_url</th>
+                                            <th className="px-4 py-4">file_size</th>
+                                            <th className="px-4 py-4">version</th>
+                                            <th className="px-4 py-4">status</th>
+                                            <th className="px-4 py-4">is_folder</th>
+                                            <th className="px-4 py-4">parent_id</th>
+                                            <th className="px-4 py-4">uploaded_at</th>
+                                            <th className="px-4 py-4">remarks</th>
+                                            <th className="px-4 py-4 text-right">Actions</th>
                                         </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
-                                            No technical blueprints found in the project vault.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50 font-inter whitespace-nowrap">
+                                        {isLoading ? (
+                                            <tr>
+                                                <td colSpan={12} className="px-6 py-20 text-center font-inter">
+                                                    <div className="flex flex-col items-center gap-3 font-inter">
+                                                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing vault intelligence...</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : paginatedDrawings.length > 0 ? (
+                                            paginatedDrawings.map((drawing: any, index) => (
+                                                <tr key={`doc_${drawing.id}_${index}`} className="hover:bg-slate-50/50 transition-colors group font-inter text-[11px] font-medium text-slate-600">
+                                                    <td className="px-4 py-3">{drawing.project_name}</td>
+                                                    <td className="px-4 py-3 font-bold text-slate-800">
+                                                        {drawing.is_folder ? (
+                                                            <button onClick={() => handleFolderClick(drawing)} className="text-indigo-600 hover:underline">{drawing.title || drawing.drawing_name}</button>
+                                                        ) : (
+                                                            drawing.title || drawing.drawing_name
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3">{drawing.document_type !== undefined ? String(drawing.document_type) : "null"}</td>
+                                                    <td className="px-4 py-3 truncate max-w-[150px]" title={drawing.file_url}>{drawing.file_url || "null"}</td>
+                                                    <td className="px-4 py-3">{drawing.file_size !== undefined ? String(drawing.file_size) : "null"}</td>
+                                                    <td className="px-4 py-3">{drawing.version}</td>
+                                                    <td className="px-4 py-3">
+                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                                            {drawing.status || drawing.approval_status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3">{drawing.is_folder ? "true" : "false"}</td>
+                                                    <td className="px-4 py-3">{drawing.parent_id !== undefined && drawing.parent_id !== null ? (drawingData.find((d: any) => d.id == drawing.parent_id)?.drawing_name || drawing.parent_id) : "null"}</td>
+                                                    <td className="px-4 py-3">{drawing.uploaded_at || "null"}</td>
+                                                    <td className="px-4 py-3 truncate max-w-[150px]" title={drawing.remarks}>{drawing.remarks || "null"}</td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        <div className="flex items-center justify-end gap-1.5 font-inter">
+                                                            <button onClick={() => handleViewDocument(drawing)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View Details">
+                                                                <Eye className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={() => handleEditClick(drawing)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Edit Asset">
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={() => handleDownloadDocument(drawing)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Download File">
+                                                                <Download className="w-4 h-4" />
+                                                            </button>
+
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={12} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                                    No documents found.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </>
+                            ) : (
+                                <>
+                                    <thead>
+                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                            <th className="px-6 py-4 font-inter">Asset</th>
+                                            <th className="px-6 py-4 font-inter">Engineering Asset</th>
+                                            <th className="px-6 py-4 font-inter">Version Profile</th>
+                                            <th className="px-4 py-4 font-inter">Approval Status</th>
+                                            <th className="px-6 py-4 font-inter">Vault Date</th>
+                                            <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50 font-inter">
+                                        {isLoading ? (
+                                            <tr>
+                                                <td colSpan={6} className="px-6 py-20 text-center font-inter">
+                                                    <div className="flex flex-col items-center gap-3 font-inter">
+                                                        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing vault intelligence...</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : paginatedDrawings.length > 0 ? (
+                                            paginatedDrawings.map((drawing, index) => (
+                                                <tr key={`${drawing.type}_${drawing.id}_${index}`} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                    <td className="px-6 py-4 font-inter">
+                                                        {(() => {
+                                                            if (drawing.is_folder || drawing.type === "Folder") {
+                                                                return (
+                                                                    <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                                        <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest leading-none">DIR</span>
+                                                                        <Folder className="w-5 h-5 text-indigo-500" />
+                                                                    </div>
+                                                                );
+                                                            }
+
+                                                            const fileUrl = (drawing.file_url || drawing.upload_file || "").toLowerCase();
+                                                            const isPdf = fileUrl.endsWith(".pdf");
+                                                            const isDoc = fileUrl.endsWith(".doc") || fileUrl.endsWith(".docx");
+                                                            const isExcel = fileUrl.endsWith(".xls") || fileUrl.endsWith(".xlsx") || fileUrl.endsWith(".csv");
+                                                            const isDwg = fileUrl.endsWith(".dwg") || fileUrl.endsWith(".dxf");
+                                                            const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(fileUrl);
+
+                                                            if (isPdf) return (
+                                                                <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                                    <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest leading-none">PDF</span>
+                                                                    <FileText className="w-5 h-5 text-rose-500" />
+                                                                </div>
+                                                            );
+                                                            if (isDoc) return (
+                                                                <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                                    <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-none">DOC</span>
+                                                                    <FileText className="w-5 h-5 text-blue-500" />
+                                                                </div>
+                                                            );
+                                                            if (isExcel) return (
+                                                                <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                                    <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest leading-none">XLS</span>
+                                                                    <FileText className="w-5 h-5 text-emerald-500" />
+                                                                </div>
+                                                            );
+                                                            if (isDwg) return (
+                                                                <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                                    <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest leading-none">DWG</span>
+                                                                    <FileText className="w-5 h-5 text-amber-500" />
+                                                                </div>
+                                                            );
+                                                            if (isImage) return (
+                                                                <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                                                    <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest leading-none">IMG</span>
+                                                                    <FileText className="w-5 h-5 text-purple-500" />
+                                                                </div>
+                                                            );
+                                                            // Unknown / no extension — generic doc icon
+                                                            return (
+                                                                <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 shadow-sm group-hover:scale-105 transition-transform flex items-center justify-center font-inter">
+                                                                    <FileText className="w-6 h-6 text-slate-400" />
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </td>
+                                                    <td className="px-6 py-4 font-inter">
+                                                        <div className="flex flex-col font-inter">
+                                                            {(drawing.is_folder || drawing.type === "Folder") ? (
+                                                                <button
+                                                                    onClick={() => handleFolderClick(drawing)}
+                                                                    className="text-sm font-bold text-indigo-600 hover:text-indigo-800 text-left hover:underline font-inter w-fit"
+                                                                >
+                                                                    {drawing.drawing_name}
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
+                                                            )}
+                                                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
+                                                                {drawing.file_url || drawing.upload_file || ((drawing.is_folder || drawing.type === "Folder") ? "Directory" : "Cloud Sync")}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 font-inter">
+                                                        <span className="px-2.5 py-1 bg-slate-100 text-[10px] font-bold text-slate-500 rounded-lg uppercase tracking-widest border border-slate-200 font-inter">
+                                                            {drawing.version}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-4 font-inter">
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${drawing.approval_status === "Approved"
+                                                            ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                                                            : drawing.approval_status === "Pending"
+                                                                ? "bg-amber-50 text-amber-600 border-amber-200"
+                                                                : "bg-slate-50 text-slate-500 border-slate-200"
+                                                            }`}>
+                                                            {drawing.approval_status || "Pending"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 font-inter">
+                                                        <span className="text-xs font-bold text-slate-500 font-inter">{drawing.date}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right font-inter">
+                                                        <div className="flex items-center justify-end gap-1.5 font-inter">
+                                                            <button onClick={() => handleViewDocument(drawing)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
+                                                                <Eye className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={() => handleEditClick(drawing)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Edit Asset">
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={() => handleDownloadDocument(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
+                                                                <Download className="w-4 h-4" />
+                                                            </button>
+                                                            {drawing.type !== "Document" && drawing.type !== "Folder" && (
+                                                                <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
+                                                                    <button onClick={() => handleViewHistory(drawing)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="View approval history">
+                                                                        <History className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                                    No technical blueprints found in the project vault.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </>
+                            )}
                         </table>
                     </div>
 
@@ -977,19 +1335,21 @@ const DrawingsDocumentsPage = () => {
                             Core Blueprint Identity
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
-                            <div className="font-inter md:col-span-2">
-                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                                <select name="project_id" value={formData.project_id} onChange={handleInputChange} className={inputClasses(errors.project_id)}>
-                                    <option value="">Select Project</option>
-                                    {projects.map(p => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                        </option>
-                                    ))}
-                                </select>
-                                {errors.project_id && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
-                            </div>
-                            <div className="font-inter">
+                            {!isEditMode && (
+                                <div className="font-inter md:col-span-2">
+                                    <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
+                                    <select name="project_id" value={formData.project_id} onChange={handleInputChange} className={inputClasses(errors.project_id)}>
+                                        <option value="">Select Project</option>
+                                        {projects.map(p => (
+                                            <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                                {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.project_id && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.project_id}</p>}
+                                </div>
+                            )}
+                            <div className={`font-inter ${isEditMode ? 'md:col-span-2' : ''}`}>
                                 <label className={labelClasses}>Descriptive Drawing Name <span className="text-rose-500">*</span></label>
                                 <input name="drawing_name" value={formData.drawing_name} onChange={handleInputChange} placeholder="e.g. Foundation Structural Detail" className={inputClasses(errors.drawing_name)} />
                                 {errors.drawing_name && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.drawing_name}</p>}
@@ -999,10 +1359,12 @@ const DrawingsDocumentsPage = () => {
                                 <input name="version" value={formData.version} onChange={handleInputChange} placeholder="e.g. V2.1" className={inputClasses(errors.version)} />
                                 {errors.version && <p className="mt-1.5 text-[10px] text-rose-500 font-bold uppercase tracking-widest ml-1 font-inter">{errors.version}</p>}
                             </div>
-                            <div className="font-inter">
-                                <label className={labelClasses}>Authorized Approver</label>
-                                <input name="approved_by" value={formData.approved_by} onChange={handleInputChange} placeholder="e.g. Chief Architect" className={inputClasses(errors.approved_by)} />
-                            </div>
+                            {!isEditMode && (
+                                <div className="font-inter">
+                                    <label className={labelClasses}>Authorized Approver</label>
+                                    <input name="approved_by" value={formData.approved_by} onChange={handleInputChange} placeholder="e.g. Chief Architect" className={inputClasses(errors.approved_by)} />
+                                </div>
+                            )}
                             <div className="font-inter">
                                 <label className={labelClasses}>Registration Sequence (Date)</label>
                                 <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputClasses(errors.date)} />
@@ -1147,7 +1509,7 @@ const DrawingsDocumentsPage = () => {
                                             </div>
                                             {(historyItem.requested_by || historyItem.approved_by) && (
                                                 <div className="mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
-                                                    By: User ID {historyItem.approved_by || historyItem.requested_by}
+                                                    By: {historyItem.approver_name || historyItem.requester_name || historyItem.user_name || usersMap[String(historyItem.approved_by || historyItem.requested_by)] || `User ID ${historyItem.approved_by || historyItem.requested_by}`}
                                                 </div>
                                             )}
                                         </div>
@@ -1161,6 +1523,230 @@ const DrawingsDocumentsPage = () => {
                         )}
                     </div>
                 </div>
+            </Modal>
+
+            {/* ── Folder Modal ────────────────────────────────────────────────────────── */}
+            <Modal 
+                isOpen={isFolderModalOpen} 
+                onClose={() => setIsFolderModalOpen(false)} 
+                title="Create Folder"
+                maxWidth="max-w-2xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button
+                            type="button"
+                            onClick={() => setIsFolderModalOpen(false)}
+                            className="flex-1 py-3 bg-slate-50 text-slate-600 border-none rounded-xl text-sm font-bold hover:bg-slate-100 transition-all font-inter"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            form="folder-form"
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Creating...
+                                </>
+                            ) : "Create Folder"}
+                        </button>
+                    </div>
+                }
+            >
+                <form id="folder-form" onSubmit={handleCreateFolder} className="p-6 space-y-8 font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6 font-inter">
+                        <div>
+                            <label className={labelClasses}>PROJECT ID * REQUIRED</label>
+                            <select
+                                required
+                                value={folderFormData.project_id}
+                                onChange={(e) => setFolderFormData({ ...folderFormData, project_id: Number(e.target.value) })}
+                                className={inputClasses()}
+                            >
+                                <option value="">Select Project</option>
+                                {projects.map(p => (
+                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={labelClasses}>TITLE * REQUIRED</label>
+                            <input
+                                type="text"
+                                required
+                                value={folderFormData.title}
+                                onChange={(e) => setFolderFormData({ ...folderFormData, title: e.target.value })}
+                                className={inputClasses()}
+                                placeholder="title"
+                            />
+                        </div>
+                        <div>
+                            <label className={labelClasses}>PARENT ID</label>
+                            <input
+                                type="number"
+                                value={folderFormData.parent_id}
+                                onChange={(e) => setFolderFormData({ ...folderFormData, parent_id: e.target.value ? Number(e.target.value) : "" })}
+                                className={inputClasses()}
+                                placeholder="parent_id"
+                            />
+                        </div>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* ── Document Preview Modal ──────────────────────────────────────────────────────── */}
+            <DocumentPreviewModal
+                isOpen={isPreviewModalOpen}
+                onClose={() => {
+                    setIsPreviewModalOpen(false);
+                    setViewingDoc(null);
+                }}
+                document={viewingDoc ? {
+                    ...viewingDoc,
+                    name: viewingDoc.title,
+                    type: viewingDoc.document_type || "Folder",
+                    project: viewingDoc.project_name || "General",
+                    date: viewingDoc.uploaded_at ? new Date(viewingDoc.uploaded_at).toLocaleDateString() : new Date().toLocaleDateString(),
+                    isFolder: viewingDoc.is_folder,
+                    file_url: buildFileUrl(viewingDoc.file_url || "")
+                } : null}
+                onDownload={handleDownloadDocument}
+            />
+
+            {/* ── Document Edit Modal ────────────────────────────────────────────────────────── */}
+            <Modal isOpen={isDocEditModalOpen} onClose={() => setIsDocEditModalOpen(false)} title="Update Document" maxWidth="max-w-4xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button type="button" onClick={() => setIsDocEditModalOpen(false)} disabled={isSubmitting} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
+                        <button type="submit" form="doc-edit-form" disabled={isSubmitting || !docEditFormData.title} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update Document"}
+                        </button>
+                    </div>
+                }
+            >
+                <form id="doc-edit-form" onSubmit={handleDocEditSubmit} className="p-6 space-y-8 font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <Layers className="w-4 h-4 text-primary" />
+                            Core Document Identity
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Document Title <span className="text-rose-500">*</span></label>
+                                <input type="text" className={inputClasses()} value={docEditFormData.title} onChange={e => setDocEditFormData({...docEditFormData, title: e.target.value})} required />
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Document Type</label>
+                                <select className={inputClasses()} value={docEditFormData.document_type} onChange={e => setDocEditFormData({...docEditFormData, document_type: e.target.value})}>
+                                    <option value="General">General</option>
+                                    <option value="Drawing">Drawing</option>
+                                    <option value="Contract">Contract</option>
+                                    <option value="Invoice">Invoice</option>
+                                    <option value="Report">Report</option>
+                                    <option value="Blueprint">Blueprint</option>
+                                </select>
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Status</label>
+                                <select className={inputClasses()} value={docEditFormData.status} onChange={e => setDocEditFormData({...docEditFormData, status: e.target.value})}>
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                </select>
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Version</label>
+                                <input type="text" className={inputClasses()} value={docEditFormData.version} onChange={e => setDocEditFormData({...docEditFormData, version: e.target.value})} />
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Update File</label>
+                                <input type="file" className={inputClasses()} onChange={e => setDocEditFormData({...docEditFormData, file: e.target.files?.[0] || null})} />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <FileText className="w-4 h-4 text-primary" />
+                            Technical Specifications
+                        </h3>
+                        <div className="font-inter">
+                            <label className={labelClasses}>Remarks</label>
+                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docEditFormData.remarks} onChange={e => setDocEditFormData({...docEditFormData, remarks: e.target.value})} />
+                        </div>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* ── Document Create Modal ────────────────────────────────────────────────────────── */}
+            <Modal isOpen={isDocCreateModalOpen} onClose={() => setIsDocCreateModalOpen(false)} title="Upload Document" maxWidth="max-w-4xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button type="button" onClick={() => setIsDocCreateModalOpen(false)} disabled={isSubmitting} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50">Cancel</button>
+                        <button type="submit" form="doc-create-form" disabled={isSubmitting || !docCreateFormData.title || !docCreateFormData.file} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2">
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Upload Document"}
+                        </button>
+                    </div>
+                }
+            >
+                <form id="doc-create-form" onSubmit={handleDocCreateSubmit} className="p-6 space-y-8 font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <Layers className="w-4 h-4 text-primary" />
+                            Core Document Identity
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
+                                <select required className={inputClasses()} value={docCreateFormData.project_id} onChange={e => setDocCreateFormData({...docCreateFormData, project_id: Number(e.target.value)})}>
+                                    <option value="">Select Project</option>
+                                    {projects.map((p: any) => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Document Title <span className="text-rose-500">*</span></label>
+                                <input type="text" className={inputClasses()} value={docCreateFormData.title} onChange={e => setDocCreateFormData({...docCreateFormData, title: e.target.value})} required />
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Document Type</label>
+                                <select className={inputClasses()} value={docCreateFormData.document_type} onChange={e => setDocCreateFormData({...docCreateFormData, document_type: e.target.value})}>
+                                    <option value="General">General</option>
+                                    <option value="Drawing">Drawing</option>
+                                    <option value="Contract">Contract</option>
+                                    <option value="Invoice">Invoice</option>
+                                    <option value="Report">Report</option>
+                                    <option value="Blueprint">Blueprint</option>
+                                </select>
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Parent ID</label>
+                                <input type="number" className={inputClasses()} value={docCreateFormData.parent_id} onChange={e => setDocCreateFormData({...docCreateFormData, parent_id: e.target.value ? Number(e.target.value) : ""})} />
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>File <span className="text-rose-500">*</span></label>
+                                <input type="file" className={inputClasses()} onChange={e => setDocCreateFormData({...docCreateFormData, file: e.target.files?.[0] || null})} required />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <FileText className="w-4 h-4 text-primary" />
+                            Technical Specifications
+                        </h3>
+                        <div className="font-inter">
+                            <label className={labelClasses}>Remarks</label>
+                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docCreateFormData.remarks} onChange={e => setDocCreateFormData({...docCreateFormData, remarks: e.target.value})} />
+                        </div>
+                    </div>
+                </form>
             </Modal>
         </>
     );
