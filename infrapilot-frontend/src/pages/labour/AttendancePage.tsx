@@ -8,11 +8,9 @@ import {
     ArrowRight,
     Info,
     ChevronRight,
-    Loader2,
     User
 } from 'lucide-react';
-import { attendanceService } from '../../services/attendanceService';
-import type { AttendanceRecord, TodayStatusResponse } from '../../services/attendanceService';
+import { attendanceService, type AttendanceRecord, type TodayStatusResponse } from '../../services/attendanceService';
 import toast from 'react-hot-toast';
 import CheckInModal from '../../components/labour/CheckInModal';
 import CheckOutModal from '../../components/labour/CheckOutModal';
@@ -25,12 +23,11 @@ const AttendancePage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
-    const [isActionLoading, setIsActionLoading] = useState(false);
     const [liveLocation, setLiveLocation] = useState<string | null>(null);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        
+
         // Fetch live location
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
@@ -73,7 +70,6 @@ const AttendancePage: React.FC = () => {
     }, []);
 
     const handleCheckIn = async (data: any) => {
-        setIsActionLoading(true);
         try {
             const formData = new FormData();
             formData.append('attendance_date', new Date().toISOString().split('T')[0]);
@@ -149,14 +145,12 @@ const AttendancePage: React.FC = () => {
             const errorMsg = error.response?.data?.message || 'Check-in failed. Please try again.';
             toast.error(errorMsg);
         } finally {
-            setIsActionLoading(false);
         }
     };
 
 
     const handleCheckOut = async (data: any) => {
         if (!statusData?.attendance?.id) return;
-        setIsActionLoading(true);
         try {
             const checkoutId = statusData.attendance.id;
             const formData = new FormData();
@@ -213,7 +207,6 @@ const AttendancePage: React.FC = () => {
             const errorMsg = error.response?.data?.message || 'Check-out failed. Please try again.';
             toast.error(errorMsg);
         } finally {
-            setIsActionLoading(false);
         }
     };
 
@@ -274,48 +267,17 @@ const AttendancePage: React.FC = () => {
                                 </div>
 
                                 <div className="flex flex-col items-center justify-center py-10 space-y-6">
-                                    {statusData?.checked_in ? (
-                                        <>
-                                            <div className="w-24 h-24 rounded-full border-[6px] border-emerald-50 flex items-center justify-center relative">
-                                                <div className="absolute inset-0 rounded-full border border-emerald-200 animate-ping opacity-20" />
-                                                <div className="absolute inset-0 rounded-full border border-emerald-400" />
-                                                <Clock className="w-10 h-10 text-emerald-500" />
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-sm font-black text-slate-800 tracking-tight">Active Shift</p>
-                                                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-1">Checked in at {new Date(statusData.attendance?.in_time || "").toLocaleTimeString()}</p>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="w-24 h-24 rounded-full border-[6px] border-slate-50 flex items-center justify-center relative">
-                                                <div className="absolute inset-0 rounded-full border border-slate-200" />
-                                                <Info className="w-10 h-10 text-slate-300" />
-                                            </div>
-                                            <p className="text-sm font-black text-slate-400 tracking-tight">Not Checked in Yet.</p>
-                                        </>
-                                    )}
+                                    <div className="w-24 h-24 rounded-full border-[6px] border-slate-50 flex items-center justify-center relative">
+                                        <div className="absolute inset-0 rounded-full border border-slate-200" />
+                                        <Info className="w-10 h-10 text-slate-300" />
+                                    </div>
+                                    <p className="text-sm font-black text-slate-400 tracking-tight">Not Checked in Yet.</p>
                                 </div>
 
-                                {statusData?.checked_in ? (
-                                    <button 
-                                        onClick={() => setIsCheckOutModalOpen(true)}
-                                        disabled={statusData.checked_out || isActionLoading}
-                                        className="w-full bg-rose-600 hover:bg-rose-700 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-rose-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
-                                    >
-                                        {isActionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-                                        {statusData.checked_out ? "Already Checked Out" : "Check Out"}
-                                    </button>
-                                ) : (
-                                    <button 
-                                        onClick={() => setIsCheckInModalOpen(true)}
-                                        disabled={isActionLoading}
-                                        className="w-full bg-[#0062ff] hover:bg-[#0056e0] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-blue-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
-                                    >
-                                        {isActionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-                                        Check In
-                                    </button>
-                                )}
+                                <button className="w-full bg-[#0062ff] hover:bg-[#0056e0] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-blue-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] group/btn">
+                                    <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                                    Check In
+                                </button>
                             </div>
                         </div>
 
@@ -335,8 +297,8 @@ const AttendancePage: React.FC = () => {
                                                 key={filter}
                                                 onClick={() => setHistoryFilter(filter)}
                                                 className={`px-8 py-3 rounded-2xl text-sm font-black transition-all border ${historyFilter === filter
-                                                        ? 'bg-[#0062ff] text-white border-transparent shadow-xl shadow-blue-100'
-                                                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                                    ? 'bg-[#0062ff] text-white border-transparent shadow-xl shadow-blue-100'
+                                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                                                     }`}
                                             >
                                                 {filter}
@@ -351,12 +313,12 @@ const AttendancePage: React.FC = () => {
                                     <thead className="bg-slate-50/50">
                                         <tr>
                                             {[
-                                                'date', 'labour name', 'Department', 
-                                                'work location', 'checkin', 'checkout', 'hours', 
+                                                'date', 'labour name', 'Department',
+                                                'work location', 'checkin', 'checkout', 'hours',
                                                 'location', 'selfie', 'status', 'work summary'
                                             ].map(head => (
                                                 <th key={head} className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 whitespace-nowrap">
-                                                    {head}
+                                                    {head.replace(/_/g, ' ')}
                                                 </th>
                                             ))}
                                         </tr>
@@ -414,7 +376,7 @@ const AttendancePage: React.FC = () => {
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={12} className="py-20 text-center">
+                                                <td colSpan={11} className="py-20 text-center">
                                                     <div className="flex flex-col items-center justify-center space-y-4">
                                                         <div className="w-16 h-16 rounded-3xl bg-slate-50 flex items-center justify-center">
                                                             <Info className="w-8 h-8 text-slate-200" />
@@ -428,25 +390,24 @@ const AttendancePage: React.FC = () => {
                                 </table>
                             </div>
 
-                            <div className="p-6 bg-slate-50/30 flex items-center justify-between border-t border-slate-50">
-                                <div className="flex items-center gap-2">
-                                    <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
-                                        <ChevronRight className="w-4 h-4 rotate-180" />
-                                    </button>
-                                    <div className="flex items-center gap-1">
-                                        <span className="w-8 h-8 rounded-lg bg-[#0062ff] text-white flex items-center justify-center text-xs font-black">1</span>
-                                    </div>
-                                    <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
+                        <div className="p-6 bg-slate-50/30 flex items-center justify-between border-t border-slate-50">
+                            <div className="flex items-center gap-2">
+                                <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
+                                    <ChevronRight className="w-4 h-4 rotate-180" />
+                                </button>
+                                <div className="flex items-center gap-1">
+                                    <span className="w-8 h-8 rounded-lg bg-[#0062ff] text-white flex items-center justify-center text-xs font-black">1</span>
                                 </div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Sorted by Date (Latest First)</p>
+                                <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center bg-white text-slate-400 hover:text-blue-500 transition-colors disabled:opacity-50" disabled>
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
                             </div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Sorted by Date (Latest First)</p>
                         </div>
-
                     </div>
                 </div>
-            </PageTransition>
+            </div>
+        </PageTransition>
 
             <CheckInModal 
                 isOpen={isCheckInModalOpen}

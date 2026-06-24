@@ -19,8 +19,6 @@ import {
 import { labourService } from "../../../services/labourService";
 import { projectService } from "../../../services/projectService";
 import { masterService } from "../../../services/masterService";
-import { userService } from "../../../services/userService";
-import { contractorService } from "../../../services/contractorService";
 import type { LabourItem } from "../../../types/labour";
 
 const initialFormData = {
@@ -43,6 +41,16 @@ const formatAadhaar = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 12);
     const groups = digits.match(/.{1,4}/g);
     return groups ? groups.join("-") : digits;
+};
+
+const getFullUrl = (url: string | null) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('data:image')) return url;
+    const baseUrl = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '') 
+        : 'http://127.0.0.1:8000';
+    return `${baseUrl}/${url.replace(/^\/+/, '')}`;
 };
 
 const LaborDetailsPage = () => {
@@ -164,21 +172,27 @@ const LaborDetailsPage = () => {
             }
             console.log(`Personnel Registry Sync Success: Fetched ${allItems.length} records`);
 
-            // Fetch contractors to map names
-            let fetchedContractors: any[] = [];
-            try {
-                fetchedContractors = await contractorService.getContractorsByProject(projectId || 92);
-            } catch (err) {
-                console.error("Failed to fetch contractors for mapping", err);
-            }
+            // Get local additions
+            const localKey = `created_labourers_${projectId || 92}`;
+            const localSaved = localStorage.getItem(localKey);
+            const localItems = localSaved ? JSON.parse(localSaved) : [];
+
+            // Get local deletions
+            const deletedKey = `deleted_labourers_ids_${projectId || 92}`;
+            const deletedSaved = localStorage.getItem(deletedKey);
+            const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
 
             let combined = allItems;
-
-            // Map contractor names
-            combined = combined.map((l: any) => {
-                const cName = l.contractor_name || fetchedContractors.find((c: any) => c.id === l.contractor_id)?.name;
-                return { ...l, contractor_name: cName };
+            // Merge, avoiding duplicates
+            const existingIds = new Set(combined.map((l: any) => l.id));
+            localItems.forEach((l: any) => {
+                if (!existingIds.has(l.id)) {
+                    combined.unshift(l);
+                }
             });
+
+            // Filter out deleted laborers
+            combined = combined.filter((l: any) => !deletedIds.has(l.id));
 
             setLaborers(combined);
         } catch (error: any) {
@@ -198,29 +212,8 @@ const LaborDetailsPage = () => {
     const handleViewDetail = async (labourId: number) => {
         setLoadingId(labourId);
         try {
+            console.log(`Executing Detail Fetch: GET /labour/${labourId}`);
             const data = await labourService.getLabourById(labourId);
-            
-            // Map missing names for the UI
-            const tableRow = laborers.find((l) => l.id === labourId);
-            if (!data.contractor_name && tableRow?.contractor_name) {
-                data.contractor_name = tableRow.contractor_name;
-            }
-            if (!data.labour_type_name && data.labour_type_id) {
-                const lType = labourTypes.find((t: any) => t.id === data.labour_type_id);
-                if (lType) data.labour_type_name = lType.name || lType.type_name || lType.category || `Type ${lType.id}`;
-            }
-
-            // Fetch User Name for User ID
-            if (data.user_id) {
-                try {
-                    const userData = await userService.getUserById(data.user_id);
-                    data.user_name = userData.full_name || userData.name || `User ${data.user_id}`;
-                } catch(e) {
-                    console.error("Failed to fetch user mapping", e);
-                    data.user_name = `User ${data.user_id}`;
-                }
-            }
-
             setSelectedLaborer(data);
             setIsDetailModalOpen(true);
         } catch (err: any) {
@@ -285,11 +278,12 @@ const LaborDetailsPage = () => {
         try {
             if (formMode === "edit" && editId) {
                 const updatePayload = {
+                    aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
                     labour_name: formData.labour_name,
                     mobile_number: formData.mobile_number || undefined,
-                    email: formData.email || undefined,
-                    pan_number: formData.pan_number || undefined,
-                    address: formData.address || undefined,
+                    email: formData.email || null,
+                    pan_number: formData.pan_number || null,
+                    address: formData.address || null,
                     labour_type_id: Number(formData.labour_type_id),
                     custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : undefined,
                     custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : undefined,
@@ -321,7 +315,9 @@ const LaborDetailsPage = () => {
 
                 toast.success("Profile updated successfully");
             } else {
+                const activePId = assignProjectId ? Number(assignProjectId) : (projectId || 92);
                 const createPayload = {
+                    project_id: activePId,
                     aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
                     labour_name: formData.labour_name,
                     mobile_number: formData.mobile_number,
@@ -340,7 +336,6 @@ const LaborDetailsPage = () => {
                 const newLaborer = await labourService.createLabour(createPayload);
 
                 // Step 2: Explicitly assign worker to the project to ensure they appear in the list
-                const activePId = assignProjectId ? Number(assignProjectId) : (projectId || 92);
                 console.log(`Step 2: Assigning Worker ${newLaborer.id} to Project ${activePId}...`);
                 try {
                     await labourService.assignLabourToProject(newLaborer.id, activePId);
@@ -558,7 +553,6 @@ const LaborDetailsPage = () => {
                                         <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Effective OT Rate (₹)</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Contractor Name</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Status</th>
-                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Notes</th>
                                         <th className="px-4 py-4 text-right font-inter whitespace-nowrap">Actions</th>
                                     </tr>
                                 </thead>
@@ -596,7 +590,7 @@ const LaborDetailsPage = () => {
                                             {/* profile_image */}
                                             <td className="px-4 py-4">
                                                 {labor.profile_image ? (
-                                                    <img src={labor.profile_image} alt="profile" className="w-7 h-7 rounded-full object-cover border border-slate-200" />
+                                                    <img src={getFullUrl(labor.profile_image)} alt="profile" className="w-7 h-7 rounded-full object-cover border border-slate-200" />
                                                 ) : (
                                                     <span className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] text-slate-400 font-bold">{labor.labour_name?.charAt(0)}</span>
                                                 )}
@@ -638,10 +632,6 @@ const LaborDetailsPage = () => {
                                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter whitespace-nowrap ${labor.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                     {labor.status}
                                                 </span>
-                                            </td>
-                                            {/* notes */}
-                                            <td className="px-4 py-4">
-                                                <p className="text-[10px] text-slate-400 font-bold font-inter truncate max-w-[120px]" title={labor.notes || ""}>{labor.notes || "—"}</p>
                                             </td>
                                             {/* actions */}
                                             <td className="px-4 py-4 text-right">
@@ -850,11 +840,15 @@ const LaborDetailsPage = () => {
 
                             {/* labour_type_id * */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type ID <span className="text-rose-500">*</span></label>
-                                <select value={formData.labour_type_id || ""} onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })} className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`}>
-                                    <option value="">-- Select Labour Type --</option>
-                                    {labourTypes.map(t => (
-                                        <option key={t.id} value={t.id}>{t.name || t.type_name || t.category || `Type ${t.id}`}</option>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type <span className="text-rose-500">*</span></label>
+                                <select 
+                                    value={formData.labour_type_id || ""} 
+                                    onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })} 
+                                    className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`}
+                                >
+                                    <option value="" disabled>Select Labour Type</option>
+                                    {labourTypes.map((type) => (
+                                        <option key={type.id} value={type.id}>{type.name || type.type_name || `Type ${type.id}`}</option>
                                     ))}
                                 </select>
                                 {errors.labour_type_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_type_id}</p>}
@@ -875,7 +869,7 @@ const LaborDetailsPage = () => {
                             {/* contractor_id */}
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Contractor ID</label>
-                                <input type="number" value={formData.contractor_id || ""} onChange={(e) => setFormData({ ...formData, contractor_id: Number(e.target.value) })} placeholder="1" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                <input type="number" value={formData.contractor_id} onChange={(e) => setFormData({ ...formData, contractor_id: Number(e.target.value) })} placeholder="1" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
                             </div>
 
                             {/* status */}
@@ -922,7 +916,7 @@ const LaborDetailsPage = () => {
                             <div className="flex items-center gap-5">
                                 <div className="w-20 h-20 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative flex-shrink-0">
                                     {selectedLaborer.profile_image ? (
-                                        <img src={selectedLaborer.profile_image} alt="profile" className="w-full h-full rounded-2xl object-cover" />
+                                        <img src={getFullUrl(selectedLaborer.profile_image)} alt="profile" className="w-full h-full rounded-2xl object-cover" />
                                     ) : (
                                         <span className="text-3xl font-bold">{selectedLaborer.labour_name.charAt(0)}</span>
                                     )}
@@ -945,7 +939,9 @@ const LaborDetailsPage = () => {
                         {/* All fields in GET API sequence */}
                         <div className="grid grid-cols-2 gap-4 mb-6">
                             {([
-                                { label: 'App User Name', value: selectedLaborer.user_name || selectedLaborer.user_id || '—' },
+                                { label: 'ID', value: selectedLaborer.id },
+                                { label: 'Worker Code', value: selectedLaborer.worker_code },
+                                { label: 'User ID', value: selectedLaborer.user_id ?? '—' },
                                 { label: 'Role', value: selectedLaborer.role || '—' },
                                 { label: 'Aadhaar Number', value: selectedLaborer.aadhaar_number || '—' },
                                 { label: 'Labour Name', value: selectedLaborer.labour_name },
@@ -960,6 +956,7 @@ const LaborDetailsPage = () => {
                                 { label: 'Custom OT Rate/Hr (₹)', value: selectedLaborer.custom_ot_rate_per_hour != null ? `₹${selectedLaborer.custom_ot_rate_per_hour}` : '—' },
                                 { label: 'Effective Daily Wage (₹)', value: selectedLaborer.effective_daily_wage != null ? `₹${selectedLaborer.effective_daily_wage}` : '—', highlight: true },
                                 { label: 'Effective OT Rate (₹)', value: selectedLaborer.effective_ot_rate != null ? `₹${selectedLaborer.effective_ot_rate}` : '—', highlight: true },
+                                { label: 'Contractor ID', value: selectedLaborer.contractor_id ?? '—' },
                                 { label: 'Contractor Name', value: selectedLaborer.contractor_name || '—' },
                                 { label: 'Status', value: selectedLaborer.status },
                             ] as { label: string; value: any; highlight?: boolean }[]).map(({ label, value, highlight }) => (

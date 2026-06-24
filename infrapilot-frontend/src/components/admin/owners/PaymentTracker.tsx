@@ -20,6 +20,7 @@ export interface PaymentTransaction {
   paid_amount?: number;
   reference_code?: string;
   project_id?: string;
+  due_date?: string;
 }
 
 export default function PaymentTracker() {
@@ -129,7 +130,8 @@ export default function PaymentTracker() {
             milestone_name: resolvedMilestone,
             paid_amount: parseFloat(txn.paid_amount) || 0,
             reference_code: txn.reference_code,
-            project_id: String(txn.project_id)
+            project_id: String(txn.project_id),
+            due_date: txn.due_date
           };
         });
 
@@ -471,6 +473,14 @@ export default function PaymentTracker() {
                   {selectedTxn.status}
                 </span>
               </div>
+              {selectedTxn.due_date && (
+                <div className="flex justify-between pb-3 border-b border-slate-100">
+                  <span className="text-slate-500 text-sm">Due Date</span>
+                  <span className="text-slate-800 font-bold text-sm">
+                    {new Date(selectedTxn.due_date).toLocaleDateString('en-GB')}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between pb-3 border-b border-slate-100">
                 <span className="text-slate-500 text-sm">Milestone</span>
                 <span className="text-slate-800 font-medium text-sm">

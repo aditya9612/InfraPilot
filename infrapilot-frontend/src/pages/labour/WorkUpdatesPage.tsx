@@ -116,32 +116,37 @@ const WorkUpdatesPage: React.FC = () => {
             
             // Add to Prior Site History immediately as requested
             const currentHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
-            const updatedHistory = [base64String, ...currentHistory].slice(0, 4);
-            localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
-            setPriorPhotos(updatedHistory);
+            // Avoid duplicates in history
+            if (!currentHistory.includes(base64String)) {
+                const updatedHistory = [base64String, ...currentHistory].slice(0, 6);
+                localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
+                setPriorPhotos(updatedHistory);
+            }
 
             if (type === 'before') {
                 if (beforePhotos.length >= 4) return toast.error("Max 4 photos allowed");
-                setBeforePhotos(prev => [...prev, base64String]);
+                setBeforePhotos(prev => {
+                    const newPhotos = [...prev, base64String];
+                    return newPhotos;
+                });
                 
                 // Sync status to In Progress
                 if (taskId) {
                     localStorage.setItem(`task_status_${taskId}`, 'In Progress');
-                    toast.success("Added to history & attached as Before photo");
-                } else {
-                    toast.success("Added to history & attached");
                 }
+                toast.success("Added to history & attached as Before photo");
             } else {
                 if (afterPhotos.length >= 4) return toast.error("Max 4 photos allowed");
-                setAfterPhotos(prev => [...prev, base64String]);
+                setAfterPhotos(prev => {
+                    const newPhotos = [...prev, base64String];
+                    return newPhotos;
+                });
 
                 // Sync status to Completed
                 if (taskId) {
                     localStorage.setItem(`task_status_${taskId}`, 'Completed');
-                    toast.success("Added to history & attached as After photo");
-                } else {
-                    toast.success("Added to history & attached");
                 }
+                toast.success("Added to history & attached as After photo");
             }
         };
         reader.readAsDataURL(file);
@@ -168,15 +173,17 @@ const WorkUpdatesPage: React.FC = () => {
             }
         ).then(() => {
             // Save to history before clearing
+            const existingHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            // Filter out existing to avoid duplicates when merging
+            const currentUpdatePhotos = [...beforePhotos, ...afterPhotos];
+            const filteredOldHistory = existingHistory.filter((p: string) => !currentUpdatePhotos.includes(p));
+            const newHistory = [...currentUpdatePhotos, ...filteredOldHistory].slice(0, 8);
+            localStorage.setItem(historyKey, JSON.stringify(newHistory));
+            setPriorPhotos(newHistory);
+            
             if (taskId) {
-                const existingHistory = JSON.parse(localStorage.getItem(`task_history_photos_${taskId}`) || '[]');
-                const newHistory = [...beforePhotos, ...afterPhotos, ...existingHistory].slice(0, 4);
-                localStorage.setItem(`task_history_photos_${taskId}`, JSON.stringify(newHistory));
-                
                 // Update final status to Completed in local storage
                 localStorage.setItem(`task_status_${taskId}`, 'Completed');
-                
-                setPriorPhotos(newHistory);
                 localStorage.removeItem(`work_update_data_${taskId}`);
             }
 

@@ -74,21 +74,9 @@ const MaterialConsumptionPage = () => {
     };
     const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
-    const [usageForm, setUsageForm] = useState<{ quantity: number; project_id: number; issue_type: string; task_id: number }>({ quantity: 0, project_id: projectId, issue_type: "SITE", task_id: 0 });
+    const [usageForm, setUsageForm] = useState({ quantity: 0, project_id: projectId, issue_type: "SITE" });
     const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; remarks: string }>>({ from_project_id: projectId });
     const [updateTransferForm, setUpdateTransferForm] = useState({ status: "DELIVERED" as TransferStatus, remarks: "" });
-    const [tasksList, setTasksList] = useState<any[]>([]);
-
-    useEffect(() => {
-        if (isUsageModalOpen && usageForm.project_id) {
-            projectService.getTasks(usageForm.project_id, { limit: 100 })
-                .then(res => {
-                    const tasks = Array.isArray(res) ? res : (res.data || res.items || []);
-                    setTasksList(tasks);
-                })
-                .catch(() => {});
-        }
-    }, [isUsageModalOpen, usageForm.project_id]);
 
     // Fetch methods
     const fetchInventory = async () => {
@@ -107,18 +95,7 @@ const MaterialConsumptionPage = () => {
 
     const fetchTransactions = async () => {
         setIsLoading(true);
-        try { 
-            const data = await materialService.getProjectTransactions(projectId); 
-            setTransactions(data); 
-            
-            // Explicitly fetch the other API to show in network tab as requested
-            try {
-                const materialTransactions = await materialService.getTransactions(1);
-                console.log("Fetched Material 1 Transactions:", materialTransactions);
-            } catch (err) {
-                console.error("Failed to fetch material 1 transactions", err);
-            }
-        }
+        try { const data = await materialService.getLogs({ project_id: projectId }); setTransactions(data as any); }
         catch (e) { toast.error("Failed to load transactions"); }
         finally { setIsLoading(false); }
     };
@@ -317,7 +294,7 @@ const MaterialConsumptionPage = () => {
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.avg_rate)}</td>
                                                 <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <button onClick={() => { setSelectedInventory(i); setUsageForm({ quantity: 0, project_id: projectId, issue_type: "SITE", task_id: 0 }); setIsUsageModalOpen(true); }} className="px-4 py-2 bg-rose-50 text-rose-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Record Usage</button>
+                                                    <button onClick={() => { setSelectedInventory(i); setUsageForm({ quantity: 0, project_id: projectId, issue_type: "SITE" }); setIsUsageModalOpen(true); }} className="px-4 py-2 bg-rose-50 text-rose-600 hover:text-white hover:bg-rose-500 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all">Record Usage</button>
                                                 </td>
                                             </tr>
                                         )) : activeTab === "Transfers" ? paginatedTransfers.map(t => (
@@ -363,8 +340,7 @@ const MaterialConsumptionPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Usage Details</h3>
                         <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 mb-4"><p className="text-sm font-bold text-rose-800">{selectedInventory?.material_name}</p><p className="text-xs text-rose-600">Available: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>Project *</label><select required value={usageForm.project_id} onChange={e => setUsageForm({ ...usageForm, project_id: Number(e.target.value), task_id: 0 })} className={inputClasses}>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>Task (Optional)</label><select value={usageForm.task_id} onChange={e => setUsageForm({ ...usageForm, task_id: Number(e.target.value) })} className={inputClasses}><option value={0}>Select Task</option>{tasksList.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}</select></div>
+                            <div><label className={labelClasses}>Project *</label><select required value={usageForm.project_id} onChange={e => setUsageForm({ ...usageForm, project_id: Number(e.target.value) })} className={inputClasses}>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
                             <div><label className={labelClasses}>Quantity *</label><input type="number" required value={usageForm.quantity || ""} onChange={e => setUsageForm({ ...usageForm, quantity: Number(e.target.value) })} className={inputClasses} max={selectedInventory?.remaining_stock} /></div>
                             <div><label className={labelClasses}>Issue Type *</label><select required value={usageForm.issue_type} onChange={e => setUsageForm({ ...usageForm, issue_type: e.target.value })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
                         </div>

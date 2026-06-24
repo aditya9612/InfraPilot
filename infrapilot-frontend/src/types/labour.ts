@@ -23,7 +23,6 @@ export interface LabourItem {
   status: string;
   notes: string | null;
   // legacy / UI helpers
-  user_name?: string;
   skill_type?: string;
   daily_wage_rate?: string | number;
   project_id?: number | null;

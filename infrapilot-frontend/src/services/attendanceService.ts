@@ -4,39 +4,28 @@ export interface AttendanceRecord {
     id: number;
     user_id: number;
     full_name?: string;
-    in_time?: string;
-    out_time?: string;
     check_in_time?: string;
     check_out_time?: string;
     work_hours?: number;
-    working_hours?: number;
     overtime_hours?: number;
     attendance_date: string;
-    project_id?: number | null;
-    work_location_type?: string | null;
+    project_id?: number;
+    work_location_type?: string;
     is_outside_geofence?: boolean;
     is_late?: boolean;
     late_minutes?: number;
     is_early_departure?: boolean;
     early_minutes?: number;
     is_approved?: boolean;
-    approved_by_id?: number | null;
-    remarks?: string | null;
+    approved_by_id?: number;
+    remarks?: string;
     work_summary?: string;
     task_deadline_reason?: string;
     work_report_pdf?: string;
-    check_in_address?: string | null;
-    check_out_address?: string | null;
-    task_id?: string | null;
-    task_description?: string | null;
-}
-
-export interface AttendanceListResponse {
-    data: AttendanceRecord[];
-    total_count: number;
-    page: number;
-    page_size: number;
-    total_pages: number;
+    in_time?: string;
+    out_time?: string;
+    working_hours?: number;
+    check_in_address?: string;
 }
 
 export interface TodayStatusResponse {
@@ -45,6 +34,14 @@ export interface TodayStatusResponse {
     attendance: AttendanceRecord | null;
     running_hours: number;
     date: string;
+}
+
+export interface AttendanceListResponse {
+    data: AttendanceRecord[];
+    total_count: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
 }
 
 export const attendanceService = {

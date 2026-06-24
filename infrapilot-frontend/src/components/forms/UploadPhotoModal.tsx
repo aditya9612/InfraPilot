@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 
 import { ACTIVITY_TAGS, LOCATION_TAGS } from '../../pages/engineer/SitePhotosPage';
 import { projectService } from '../../services/projectService';
+import { dsrService } from '../../services/dsrService';
 
 interface UploadPhotoModalProps {
     isOpen: boolean;
@@ -25,6 +26,8 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
         dsr_id: "",
     });
     const [projects, setProjects] = useState<any[]>([]);
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [dsrs, setDsrs] = useState<any[]>([]);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,6 +46,9 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
             setSelectedFile(null);
             setErrors({});
         } else {
+            if (projectId) {
+                setFormData(prev => ({ ...prev, project_id: String(projectId) }));
+            }
             const fetchProjects = async () => {
                 try {
                     const res = await projectService.getProjects(100, 0);
@@ -55,6 +61,37 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
             fetchProjects();
         }
     }, [isOpen, projectId]);
+
+    useEffect(() => {
+        const fetchProjectData = async () => {
+            if (formData.project_id) {
+                const projectIdNum = Number(formData.project_id);
+                
+                // Fetch tasks independently
+                try {
+                    const tasksRes = await projectService.getTasks(projectIdNum);
+                    setTasks(Array.isArray(tasksRes) ? tasksRes : (tasksRes.items || tasksRes.data || []));
+                } catch (error) {
+                    console.error("Failed to fetch tasks for project", error);
+                    setTasks([]);
+                }
+
+                // Fetch DSRs independently
+                try {
+                    const dsrRes = await dsrService.getDsrByProject(projectIdNum);
+                    const dsrList = Array.isArray(dsrRes) ? dsrRes : (dsrRes.items || []);
+                    setDsrs(dsrList);
+                } catch (error) {
+                    console.error("Failed to fetch DSRs for project", error);
+                    setDsrs([]);
+                }
+            } else {
+                setTasks([]);
+                setDsrs([]);
+            }
+        };
+        fetchProjectData();
+    }, [formData.project_id]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -183,12 +220,24 @@ const UploadPhotoModal: React.FC<UploadPhotoModalProps> = ({ isOpen, onClose, on
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div>
-                            <label className={labelClasses}>Task ID <span className="normal-case text-slate-300">(optional)</span></label>
-                            <input type="number" min="1" name="task_id" value={formData.task_id} onChange={handleChange} className={inputClasses(errors.task_id)} placeholder="Enter Task ID..." />
+                            <label className={labelClasses}>Task <span className="normal-case text-slate-300">(optional)</span></label>
+                            <select name="task_id" value={formData.task_id} onChange={handleChange} className={inputClasses(errors.task_id)}>
+                                <option value="">Select Task...</option>
+                                {tasks.map(t => (
+                                    <option key={t.id} value={t.id}>{t.title || `Task #${t.id}`}</option>
+                                ))}
+                            </select>
                         </div>
                         <div>
-                            <label className={labelClasses}>DSR ID <span className="normal-case text-slate-300">(optional)</span></label>
-                            <input type="number" min="1" name="dsr_id" value={formData.dsr_id} onChange={handleChange} className={inputClasses(errors.dsr_id)} placeholder="Enter DSR ID..." />
+                            <label className={labelClasses}>DSR <span className="normal-case text-slate-300">(optional)</span></label>
+                            <select name="dsr_id" value={formData.dsr_id} onChange={handleChange} className={inputClasses(errors.dsr_id)}>
+                                <option value="">Select DSR...</option>
+                                {dsrs.map(d => (
+                                    <option key={d.id} value={d.id}>
+                                        {`DSR #${d.id}`}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

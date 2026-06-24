@@ -5,7 +5,7 @@ import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
 
 // Generic Wrapper Generator for Settings
-const createWrapper = (categoryTabs: {key: string, label: string}[], formsGenerators: Record<string, () => React.ReactNode>) => {
+const createWrapper = (categoryTabs: {key: string, label: string, icon?: string}[], formsGenerators: Record<string, () => React.ReactNode>) => {
   return ({ initialSubTab }: { initialSubTab?: string }) => {
     const navigate = useNavigate();
     const sub = initialSubTab || categoryTabs[0].key;
@@ -16,9 +16,10 @@ const createWrapper = (categoryTabs: {key: string, label: string}[], formsGenera
           <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 overflow-x-auto w-full md:w-auto">
             {categoryTabs.map(t => (
               <button key={t.key} onClick={() => navigate(`?sub=${t.key}`, { replace: true })}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                   sub === t.key ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
                 }`}>
+                {t.icon && <span>{t.icon}</span>}
                 {t.label}
               </button>
             ))}
@@ -46,8 +47,8 @@ const createWrapper = (categoryTabs: {key: string, label: string}[], formsGenera
 };
 
 const CompanySettingsWrapper = createWrapper([
-  { key: "profile", label: "Company Profile" }, { key: "branches", label: "Branches" }, 
-  { key: "departments", label: "Departments" }, { key: "documents", label: "Company Documents" }
+  { key: "profile", label: "Company Profile", icon: "🏢" }, { key: "branches", label: "Branches", icon: "📍" }, 
+  { key: "departments", label: "Departments", icon: "👥" }, { key: "documents", label: "Company Documents", icon: "📁" }
 ], {
   "profile": () => (
     <div className="space-y-6">
@@ -67,8 +68,8 @@ const CompanySettingsWrapper = createWrapper([
 });
 
 const FinancialSettingsWrapper = createWrapper([
-  { key: "year", label: "Financial Year" }, { key: "currency", label: "Currency" }, 
-  { key: "periods", label: "Fiscal Periods" }, { key: "numbering", label: "Account Numbering" }, { key: "balances", label: "Opening Balances" }
+  { key: "year", label: "Financial Year", icon: "📅" }, { key: "currency", label: "Currency", icon: "💱" }, 
+  { key: "periods", label: "Fiscal Periods", icon: "⏱️" }, { key: "numbering", label: "Account Numbering", icon: "🔢" }, { key: "balances", label: "Opening Balances", icon: "⚖️" }
 ], {
   "year": () => (
     <div className="space-y-6">
@@ -86,8 +87,8 @@ const FinancialSettingsWrapper = createWrapper([
 });
 
 const TaxSettingsWrapper = createWrapper([
-  { key: "gst", label: "GST Configuration" }, { key: "tds", label: "TDS Configuration" }, 
-  { key: "rates", label: "Tax Rates" }, { key: "rules", label: "Tax Rules" }
+  { key: "gst", label: "GST Configuration", icon: "🏛️" }, { key: "tds", label: "TDS Configuration", icon: "✂️" }, 
+  { key: "rates", label: "Tax Rates", icon: "📊" }, { key: "rules", label: "Tax Rules", icon: "📜" }
 ], {
   "gst": () => (
     <div className="space-y-6">
@@ -120,8 +121,8 @@ const TaxSettingsWrapper = createWrapper([
 });
 
 const InvoiceSettingsWrapper = createWrapper([
-  { key: "format", label: "Invoice Format" }, { key: "series", label: "Invoice Number Series" }, 
-  { key: "rabill", label: "RA Bill Format" }, { key: "credit", label: "Credit Note Format" }, { key: "templates", label: "PDF Templates" }
+  { key: "format", label: "Invoice Format", icon: "📄" }, { key: "series", label: "Invoice Number Series", icon: "🔢" }, 
+  { key: "rabill", label: "RA Bill Format", icon: "🏗️" }, { key: "credit", label: "Credit Note Format", icon: "💳" }, { key: "templates", label: "PDF Templates", icon: "🖨️" }
 ], {
   "series": () => (
     <div className="space-y-6">
@@ -147,8 +148,8 @@ const InvoiceSettingsWrapper = createWrapper([
 });
 
 const PaymentSettingsWrapper = createWrapper([
-  { key: "terms", label: "Payment Terms" }, { key: "banks", label: "Bank Accounts" }, 
-  { key: "modes", label: "Payment Modes" }, { key: "auto", label: "Auto Payment Rules" }
+  { key: "terms", label: "Payment Terms", icon: "⏱️" }, { key: "banks", label: "Bank Accounts", icon: "🏦" }, 
+  { key: "modes", label: "Payment Modes", icon: "💳" }, { key: "auto", label: "Auto Payment Rules", icon: "🤖" }
 ], {
   "terms": () => (
     <div className="space-y-6">
@@ -184,8 +185,8 @@ const PaymentSettingsWrapper = createWrapper([
 });
 
 const ApprovalWorkflowWrapper = createWrapper([
-  { key: "expense", label: "Expense Approval" }, { key: "purchase", label: "Purchase Approval" }, 
-  { key: "payroll", label: "Payroll Approval" }, { key: "payment", label: "Payment Approval" }, { key: "journal", label: "Journal Approval" }
+  { key: "expense", label: "Expense Approval", icon: "📉" }, { key: "purchase", label: "Purchase Approval", icon: "🛍️" }, 
+  { key: "payroll", label: "Payroll Approval", icon: "👥" }, { key: "payment", label: "Payment Approval", icon: "💸" }, { key: "journal", label: "Journal Approval", icon: "📓" }
 ], {
   "expense": () => (
     <div className="space-y-6">
@@ -228,8 +229,8 @@ const ApprovalWorkflowWrapper = createWrapper([
 });
 
 const UsersRolesWrapper = createWrapper([
-  { key: "roles", label: "Role Management" }, { key: "permissions", label: "User Permissions" }, 
-  { key: "access", label: "Access Control" }, { key: "audit", label: "Audit Logs" }
+  { key: "roles", label: "Role Management", icon: "🎭" }, { key: "permissions", label: "User Permissions", icon: "🔐" }, 
+  { key: "access", label: "Access Control", icon: "🚧" }, { key: "audit", label: "Audit Logs", icon: "📋" }
 ], {
   "roles": () => (
     <div className="space-y-6">
@@ -282,17 +283,17 @@ const UsersRolesWrapper = createWrapper([
 });
 
 const NotificationSettingsWrapper = createWrapper([
-  { key: "email", label: "Email Notifications" }, { key: "sms", label: "SMS Notifications" }, 
-  { key: "alerts", label: "Due Date Alerts" }, { key: "approvals", label: "Approval Alerts" }
+  { key: "email", label: "Email Notifications", icon: "📧" }, { key: "sms", label: "SMS Notifications", icon: "📱" }, 
+  { key: "alerts", label: "Due Date Alerts", icon: "⏰" }, { key: "approvals", label: "Approval Alerts", icon: "✅" }
 ], {});
 
 const DocumentSettingsWrapper = createWrapper([
-  { key: "rules", label: "Attachment Rules" }, { key: "size", label: "File Size Limits" }, { key: "categories", label: "Document Categories" }
+  { key: "rules", label: "Attachment Rules", icon: "📎" }, { key: "size", label: "File Size Limits", icon: "📏" }, { key: "categories", label: "Document Categories", icon: "🗂️" }
 ], {});
 
 const SystemSettingsWrapper = createWrapper([
-  { key: "backup", label: "Backup Settings" }, { key: "import", label: "Data Import" }, 
-  { key: "export", label: "Data Export" }, { key: "preferences", label: "System Preferences" }
+  { key: "backup", label: "Backup Settings", icon: "💾" }, { key: "import", label: "Data Import", icon: "📥" }, 
+  { key: "export", label: "Data Export", icon: "📤" }, { key: "preferences", label: "System Preferences", icon: "⚙️" }
 ], {});
 
 

@@ -121,23 +121,12 @@ export interface AdminDashboardData {
   };
 }
 
-export interface LabourDashboardData {
-  user_name: string;
-  project_name: string | null;
-  contractor_name: string;
-  check_in_status: string;
+export interface LabourDashboardResponse {
   total_tasks: number;
   completed_tasks: number;
   pending_tasks: number;
-  this_month_earnings: number;
-  recent_tasks: any[];
-  recent_activity: any[];
-}
-
-export interface LabourDashboardResponse {
-  success: boolean;
-  message: string;
-  data: LabourDashboardData;
+  earnings_current_month: number;
+  tasks: any[];
 }
 
 export const dashboardService = {
@@ -191,8 +180,7 @@ export const dashboardService = {
   },
 
   /**
-   * Get Labour Dashboard stats
-   * GET /api/v1/dashboard/labour
+   * PM Dashboard APIs
    */
   async getLabourDashboard(): Promise<LabourDashboardResponse> {
     const response = await api.get<LabourDashboardResponse>('dashboard/labour');

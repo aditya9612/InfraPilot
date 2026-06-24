@@ -47,8 +47,13 @@ export const qcService = {
         if (filters?.status) params.status = filters.status;
         if (filters?.inspection_type) params.inspection_type = filters.inspection_type;
 
-        const response = await api.get('/qc', { params });
-        return response.data;
+        try {
+            const response = await api.get('/qc', { params });
+            return response.data;
+        } catch (error: any) {
+            console.warn("QC List Fetch Failed (Falling back to empty list):", error.message);
+            return { items: [], meta: { total: 0, limit: 10, offset: 0 } };
+        }
     },
 
     getQc: async (qc_id: number): Promise<QcItem> => {
@@ -63,7 +68,9 @@ export const qcService = {
             dsr_id: data.dsr_id || null,
             remarks: data.remarks || null
         };
-        const response = await api.post('/qc', payload);
+        const response = await api.post('/qc', null, {
+            params: payload
+        });
         return response.data;
     },
 
@@ -75,7 +82,9 @@ export const qcService = {
             dsr_id: data.dsr_id || null,
             remarks: data.remarks || null
         };
-        const response = await api.put(`/qc/${qc_id}`, payload);
+        const response = await api.put(`/qc/${qc_id}`, null, {
+            params: payload
+        });
         return response.data;
     },
 

@@ -12,10 +12,8 @@ import { useClientProjectId } from "../../hooks/useClientProjectId";
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const [isBotOpen, setIsBotOpen] = useState(false);
-  const [projects, setProjects] = useState<any[]>([]);
   const [dashboardData, setDashboardData] = useState<ClientCommandCenterData | null>(null);
   const [projectData, setProjectData] = useState<any>(null);
-
   const [liveFeed, setLiveFeed] = useState<any[]>([]);
   const [activitiesCount, setActivitiesCount] = useState(0);
   const [calculatedOverallProgress, setCalculatedOverallProgress] = useState(0);
@@ -43,115 +41,50 @@ const ClientDashboard = () => {
         }
 
         // 2. Fetch dashboard stats for that project (Enterprise API)
-        // Mock data replicating the client dashboard API response
-        const mockData: ClientCommandCenterData = {
+        const responseData = await dashboardService.getClientCommandCenter(projectId);
+        if (!active) return;
+
+        const statsData = responseData.data;
+
+        // Sync and Sanitize: Use stats but prioritize project details if they disagree
+        const getProgress = () => {
+          if (activeProject?.completion_percentage !== undefined) return activeProject.completion_percentage;
+          if (activeProject?.progress_percent !== undefined) return activeProject.progress_percent;
+          if (activeProject?.progress !== undefined) return activeProject.progress;
+          return statsData.summary?.overall_progress || 0;
+        };
+
+        const syncedDashboardData: ClientCommandCenterData = {
+          ...statsData,
           project: {
-            id: projectId,
-            name: activeProject?.project_name || activeProject?.name || "SARA CITY - Wing A",
-            status: "PLANNED",
-            start_date: "2026-06-01",
-            end_date: "2027-12-31",
-            days_remaining: 562,
+            ...statsData.project,
+            name: activeProject?.project_name || activeProject?.name || statsData.project?.name || "SARA CITY - Wing A",
+            status: activeProject?.status || statsData.project?.status || "PLANNED",
+            start_date: activeProject?.start_date || statsData.project?.start_date || "2026-06-01",
+            end_date: activeProject?.end_date || statsData.project?.end_date || "2027-12-31",
+            days_remaining: activeProject?.days_remaining || statsData.project?.days_remaining || 562,
           },
           summary: {
-            overall_progress: 0,
-            budget_total: 12000,
-            total_expense: 0,
-            remaining_budget: 12000,
-            budget_used_percent: 0,
-            tasks: { completed: 0, pending: 0, total: 0 },
-            milestones: { completed: 0, total: 0 },
-          },
-          work_progress: {
-            progress_percent: 0,
-            current_task: null,
-            task_description: null,
-            task_status: null,
-            last_completed: null,
-            upcoming: null,
-          },
-          live_execution_feed: [],
-          cost_management_audit: [],
-          project_health: {
-            status: "PLANNED",
-            overall_progress: 0,
-            budget_health: "Good",
-            schedule_health: "Delayed",
-            task_completion_rate: 0,
-            budget_used_percent: 0,
-          },
+            ...statsData.summary,
+            overall_progress: getProgress(),
+            // Calculate remaining budget locally for precision
+            remaining_budget: (activeProject?.budget_total || statsData.summary?.budget_total || 0) - (statsData.summary?.total_expense || 0),
+          }
         };
-        setDashboardData(mockData);
 
-        // Since the live API is removed, we directly use the mock data set earlier.
-        // No additional synchronization needed.
-        // Dashboard data is already set via setDashboardData(mockData) above.
+        setDashboardData(syncedDashboardData);
 
-        // 2. Fetch client dashboard stats (Project overview) via API
-        try {
-          const clientStats = await dashboardService.getClientDashboard(projectId);
-          // Fetch projects list for client module dashboard (limit 20, offset 0)
-          try {
-            const projList = await projectService.getProjects(20, 0);
-            setProjects(projList);
-          } catch (projErr) {
-            console.warn("Projects list fetch failed:", projErr);
-          }
-          if (active && clientStats) {
-            // Map API response to expected dashboardData shape (partial)
-            const mockData: ClientCommandCenterData = {
-              project: {
-                id: clientStats.project_id,
-                name: "Project " + clientStats.project_id,
-                status: clientStats.status,
-                start_date: clientStats.start_date,
-                end_date: clientStats.end_date,
-                days_remaining: clientStats.days_remaining,
-              },
-              summary: {
-                overall_progress: clientStats.progress_percent,
-                budget_total: clientStats.budget_total,
-                total_expense: clientStats.total_expense,
-                remaining_budget: clientStats.remaining_budget,
-                budget_used_percent: clientStats.budget_used_percent,
-                tasks: { completed: clientStats.tasks_completed, pending: 0, total: clientStats.tasks_total },
-                milestones: { completed: clientStats.milestones_completed, total: clientStats.milestones_total },
-              },
-              work_progress: {
-                progress_percent: clientStats.progress_percent,
-                current_task: null,
-                task_description: null,
-                task_status: null,
-                last_completed: null,
-                upcoming: null,
-              },
-              live_execution_feed: [],
-              cost_management_audit: [],
-              project_health: {
-                status: clientStats.status,
-                overall_progress: clientStats.progress_percent,
-                budget_health: "Good",
-                schedule_health: "On Track",
-                task_completion_rate: 0,
-                budget_used_percent: clientStats.budget_used_percent,
-              },
-            };
-            setDashboardData(mockData);
-          }
-        } catch (e) {
-          console.warn("Client dashboard fetch failed:", e);
-        }
         // 3. Populate Live Execution Feed from work-progress/activities API
         try {
           const activities = await workProgressService.listActivities(projectId);
           if (active && activities.length > 0) {
-            const onTrackActivities = activities.filter((act: any) => 
-              act.status?.toUpperCase() === 'ON_TRACK' || 
+            const onTrackActivities = activities.filter((act: any) =>
+              act.status?.toUpperCase() === 'ON_TRACK' ||
               act.status?.toUpperCase() === 'COMPLETED'
             );
-            
+
             setActivitiesCount(onTrackActivities.length);
-            
+
             if (onTrackActivities.length > 0) {
               const avgProgress = Math.round(onTrackActivities.reduce((sum: number, a: any) => sum + (Number(a.completion_percentage) || 0), 0) / onTrackActivities.length);
               setCalculatedOverallProgress(avgProgress);
@@ -170,9 +103,9 @@ const ClientDashboard = () => {
               };
             });
             setLiveFeed(mappedFeed);
-          } else if (active && mockData.live_execution_feed && mockData.live_execution_feed.length > 0) {
-            // Fallback: Use mock data execution feed (already assumed on‑track)
-            const mappedFeed = mockData.live_execution_feed.map((item: any) => {
+          } else if (active && syncedDashboardData.live_execution_feed && syncedDashboardData.live_execution_feed.length > 0) {
+            // Fallback: Command center execution feed
+            const mappedFeed = syncedDashboardData.live_execution_feed.map((item: any) => {
               const actionText = item.action ? item.action.replace(/_/g, ' ').toLowerCase() : 'update';
               const formattedAction = actionText.charAt(0).toUpperCase() + actionText.slice(1);
               return {
@@ -372,7 +305,7 @@ const ClientDashboard = () => {
 
           {/* Project Activities Overview - Now on the right side - Clickable to Progress Page */}
           <div className="lg:col-span-1">
-            <div 
+            <div
               onClick={() => navigate('/client/progress')}
               className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 h-full flex flex-col justify-center relative overflow-hidden cursor-pointer hover:border-blue-200 hover:shadow-md transition-all group/card"
             >
@@ -382,9 +315,9 @@ const ClientDashboard = () => {
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 224 224">
                     <circle cx="112" cy="112" r="100" stroke="#f1f5f9" strokeWidth="12" fill="none" />
                     <circle cx="112" cy="112" r="100" stroke="#2563eb" strokeWidth="12" fill="none"
-                      strokeDasharray={628.3} 
-                      strokeDashoffset={628.3 * (1 - (calculatedOverallProgress || (dashboardData?.summary?.overall_progress ?? 0)) / 100)} 
-                      strokeLinecap="round" 
+                      strokeDasharray={628.3}
+                      strokeDashoffset={628.3 * (1 - (calculatedOverallProgress || (dashboardData?.summary?.overall_progress ?? 0)) / 100)}
+                      strokeLinecap="round"
                       className="transition-all duration-1000"
                     />
                   </svg>

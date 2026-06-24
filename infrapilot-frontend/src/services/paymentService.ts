@@ -1,6 +1,9 @@
 import api from "./api";
 import type {
-    Payment
+    AdvanceRequestPayload,
+    Payment,
+    AdvanceRequest,
+    PayrollReport
 } from "../types/payment";
 
 export const paymentService = {
@@ -116,7 +119,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/aggregate-report Request Params:", cleanParams);
@@ -138,7 +141,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/fiscal-summary Request Params:", cleanParams);
@@ -184,7 +187,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/weekly-velocity Request Params:", cleanParams);
@@ -201,7 +204,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll Request Params:", cleanParams);
@@ -218,7 +221,7 @@ export const paymentService = {
         const now = new Date();
         const cleanParams: any = {
             project_id: params?.project_id?.toString() || "1",
-            month: params?.month ? params.month.toString().padStart(2, '0') : (now.getMonth() + 1).toString().padStart(2, '0'),
+            month: params?.month?.toString() || (now.getMonth() + 1).toString().padStart(2, '0'),
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/stats Request Params:", cleanParams);
@@ -230,65 +233,16 @@ export const paymentService = {
 
 
     /**
-     * Export Payroll to Excel
-     * GET /api/v1/labour/payroll/export
-     */
-    async exportPayrollExcel(filters?: { month?: number; year?: number; project_id?: number | string }): Promise<Blob> {
-        const cleanFilters: any = {};
-        if (filters?.month !== undefined) cleanFilters.month = Number(filters.month);
-        if (filters?.year !== undefined) cleanFilters.year = Number(filters.year);
-        if (filters?.project_id !== undefined) cleanFilters.project_id = Number(filters.project_id);
-
-        console.log("GET /api/v1/labour/payroll/export Request Params:", cleanFilters);
-        try {
-            const response = await api.get("labour/payroll/export", {
-                params: cleanFilters,
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (err: any) {
-            if (err.response?.data instanceof Blob) {
-                const text = await err.response.data.text();
-                try {
-                    const parsed = JSON.parse(text);
-                    throw new Error(parsed.message || parsed.detail || "Validation failed on the backend.");
-                } catch (e) {
-                    throw new Error(text || "Failed to export payroll Excel.");
-                }
-            }
-            throw err;
-        }
-    },
-
-    /**
      * Export Payroll to PDF
      * GET /api/v1/labour/report/payroll/export/pdf
      */
     async exportPayrollPDF(filters?: any): Promise<Blob> {
-        const cleanFilters: any = {};
-        if (filters?.month !== undefined) cleanFilters.month = Number(filters.month);
-        if (filters?.year !== undefined) cleanFilters.year = Number(filters.year);
-        if (filters?.project_id !== undefined) cleanFilters.project_id = Number(filters.project_id);
-
-        console.log("GET /api/v1/labour/report/payroll/export/pdf Request Params:", cleanFilters);
-        try {
-            const response = await api.get("labour/report/payroll/export/pdf", {
-                params: cleanFilters,
-                responseType: 'blob'
-            });
-            return response.data;
-        } catch (err: any) {
-            if (err.response?.data instanceof Blob) {
-                const text = await err.response.data.text();
-                try {
-                    const parsed = JSON.parse(text);
-                    throw new Error(parsed.message || parsed.detail || "Validation failed on the PDF export.");
-                } catch (e) {
-                    throw new Error(text || "Failed to export payroll PDF.");
-                }
-            }
-            throw err;
-        }
+        console.log("GET /api/v1/labour/report/payroll/export/pdf Request Params:", filters);
+        const response = await api.get("/labour/report/payroll/export/pdf", {
+            params: filters,
+            responseType: 'blob'
+        });
+        return response.data;
     },
 };
 

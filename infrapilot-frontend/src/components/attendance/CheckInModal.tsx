@@ -14,23 +14,13 @@ interface Props {
 }
 
 const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess, projectId: initialProjectId }) => {
-    const getLocalDateString = (date: Date = new Date()) => {
-        const tzOffset = date.getTimezoneOffset() * 60000;
-        return (new Date(date.getTime() - tzOffset)).toISOString().split('T')[0];
-    };
-
-    const getLocalDatetimeString = (date: Date = new Date()) => {
-        const tzOffset = date.getTimezoneOffset() * 60000;
-        return (new Date(date.getTime() - tzOffset)).toISOString().slice(0, 16);
-    };
-
-    const today = getLocalDateString();
+    const today = new Date().toISOString().split('T')[0];
 
     // ── State — fields matching Swagger API image exactly ──────────────────
     const [attendanceDate, setAttendanceDate] = useState(today);
     const [projectId, setProjectId] = useState(initialProjectId ? initialProjectId.toString() : '');
     const [status, setStatus] = useState('present');
-    const [inTime, setInTime] = useState(getLocalDatetimeString());
+    const [inTime, setInTime] = useState(new Date().toISOString().slice(0, 16));
     const [checkInLatitude, setCheckInLatitude] = useState<number | null>(null);
     const [checkInLongitude, setCheckInLongitude] = useState<number | null>(null);
     const [checkInAddress, setCheckInAddress] = useState('Fetching location...');
@@ -97,8 +87,8 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess, pro
         if (isOpen) {
             captureGPS();
             startCamera();
-            setAttendanceDate(getLocalDateString());
-            setInTime(getLocalDatetimeString());
+            setAttendanceDate(new Date().toISOString().split('T')[0]);
+            setInTime(new Date().toISOString().slice(0, 16));
             
             projectService.getProjects(100, 0).then((data: any) => {
                 setProjects(Array.isArray(data) ? data : (data.items || data.data || []));
@@ -124,8 +114,7 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess, pro
             fd.append("attendance_date", attendanceDate);
             if (projectId) fd.append("project_id", projectId);
             fd.append("status", status);
-            const formattedInTime = inTime.length === 16 ? `${inTime}:00` : inTime;
-            fd.append("in_time", formattedInTime);
+            fd.append("in_time", new Date(inTime).toISOString());
             if (checkInLatitude !== null) fd.append("check_in_latitude", checkInLatitude.toString());
             if (checkInLongitude !== null) fd.append("check_in_longitude", checkInLongitude.toString());
             if (checkInAddress && !["Fetching location...", "Locating...", "Location not available"].includes(checkInAddress))

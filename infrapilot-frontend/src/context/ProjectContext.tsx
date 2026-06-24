@@ -20,7 +20,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    const refreshProjects = useCallback(async () => {
+    const refreshProjects = useCallback(async (force = false) => {
         if (!isAuthenticated || !user) {
             setAssignedProjects([]);
             return;
@@ -29,7 +29,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsLoading(true);
         try {
             if (user.role === 'ProjectManager') {
-                const projects = await projectService.getAssignedProjects(Number(user.id));
+                const projects = await projectService.getAssignedProjects(Number(user.id), force);
                 setAssignedProjects(projects);
 
                 // Auto-select first project if none selected

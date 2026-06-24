@@ -977,6 +977,60 @@ const icons: Record<string, JSX.Element> = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M16 10a4 4 0 0 1-8 0" />
     </svg>
   ),
+  "edit": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  ),
+  "cpu": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <rect x="4" y="4" width="16" height="16" rx="2" ry="2" strokeWidth="1.8" />
+      <rect x="9" y="9" width="6" height="6" strokeWidth="1.8" />
+      <line x1="9" y1="1" x2="9" y2="4" strokeWidth="1.8" />
+      <line x1="15" y1="1" x2="15" y2="4" strokeWidth="1.8" />
+      <line x1="9" y1="20" x2="9" y2="23" strokeWidth="1.8" />
+      <line x1="15" y1="20" x2="15" y2="23" strokeWidth="1.8" />
+      <line x1="20" y1="9" x2="23" y2="9" strokeWidth="1.8" />
+      <line x1="20" y1="14" x2="23" y2="14" strokeWidth="1.8" />
+      <line x1="1" y1="9" x2="4" y2="9" strokeWidth="1.8" />
+      <line x1="1" y1="14" x2="4" y2="14" strokeWidth="1.8" />
+    </svg>
+  ),
+  "corner-up-left": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <polyline points="9 14 4 9 9 4" strokeWidth="1.8" />
+      <path d="M20 20v-7a4 4 0 0 0-4-4H4" strokeWidth="1.8" />
+    </svg>
+  ),
+  "trash-2": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <polyline strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" points="3 6 5 6 21 6" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" x1="10" y1="11" x2="10" y2="17" />
+      <line strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  ),
+  "arrow-down-left": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <line strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" x1="17" y1="7" x2="7" y2="17" />
+      <polyline strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" points="17 17 7 17 7 7" />
+    </svg>
+  ),
+  "arrow-up-right": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <line strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" x1="7" y1="17" x2="17" y2="7" />
+      <polyline strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" points="7 7 17 7 17 17" />
+    </svg>
+  ),
+  "server": (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <rect strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" x="2" y="2" width="20" height="8" rx="2" ry="2" />
+      <rect strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" x="2" y="14" width="20" height="8" rx="2" ry="2" />
+      <line strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" x1="6" y1="6" x2="6.01" y2="6" />
+      <line strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" x1="6" y1="18" x2="6.01" y2="18" />
+    </svg>
+  ),
 };
 
 const Chevron = ({ isOpen }: { isOpen?: boolean }) => (
@@ -1023,12 +1077,8 @@ const SidebarItem = ({
           onClick={() => {
             if (!isDisabled) {
               setIsOpen(!isOpen);
-              if (!isParentActive) {
-                if (hasSubNav && item.subNav?.[0]) {
-                  navigate(item.subNav[0].path);
-                } else {
-                  navigate(item.path);
-                }
+              if (!isOpen && item.subNav && item.subNav.length > 0) {
+                navigate(item.subNav[0].path);
               }
             }
           }}

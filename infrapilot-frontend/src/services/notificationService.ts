@@ -1,15 +1,13 @@
 import api from "./api";
 
 export interface Notification {
-    id: number | string;
+    id: number;
     title: string;
     description: string;
     details: string;
     type: "Alert" | "Approval" | "System" | "Info";
     timestamp: string;
-    created_at?: string;
     read: boolean;
-    is_read?: boolean;
     role_target: "SiteEngineer" | "Admin" | "All";
     source?: "general" | "project" | "task";
 }
@@ -64,7 +62,7 @@ export const notificationService = {
             const isVirtuallyDeleted = (id: string | number) => deletedIds.includes(String(id));
 
             const normalized: any[] = [
-                ...genAlerts.map((a: any) => ({
+                ...genAlerts.map((a: any, index: number) => ({
                     ...a,
                     id: a.id || a.uuid || a.alert_id || `gen-${Math.random()}`,
                     title: "System Alert",
@@ -113,7 +111,7 @@ export const notificationService = {
 
             return normalized.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         } catch (error) {
-            console.error("Failed to fetch notifications:", error);
+            console.warn("Failed to fetch/process aggregated notifications (falling back to empty list):", error);
             return [];
         }
     },
@@ -186,78 +184,6 @@ export const notificationService = {
                 if (deletedIds.length > 500) deletedIds.shift(); // Keep bounded
                 localStorage.setItem('infrapilot_alerts_deleted_ids', JSON.stringify(deletedIds));
             }
-        }
-    },
-
-    // --- New Notifications API ---
-    
-    /**
-     * Get real notification list
-     * GET /api/v1/notifications
-     */
-    listNotifications: async (limit = 50, offset = 0) => {
-        try {
-            const response = await api.get('/notifications', { params: { limit, offset } });
-            return response.data;
-        } catch (error) {
-            console.error("Failed to fetch notifications:", error);
-            throw error;
-        }
-    },
-
-    /**
-     * Get unread notification count
-     * GET /api/v1/notifications/unread-count
-     */
-    getUnreadCount: async () => {
-        try {
-            const response = await api.get('/notifications/unread-count');
-            return response.data;
-        } catch (error) {
-            console.error("Failed to fetch unread count:", error);
-            return { count: 0 };
-        }
-    },
-
-    /**
-     * Mark all notifications as read
-     * POST /api/v1/notifications/read-all
-     */
-    markAllNotificationsAsRead: async () => {
-        try {
-            const response = await api.post('/notifications/read-all');
-            return response.data;
-        } catch (error) {
-            console.error("Failed to mark all as read:", error);
-            throw error;
-        }
-    },
-
-    /**
-     * Mark specific notification as read
-     * PUT /api/v1/notifications/{id}/read
-     */
-    markNotificationAsRead: async (id: number | string) => {
-        try {
-            const response = await api.put(`/notifications/${id}/read`);
-            return response.data;
-        } catch (error) {
-            console.error(`Failed to mark notification ${id} as read:`, error);
-            throw error;
-        }
-    },
-
-    /**
-     * Delete notification
-     * DELETE /api/v1/notifications/{id}
-     */
-    deleteNotification: async (id: number | string) => {
-        try {
-            const response = await api.delete(`/notifications/${id}`);
-            return response.data;
-        } catch (error) {
-            console.error(`Failed to delete notification ${id}:`, error);
-            throw error;
         }
     }
 };

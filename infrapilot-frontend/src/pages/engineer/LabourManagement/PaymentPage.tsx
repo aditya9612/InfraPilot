@@ -13,8 +13,6 @@ import {
     ChevronRight
 } from "lucide-react";
 import { paymentService } from '../../../services/paymentService';
-import { contractorService } from '../../../services/contractorService';
-import { labourService } from '../../../services/labourService';
 import PaySalaryModal from '../../../components/payment/PaySalaryModal';
 import AdvancePaymentModal from '../../../components/payment/AdvancePaymentModal';
 import GeneratePayrollModal from '../../../components/payment/GeneratePayrollModal';
@@ -44,11 +42,6 @@ const PaymentPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [contractorFilter, setContractorFilter] = useState("All");
 
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
-    const [velocityMonth, setVelocityMonth] = useState<number>(currentMonth);
-    const [velocityYear, setVelocityYear] = useState<number>(currentYear);
-
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Paid" | "Pending" | "Advance">("All");
 
@@ -76,49 +69,18 @@ const PaymentPage: React.FC = () => {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const currentMonth = velocityMonth;
-            const currentYear = velocityYear;
-
-            // Fetch Labours for the project to get names and daily rates (using pagination to avoid 422 limit errors)
-            let allLabours: any[] = [];
-            let offset = 0;
-            let hasMore = true;
-            while (hasMore) {
-                const response = await labourService.getLabours(projectId, { limit: 50, offset });
-                const items = response.items || [];
-                allLabours = [...allLabours, ...items];
-                if (items.length < 50) hasMore = false;
-                else offset += 50;
-            }
-
-            const [payrollRes, statsRes, contractorsRes] = await Promise.all([
-                paymentService.getActivePayroll({ project_id: projectId, month: currentMonth, year: currentYear }),
-                paymentService.getPayrollStats({ project_id: projectId, month: currentMonth, year: currentYear }),
-                contractorService.getContractorsByProject(projectId).catch(() => [])
+            const [payrollRes, statsRes] = await Promise.all([
+                paymentService.getActivePayroll({ project_id: projectId }),
+                paymentService.getPayrollStats({ project_id: projectId })
             ]);
-            
-            let payrollItems = Array.isArray(payrollRes) ? payrollRes : ((payrollRes as any).items || []);
-            
-            // Map labour details and contractor names
-            payrollItems = payrollItems.map((p: any) => {
-                const labourDetails = allLabours.find(l => l.id === p.labour_id) || {};
-                const cName = labourDetails.contractor_name || contractorsRes.find((c: any) => c.id === labourDetails.contractor_id)?.name;
-                return { 
-                    ...p, 
-                    ...labourDetails, // merge labour details (name, rate, etc)
-                    contractor_name: cName,
-                    id: p.id // ensure payroll id is kept
-                };
-            });
-            
-            setLabours(payrollItems);
+            setLabours(Array.isArray(payrollRes) ? payrollRes : ((payrollRes as any).items || []));
             if (statsRes) setStats(statsRes);
         } catch (error: any) {
             toast.error('Failed to load active payroll');
         } finally {
             setIsLoading(false);
         }
-    }, [projectId, velocityMonth, velocityYear]);
+    }, [projectId]);
 
 
 
@@ -157,7 +119,7 @@ const PaymentPage: React.FC = () => {
             const fetchWeekly = async () => {
                 setIsLoading(true);
                 try {
-                    const res = await paymentService.getWeeklyVelocity({ project_id: projectId, month: velocityMonth, year: velocityYear });
+                    const res = await paymentService.getWeeklyVelocity({ project_id: projectId });
                     setWeeklyReports(Array.isArray(res) ? res : ((res as any).items || []));
                 } catch (err) {
                     toast.error('Failed to load weekly velocity');
@@ -167,7 +129,7 @@ const PaymentPage: React.FC = () => {
             };
             fetchWeekly();
         }
-    }, [activeTab, projectId, velocityMonth, velocityYear]);
+    }, [activeTab, projectId]);
 
 
 
@@ -183,13 +145,14 @@ const PaymentPage: React.FC = () => {
             return matchesSearch && matchesContractor;
         });
     }, [labours, searchTerm, contractorFilter]);
-    const uniqueContractors = useMemo(() => {
+
+    const contractors = useMemo(() => {
         const unique = new Set();
         const list: { id: string, name: string }[] = [];
         labours.forEach(l => {
             if (l.contractor_id && !unique.has(l.contractor_id)) {
                 unique.add(l.contractor_id);
-                list.push({ id: l.contractor_id.toString(), name: l.contractor_name || `Contractor #${l.contractor_id}` });
+                list.push({ id: l.contractor_id.toString(), name: `Contractor #${l.contractor_id}` });
             }
         });
         return list;
@@ -223,12 +186,6 @@ const PaymentPage: React.FC = () => {
                         <p className="text-slate-500 text-sm font-inter">Secure wage distribution and advance request management with full audit trails.</p>
                     </div>
                     <div className="flex items-center gap-3 font-inter flex-wrap">
-                        <button
-                            onClick={() => setIsGenerateModalOpen(true)}
-                            className="px-4 py-2 bg-primary text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-blue-600 shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2"
-                        >
-                            Generate Payroll
-                        </button>
                         <div className="bg-white border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-3 font-inter shadow-sm">
                             <Calendar className="w-4 h-4 text-primary font-inter" />
                             <span className="text-xs font-bold text-slate-600 uppercase tracking-widest font-inter">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
@@ -327,41 +284,11 @@ const PaymentPage: React.FC = () => {
                                     className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter"
                                 >
                                     <option value="All">All Contractors</option>
-                                    {uniqueContractors.map(c => (
+                                    {contractors.map(c => (
                                         <option key={c.id} value={c.id}>{c.name}</option>
                                     ))}
                                 </select>
                             </div>
-
-                            {activeTab === 'weekly' && (
-                                <>
-                                    <div className="flex items-center gap-2 font-inter">
-                                        <Calendar className="w-4 h-4 text-slate-400 font-inter" />
-                                        <select
-                                            value={velocityMonth}
-                                            onChange={(e) => setVelocityMonth(Number(e.target.value))}
-                                            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter"
-                                        >
-                                            {Array.from({ length: 12 }, (_, i) => (
-                                                <option key={i + 1} value={i + 1}>
-                                                    {new Date(0, i).toLocaleString('en-US', { month: 'short' })}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="flex items-center gap-2 font-inter">
-                                        <select
-                                            value={velocityYear}
-                                            onChange={(e) => setVelocityYear(Number(e.target.value))}
-                                            className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter"
-                                        >
-                                            {[...Array(5)].map((_, i) => (
-                                                <option key={i} value={currentYear - i}>{currentYear - i}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </>
-                            )}
                             {activeStatFilter !== "All" && (
                                 <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter">
                                     <RotateCcw className="w-4 h-4 font-inter" />
@@ -383,11 +310,10 @@ const PaymentPage: React.FC = () => {
                                         {(activeTab === 'payroll' || activeTab === 'history') && <th className="px-6 py-4 font-inter">Workforce Identity</th>}
                                         {activeTab === 'payroll' && (
                                             <>
+                                                <th className="px-6 py-4 text-center font-inter">Attendance</th>
                                                 <th className="px-6 py-4 text-center font-inter">Intensity (Hrs)</th>
                                                 <th className="px-6 py-4 text-center font-inter">Daily Rate</th>
                                                 <th className="px-6 py-4 text-center font-inter">Accrued Wage</th>
-                                                <th className="px-6 py-4 text-center font-inter text-emerald-600">Paid Amount</th>
-                                                <th className="px-6 py-4 text-center font-inter text-rose-500">Remaining</th>
                                                 <th className="px-6 py-4 text-center font-inter">Audit Status</th>
                                                 <th className="px-6 py-4 text-right font-inter">Execution</th>
                                             </>
@@ -437,22 +363,19 @@ const PaymentPage: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
+                                                <span className="text-sm font-bold text-slate-700 tabular-nums font-inter">-</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center font-inter">
                                                 <div className="flex flex-col items-center font-inter">
                                                     <span className="text-sm font-bold text-slate-700 tabular-nums font-inter">{Math.round(labour.total_working_hours || 0)}h</span>
                                                     <span className="text-[9px] font-bold text-amber-500 uppercase tracking-widest font-inter">+{Math.round(labour.total_overtime_hours || 0)}h OT</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-slate-500 tabular-nums font-inter">₹{labour.daily_wage_rate || 0}</span>
+                                                <span className="text-sm font-bold text-slate-500 tabular-nums font-inter">₹{labour.daily_wage_rate}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
                                                 <span className="text-base font-bold text-slate-800 tabular-nums font-inter">₹{(labour.total_wage || 0).toLocaleString()}</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-emerald-600 tabular-nums font-inter">₹{(labour.paid_amount || 0).toLocaleString()}</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-inter">
-                                                <span className="text-sm font-bold text-rose-500 tabular-nums font-inter">₹{(labour.remaining_amount || 0).toLocaleString()}</span>
                                             </td>
                                             <td className="px-6 py-4 text-center font-inter">
                                                 <span className="px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-amber-100 font-inter shadow-amber-50 shadow-sm">

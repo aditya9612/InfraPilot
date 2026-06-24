@@ -1,19 +1,15 @@
 import Navbar from "../../components/common/Navbar";
 import StatCard from "../../components/common/StatCard";
-import ProjectTable from "../../components/dashboard/ProjectTable";
-import CostChart from "../../components/dashboard/CostChart";
-import RiskAnalysis from "../../components/dashboard/RiskAnalysis";
-import TaskOverview from "../../components/dashboard/TaskOverview";
-import ResourceOrchestrator from "../../components/dashboard/ResourceOrchestrator";
-import ActivityFeed from "../../components/dashboard/ActivityFeed";
+import LabourTrendChart from "../../components/dashboard/LabourTrendChart";
+import ExpenseTrendChart from "../../components/dashboard/ExpenseTrendChart";
+import ForecastChart from "../../components/dashboard/ForecastChart";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Clock, AlertCircle, CheckCircle, TrendingUp, FolderCheck, PieChart, Info, CalendarClock } from "lucide-react";
+import { Clock, AlertCircle, CheckCircle, TrendingUp, FolderCheck, PieChart, Info, LayoutDashboard } from "lucide-react";
 import ComplianceScorecards from "../../components/dashboard/ComplianceScorecards";
-import ProjectProgressChart from "../../components/dashboard/ProjectProgressChart";
-import MonthlyTrendChart from "../../components/dashboard/MonthlyTrendChart";
 import { qcService } from "../../services/qcService";
 import { safetyService } from "../../services/safetyService";
+import { dashboardService } from "../../services/dashboardService";
 
 import { useProject } from "../../context/ProjectContext";
 
@@ -21,52 +17,79 @@ const ManagerDashboard = () => {
   const { assignedProjects, selectedProjectId, isLoading: projectsLoading } = useProject();
   const [qcMetrics, setQcMetrics] = useState({ total: 0, failures: 0 });
   const [safetyMetrics, setSafetyMetrics] = useState({ total: 0, incidents: 0 });
+  const [pmSummary, setPmSummary] = useState<any>(null);
+  const [labourData, setLabourData] = useState<any[]>([]);
+  const [expenseData, setExpenseData] = useState<any[]>([]);
+  const [forecastData, setForecastData] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Derived state for the filtered projects to show in stats
-  const filteredProjects = selectedProjectId
-    ? assignedProjects.filter(p => p.id === selectedProjectId)
-    : assignedProjects;
-
   useEffect(() => {
-    const fetchDashboardMetrics = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const [qcData, safetyData] = await Promise.all([
-          qcService.listQc(selectedProjectId || 0),
-          safetyService.listIncidents(selectedProjectId || 0)
+        setLoading(true);
+        const pid = selectedProjectId || undefined;
+
+        // Fetch all dashboard data in parallel for maximum speed
+        // Each call is wrapped in its own catch block to ensure resilience
+        const [
+          summary,
+          labour,
+          expense,
+          forecast,
+          alertsData,
+          qcSafetyData
+        ] = await Promise.all([
+          dashboardService.getPMCommandCenter(pid).catch(err => { console.warn("Summary fetch failed:", err); return null; }),
+          dashboardService.getPMGraphLabour(pid).catch(err => { console.warn("Labour fetch failed:", err); return []; }),
+          dashboardService.getPMGraphExpense(pid).catch(err => { console.warn("Expense fetch failed:", err); return []; }),
+          dashboardService.getPMGraphForecast(pid).catch(err => { console.warn("Forecast fetch failed:", err); return []; }),
+          dashboardService.getAlerts(pid).catch(err => { console.warn("Alerts fetch failed:", err); return { items: [] }; }),
+          Promise.all([
+            qcService.listQc(selectedProjectId || 0),
+            safetyService.listIncidents(selectedProjectId || 0)
+          ]).catch(err => { console.warn("QC/Safety metrics failed:", err); return [null, null]; })
         ]);
 
-        setQcMetrics({
-          total: qcData.meta.total,
-          failures: qcData.items.filter((i: any) => i.status === "Fail").length
-        });
-        setSafetyMetrics({
-          total: safetyData.meta.total,
-          incidents: safetyData.items.length
-        });
+        // Update states
+        if (summary) setPmSummary(summary);
+        setLabourData(labour?.data || []);
+        setExpenseData(expense?.data || []);
+        setForecastData(forecast?.data || []);
+        setAlerts(alertsData?.items || alertsData?.data || []);
+
+        const [qcData, safetyData] = qcSafetyData as [any, any];
+        if (qcData) {
+          setQcMetrics({
+            total: qcData.meta?.total || 0,
+            failures: qcData.items?.filter((i: any) => i.status === "Fail").length || 0
+          });
+        }
+        if (safetyData) {
+          setSafetyMetrics({
+            total: safetyData.meta?.total || 0,
+            incidents: safetyData.items?.length || 0
+          });
+        }
 
       } catch (err) {
-        console.error("Dashboard Load Failure:", err);
+        console.error("Critical Dashboard Load Failure:", err);
       } finally {
         setLoading(false);
       }
     };
+
     if (!projectsLoading) {
-      fetchDashboardMetrics();
+      fetchDashboardData();
     }
   }, [projectsLoading, selectedProjectId]);
 
-  const projects = filteredProjects; // Alias for backward compatibility in the render
-
-  const activeProjects = projects.filter(p => p.status === "Ongoing").length;
-  const delayedProjects = projects.filter(p => p.status === "Delayed").length;
-
-  if (loading) {
+  if (loading || projectsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-medium animate-pulse">Syncing Site Intelligence...</p>
+          <p className="text-slate-500 font-medium animate-pulse">Syncing PM Intelligence...</p>
         </div>
       </div>
     );
@@ -89,7 +112,7 @@ const ManagerDashboard = () => {
                 Oversight Command: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </h1>
               <p className="text-sm text-slate-500">
-                Real-time site intelligence and approval queue.
+                Real-time project intelligence and approval queue.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -99,90 +122,84 @@ const ManagerDashboard = () => {
               </Link>
             </div>
           </div>
+
+          {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               title="Total Managed Projects"
-              value={projects.length.toString()}
-              sub={`${activeProjects} Active Site Deployments`}
+              value={assignedProjects.length.toString()}
+              sub={`${pmSummary?.active_projects || 0} Active Deployments`}
               icon={<FolderCheck className="w-5 h-5 text-primary" />}
             />
             <StatCard
-              title="Completed Projects"
-              value={projects.filter(p => p.status === "Completed").length.toString()}
-              sub="Successfully Handed Over"
-              accent="text-blue-600"
-              icon={<CheckCircle className="w-5 h-5 text-blue-600" />}
-            />
-            <StatCard
-              title="Avg. Completion"
-              value={`${Math.round(projects.reduce((acc, curr) => acc + (curr.completion_percentage || 0), 0) / (projects.length || 1))}%`}
-              sub="Consolidated Progress"
+              title="Active Projects"
+              value={pmSummary?.active_projects?.toString() || "0"}
+              sub="Currently Ongoing"
               accent="text-emerald-600"
               icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}
             />
             <StatCard
-              title="Delayed Sites"
-              value={delayedProjects > 9 ? delayedProjects.toString() : `0${delayedProjects}`}
-              sub="Immediate Mitigation Needed"
+              title="Delayed Projects"
+              value={pmSummary?.delayed_projects?.toString() || "0"}
+              sub="Urgent Attention Required"
               accent="text-rose-600"
               icon={<AlertCircle className="w-5 h-5 text-rose-600" />}
             />
             <StatCard
-              title="Budget Utilized %"
-              value="68%"
+              title="Completed Projects"
+              value={pmSummary?.completed_projects?.toString() || "0"}
+              sub="Handed Over Projects"
+              accent="text-blue-600"
+              icon={<CheckCircle className="w-5 h-5 text-blue-600" />}
+            />
+            <StatCard
+              title="Budget Utilized"
+              value={pmSummary?.budget_utilized_percent ? `${pmSummary.budget_utilized_percent}%` : "0%"}
               sub="Of Total Allocated"
               accent="text-purple-600"
               icon={<PieChart className="w-5 h-5 text-purple-600" />}
             />
             <StatCard
               title="Open Issues"
-              value="12"
-              sub="Requires Attention"
+              value={pmSummary?.open_issues?.toString() || "0"}
+              sub="Requiring PM Intervention"
               accent="text-orange-600"
               icon={<Info className="w-5 h-5 text-orange-600" />}
             />
             <StatCard
-              title="Pending Reviews"
-              value="07"
-              sub="Authorizations Pending"
+              title="Pending Approvals"
+              value={pmSummary?.pending_approvals?.toString() || "0"}
+              sub="Authorization Queue"
               accent="text-amber-600"
               icon={<Clock className="w-5 h-5 text-amber-600" />}
             />
             <StatCard
-              title="Today's Activities"
-              value="24"
-              sub="Logged Today"
+              title="Work Progress"
+              value={`${pmSummary?.avg_completion_percent || 0}%`}
+              sub="Overall Portfolio Progress"
               accent="text-indigo-600"
-              icon={<CalendarClock className="w-5 h-5 text-indigo-600" />}
+              icon={<LayoutDashboard className="w-5 h-5 text-indigo-600" />}
             />
           </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Section - Project Performance */}
             <div className="lg:col-span-2 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <ProjectProgressChart />
-                <MonthlyTrendChart />
+                <LabourTrendChart data={labourData.length > 0 ? labourData : undefined} />
+                <ExpenseTrendChart data={expenseData.length > 0 ? expenseData : undefined} />
               </div>
 
-              <ProjectTable />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <CostChart />
-                <RiskAnalysis />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <TaskOverview />
-                <ActivityFeed />
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                <ForecastChart data={forecastData.length > 0 ? forecastData : undefined} />
               </div>
             </div>
 
             {/* Sidebar Section */}
             <div className="space-y-6">
               <ComplianceScorecards qc={qcMetrics} safety={safetyMetrics} />
-              <ResourceOrchestrator />
 
-              {/* Critical Alerts Card */}
+              {/* Alerts Card */}
               <div className="bg-rose-50 border border-rose-100 rounded-xl p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center">
@@ -200,28 +217,26 @@ const ManagerDashboard = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="font-bold text-rose-800">Critical Alerts</h3>
+                  <h3 className="font-bold text-rose-800">Operational Alerts</h3>
                 </div>
                 <div className="space-y-3">
-                  <div className="p-3 bg-white/60 rounded-lg border border-rose-100">
-                    <p className="text-xs font-bold text-rose-700">
-                      Budget Exceeded: Metropolis Hub
-                    </p>
-                    <p className="text-[10px] text-rose-500 mt-1">
-                      Actual cost is 15% above forecast for Mar 2026.
-                    </p>
-                  </div>
-                  <div className="p-3 bg-white/60 rounded-lg border border-rose-100">
-                    <p className="text-xs font-bold text-rose-700">
-                      Project Delay: Skyline Phase 2
-                    </p>
-                    <p className="text-[10px] text-rose-500 mt-1">
-                      Foundation work is 12 days behind schedule.
-                    </p>
-                  </div>
+                  {alerts.length > 0 ? (
+                    alerts.slice(0, 5).map((alert: any, idx: number) => (
+                      <div key={idx} className="p-3 bg-white/60 rounded-lg border border-rose-100">
+                        <p className="text-xs font-bold text-rose-700">
+                          {alert.title || alert.type}
+                        </p>
+                        <p className="text-[10px] text-rose-500 mt-1">
+                          {alert.message || alert.description}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">No critical alerts found.</p>
+                  )}
                 </div>
                 <button className="w-full mt-4 py-2 text-xs font-bold text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors">
-                  Acknowledge All
+                  View All Alerts
                 </button>
               </div>
 
@@ -268,9 +283,9 @@ const ManagerDashboard = () => {
                     </span>
                   </button>
                 </div>
-                <button className="w-full mt-4 py-2.5 bg-slate-800 text-white text-xs font-bold rounded-lg hover:bg-slate-900 transition-colors">
+                <Link to="/manager/reports" className="block w-full text-center mt-4 py-2.5 bg-slate-800 text-white text-xs font-bold rounded-lg hover:bg-slate-900 transition-colors">
                   Advanced Analytics
-                </button>
+                </Link>
               </div>
             </div>
           </div>

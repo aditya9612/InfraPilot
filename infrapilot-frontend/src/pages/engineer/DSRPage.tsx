@@ -106,15 +106,28 @@ const DSRPage = () => {
             const apiData = response.items.filter((item: any) => Number(item.project_id) === Number(projectId));
             setTotalItems(apiData.length);
 
-            // Resolve photos for each item (relying on what the API returns in the list)
-            const itemsWithPhotos = apiData.map((item: any) => {
+            // Resolve photos for each item
+            const itemsWithPhotos = await Promise.all(apiData.map(async (item: any) => {
                 let photos = item.photos?.map((p: any) => ({
                     id: p.id,
                     url: p.url || p.file_url
                 })) || [];
 
+                // Always fetch the latest photos from the dedicated API to guarantee synchronization
+                try {
+                    const extraPhotos = await dsrService.getDsrPhotos(item.id);
+                    if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
+                        photos = extraPhotos.map((p: any) => ({
+                            id: p.id,
+                            url: p.url || p.file_url
+                        }));
+                    }
+                } catch (e) {
+                    console.warn(`Could not fetch photos for DSR ${item.id}`, e);
+                }
+
                 return { ...item, photos };
-            });
+            }));
 
             setDsrList(itemsWithPhotos);
         } catch (error) {
@@ -830,25 +843,15 @@ const DSRPage = () => {
                                             {selectedDsr.status}
                                         </span>
                                     </div>
-                                    <div className="flex flex-col gap-2 text-white/70 mb-4 font-inter text-xs font-medium">
-                                        <div className="flex flex-wrap items-center gap-4">
-                                            <span className="flex items-center gap-1.5 text-white/90">
-                                                <Calendar className="w-3.5 h-3.5 text-white/90" />
-                                                Report: {selectedDsr.report_date}
-                                            </span>
-                                            <span className="flex items-center gap-1.5">
-                                                <MapPin className="w-3.5 h-3.5 text-white/80" />
-                                                {selectedDsr.site_location}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                                            <span className="bg-white/10 px-2 py-1 rounded shadow-sm border border-white/5">
-                                                Created: {selectedDsr.created_at ? new Date(selectedDsr.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}
-                                            </span>
-                                            <span className="bg-white/10 px-2 py-1 rounded shadow-sm border border-white/5">
-                                                Updated: {selectedDsr.updated_at ? new Date(selectedDsr.updated_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}
-                                            </span>
-                                        </div>
+                                    <div className="flex flex-wrap items-center gap-4 text-white/60 mb-4 font-inter text-xs font-medium">
+                                        <span className="flex items-center gap-1.5">
+                                            <Calendar className="w-3.5 h-3.5 text-white/80" />
+                                            {selectedDsr.report_date}
+                                        </span>
+                                        <span className="flex items-center gap-1.5">
+                                            <MapPin className="w-3.5 h-3.5 text-white/80" />
+                                            {selectedDsr.site_location}
+                                        </span>
                                     </div>
                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
                                         <span className="text-[10px] font-bold uppercase tracking-widest font-inter">WEATHER: {selectedDsr.weather?.toUpperCase()}</span>
@@ -920,7 +923,7 @@ const DSRPage = () => {
                                         <p className="text-sm font-bold text-slate-800">{selectedDsr.created_by_name || "N/A"}</p>
                                     </div>
                                     <div className="sm:col-span-2 lg:col-span-1">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Labour</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Personnel</p>
                                         <p className="text-sm font-bold text-slate-800 mb-1">{selectedDsr.total_labour || 0}</p>
                                         <p className="text-[10px] font-bold text-slate-500">{selectedDsr.skilled_labour || 0} Skilled • {selectedDsr.unskilled_labour || 0} Unskilled</p>
                                     </div>

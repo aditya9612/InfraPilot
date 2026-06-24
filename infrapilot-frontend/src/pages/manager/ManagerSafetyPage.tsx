@@ -30,14 +30,15 @@ const VIOLATION_TYPES = [
 const ManagerSafetyPage = () => {
   const navigate = useNavigate();
   const { tab } = useParams();
-  const activeTab = tab || "checklist";
+  // Align with sidebar paths: /manager/safety/incidents, /manager/safety/actions
+  const activeTab = tab === "actions" ? "actions" : "incidents";
   const { selectedProjectId } = useProject();
 
   const [incidentList, setIncidentList] = useState<SafetyItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "HighRisk" | "Critical">("All");
+  const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "HighRisk" | "Critical" | "Month">("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
@@ -48,8 +49,27 @@ const ManagerSafetyPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<SafetyItem | null>(null);
 
+  const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await projectService.getProjects(100, 0);
+        setProjects(Array.isArray(res) ? res : (res.items || []));
+      } catch (err) {
+        console.error("Failed to fetch projects", err);
+      }
+    };
+    fetchProjects();
+  }, []);
+
+  const getProjectName = (projId: number) => {
+    const project = projects.find(p => Number(p.id || p.project_id) === Number(projId));
+    return project ? (project.name || project.project_name) : `Project #${projId}`;
+  };
+
   const defaultForm = (): CreateIncidentRequest => ({
-    project_id: selectedProjectId || 0,
+    project_id: selectedProjectId || projects[0]?.id || 0,
     date: new Date().toISOString().split("T")[0],
     violation_type: "No Helmet",
     description: "",
@@ -64,14 +84,14 @@ const ManagerSafetyPage = () => {
 
   // ── DATA ──────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
-    if (!selectedProjectId) return;
     setIsLoading(true);
     try {
-      const res = await safetyService.listIncidents(selectedProjectId, filterViolationType || undefined);
+      // PM can see all projects if selectedProjectId is null
+      const res = await safetyService.listIncidents(selectedProjectId || undefined, filterViolationType || undefined);
       const items = (res.items || []).sort((a: SafetyItem, b: SafetyItem) => Number(b.id) - Number(a.id));
       setIncidentList(items);
     } catch {
-      toast.error("Failed to load safety records");
+      toast.error("Failed to load safety records from the command center");
     } finally {
       setIsLoading(false);
     }
@@ -89,15 +109,26 @@ const ManagerSafetyPage = () => {
       const t = (i.injury_details || "").trim().toLowerCase();
       return !t || t.includes("no injury") || t.includes("none") || t.includes("n/a") || t === "-";
     }).length;
+
     const ppeCompliant = incidentList.filter(i => i.ppe_compliance).length;
     const checklistDone = incidentList.filter(i => i.safety_checklist_status === "completed").length;
+
     const ppeRate = total > 0 ? (ppeCompliant / total) * 100 : 100;
     const checklistRate = total > 0 ? (checklistDone / total) * 100 : 100;
     const injuryFreeRate = total > 0 ? (noInjury / total) * 100 : 100;
+
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const thisMonthCount = incidentList.filter(item => {
+      const itemDate = new Date(item.date);
+      return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
+    }).length;
+
     return {
       total, critical,
       compliance: Math.round((noInjury / (total || 1)) * 100),
       siteSafety: Math.round((ppeRate + checklistRate + injuryFreeRate) / 3),
+      thisMonthCount,
     };
   }, [incidentList]);
 
@@ -114,6 +145,14 @@ const ManagerSafetyPage = () => {
     if (activeStatFilter === "HighRisk") data = data.filter(i => i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard");
     if (activeStatFilter === "Compliance") data = data.filter(i => !i.injury_details || i.injury_details.toLowerCase().includes("no injury"));
     if (activeStatFilter === "Critical") data = data.filter(i => !!(i.injury_details && !i.injury_details.toLowerCase().includes("no injury")));
+    if (activeStatFilter === "Month") {
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      data = data.filter(item => {
+        const itemDate = new Date(item.date);
+        return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
+      });
+    }
 
     return data.sort((a, b) => sortOrder === "latest" ? Number(b.id) - Number(a.id) : Number(a.id) - Number(b.id));
   }, [incidentList, searchTerm, filterViolationType, activeStatFilter, sortOrder]);
@@ -197,17 +236,17 @@ const ManagerSafetyPage = () => {
   const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
 
   const tabs = [
-    { id: "checklist", label: "Safety Checklist" },
     { id: "incidents", label: "Incident Report" },
+    { id: "actions", label: "Corrective Actions" },
   ];
 
-  const isChecklist = activeTab === "checklist";
+  const isActions = activeTab === "actions";
 
   return (
     <>
       <Navbar
         title="Safety Management"
-        breadcrumb={["Manager", "Safety", isChecklist ? "Checklist Vault" : "Incident Logs"]}
+        breadcrumb={["Manager", "Safety", isActions ? "Corrective Actions" : "Incident Logs"]}
       />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
@@ -219,21 +258,22 @@ const ManagerSafetyPage = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                {isChecklist ? "Safety Audit Registry" : "Incident Response Vault"}
+                {isActions ? "Safety Corrective Actions" : "Incident Response Vault"}
               </h1>
               <p className="text-slate-500 text-sm">
-                {isChecklist ? "Track safety inspections and site compliance." : "Archive of site accidents and corrective actions."}
+                {isActions ? "Verified logs of safety inspections and site compliance." : "Detailed archive of site accidents and response protocols."}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
+            <button onClick={() => toast.success("Exporting safety data...")}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
               <Download className="w-4 h-4 text-primary" /> Export
             </button>
             <button onClick={() => { setFormData(defaultForm()); setIsNewModalOpen(true); }}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
               <Plus className="w-4 h-4" />
-              {isChecklist ? "Log Audit Entry" : "Log Incident"}
+              {isActions ? "Log Audit Entry" : "Log Incident"}
             </button>
           </div>
         </div>
@@ -241,14 +281,14 @@ const ManagerSafetyPage = () => {
         {/* ── Stat Cards ── */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {[
-            { title: "Total Records", value: stats.total.toString(), sub: "All Time", accent: "text-slate-800", status: "All" },
-            { title: "Compliance", value: `${stats.compliance}%`, sub: "Incident-Free Rate", accent: "text-emerald-500", status: "Compliance" },
+            { title: "Total Records", value: stats.total.toString(), sub: "All Time Logs", accent: "text-slate-800", status: "All" },
+            { title: "Compliance", value: `${stats.compliance}%`, sub: "Safe Operations", accent: "text-emerald-500", status: "Compliance" },
             { title: "High Risks", value: stats.critical.toString(), sub: "Critical Hazards", accent: "text-rose-500", status: "HighRisk" },
-            { title: "Site Safety", value: `${stats.siteSafety}%`, sub: "Safety Momentum", accent: "text-blue-500", status: null },
+            { title: "Monthly Report", value: stats.thisMonthCount.toString(), sub: "Recent Safety Events", accent: "text-blue-500", status: "Month" },
           ].map(s => (
             <div key={s.title}
               onClick={() => s.status && setActiveStatFilter(s.status as any)}
-              className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? "hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20" : "cursor-default"} group`}>
+              className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all ${s.status ? "hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20" : "cursor-default"} group ${activeStatFilter === s.status ? "border-primary bg-primary/[0.02]" : ""}`}>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 group-hover:text-primary">{s.title}</p>
               <p className={`text-2xl font-bold ${s.accent}`}>{s.value}</p>
               <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{s.sub}</p>
@@ -266,8 +306,8 @@ const ManagerSafetyPage = () => {
           ))}
         </div>
 
-        {/* ── Safety Checklist / Incidents Table ── */}
-        {isChecklist && (
+        {/* ── Incident / Action Registry ── */}
+        {!isActions && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6">
             <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
               <div className="relative flex-1 max-w-md">
@@ -306,10 +346,10 @@ const ManagerSafetyPage = () => {
                   <thead>
                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                       <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">Project Name</th>
                       <th className="px-6 py-4">Incident Summary</th>
                       <th className="px-6 py-4">Violation Type</th>
                       <th className="px-6 py-4">Resources</th>
-                      <th className="px-6 py-4">PPE</th>
                       <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -318,6 +358,9 @@ const ManagerSafetyPage = () => {
                       <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-4">
                           <span className="text-sm font-bold text-slate-800">{item.date}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-semibold text-slate-600">{getProjectName(item.project_id)}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col max-w-xs">
@@ -335,12 +378,7 @@ const ManagerSafetyPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">{item.responsible_person}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[140px]">ACTION: {item.action_taken}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.ppe_compliance ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
-                            {item.ppe_compliance ? "Compliant" : "Missing"}
-                          </span>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[140px]">POC: {item.action_taken}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -402,12 +440,12 @@ const ManagerSafetyPage = () => {
           </div>
         )}
 
-        {/* ── Incident Breakdown Tab ── */}
-        {!isChecklist && (
+        {/* ── Corrective Actions Tab ── */}
+        {isActions && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="p-4 border-b border-slate-50 flex items-center gap-3">
               <ShieldCheck className="w-5 h-5 text-primary" />
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Safety Incident Breakdown</h3>
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Resolution Velocity Breakdown</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -417,7 +455,7 @@ const ManagerSafetyPage = () => {
                     <th className="px-6 py-4 text-center">Incident Count</th>
                     <th className="px-6 py-4 text-center">Resolved</th>
                     <th className="px-6 py-4 text-center">Unresolved</th>
-                    <th className="px-6 py-4 text-right">Resolution Rate</th>
+                    <th className="px-6 py-4 text-right">Resolution Velocity</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -444,7 +482,7 @@ const ManagerSafetyPage = () => {
       <Modal
         isOpen={isNewModalOpen || isEditModalOpen}
         onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
-        title={isEditModalOpen ? "Modify Safety Record" : (isChecklist ? "Record Safety Audit" : "Log Incident Report")}
+        title={isEditModalOpen ? "Modify Safety Intelligence" : (isActions ? "Record Safety Audit" : "Log Incident Report")}
         maxWidth="max-w-2xl"
         footer={
           <>
@@ -462,6 +500,19 @@ const ManagerSafetyPage = () => {
       >
         <form className="space-y-4 p-2" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className={labelCls}>Impacted Project <span className="text-rose-500">*</span></label>
+              <select name="project_id" value={formData.project_id}
+                onChange={(e) => setFormData(p => ({ ...p, project_id: Number(e.target.value) }))}
+                className={inputCls}>
+                <option value="">Select Project</option>
+                {projects.map(p => (
+                  <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                    {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className={labelCls}>Date <span className="text-rose-500">*</span></label>
               <input name="date" type="date" value={formData.date} onChange={handleInputChange} className={inputCls} />
@@ -512,6 +563,7 @@ const ManagerSafetyPage = () => {
           <div className="p-6 space-y-4">
             {[
               ["Date", selectedIncident.date],
+              ["Project", getProjectName(selectedIncident.project_id)],
               ["Violation Type", selectedIncident.violation_type],
               ["Description", selectedIncident.description],
               ["Action Taken", selectedIncident.action_taken],

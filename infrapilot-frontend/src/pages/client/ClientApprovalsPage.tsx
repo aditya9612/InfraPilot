@@ -14,7 +14,7 @@ const ClientApprovalsPage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-
+  
   // Form state for new approval
   const [requestType, setRequestType] = useState("bill");
   const [entityId, setEntityId] = useState("");
@@ -34,13 +34,13 @@ const ClientApprovalsPage = () => {
     try {
       setLoading(true);
       const data = await approvalService.getApprovals();
-
+      
       const maxId = data.length > 0 ? Math.max(...data.map((apr: any) => Number(apr.id))) : 0;
-
+      
       const mapped = data.map((apr: any) => {
         const idNum = Number(apr.id);
         const rawDate = apr.created_at || apr.createdAt || apr.timestamp;
-
+        
         let dateStr: string;
         if (rawDate) {
           dateStr = new Date(rawDate).toLocaleDateString('en-GB', {
@@ -59,9 +59,9 @@ const ClientApprovalsPage = () => {
 
         return {
           id: String(apr.id),
-          requestType: apr.entity_type === 'bill' ? 'Billing' :
-            apr.entity_type === 'material' ? 'Material' :
-              apr.entity_type === 'design' ? 'Design' : 'Variation',
+          requestType: apr.entity_type === 'bill' ? 'Billing' : 
+                       apr.entity_type === 'material' ? 'Material' :
+                       apr.entity_type === 'design' ? 'Design' : 'Variation',
           description: `${(apr.entity_type || 'Unknown').charAt(0).toUpperCase() + (apr.entity_type || 'unknown').slice(1)} Approval Request for related ID #${apr.entity_id}`,
           amountQuantity: "—",
           requestedBy: `User ID: ${apr.requested_by}`,
@@ -74,7 +74,7 @@ const ClientApprovalsPage = () => {
       });
 
       setApprovals(mapped);
-
+      
       if (projectId) {
         const proj = await projectService.getProjectById(projectId);
         setProjectData(proj);
@@ -109,8 +109,8 @@ const ClientApprovalsPage = () => {
     const remarkInput = window.prompt("Enter rejection remarks (required):", "Rejected by client");
     if (remarkInput === null) return;
     if (!remarkInput.trim()) {
-      toast.error("Rejection remarks are required");
-      return;
+       toast.error("Rejection remarks are required");
+       return;
     }
     try {
       await approvalService.reject(Number(id), remarkInput);
@@ -124,7 +124,7 @@ const ClientApprovalsPage = () => {
 
   const handleCreateApproval = async () => {
     const errors: { entityId?: string, remarks?: string } = {};
-
+    
     if (!entityId.trim()) {
       errors.entityId = "Entity ID is required";
     } else if (isNaN(Number(entityId))) {
@@ -216,11 +216,11 @@ const ClientApprovalsPage = () => {
               {projectData?.project_name || "All Projects"} • Variation orders & design changes
             </p>
           </div>
-          <button
-            onClick={handleCreateRequestOpen}
-            className="px-6 py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
+          <button 
+             onClick={handleCreateRequestOpen}
+             className="px-6 py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
           >
-            Create New Request
+             Create New Request
           </button>
         </div>
 
@@ -230,10 +230,11 @@ const ClientApprovalsPage = () => {
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${filter === status
-                  ? "bg-slate-800 text-white border-slate-800 shadow-lg shadow-slate-300"
-                  : "bg-white text-slate-500 border-slate-100 hover:border-slate-300 shadow-sm"
-                }`}
+              className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                filter === status 
+                ? "bg-slate-800 text-white border-slate-800 shadow-lg shadow-slate-300" 
+                : "bg-white text-slate-500 border-slate-100 hover:border-slate-300 shadow-sm"
+              }`}
             >
               {status} {status === "Pending" && pendingCount > 0 && (
                 <span className="ml-2 bg-amber-500 text-white px-1.5 py-0.5 rounded-md text-[8px] animate-pulse">
@@ -247,138 +248,139 @@ const ClientApprovalsPage = () => {
         {/* List Container - Reverted to prior style */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <div className="w-8 h-8 border-4 border-slate-200 border-t-amber-500 rounded-full animate-spin mb-4"></div>
-              <p className="text-[10px] font-black uppercase tracking-widest">Fetching Approvals...</p>
-            </div>
+             <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+               <div className="w-8 h-8 border-4 border-slate-200 border-t-amber-500 rounded-full animate-spin mb-4"></div>
+               <p className="text-[10px] font-black uppercase tracking-widest">Fetching Approvals...</p>
+             </div>
           ) : paginatedApprovals.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-              <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <p className="text-xs font-black uppercase tracking-widest">No {filter !== "All" ? filter.toLowerCase() : ""} approvals found</p>
-            </div>
+             <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+               <svg className="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+               <p className="text-xs font-black uppercase tracking-widest">No {filter !== "All" ? filter.toLowerCase() : ""} approvals found</p>
+             </div>
           ) : (
             <>
               <div className="divide-y divide-slate-50">
                 {/* List Header */}
                 <div className="hidden sm:flex items-center gap-6 px-10 py-4 bg-slate-50/50 border-b border-slate-50">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Request Details</p>
-                  </div>
-                  <div className="shrink-0 w-[100px] text-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</p>
-                  </div>
-                  <div className="shrink-0 w-[60px] text-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ref</p>
-                  </div>
-                  <div className="shrink-0 w-[100px] text-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</p>
-                  </div>
-                  <div className="shrink-0 w-[90px] text-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Action</p>
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Request Details</p>
+                    </div>
+                    <div className="shrink-0 w-[100px] text-center">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Type</p>
+                    </div>
+                    <div className="shrink-0 w-[60px] text-center">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ref</p>
+                    </div>
+                    <div className="shrink-0 w-[100px] text-center">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</p>
+                    </div>
+                    <div className="shrink-0 w-[90px] text-center">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Action</p>
+                    </div>
                 </div>
 
                 {paginatedApprovals.map((apr, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row items-center gap-6 p-6 px-10 hover:bg-slate-50/50 transition-all group">
-                    {/* Icon Box */}
-                    <div className="w-12 h-12 bg-blue-50/50 rounded-xl flex items-center justify-center shrink-0 border border-blue-100/30">
-                      <svg className="w-5 h-5 text-blue-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="text-sm font-black text-slate-800 tracking-tight truncate">{apr.description}</h3>
+                    <div key={i} className="flex flex-col sm:flex-row items-center gap-6 p-6 px-10 hover:bg-slate-50/50 transition-all group">
+                      {/* Icon Box */}
+                      <div className="w-12 h-12 bg-blue-50/50 rounded-xl flex items-center justify-center shrink-0 border border-blue-100/30">
+                          <svg className="w-5 h-5 text-blue-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
                       </div>
 
-                    </div>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <h3 className="text-sm font-black text-slate-800 tracking-tight truncate">{apr.description}</h3>
+                          </div>
 
-                    {/* Category Pill */}
-                    <div className="shrink-0 w-[100px] flex justify-center">
-                      <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-full border shadow-sm ${apr.requestType === 'Billing' ? 'bg-blue-50 text-blue-600 border-blue-100/50' :
-                          apr.requestType === 'Material' ? 'bg-emerald-50 text-emerald-600 border-emerald-100/50' : 'bg-purple-50 text-purple-600 border-purple-100/50'
-                        }`}>
-                        {apr.requestType}
-                      </span>
-                    </div>
+                      </div>
 
-                    {/* Status Ref Badge */}
-                    <div className="shrink-0 w-[60px] flex justify-center">
-                      <span className="px-3 py-1 bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-slate-100">
-                        V1
-                      </span>
-                    </div>
+                      {/* Category Pill */}
+                      <div className="shrink-0 w-[100px] flex justify-center">
+                          <span className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-full border shadow-sm ${
+                            apr.requestType === 'Billing' ? 'bg-blue-50 text-blue-600 border-blue-100/50' :
+                            apr.requestType === 'Material' ? 'bg-emerald-50 text-emerald-600 border-emerald-100/50' : 'bg-purple-50 text-purple-600 border-purple-100/50'
+                          }`}>
+                            {apr.requestType}
+                          </span>
+                      </div>
 
-                    {/* Date */}
-                    <div className="shrink-0 w-[100px] text-center">
-                      <p className="text-[11px] font-black text-slate-500">{apr.date}</p>
-                    </div>
+                      {/* Status Ref Badge */}
+                      <div className="shrink-0 w-[60px] flex justify-center">
+                          <span className="px-3 py-1 bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-slate-100">
+                            V1
+                          </span>
+                      </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center justify-center gap-3 shrink-0 w-[90px]">
-                      <button
-                        onClick={() => handleViewDetails(apr)}
-                        title="View Details"
-                        className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-blue-500 rounded-xl transition-all"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      </button>
+                      {/* Date */}
+                      <div className="shrink-0 w-[100px] text-center">
+                          <p className="text-[11px] font-black text-slate-500">{apr.date}</p>
+                      </div>
 
-                      {apr.status === 'Pending' ? (
-                        <>
-                          <button
-                            onClick={() => handleApprove(apr.id)}
-                            title="Approve"
-                            className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                      {/* Actions */}
+                      <div className="flex items-center justify-center gap-3 shrink-0 w-[90px]">
+                          <button 
+                            onClick={() => handleViewDetails(apr)}
+                            title="View Details"
+                            className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                           </button>
-                          <button
-                            onClick={() => handleReject(apr.id)}
-                            title="Reject"
-                            className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </>
-                      ) : apr.status === 'Approved' ? (
-                        <>
-                          <div className="w-9 h-9 flex items-center justify-center text-emerald-500 bg-emerald-50 rounded-xl shadow-sm border border-emerald-100/50">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <div className="w-9 h-9 flex items-center justify-center text-slate-200">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="w-9 h-9 flex items-center justify-center text-slate-200">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <div className="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl shadow-sm border border-red-100/50">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </div>
-                        </>
-                      )}
+
+                          {apr.status === 'Pending' ? (
+                            <>
+                                <button 
+                                  onClick={() => handleApprove(apr.id)}
+                                  title="Approve"
+                                  className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                                <button 
+                                  onClick={() => handleReject(apr.id)}
+                                  title="Reject"
+                                  className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                            </>
+                          ) : apr.status === 'Approved' ? (
+                            <>
+                                <div className="w-9 h-9 flex items-center justify-center text-emerald-500 bg-emerald-50 rounded-xl shadow-sm border border-emerald-100/50">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                                <div className="w-9 h-9 flex items-center justify-center text-slate-200">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </div>
+                            </>
+                          ) : (
+                            <>
+                                <div className="w-9 h-9 flex items-center justify-center text-slate-200">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                                <div className="w-9 h-9 flex items-center justify-center text-red-500 bg-red-50 rounded-xl shadow-sm border border-red-100/50">
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </div>
+                            </>
+                          )}
+                      </div>
                     </div>
-                  </div>
                 ))}
               </div>
 
@@ -453,45 +455,45 @@ const ClientApprovalsPage = () => {
       </div>
 
       {/* Create Modal */}
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+      <Modal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
         title="Draft Approval Request"
         maxWidth="max-w-xl"
       >
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Request Type</label>
-              <select
-                value={requestType}
-                onChange={(e) => setRequestType(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all"
-              >
-                <option value="bill">Billing</option>
-                <option value="material">Material</option>
-                <option value="design">Design</option>
-                <option value="variation">Variation</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Ref Entity ID</label>
-              <input
-                type="text"
-                placeholder="E.g. 101"
-                value={entityId}
-                onChange={(e) => {
-                  setEntityId(e.target.value);
-                  if (formErrors.entityId) setFormErrors(prev => ({ ...prev, entityId: undefined }));
-                }}
-                className={`w-full bg-slate-50 border ${formErrors.entityId ? 'border-red-500' : 'border-slate-200'} rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all`}
-              />
-              {formErrors.entityId && <p className="text-[10px] font-bold text-red-500 mt-1.5 ml-1">{formErrors.entityId}</p>}
-            </div>
+             <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Request Type</label>
+                <select 
+                  value={requestType}
+                  onChange={(e) => setRequestType(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all"
+                >
+                  <option value="bill">Billing</option>
+                  <option value="material">Material</option>
+                  <option value="design">Design</option>
+                  <option value="variation">Variation</option>
+                </select>
+             </div>
+             <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Ref Entity ID</label>
+                <input 
+                  type="text"
+                  placeholder="E.g. 101"
+                  value={entityId}
+                  onChange={(e) => {
+                    setEntityId(e.target.value);
+                    if (formErrors.entityId) setFormErrors(prev => ({ ...prev, entityId: undefined }));
+                  }}
+                  className={`w-full bg-slate-50 border ${formErrors.entityId ? 'border-red-500' : 'border-slate-200'} rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:border-primary transition-all`}
+                />
+                {formErrors.entityId && <p className="text-[10px] font-bold text-red-500 mt-1.5 ml-1">{formErrors.entityId}</p>}
+             </div>
           </div>
           <div>
             <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Remarks / Reason</label>
-            <textarea
+            <textarea 
               rows={4}
               placeholder="Provide context for the approval team..."
               value={remarks}
@@ -504,13 +506,13 @@ const ClientApprovalsPage = () => {
             {formErrors.remarks && <p className="text-[10px] font-bold text-red-500 mt-1.5 ml-1">{formErrors.remarks}</p>}
           </div>
           <div className="flex gap-4 pt-4">
-            <button
+            <button 
               onClick={() => setIsCreateModalOpen(false)}
               className="flex-1 py-4 bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-200 transition-all"
             >
               Cancel
             </button>
-            <button
+            <button 
               onClick={handleCreateApproval}
               className="flex-1 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
             >
@@ -522,77 +524,78 @@ const ClientApprovalsPage = () => {
 
       {/* View Details Modal - Re-added as per earlier format */}
       <Modal
-        isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
-        title="Approval Request Details"
-        maxWidth="max-w-xl"
-      >
-        {selectedApproval && (
-          <div className="space-y-8">
-            <div className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-100">
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
-                <p className={`text-sm font-black uppercase tracking-widest ${selectedApproval.status === 'Approved' ? 'text-emerald-500' :
-                    selectedApproval.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'
-                  }`}>
-                  {selectedApproval.status === 'Pending' ? 'Awaiting Client Sign-off' : selectedApproval.status}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reference</p>
-                <p className="text-sm font-black text-slate-800 uppercase tracking-widest">APR-{selectedApproval.id}</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Detailed Description</h4>
-              <div className="p-6 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                <p className="text-lg font-black text-slate-800 leading-tight mb-2">{selectedApproval.description}</p>
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-100/50">
-                    {selectedApproval.requestType} Entity
-                  </span>
-                  <span className="px-3 py-1 bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-slate-100">
-                    V1 Verified
-                  </span>
+          isOpen={isViewModalOpen}
+          onClose={() => setIsViewModalOpen(false)}
+          title="Approval Request Details"
+          maxWidth="max-w-xl"
+       >
+          {selectedApproval && (
+             <div className="space-y-8">
+                <div className="flex items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                   <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
+                      <p className={`text-sm font-black uppercase tracking-widest ${
+                         selectedApproval.status === 'Approved' ? 'text-emerald-500' : 
+                         selectedApproval.status === 'Rejected' ? 'text-red-500' : 'text-amber-500'
+                      }`}>
+                         {selectedApproval.status === 'Pending' ? 'Awaiting Client Sign-off' : selectedApproval.status}
+                      </p>
+                   </div>
+                   <div className="text-right">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reference</p>
+                      <p className="text-sm font-black text-slate-800 uppercase tracking-widest">APR-{selectedApproval.id}</p>
+                   </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-6 border border-slate-100 rounded-2xl">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Requested By</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs">👤</div>
-                  <p className="text-xs font-black text-slate-800">{selectedApproval.requestedBy}</p>
+                <div className="space-y-4">
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Detailed Description</h4>
+                   <div className="p-6 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                      <p className="text-lg font-black text-slate-800 leading-tight mb-2">{selectedApproval.description}</p>
+                      <div className="flex items-center gap-2">
+                         <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-100/50">
+                            {selectedApproval.requestType} Entity
+                         </span>
+                         <span className="px-3 py-1 bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-slate-100">
+                            V1 Verified
+                         </span>
+                      </div>
+                   </div>
                 </div>
-              </div>
-              <div className="p-6 border border-slate-100 rounded-2xl">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Request Date</p>
-                <p className="text-xs font-black text-slate-800">{selectedApproval.date}</p>
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Audit Trail & Remarks</h4>
-              <div className="p-6 bg-slate-50/50 border border-slate-100 border-dashed rounded-2xl">
-                <p className="text-xs text-slate-500 font-medium leading-relaxed italic">
-                  "{selectedApproval.remarks}"
-                </p>
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="p-6 border border-slate-100 rounded-2xl">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Requested By</p>
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs">👤</div>
+                         <p className="text-xs font-black text-slate-800">{selectedApproval.requestedBy}</p>
+                      </div>
+                   </div>
+                   <div className="p-6 border border-slate-100 rounded-2xl">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Request Date</p>
+                      <p className="text-xs font-black text-slate-800">{selectedApproval.date}</p>
+                   </div>
+                </div>
 
-            <div className="pt-4 flex justify-end border-t border-slate-100">
-              <button
-                onClick={() => setIsViewModalOpen(false)}
-                className="px-8 py-3 bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-900 transition-all shadow-xl shadow-slate-900/10"
-              >
-                Close Summary
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+                <div className="space-y-4">
+                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Audit Trail & Remarks</h4>
+                   <div className="p-6 bg-slate-50/50 border border-slate-100 border-dashed rounded-2xl">
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed italic">
+                         "{selectedApproval.remarks}"
+                      </p>
+                   </div>
+                </div>
+
+                <div className="pt-4 flex justify-end border-t border-slate-100">
+                   <button 
+                      onClick={() => setIsViewModalOpen(false)}
+                      className="px-8 py-3 bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-900 transition-all shadow-xl shadow-slate-900/10"
+                   >
+                      Close Summary
+                   </button>
+                </div>
+             </div>
+          )}
+       </Modal>
     </>
   );
 };

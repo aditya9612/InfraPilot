@@ -25,8 +25,6 @@ import {
 
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
-import { settingsService } from "../../../services/settingsService";
-import { dsrService } from "../../../services/dsrService";
 import type { QcItem } from "../../../services/qcService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
@@ -66,8 +64,6 @@ const QCInspectionPage = () => {
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [projectId, setProjectId] = useState<number | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
-    const [tasks, setTasks] = useState<any[]>([]);
-    const [dsrs, setDsrs] = useState<any[]>([]);
 
     interface QcFormData {
         project_id: number | "";
@@ -111,49 +107,20 @@ const QCInspectionPage = () => {
                     console.error("Failed to fetch projects list", err);
                 }
 
-                let finalProjectId: number | null = null;
-                
-                // Try fetching from backend settings first (ultimate source of truth)
-                try {
-                    const settings = await settingsService.getSettings();
-                    if (settings && settings.default_project_id) {
-                        finalProjectId = Number(settings.default_project_id);
-                    }
-                } catch (e) {
-                    console.warn("Could not fetch settings, falling back to local storage", e);
-                }
-
-                // Fallback to local storage if API fails or doesn't have it
-                if (!finalProjectId) {
-                    const userStr = localStorage.getItem("infrapilot_user");
-                    if (userStr) {
-                        try {
-                            const user = JSON.parse(userStr);
-                            const pId = user?.default_project_id || user?.project_id || user?.user?.project_id;
-                            if (pId) {
-                                finalProjectId = Number(pId);
-                            }
-                        } catch (e) {
-                            console.error(e);
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    try {
+                        const user = JSON.parse(userStr);
+                        const pId = user?.project_id || user?.user?.project_id;
+                        if (pId) {
+                            const resolvedId = Number(pId);
+                            setProjectId(resolvedId);
+                            setFormData(prev => ({ ...prev, project_id: resolvedId, engineer_name: user.full_name || user.username || "" }));
+                            return;
                         }
+                    } catch (e) {
+                        console.error(e);
                     }
-                }
-
-                if (finalProjectId) {
-                    setProjectId(finalProjectId);
-                    
-                    // Attempt to get user name for default form data
-                    const userStr = localStorage.getItem("infrapilot_user");
-                    let eName = "";
-                    if (userStr) {
-                        try {
-                            const user = JSON.parse(userStr);
-                            eName = user.full_name || user.username || "";
-                        } catch(e) {}
-                    }
-                    
-                    setFormData(prev => ({ ...prev, project_id: finalProjectId as number, engineer_name: eName }));
-                    return;
                 }
 
                 setProjectId(92);
@@ -165,9 +132,6 @@ const QCInspectionPage = () => {
             }
         };
         initializeProject();
-
-        window.addEventListener('storage', initializeProject);
-        return () => window.removeEventListener('storage', initializeProject);
     }, []);
 
     useEffect(() => {
@@ -185,31 +149,6 @@ const QCInspectionPage = () => {
         }
     }, [isNewModalOpen, isEditModalOpen]);
 
-    useEffect(() => {
-        const fetchProjectRelatedData = async () => {
-            if (!formData.project_id) {
-                setTasks([]);
-                setDsrs([]);
-                return;
-            }
-            try {
-                const [tasksData, dsrsData] = await Promise.all([
-                    projectService.getTasks(Number(formData.project_id)).catch(() => []),
-                    dsrService.getDsrByProject(Number(formData.project_id)).catch(() => ({ items: [] }))
-                ]);
-                
-                const taskItems = Array.isArray(tasksData) ? tasksData : (tasksData.items || tasksData.data || []);
-                const dsrItems = dsrsData?.items || (Array.isArray(dsrsData) ? dsrsData : []);
-                
-                setTasks(taskItems);
-                setDsrs(dsrItems);
-            } catch (err) {
-                console.error("Failed to load project tasks or DSRs", err);
-            }
-        };
-        fetchProjectRelatedData();
-    }, [formData.project_id]);
-
     // â”€â”€â”€ INITIALIZATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     const fetchData = useCallback(async () => {
@@ -217,7 +156,7 @@ const QCInspectionPage = () => {
         setIsLoading(true);
         try {
             const res = await qcService.listQc(projectId);
-            const items = Array.isArray(res) ? res : (res.items || (res as any).data || []);
+            const items = res.items || [];
             const sortedItems = items.sort((a: QcItem, b: QcItem) => Number(b.id) - Number(a.id));
             setQcList(sortedItems);
         } catch (err) {
@@ -488,7 +427,7 @@ const QCInspectionPage = () => {
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
                             Quality Control Ledger
                         </h1>
-                        <p className="text-slate-500 text-sm mt-1">
+                        <p className="text-slate-500 text-sm">
                             Historical record of site inspections and material quality audits.
                         </p>
                     </div>
@@ -939,7 +878,7 @@ const QCInspectionPage = () => {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project_id *</label>
                                 <select
                                     value={formData.project_id}
                                     onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
@@ -955,7 +894,7 @@ const QCInspectionPage = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">inspection type *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">inspection_type *</label>
                                 <select
                                     value={formData.inspection_type}
                                     onChange={(e) => setFormData({ ...formData, inspection_type: e.target.value })}
@@ -965,50 +904,7 @@ const QCInspectionPage = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">task <span className="normal-case text-slate-300">(optional)</span></label>
-                                <select
-                                    value={formData.task_id || ""}
-                                    onChange={(e) => setFormData({ ...formData, task_id: e.target.value ? Number(e.target.value) : null })}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
-                                >
-                                    <option value="">None</option>
-                                    {tasks.map(t => {
-                                        const cleanTitle = (t.title || "").replace(/^Task\s*#\d+\s*[-:]?\s*/i, "");
-                                        return (
-                                            <option key={t.id} value={t.id}>
-                                                {cleanTitle || `Task #${t.id}`}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">dsr <span className="normal-case text-slate-300">(optional)</span></label>
-                                <select
-                                    value={formData.dsr_id || ""}
-                                    onChange={(e) => setFormData({ ...formData, dsr_id: e.target.value ? Number(e.target.value) : null })}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
-                                >
-                                    <option value="">None</option>
-                                    {dsrs.map(d => {
-                                        let workDoneStr = d.work_done || "";
-                                        
-                                        // Clean any leading "DSR #ID - " prefix
-                                        workDoneStr = workDoneStr.replace(/^DSR\s*#\d+\s*[-:]?\s*/i, "").trim();
-                                        
-                                        // Display clean work description
-                                        let display = workDoneStr || `DSR #${d.id}`;
-                                        
-                                        return (
-                                            <option key={d.id} value={d.id}>
-                                                {display}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">test type *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">test_type *</label>
                                 <select
                                     value={formData.test_type}
                                     onChange={(e) => setFormData({ ...formData, test_type: e.target.value })}
@@ -1018,7 +914,7 @@ const QCInspectionPage = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer name *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer_name *</label>
                                 <input
                                     type="text"
                                     placeholder="Enter auditor name..."
@@ -1054,7 +950,7 @@ const QCInspectionPage = () => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">standard value *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">standard_value *</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -1145,47 +1041,17 @@ const QCInspectionPage = () => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Project</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase truncate" title={projects.find(p => p.id === selectedQc.project_id || p.project_id === selectedQc.project_id)?.project_name || projects.find(p => p.id === selectedQc.project_id || p.project_id === selectedQc.project_id)?.name || String(selectedQc.project_id)}>
-                                            {projects.find(p => p.id === selectedQc.project_id || p.project_id === selectedQc.project_id)?.project_name || projects.find(p => p.id === selectedQc.project_id || p.project_id === selectedQc.project_id)?.name || selectedQc.project_id}
-                                        </p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Engineer Name</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedQc.engineer_name}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">
-                                            {selectedQc.task_id ? (tasks.find(t => t.id === selectedQc.task_id)?.title ? (tasks.find(t => t.id === selectedQc.task_id).title.replace(/^Task\s*#\d+\s*[-:]?\s*/i, "")) : `Task #${selectedQc.task_id}`) : "N/A"}
-                                        </p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">
-                                            {selectedQc.dsr_id ? (() => {
-                                                const d = dsrs.find(dsr => dsr.id === selectedQc.dsr_id);
-                                                if (d) {
-                                                    let workDoneStr = d.work_done || "";
-                                                    workDoneStr = workDoneStr.replace(/^DSR\s*#\d+\s*[-:]?\s*/i, "").trim();
-                                                    return workDoneStr || `DSR #${selectedQc.dsr_id}`;
-                                                }
-                                                return `DSR #${selectedQc.dsr_id}`;
-                                            })() : "N/A"}
-                                        </p>
-                                    </div>
-                                    <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Inspection Category</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedQc.inspection_type}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Final Status</p>
                                         <p className={`text-sm font-bold font-inter uppercase tracking-widest ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                            {selectedQc.status}
+                                            {selectedQc.status === 'Pass' ? 'Compliant' : 'Non-Compliant'}
                                         </p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Observed Value (Result)</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Observed Value</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.result}</p>
                                     </div>
                                     <div className="font-inter">

@@ -18,12 +18,11 @@ import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
+import PDFPreviewModal from "../../components/common/PDFPreviewModal";
 import { quotationService } from "../../services/quotationService";
 import { financeService } from "../../services/financeService";
 import type { Quotation } from "../../types/quotation";
 import toast from "react-hot-toast";
-import QuotationPreviewModal from "../../components/forms/QuotationPreviewModal";
-import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
 import { formatCurrency, formatCompactCurrency } from "../../utils/currencyUtils";
 
 const QuotationsPage = () => {
@@ -43,10 +42,10 @@ const QuotationsPage = () => {
     const [isRejecting, setIsRejecting] = useState(false);
 
     // Preview state
-    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-    const [previewData, setPreviewData] = useState<any>(null);
-    const [previewType, setPreviewType] = useState<"quotation" | "invoice">("quotation");
+    const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
+    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [isFetchingPreview, setIsFetchingPreview] = useState(false);
+    const [previewQuotationNo, setPreviewQuotationNo] = useState("");
 
     const fetchQuotations = async () => {
         try {
@@ -166,54 +165,35 @@ const QuotationsPage = () => {
         }
     };
 
-    const handleDownload = async (id: number) => {
+    const handlePreviewPDF = async (id: number) => {
         try {
             setIsFetchingPreview(true);
             toast.loading("Preparing preview...", { id: "preview-loading" });
-            const data = await quotationService.getQuotationPreview(id);
 
-            // Determine if we show Quotation or Invoice format
-            const currentStatus = (data.status || "").toLowerCase();
-            console.log("Quotation Status for Preview:", currentStatus);
-            const isConverted = currentStatus === "converted" || currentStatus === "invoice";
-            setPreviewType(isConverted ? "invoice" : "quotation");
+            const q = quotations.find(item => item.id === id);
+            setPreviewQuotationNo(q?.quotation_no || `QTN-${id}`);
 
-            // Map Quotation to Preview format
-            const mappedData = {
-                clientName: data.client_name,
-                clientAddress: data.billing_address || data.site_address,
-                mobile_number: data.mobile_number,
-                gst_number: data.gst_number,
-                projectName: data.project_name || "N/A",
-                siteAddress: data.site_address || data.billing_address,
-                invoiceNo: data.quotation_no || `QTN-${data.id}`,
-                date: data.created_at ? new Date(data.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
-                items: data.items || [],
-                materialItems: data.material_items || [],
-                labourItems: data.labour_items || [],
-                extraChargeItems: data.extra_charge_items || [],
-                subTotal: data.subtotal || 0,
-                cgstRate: data.cgst_percent || 0,
-                sgstRate: data.sgst_percent || 0,
-                discount: data.discount_amount || 0,
-                advancePaid: data.advance_paid || 0,
-                balanceDue: data.balance_due || 0,
-                grandTotal: data.grand_total || 0,
-                // Add missing dynamic fields
-                projectType: data.project_type || "Commercial",
-                engineerName: data.engineer_name || "N/A",
-                workOrderNo: data.work_order_no || "N/A",
-                terms: data.terms_conditions || "50% advance payment required."
-            };
+            const blob = await quotationService.downloadQuotationPDF(id);
+            const url = window.URL.createObjectURL(blob);
+            setPdfUrl(url);
+            setIsPDFModalOpen(true);
 
-            setPreviewData(mappedData);
-            setIsPreviewModalOpen(true);
-            toast.success("Ready for print!", { id: "preview-loading" });
+            toast.success("Ready for preview!", { id: "preview-loading" });
         } catch (error) {
             toast.error("Failed to load quotation preview", { id: "preview-loading" });
         } finally {
             setIsFetchingPreview(false);
         }
+    };
+
+    const handleDownloadFromPreview = async () => {
+        if (!pdfUrl) return;
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.setAttribute('download', `Quotation_${previewQuotationNo}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
     };
 
     return (
@@ -374,7 +354,7 @@ const QuotationsPage = () => {
                                                         <Eye className="w-4 h-4" />
                                                     </button>
                                                     <button
-                                                        onClick={() => q.id && handleDownload(q.id)}
+                                                        onClick={() => q.id && handlePreviewPDF(q.id)}
                                                         disabled={isFetchingPreview}
                                                         className="p-2 text-slate-400 hover:text-emerald-500 transition-colors hidden md:block disabled:opacity-50"
                                                     >
@@ -440,19 +420,19 @@ const QuotationsPage = () => {
                 isLoading={isRejecting}
                 title="Reject Quotation"
             />
-            {previewType === "quotation" ? (
-                <QuotationPreviewModal
-                    isOpen={isPreviewModalOpen}
-                    onClose={() => setIsPreviewModalOpen(false)}
-                    data={previewData}
-                />
-            ) : (
-                <InvoicePreviewModal
-                    isOpen={isPreviewModalOpen}
-                    onClose={() => setIsPreviewModalOpen(false)}
-                    data={previewData}
-                />
-            )}
+            <PDFPreviewModal
+                isOpen={isPDFModalOpen}
+                onClose={() => {
+                    setIsPDFModalOpen(false);
+                    if (pdfUrl) {
+                        window.URL.revokeObjectURL(pdfUrl);
+                        setPdfUrl(null);
+                    }
+                }}
+                pdfUrl={pdfUrl}
+                title={`Preview Quotation: ${previewQuotationNo}`}
+                onDownload={handleDownloadFromPreview}
+            />
         </>
     );
 };

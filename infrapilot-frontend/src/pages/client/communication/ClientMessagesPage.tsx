@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import type { KeyboardEvent } from "react";
 import toast from "react-hot-toast";
 import { communicationService, type CommunicationMessage } from "../../../services/communicationService";
+import { settingsService } from "../../../services/settingsService";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
 
 // Helper to format iso strings
@@ -54,7 +55,6 @@ const ClientMessagesPage = () => {
     // Fetch current user ID for proper alignment
     const loadProfile = async () => {
       try {
-        const { settingsService } = await import("../../../services/settingsService");
         const profile = await settingsService.getProfile();
         setCurrentUserId(profile.user_id);
       } catch (err) {

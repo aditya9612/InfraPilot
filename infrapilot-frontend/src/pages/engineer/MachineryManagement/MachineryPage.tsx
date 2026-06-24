@@ -13,7 +13,7 @@ import type {
 
 import {
     Search, Plus, Edit2, Trash2, Eye, FileText, Wrench, Activity,
-    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, CheckCircle
+    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
 
@@ -110,23 +110,6 @@ const MachineryPage = () => {
     // Form Data
     const [formData, setFormData] = useState<any>({});
     const [projects, setProjects] = useState<any[]>([]);
-    const [viewProjectName, setViewProjectName] = useState<string>('Loading...');
-
-    useEffect(() => {
-        if (selectedEquipment?.project_id) {
-            const p = projects.find(p => Number(p.id) === Number(selectedEquipment.project_id));
-            if (p) {
-                setViewProjectName(p.project_name || p.name);
-            } else {
-                setViewProjectName(`Loading...`);
-                projectService.getProjectById(selectedEquipment.project_id)
-                    .then(res => setViewProjectName(res.project_name || res.name || `PRJ-${selectedEquipment.project_id}`))
-                    .catch(() => setViewProjectName(`PRJ-${selectedEquipment.project_id}`));
-            }
-        } else {
-            setViewProjectName('Not Allocated');
-        }
-    }, [selectedEquipment, projects]);
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -389,35 +372,6 @@ const MachineryPage = () => {
             }
         } catch (error) {
             toast.error("Failed to schedule maintenance");
-        }
-    };
-
-    const handleCompleteMaintenance = async (maintenanceId: number, equipmentId: number) => {
-        try {
-            // Optimistic update
-            setSelectedEquipmentLogs(prev => ({
-                ...prev,
-                maint: prev.maint.map(m => m.id === maintenanceId ? { ...m, status: 'COMPLETED' } : m)
-            }));
-            
-            await equipmentService.completeMaintenance(maintenanceId);
-            toast.success("Maintenance marked as complete!");
-            
-            if (activeTab === "Maintenance") {
-                const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
-                setMaintenanceAlerts(alerts);
-                // Background refetch
-                const logs = await equipmentService.listMaintenance(equipmentId);
-                setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
-            }
-        } catch (error: any) {
-            const errorMsg = error.response?.data?.detail || "Failed to mark maintenance as complete";
-            toast.error(typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg));
-            // Revert on failure (could refetch here)
-            if (activeTab === "Maintenance") {
-                const logs = await equipmentService.listMaintenance(equipmentId);
-                setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
-            }
         }
     };
 
@@ -901,16 +855,8 @@ const MachineryPage = () => {
                                         <td className="p-4 text-slate-700">{log.description}</td>
                                         <td className="p-4 font-bold text-slate-800">₹{log.cost.toLocaleString()}</td>
                                         <td className="p-4">{log.next_maintenance_date || '-'}</td>
-                                        <td className="p-4 flex items-center gap-2">
+                                        <td className="p-4">
                                             <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{log.status}</span>
-                                            <button 
-                                                onClick={() => log.status !== 'COMPLETED' && handleCompleteMaintenance(log.id, log.equipment_id)} 
-                                                disabled={log.status === 'COMPLETED'}
-                                                className={`p-1 transition-all rounded ${log.status === 'COMPLETED' ? 'text-slate-300 opacity-50 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50'}`} 
-                                                title={log.status === 'COMPLETED' ? 'Already Completed' : 'Mark as Complete'}
-                                            >
-                                                <CheckCircle className="w-4 h-4" />
-                                            </button>
                                         </td>
                                     </tr>
                                 )) : <tr><td colSpan={5} className="p-8 text-center text-slate-400">No maintenance records found</td></tr>}
@@ -1201,21 +1147,19 @@ const MachineryPage = () => {
                             Complete lifecycle tracking — allocation, usage, maintenance, cost
                         </p>
                     </div>
-                    {!(activeTab === "Usage" || activeTab === "Reports & Alerts") && (
-                        <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-xl shadow-sm">
-                            <span className="text-xs font-bold text-slate-500 uppercase">Active Project:</span>
-                            <select
-                                value={selectedProjectId || ""}
-                                onChange={handleProjectChange}
-                                className="bg-transparent border-none text-sm font-bold text-slate-800 focus:outline-none cursor-pointer"
-                            >
-                                <option value="" disabled>Select Project</option>
-                                {projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2 bg-white px-4 py-2 border border-slate-200 rounded-xl shadow-sm">
+                        <span className="text-xs font-bold text-slate-500 uppercase">Active Project:</span>
+                        <select
+                            value={selectedProjectId || ""}
+                            onChange={handleProjectChange}
+                            className="bg-transparent border-none text-sm font-bold text-slate-800 focus:outline-none cursor-pointer"
+                        >
+                            <option value="" disabled>Select Project</option>
+                            {projects.map(p => (
+                                <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
                 {/* ─── Tab Bar ─── */}
@@ -1277,17 +1221,15 @@ const MachineryPage = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
+                        <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Operator</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.operator_name}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">
-                                {viewProjectName}
+                                {selectedEquipment.project_id ? (projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.project_name || projects.find(p => Number(p.id) === Number(selectedEquipment.project_id))?.name || `PRJ-${selectedEquipment.project_id}`) : 'Not Allocated'}
                             </p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Working Hours</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.working_hours} Hrs</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Fuel Used</p><p className="text-sm font-bold text-blue-600">{selectedEquipment.fuel_used} L</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost?.toLocaleString() || 0}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{selectedEquipment.rental_cost.toLocaleString()}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Maintenance Date</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.maintenance_date}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Created At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.created_at ? new Date(selectedEquipment.created_at).toLocaleString() : '-'}</p></div>
-                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Updated At</p><p className="text-sm font-bold text-slate-800">{selectedEquipment.updated_at ? new Date(selectedEquipment.updated_at).toLocaleString() : '-'}</p></div>
                         </div>
 
                         <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between mb-6">

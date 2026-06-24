@@ -64,7 +64,7 @@ export const materialService = {
    * List all materials for a project
    * GET /api/v1/materials
    */
-  async listMaterials(project_id?: number, skip: number = 0, limit: number = 50): Promise<Material[]> {
+  async listMaterials(project_id?: number, skip: number = 0, limit: number = 500): Promise<Material[]> {
     console.log("GET /api/v1/materials Request Params:", { project_id, skip, limit });
     const params: any = { skip, limit };
     if (project_id !== undefined) params.project_id = project_id;
@@ -145,7 +145,8 @@ export const materialService = {
     type?: string;
     limit?: number;
   }): Promise<InventoryLog[]> {
-    const response = await api.get<InventoryLog[]>("/materials/logs", { params });
+    const finalParams = { limit: 500, ...params };
+    const response = await api.get<InventoryLog[]>("/materials/logs", { params: finalParams });
     return response.data;
   },
 
@@ -185,17 +186,17 @@ export const materialService = {
       let response;
       for (const endpoint of endpoints) {
         try {
-            const params: any = {};
-            if (project_id) params.project_id = project_id;
-            if (sortOrder) params.sort_order = sortOrder;
+          const params: any = {};
+          if (project_id) params.project_id = project_id;
+          if (sortOrder) params.sort_order = sortOrder;
 
-            response = await api.get(endpoint, {
-              params,
-              responseType: 'blob'
-            });
-            break;
+          response = await api.get(endpoint, {
+            params,
+            responseType: 'blob'
+          });
+          break;
         } catch (e: any) {
-            if (e.response?.status !== 404) throw e;
+          if (e.response?.status !== 404) throw e;
         }
       }
       if (response && response.status === 200) {
@@ -223,17 +224,17 @@ export const materialService = {
       let response;
       for (const endpoint of endpoints) {
         try {
-            const params: any = {};
-            if (project_id) params.project_id = project_id;
-            if (sortOrder) params.sort_order = sortOrder;
+          const params: any = {};
+          if (project_id) params.project_id = project_id;
+          if (sortOrder) params.sort_order = sortOrder;
 
-            response = await api.get(endpoint, {
-              params,
-              responseType: 'blob'
-            });
-            break;
+          response = await api.get(endpoint, {
+            params,
+            responseType: 'blob'
+          });
+          break;
         } catch (e: any) {
-            if (e.response?.status !== 404) throw e;
+          if (e.response?.status !== 404) throw e;
         }
       }
       if (response && response.status === 200) {
@@ -267,8 +268,10 @@ export const materialService = {
     return mapSupplier(response.data);
   },
 
-  async getSuppliers(): Promise<Supplier[]> {
-    const response = await api.get<any>("/materials/suppliers");
+  async getSuppliers(project_id?: number): Promise<Supplier[]> {
+    const params: any = {};
+    if (project_id) params.project_id = project_id;
+    const response = await api.get<any>("/materials/suppliers", { params });
     const data = response.data;
     const items = Array.isArray(data) ? data : (data.items || data.data || []);
     return items.map(mapSupplier);
@@ -313,9 +316,9 @@ export const materialService = {
     return response.data;
   },
 
-  async listPurchaseOrders(project_id?: number, skip: number = 0, limit: number = 50): Promise<PurchaseOrder[]> {
+  async listPurchaseOrders(project_id?: number, skip: number = 0, limit: number = 500): Promise<PurchaseOrder[]> {
     const params: any = { skip, limit };
-    if (project_id !== undefined) params.project_id = project_id;
+    if (project_id) params.project_id = project_id;
     const response = await api.get<PurchaseOrder[]>("/materials/purchase-orders", { params });
     return response.data;
   },
@@ -349,7 +352,7 @@ export const materialService = {
     return response.data;
   },
 
-  async listTransfers(skip: number = 0, limit: number = 50): Promise<any> {
+  async listTransfers(skip: number = 0, limit: number = 500): Promise<any> {
     const response = await api.get<any>("/materials/transfers", { params: { skip, limit } });
     return response.data;
   },

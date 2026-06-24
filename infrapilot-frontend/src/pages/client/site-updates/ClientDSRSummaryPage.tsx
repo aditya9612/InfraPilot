@@ -8,13 +8,13 @@ import toast from "react-hot-toast";
 const ClientDSRSummaryPage = () => {
   const [reports, setReports] = useState<any[]>([]);
   const [filteredReports, setFilteredReports] = useState<any[]>([]);
-  const [selectedPhoto, setSelectedPhoto] = useState<{ id: number, url: string } | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<{id: number, url: string} | null>(null);
   const [selectedReportForView, setSelectedReportForView] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL STATUS");
-
+  const [dateFilter, setDateFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -26,7 +26,7 @@ const ClientDSRSummaryPage = () => {
       setLoading(true);
       // HARDCODE THE LIMIT IN REQUEST TO ENSURE IT PASSES
       const response: any = await dsrService.getDsrByProject(projectId, { limit: 100, offset: 0 });
-
+      
       // Force verify that the URL being hit actually has the limit=100 if the service allows it, 
       // but since the service is using standard params, we'll try to re-verify the service.
       if (response.meta?.total !== undefined) {
@@ -36,7 +36,7 @@ const ClientDSRSummaryPage = () => {
       }
 
       let items: any[] = Array.isArray(response) ? response : (response.items || response.data || []);
-
+      
       const formatted = await Promise.all(items.map(async (item: any) => {
         const resolveStaticUrl = (path: string) => {
           if (!path) return "";
@@ -82,18 +82,21 @@ const ClientDSRSummaryPage = () => {
   useEffect(() => {
     let result = reports;
     if (searchQuery) {
-      result = result.filter(r =>
+      result = result.filter(r => 
         r.work_done?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.report_date?.includes(searchQuery) ||
         (r.business_id || "").toLowerCase().includes(searchQuery.toLowerCase())
       );
+    }
+    if (dateFilter) {
+      result = result.filter(r => r.report_date?.startsWith(dateFilter));
     }
     if (statusFilter !== "ALL STATUS") {
       result = result.filter(r => r.status?.toUpperCase() === statusFilter);
     }
     setFilteredReports(result);
     setCurrentPage(1);
-  }, [reports, searchQuery, statusFilter]);
+  }, [reports, searchQuery, statusFilter, dateFilter]);
 
   const stats = {
     total: totalCount || reports.length,
@@ -126,12 +129,12 @@ const ClientDSRSummaryPage = () => {
 
   const handleExport = async () => {
     try {
-      if (projectId) {
-        await dsrService.exportDsrExcel(projectId);
-        toast.success("Excel ledger exported successfully.");
-      }
+        if (projectId) {
+            await dsrService.exportDsrExcel(projectId);
+            toast.success("Excel ledger exported successfully.");
+        }
     } catch (err) {
-      toast.error("Failed to export ledger.");
+        toast.error("Failed to export ledger.");
     }
   };
 
@@ -139,30 +142,30 @@ const ClientDSRSummaryPage = () => {
     <>
       <Navbar title="Site Updates" breadcrumb={["InfraPilot", "Client", "Site Updates", "DSR Suite"]} />
       <div className="p-8 bg-[#f8fafc] min-h-screen font-inter pb-20">
-
+        
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
           <div>
             <h1 className="text-4xl font-black text-slate-800 tracking-tight">Project Daily Ledger</h1>
             <p className="text-slate-400 font-medium mt-1 text-sm tracking-tight font-inter">Historical record of activities, labour, and material movements.</p>
           </div>
-
+          
           <div className="flex items-center gap-3">
-            <button
-              onClick={fetchDsrData}
-              className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-100 transition-all shadow-sm active:scale-95"
-              title="Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
-            </button>
-
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95"
-            >
-              <FileDown className="w-4 h-4" />
-              Export
-            </button>
+             <button 
+               onClick={fetchDsrData}
+               className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-100 transition-all shadow-sm active:scale-95"
+               title="Refresh Data"
+             >
+               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
+             </button>
+             
+             <button 
+               onClick={handleExport}
+               className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+             >
+               <FileDown className="w-4 h-4" />
+               Export
+             </button>
           </div>
         </div>
 
@@ -174,10 +177,10 @@ const ClientDSRSummaryPage = () => {
             { label: "SUBMITTED REPORTS", value: stats.submitted, sub: "Pending Audit", color: "text-blue-600", filter: "SUBMITTED" },
             { label: "APPROVED REPORTS", value: stats.approved, sub: "Verified & Approved", color: "text-emerald-500", filter: "APPROVED" },
           ].map((card, i) => (
-            <div
-              key={i}
-              onClick={() => setStatusFilter(card.filter)}
-              className={`bg-white p-8 rounded-2xl border transition-all h-full flex flex-col justify-between cursor-pointer group hover:scale-[1.02] active:scale-95 ${statusFilter === card.filter ? 'border-blue-500 shadow-xl shadow-blue-500/10 ring-1 ring-blue-500' : 'border-slate-100 shadow-sm hover:shadow-md'}`}
+            <div 
+                key={i} 
+                onClick={() => setStatusFilter(card.filter)}
+                className={`bg-white p-8 rounded-2xl border transition-all h-full flex flex-col justify-between cursor-pointer group hover:scale-[1.02] active:scale-95 ${statusFilter === card.filter ? 'border-blue-500 shadow-xl shadow-blue-500/10 ring-1 ring-blue-500' : 'border-slate-100 shadow-sm hover:shadow-md'}`}
             >
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{card.label}</p>
               <h3 className={`text-4xl font-black ${card.color} mb-1 tracking-tighter tracking-tighter`}>{card.value}</h3>
@@ -188,12 +191,12 @@ const ClientDSRSummaryPage = () => {
 
         {/* Content Card */}
         <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden min-h-[600px] flex flex-col font-inter">
-
+          
           {/* Filter Bar */}
-          <div className="p-8 border-b border-slate-50 flex items-center gap-3">
+          <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="relative flex-1 max-w-xl">
               <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
+              <input 
                 type="text"
                 placeholder="Search by activity, location or ID..."
                 value={searchQuery}
@@ -202,18 +205,43 @@ const ClientDSRSummaryPage = () => {
               />
             </div>
 
-            <div className="relative shrink-0">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-100 rounded-xl py-4 pl-5 pr-10 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white transition-all shadow-sm font-inter"
-              >
-                <option>ALL STATUS</option>
-                <option>DRAFT</option>
-                <option>SUBMITTED</option>
-                <option>APPROVED</option>
-              </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <div className="flex items-center gap-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Filter By Date:</p>
+              <div className="relative group">
+                <input
+                  type="date"
+                  value={dateFilter}
+                  max={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 px-3 w-[155px] text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none hover:bg-white transition-all shadow-sm font-inter"
+                />
+                {dateFilter && (
+                  <button
+                    onClick={() => setDateFilter("")}
+                    className="absolute -right-2 -top-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all shadow-sm active:scale-95"
+                    title="Clear Date"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 text-slate-400">
+              <p className="text-[10px] font-black uppercase tracking-widest font-inter">Status:</p>
+              <div className="relative group">
+                <select 
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 pl-6 pr-12 text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none appearance-none cursor-pointer hover:bg-white transition-all shadow-sm font-inter"
+                >
+                  <option>ALL STATUS</option>
+                  <option>DRAFT</option>
+                  <option>SUBMITTED</option>
+                  <option>APPROVED</option>
+                </select>
+                <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 
@@ -231,12 +259,12 @@ const ClientDSRSummaryPage = () => {
               </thead>
               <tbody className="divide-y divide-slate-50 font-inter">
                 {loading && reports.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="p-20 text-center">
-                      <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Loading Ledger Records...</p>
-                    </td>
-                  </tr>
+                   <tr>
+                     <td colSpan={5} className="p-20 text-center">
+                        <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Loading Ledger Records...</p>
+                     </td>
+                   </tr>
                 ) : paginatedReports.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-20 text-center">
@@ -246,8 +274,8 @@ const ClientDSRSummaryPage = () => {
                 ) : paginatedReports.map((report) => (
                   <tr key={report.id} className="group hover:bg-slate-50/50 transition-all cursor-default align-top font-inter">
                     <td className="p-8">
-                      <p className="text-sm font-black text-slate-800 tracking-tight mb-0.5">{report.formattedDate}</p>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-inter">Daily Ledger</p>
+                       <p className="text-sm font-black text-slate-800 tracking-tight mb-0.5">{report.formattedDate}</p>
+                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest font-inter">Daily Ledger</p>
                     </td>
                     <td className="p-8">
                       <div className="space-y-2">
@@ -263,52 +291,53 @@ const ClientDSRSummaryPage = () => {
                       </div>
                     </td>
                     <td className="p-8">
-                      <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.15em] border ${report.status?.toLowerCase() === 'submitted'
-                        ? 'bg-blue-50 text-blue-600 border-blue-100'
+                      <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.15em] border ${
+                        report.status?.toLowerCase() === 'submitted' 
+                        ? 'bg-blue-50 text-blue-600 border-blue-100' 
                         : report.status?.toLowerCase() === 'approved'
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                          : 'bg-white text-slate-400 border-slate-100 shadow-sm font-inter'
-                        }`}>
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        : 'bg-white text-slate-400 border-slate-100 shadow-sm font-inter'
+                      }`}>
                         {report.status?.toUpperCase() || 'DRAFT'}
                       </span>
                     </td>
                     <td className="p-8">
-                      <div className="flex items-center gap-3">
-                        {report.gallery && report.gallery.length > 0 ? (
-                          report.gallery.slice(0, 4).map((img: any, idx: number) => (
-                            <div
-                              key={img.id || idx}
-                              onClick={() => setSelectedPhoto(img)}
-                              className="w-14 h-14 rounded-xl border border-slate-100 shadow-sm overflow-hidden transition-all hover:scale-105 cursor-zoom-in group/img bg-slate-50 relative shrink-0"
-                            >
-                              <img src={img.url} className="w-full h-full object-cover" alt="Site" />
-                              <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                <Maximize2 className="w-3.5 h-3.5 text-white shadow-sm shadow-sm shadow-sm shadow-sm" />
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="w-14 h-14 rounded-xl border border-slate-50 bg-slate-50 flex items-center justify-center text-slate-200">
-                            <ImageIcon className="w-5 h-5 font-inter font-inter font-inter font-inter font-inter" />
-                          </div>
-                        )}
-                        {report.gallery?.length > 4 && (
-                          <div className="w-14 h-14 rounded-xl bg-slate-900 flex items-center justify-center text-white text-[10px] font-black shrink-0 font-inter font-inter">
-                            +{report.gallery.length - 4}
-                          </div>
-                        )}
-                      </div>
+                        <div className="flex items-center gap-3">
+                            {report.gallery && report.gallery.length > 0 ? (
+                            report.gallery.slice(0, 4).map((img: any, idx: number) => (
+                                <div 
+                                    key={img.id || idx} 
+                                    onClick={() => setSelectedPhoto(img)}
+                                    className="w-14 h-14 rounded-xl border border-slate-100 shadow-sm overflow-hidden transition-all hover:scale-105 cursor-zoom-in group/img bg-slate-50 relative shrink-0"
+                                >
+                                    <img src={img.url} className="w-full h-full object-cover" alt="Site" />
+                                    <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Maximize2 className="w-3.5 h-3.5 text-white shadow-sm shadow-sm shadow-sm shadow-sm" />
+                                    </div>
+                                </div>
+                            ))
+                            ) : (
+                                <div className="w-14 h-14 rounded-xl border border-slate-50 bg-slate-50 flex items-center justify-center text-slate-200">
+                                    <ImageIcon className="w-5 h-5 font-inter font-inter font-inter font-inter font-inter" />
+                                </div>
+                            )}
+                            {report.gallery?.length > 4 && (
+                                <div className="w-14 h-14 rounded-xl bg-slate-900 flex items-center justify-center text-white text-[10px] font-black shrink-0 font-inter font-inter">
+                                    +{report.gallery.length - 4}
+                                </div>
+                            )}
+                        </div>
                     </td>
                     <td className="p-8 text-right pr-12 font-inter font-inter">
-                      <div className="flex items-center justify-end">
-                        <button
-                          onClick={() => setSelectedReportForView(report)}
-                          className="p-2 text-slate-400 hover:text-blue-600 transition-all hover:bg-slate-100 rounded-xl active:scale-95"
-                          title="View Intelligence Insights"
-                        >
-                          <Eye className="w-5 h-5 font-inter" />
-                        </button>
-                      </div>
+                       <div className="flex items-center justify-end">
+                          <button 
+                            onClick={() => setSelectedReportForView(report)}
+                            className="p-2 text-slate-400 hover:text-blue-600 transition-all hover:bg-slate-100 rounded-xl active:scale-95"
+                            title="View Intelligence Insights"
+                          >
+                            <Eye className="w-5 h-5 font-inter" />
+                          </button>
+                       </div>
                     </td>
                   </tr>
                 ))}
@@ -318,282 +347,283 @@ const ClientDSRSummaryPage = () => {
 
           {/* Pagination Footer */}
           <div className="px-10 py-8 border-t border-slate-50 bg-white mt-auto flex items-center justify-between font-inter mt-auto">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-slate-500 font-inter font-inter">Records per page:</span>
-              <div className="relative">
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                  className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer pr-10 shadow-sm hover:border-slate-300 transition-all font-inter"
+             <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-500 font-inter font-inter">Records per page:</span>
+                <div className="relative">
+                  <select 
+                    value={itemsPerPage} 
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none appearance-none cursor-pointer pr-10 shadow-sm hover:border-slate-300 transition-all font-inter"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none font-inter" />
+                </div>
+             </div>
+
+             <div className="text-sm font-semibold text-slate-400 tracking-tight font-inter">
+                Showing {filteredReports.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredReports.length)} of {filteredReports.length} records
+             </div>
+
+             <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:bg-slate-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm font-inter"
                 >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                </select>
-                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none font-inter" />
-              </div>
-            </div>
-
-            <div className="text-sm font-semibold text-slate-400 tracking-tight font-inter">
-              Showing {filteredReports.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredReports.length)} of {filteredReports.length} records
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:bg-slate-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm font-inter"
-              >
-                <ChevronLeft className="w-5 h-5 font-inter" />
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-black transition-all font-inter ${currentPage === page
-                    ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20"
-                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
-                    }`}
-                >
-                  {page}
+                  <ChevronLeft className="w-5 h-5 font-inter" />
                 </button>
-              ))}
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button 
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-black transition-all font-inter ${
+                      currentPage === page 
+                      ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20" 
+                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
 
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:bg-slate-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
-              >
-                <ChevronRight className="w-5 h-5 font-inter font-inter" />
-              </button>
-            </div>
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-400 hover:bg-slate-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                >
+                  <ChevronRight className="w-5 h-5 font-inter font-inter" />
+                </button>
+             </div>
           </div>
         </div>
       </div>
 
       {/* View Intelligence Intelligence Insights Modal */}
       {selectedReportForView && (
-        <div
+        <div 
           className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1e293b]/70 backdrop-blur-md p-4 animate-in fade-in transition-all"
           onClick={() => setSelectedReportForView(null)}
         >
-          <div
+          <div 
             className="bg-white max-w-2xl w-full rounded-[2.5rem] shadow-2xl p-0 overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[92vh] font-inter"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="px-10 py-8 flex items-center justify-between border-b border-slate-50 shrink-0 font-inter">
-              <h3 className="text-xl font-black text-slate-700 tracking-tight font-inter">DSR Intelligence Insight</h3>
-              <button
+               <h3 className="text-xl font-black text-slate-700 tracking-tight font-inter">DSR Intelligence Insight</h3>
+               <button 
                 onClick={() => setSelectedReportForView(null)}
                 className="text-slate-300 hover:text-slate-600 transition-colors font-inter"
-              >
-                <X className="w-6 h-6" />
-              </button>
+               >
+                 <X className="w-6 h-6" />
+               </button>
             </div>
 
             {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-10 font-inter space-y-12 pb-16 custom-scrollbar">
+               
+               {/* Hero Summary Card */}
+               <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-[2rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-blue-500/20 font-inter">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl font-inter" />
+                  
+                  <div className="flex items-start gap-8 relative z-10 font-inter">
+                     <div className="w-24 h-24 rounded-[1.5rem] bg-slate-900 border-4 border-white/20 overflow-hidden shrink-0 relative group font-inter">
+                        <img 
+                            src={selectedReportForView.gallery?.[0]?.url || ""} 
+                            className="w-full h-full object-cover font-inter" 
+                            alt="Logo" 
+                        />
+                        <div className="absolute bottom-2 right-2 w-4 h-4 bg-orange-500 rounded-full border-2 border-slate-900 shadow-sm font-inter" />
+                     </div>
+                     
+                     <div className="flex-1 font-inter">
+                        <div className="flex items-center gap-4 mb-4 font-inter">
+                            <h2 className="text-3xl font-black tracking-tight font-inter">{selectedReportForView.business_id || `DSR0${selectedReportForView.id}`}</h2>
+                            <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/20 font-inter">
+                                {selectedReportForView.status || 'SUBMITTED'}
+                            </span>
+                        </div>
+                        
+                        <div className="space-y-3 font-inter">
+                           <div className="flex items-center gap-2 text-white/70 font-inter">
+                              <Calendar className="w-4 h-4 font-inter" />
+                              <p className="text-sm font-bold font-inter">{selectedReportForView.formattedDate}</p>
+                           </div>
+                           <div className="flex items-start gap-2 text-white/70 font-inter">
+                              <MapPin className="w-4 h-4 mt-0.5 shrink-0 font-inter" />
+                              <p className="text-xs font-bold leading-relaxed font-inter">
+                                {selectedReportForView.contractor_name ? `${selectedReportForView.contractor_name} · ` : ""}
+                                {selectedReportForView.site_location || selectedReportForView.site_address || selectedReportForView.project_location || "Pune Site"}
+                              </p>
+                           </div>
+                        </div>
 
-              {/* Hero Summary Card */}
-              <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-[2rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-blue-500/20 font-inter">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl font-inter" />
+                        <div className="mt-8 font-inter">
+                           <span className="px-6 py-2.5 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-white/20 shadow-lg font-inter">
+                              WEATHER: {selectedReportForView.weather?.toUpperCase() || 'SUNNY'}
+                           </span>
+                        </div>
+                     </div>
+                  </div>
+               </div>
 
-                <div className="flex items-start gap-8 relative z-10 font-inter">
-                  <div className="w-24 h-24 rounded-[1.5rem] bg-slate-900 border-4 border-white/20 overflow-hidden shrink-0 relative group font-inter">
-                    <img
-                      src={selectedReportForView.gallery?.[0]?.url || ""}
-                      className="w-full h-full object-cover font-inter"
-                      alt="Logo"
-                    />
-                    <div className="absolute bottom-2 right-2 w-4 h-4 bg-orange-500 rounded-full border-2 border-slate-900 shadow-sm font-inter" />
+               {/* Site Documentation Section */}
+               <div className="space-y-6 font-inter">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">SITE DOCUMENTATION ({selectedReportForView.gallery?.length || 0})</h4>
+                  <div className="rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm bg-slate-50 group font-inter">
+                    {selectedReportForView.gallery?.[0] ? (
+                        <div className="aspect-[4/2.5] relative font-inter">
+                            <img src={selectedReportForView.gallery[0].url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 font-inter" alt="Primary Site View font-inter" />
+                            <div className="absolute inset-0 bg-slate-900/10 font-inter" />
+                        </div>
+                    ) : (
+                        <div className="aspect-[4/2] flex flex-col items-center justify-center text-slate-300 gap-4 font-inter">
+                           <ImageIcon className="w-12 h-12 stroke-[1.5] font-inter" />
+                           <p className="text-xs font-black uppercase tracking-widest font-inter">No primary imagery available</p>
+                        </div>
+                    )}
+                  </div>
+               </div>
+
+               {/* Operational Intelligence Section */}
+               <div className="space-y-8 font-inter font-inter">
+                  <div className="flex items-center gap-3 font-inter">
+                     <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 shadow-sm font-inter">
+                        <RefreshCw className="w-4 h-4 font-inter" />
+                     </div>
+                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">OPERATIONAL INTELLIGENCE</h4>
                   </div>
 
-                  <div className="flex-1 font-inter">
-                    <div className="flex items-center gap-4 mb-4 font-inter">
-                      <h2 className="text-3xl font-black tracking-tight font-inter">{selectedReportForView.business_id || `DSR0${selectedReportForView.id}`}</h2>
-                      <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/20 font-inter">
-                        {selectedReportForView.status || 'SUBMITTED'}
-                      </span>
-                    </div>
+                  <div className="grid grid-cols-2 gap-x-12 gap-y-10 px-2 font-inter">
+                     <div className="font-inter">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter font-inter">WEATHER CONDITION</p>
+                        <p className="text-sm font-black text-slate-800 tracking-tight font-inter">{selectedReportForView.weather || 'Sunny'}</p>
+                     </div>
+                     <div className="font-inter font-inter">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">TOTAL PERSONNEL</p>
+                        <p className="text-sm font-black text-slate-800 tracking-tight font-inter">{selectedReportForView.total_labour || 0} Units</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tight font-inter">{selectedReportForView.skilled_labour || 0} Skilled • {selectedReportForView.unskilled_labour || 0} Unskilled</p>
+                     </div>
+                     <div className="font-inter font-inter">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">REGISTRY ID</p>
+                        <p className="text-sm font-black text-slate-800 tracking-tight font-inter">{selectedReportForView.business_id || `DSR0${selectedReportForView.id}`}</p>
+                     </div>
+                  </div>
+               </div>
 
-                    <div className="space-y-3 font-inter">
-                      <div className="flex items-center gap-2 text-white/70 font-inter">
-                        <Calendar className="w-4 h-4 font-inter" />
-                        <p className="text-sm font-bold font-inter">{selectedReportForView.formattedDate}</p>
+                {/* Work Narrative & Future Planning Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10 font-inter">
+                   <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-500 shadow-sm">
+                            <FileText className="w-4 h-4" />
+                         </div>
+                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">WORK COMPLETED</h4>
                       </div>
-                      <div className="flex items-start gap-2 text-white/70 font-inter">
-                        <MapPin className="w-4 h-4 mt-0.5 shrink-0 font-inter" />
-                        <p className="text-xs font-bold leading-relaxed font-inter">
-                          {selectedReportForView.contractor_name ? `${selectedReportForView.contractor_name} · ` : ""}
-                          {selectedReportForView.site_location || selectedReportForView.site_address || selectedReportForView.project_location || "Pune Site"}
-                        </p>
+                      <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-6 h-full">
+                         <p className="text-sm text-slate-600 font-bold italic leading-relaxed">
+                            "{selectedReportForView.work_done || "No work activity recorded for this shift."}"
+                         </p>
                       </div>
-                    </div>
+                   </div>
 
-                    <div className="mt-8 font-inter">
-                      <span className="px-6 py-2.5 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-white/20 shadow-lg font-inter">
-                        WEATHER: {selectedReportForView.weather?.toUpperCase() || 'SUNNY'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Site Documentation Section */}
-              <div className="space-y-6 font-inter">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">SITE DOCUMENTATION ({selectedReportForView.gallery?.length || 0})</h4>
-                <div className="rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm bg-slate-50 group font-inter">
-                  {selectedReportForView.gallery?.[0] ? (
-                    <div className="aspect-[4/2.5] relative font-inter">
-                      <img src={selectedReportForView.gallery[0].url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 font-inter" alt="Primary Site View font-inter" />
-                      <div className="absolute inset-0 bg-slate-900/10 font-inter" />
-                    </div>
-                  ) : (
-                    <div className="aspect-[4/2] flex flex-col items-center justify-center text-slate-300 gap-4 font-inter">
-                      <ImageIcon className="w-12 h-12 stroke-[1.5] font-inter" />
-                      <p className="text-xs font-black uppercase tracking-widest font-inter">No primary imagery available</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Operational Intelligence Section */}
-              <div className="space-y-8 font-inter font-inter">
-                <div className="flex items-center gap-3 font-inter">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 shadow-sm font-inter">
-                    <RefreshCw className="w-4 h-4 font-inter" />
-                  </div>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">OPERATIONAL INTELLIGENCE</h4>
+                   <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 shadow-sm">
+                            <Calendar className="w-4 h-4" />
+                         </div>
+                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">FUTURE PLANNING</h4>
+                      </div>
+                      <div className="bg-amber-50/20 border border-amber-100/50 rounded-2xl p-6 h-full">
+                         <p className="text-sm text-amber-900/70 font-bold italic leading-relaxed">
+                            {selectedReportForView.work_planned || "No future activities documented yet."}
+                         </p>
+                      </div>
+                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-x-12 gap-y-10 px-2 font-inter">
-                  <div className="font-inter">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter font-inter">WEATHER CONDITION</p>
-                    <p className="text-sm font-black text-slate-800 tracking-tight font-inter">{selectedReportForView.weather || 'Sunny'}</p>
-                  </div>
-                  <div className="font-inter font-inter">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">TOTAL PERSONNEL</p>
-                    <p className="text-sm font-black text-slate-800 tracking-tight font-inter">{selectedReportForView.total_labour || 0} Units</p>
-                    <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tight font-inter">{selectedReportForView.skilled_labour || 0} Skilled • {selectedReportForView.unskilled_labour || 0} Unskilled</p>
-                  </div>
-                  <div className="font-inter font-inter">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">REGISTRY ID</p>
-                    <p className="text-sm font-black text-slate-800 tracking-tight font-inter">{selectedReportForView.business_id || `DSR0${selectedReportForView.id}`}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Work Narrative & Future Planning Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 font-inter">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-500 shadow-sm">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">WORK COMPLETED</h4>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-6 h-full">
-                    <p className="text-sm text-slate-600 font-bold leading-relaxed">
-                      "{selectedReportForView.work_done || "No work activity recorded for this shift."}"
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 shadow-sm">
-                      <Calendar className="w-4 h-4" />
-                    </div>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">FUTURE PLANNING</h4>
-                  </div>
-                  <div className="bg-amber-50/20 border border-amber-100/50 rounded-2xl p-6 h-full">
-                    <p className="text-sm text-amber-900/70 font-bold leading-relaxed">
-                      {selectedReportForView.work_planned || "No future activities documented yet."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Resource Logistics Section */}
-              <div className="space-y-8 font-inter">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 shadow-sm">
-                    <Package className="w-4 h-4" />
-                  </div>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">RESOURCE LOGISTICS</h4>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-10 px-2">
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MATERIAL RECEIVED</p>
-                    <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed">{selectedReportForView.material_received || "None reported"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MATERIAL CONSUMED</p>
-                    <p className="text-sm font-black text-emerald-600 tracking-tight leading-relaxed">{selectedReportForView.material_used || "None reported"}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MACHINERY LOG</p>
-                    <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed">{selectedReportForView.machinery_used || "Standard maintenance"}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Safety & Compliance Section */}
-              {(selectedReportForView.safety_observations || selectedReportForView.remarks) && (
+                {/* Resource Logistics Section */}
                 <div className="space-y-8 font-inter">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-100 shadow-sm">
-                      <Search className="w-3.5 h-3.5" />
-                    </div>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">SITE REMARKS & SAFETY</h4>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10 px-2">
-                    {selectedReportForView.safety_observations && (
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">SAFETY OBSERVATIONS</p>
-                        <p className="text-xs font-bold text-slate-600 leading-relaxed font-inter">{selectedReportForView.safety_observations}</p>
+                   <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 shadow-sm">
+                         <Package className="w-4 h-4" />
                       </div>
-                    )}
-                    {selectedReportForView.remarks && (
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">RESOURCE LOGISTICS</h4>
+                   </div>
+
+                   <div className="grid grid-cols-2 md:grid-cols-3 gap-10 px-2">
                       <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MANAGER REMARKS</p>
-                        <p className="text-xs font-bold text-slate-600 leading-relaxed font-inter">"{selectedReportForView.remarks}"</p>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MATERIAL RECEIVED</p>
+                         <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed">{selectedReportForView.material_received || "None reported"}</p>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Constraints & Observations Section */}
-              <div className="space-y-8 font-inter">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500 shadow-sm">
-                    <AlertCircle className="w-4 h-4" />
-                  </div>
-                  <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em]">CONSTRAINTS & OBSERVATIONS</h4>
+                      <div>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MATERIAL CONSUMED</p>
+                         <p className="text-sm font-black text-emerald-600 tracking-tight leading-relaxed">{selectedReportForView.material_used || "None reported"}</p>
+                      </div>
+                      <div>
+                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MACHINERY LOG</p>
+                         <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed">{selectedReportForView.machinery_used || "Standard maintenance"}</p>
+                      </div>
+                   </div>
                 </div>
 
-                <div className="px-2">
-                  <div className="bg-rose-50/30 border border-rose-100/50 rounded-2xl p-6">
-                    <p className="text-sm text-rose-600 font-bold leading-relaxed">
-                      {selectedReportForView.issues || selectedReportForView.constraints || "No critical constraints documented."}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                {/* Safety & Compliance Section */}
+                {(selectedReportForView.safety_observations || selectedReportForView.remarks) && (
+                   <div className="space-y-8 font-inter">
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-100 shadow-sm">
+                            <Search className="w-3.5 h-3.5" />
+                         </div>
+                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">SITE REMARKS & SAFETY</h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 px-2">
+                         {selectedReportForView.safety_observations && (
+                            <div>
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">SAFETY OBSERVATIONS</p>
+                               <p className="text-xs font-bold text-slate-600 leading-relaxed font-inter">{selectedReportForView.safety_observations}</p>
+                            </div>
+                         )}
+                         {selectedReportForView.remarks && (
+                            <div>
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MANAGER REMARKS</p>
+                               <p className="text-xs font-bold text-slate-600 leading-relaxed font-inter italic">"{selectedReportForView.remarks}"</p>
+                            </div>
+                         )}
+                      </div>
+                   </div>
+                )}
 
-              {/* Dismiss Button */}
-              <div className="pt-10 font-inter">
-                <button
-                  onClick={() => setSelectedReportForView(null)}
-                  className="w-full py-5 bg-blue-600 text-white rounded-2xl text-sm font-black tracking-widest shadow-2xl shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-[0.98] font-inter font-inter"
-                >
-                  Dismiss Report
-                </button>
-              </div>
+                {/* Constraints & Observations Section */}
+                <div className="space-y-8 font-inter">
+                   <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500 shadow-sm">
+                         <AlertCircle className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em]">CONSTRAINTS & OBSERVATIONS</h4>
+                   </div>
+                   
+                   <div className="px-2">
+                      <div className="bg-rose-50/30 border border-rose-100/50 rounded-2xl p-6">
+                         <p className="text-sm text-rose-600 font-bold leading-relaxed">
+                            {selectedReportForView.issues || selectedReportForView.constraints || "No critical constraints documented."}
+                         </p>
+                      </div>
+                   </div>
+                </div>
+
+               {/* Dismiss Button */}
+               <div className="pt-10 font-inter">
+                  <button 
+                    onClick={() => setSelectedReportForView(null)}
+                    className="w-full py-5 bg-blue-600 text-white rounded-2xl text-sm font-black tracking-widest shadow-2xl shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-[0.98] font-inter font-inter"
+                  >
+                    Dismiss Report
+                  </button>
+               </div>
 
             </div>
           </div>
@@ -602,29 +632,29 @@ const ClientDSRSummaryPage = () => {
 
       {/* Lightbox Modal */}
       {selectedPhoto && (
-        <div
+        <div 
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/95 backdrop-blur-xl p-8 transition-all duration-300 animate-in fade-in font-inter"
           onClick={() => setSelectedPhoto(null)}
         >
           <div className="relative max-w-5xl w-full flex flex-col items-center gap-6 font-inter font-inter" onClick={e => e.stopPropagation()}>
             <div className="absolute -top-16 right-0 flex gap-4 font-inter">
-              <button
+              <button 
                 onClick={handleDeletePhoto}
                 className="w-12 h-12 bg-white/10 hover:bg-rose-600 rounded-full flex items-center justify-center text-white transition-all shadow-xl font-inter font-inter font-inter font-inter"
               >
                 <Trash2 className="w-5 h-5 font-inter" />
               </button>
-              <button
+              <button 
                 onClick={() => setSelectedPhoto(null)}
                 className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all shadow-xl font-inter font-inter font-inter font-inter"
               >
                 <X className="w-6 h-6 font-inter" />
               </button>
             </div>
-            <img
-              src={selectedPhoto.url}
-              alt="Site Record"
-              className="max-h-[80vh] w-auto rounded-[2.5rem] shadow-2xl border-4 border-white/20 select-none animate-in zoom-in-95 duration-500 object-contain font-inter font-inter"
+            <img 
+              src={selectedPhoto.url} 
+              alt="Site Record" 
+              className="max-h-[80vh] w-auto rounded-[2.5rem] shadow-2xl border-4 border-white/20 select-none animate-in zoom-in-95 duration-500 object-contain font-inter font-inter" 
             />
             <div className="bg-white/10 backdrop-blur-md px-10 py-5 rounded-full border border-white/10 font-inter">
               <p className="text-[11px] font-black text-white uppercase tracking-[0.4em] font-inter font-inter">Official Field Documentation</p>

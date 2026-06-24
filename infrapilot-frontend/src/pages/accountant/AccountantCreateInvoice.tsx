@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { createPortal } from "react-dom";
+
 import {
   User,
   Briefcase,
@@ -23,21 +24,21 @@ import {
   Zap,
   RefreshCw
 } from "lucide-react";
-import Navbar from "../../components/common/Navbar";
-import PageTransition from "../../components/common/PageTransition";
+
 import { projectService } from "../../services/projectService";
 import { quotationService } from "../../services/quotationService";
 import { userService } from "../../services/userService";
-import { financeService } from "../../services/financeService";
 import type { LabourItem, MaterialItem, ExtraChargeItem } from "../../types/quotation";
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
+import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
+import QuotationPreviewModal from "../../components/forms/QuotationPreviewModal";
 import SelectContractorModal from "../../components/forms/SelectContractorModal";
-import PDFPreviewModal from "../../components/common/PDFPreviewModal";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
 import EditInvoiceItemModal from "../../components/forms/EditInvoiceItemModal";
 import ImportEstimateModal from "../../components/forms/ImportEstimateModal";
+import logo from "../../assets/logo.png";
 import type { Quotation } from "../../types/quotation";
 
 interface InvoiceItem {
@@ -49,10 +50,15 @@ interface InvoiceItem {
   amount: number;
 }
 
-const CreateInvoicePage = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
+interface AccountantCreateInvoiceProps {
+  onCancel?: () => void;
+  onSave?: (data: any) => void;
+  editingInvoice?: any;
+}
+
+const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCancel, onSave, editingInvoice }) => {
+  const id = editingInvoice?.id;
+  const location = { search: "" };
 
   // Extract clientId from query params
   const queryParams = new URLSearchParams(location.search);
@@ -64,9 +70,9 @@ const CreateInvoicePage = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
   const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
   const [isSaving, setIsSaving] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("draft");
   const isReadOnly = status === "approved";
 
@@ -77,39 +83,46 @@ const CreateInvoicePage = () => {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
 
   // Conversion states
-  const [isConvertingBill, setIsConvertingBill] = useState(false);
-  const [isConvertingInvoice, setIsConvertingInvoice] = useState(false);
   const [isConvertingWorkOrder, setIsConvertingWorkOrder] = useState(false);
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
-  const [pendingConversionType, setPendingConversionType] = useState<"bill" | "workOrder" | null>(null);
+  const [pendingConversionType, setPendingConversionType] = useState<"workOrder" | null>(null);
 
   const handlePreviewModalOpen = async () => {
     if (id) {
       setIsPreviewLoading(true);
       try {
-        const blob = await quotationService.downloadQuotationPDF(Number(id));
-        const url = window.URL.createObjectURL(blob);
-        setPdfUrl(url);
-        setIsPDFModalOpen(true);
+        const data = await quotationService.getQuotationPreview(Number(id));
+        setPreviewData({
+          clientName: data.client_name,
+          clientAddress: data.billing_address || data.site_address,
+          clientGst: data.gst_number,
+          clientMobile: data.mobile_number,
+          invoiceNo: data.quotation_no,
+          date: data.created_at ? new Date(data.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+          projectName: data.project_name || projectDetails.name,
+          terms: data.terms_conditions,
+          items: (data.items || []) as any[],
+          labourItems: (data.labour_items || []) as any[],
+          materialItems: (data.material_items || []) as any[],
+          extraChargeItems: (data.extra_charge_items || []) as any[],
+          subTotal: data.subtotal,
+          grandTotal: data.grand_total,
+          cgstRate: data.cgst_percent,
+          sgstRate: data.sgst_percent,
+          discount: data.discount_amount,
+          advancePaid: data.advance_paid,
+          balanceDue: data.balance_due,
+        });
       } catch (err) {
-        console.error("Preview Error:", err);
-        toast.error("Failed to generate PDF preview");
+        setPreviewData(null);
       } finally {
         setIsPreviewLoading(false);
+        setIsPreviewOpen(true);
       }
     } else {
-      toast.error("Please save the quotation first to preview the PDF", { duration: 3000 });
+      setPreviewData(null);
+      setIsPreviewOpen(true);
     }
-  };
-
-  const handleDownloadFromPreview = async () => {
-    if (!id || !pdfUrl) return;
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || id}.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
   };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -229,13 +242,12 @@ const CreateInvoicePage = () => {
     if (selectedProjectId !== 0) {
       const selectedProject = projects.find(p => p.id === selectedProjectId);
       if (selectedProject) {
-        console.log("Auto-populating from project:", selectedProject);
         setProjectDetails({
-          name: selectedProject.project_name || "",
-          type: (selectedProject as any).project_type || selectedProject.type || "Commercial",
+          name: (selectedProject as any).project_name || (selectedProject as any).name || (selectedProject as any).title || "",
+          type: selectedProject.type || (selectedProject as any).project_type || "",
           siteAddress: selectedProject.site_address || (selectedProject as any).site_location || "",
-          workOrderNo: (selectedProject as any).boq_no || (selectedProject as any).work_order_no || "",
-          engineer: (selectedProject as any).engineer_name || "Er. Tejas Dhande"
+          workOrderNo: (selectedProject as any).boq_no || "",
+          engineer: (selectedProject as any).engineer_name || ""
         });
 
         // Also update project dates if available
@@ -247,32 +259,29 @@ const CreateInvoicePage = () => {
         }
 
         // Auto-populate client details if the project has an owner/client
-        if (selectedProject.owner_id) {
+        if (selectedProject.owner_id && !clientIdFromUrl) {
           const fetchClient = async () => {
             try {
-              toast.loading("Fetching client details...", { id: "client-fetch" });
               const u = await userService.getUserById(selectedProject.owner_id);
               if (u) {
                 setClientDetails({
                   name: u.full_name || "",
-                  company: u.designation || "Patil Construction Pvt Ltd",
+                  company: u.designation || "",
                   mobile: u.mobile_number || "",
                   email: u.email || "",
                   address: u.address || "",
                   gst: u.pan_number || ""
                 });
-                toast.success("Client details populated!", { id: "client-fetch" });
               }
             } catch (error) {
               console.error("Failed to auto-populate client details from project owner", error);
-              toast.error("Failed to fetch client details", { id: "client-fetch" });
             }
           };
           fetchClient();
         }
       }
     }
-  }, [selectedProjectId, projects]);
+  }, [selectedProjectId, projects, id, clientIdFromUrl]);
 
   // Pre-populate project from URL if provided
   useEffect(() => {
@@ -291,6 +300,7 @@ const CreateInvoicePage = () => {
         const res = await projectService.getProjects(100, 0);
         const list = Array.isArray(res) ? res : (res.items || res.data || []);
         setProjects(list);
+        console.log("AccountantCreateInvoice fetched projects:", list);
       } catch (error) {
         console.error("Failed to fetch projects", error);
       }
@@ -363,18 +373,10 @@ const CreateInvoicePage = () => {
             payment_mode: q.payment_mode || "UPI",
             upi_id: q.upi_id || "",
             bank_name: q.bank_name || "",
-            account_holder_name: q.account_holder_name || "", // Ensure field name match
+            account_holder_name: q.account_holder_name || "",
             account_number: q.account_number || "",
             ifsc_code: q.ifsc_code || "",
             due_date: q.due_date || ""
-          });
-
-          // Restore Notes, Terms and Timeline
-          setNotes(q.notes || "");
-          setTerms(q.terms_conditions || "");
-          setProjectStartEnd({
-            start: q.project_start_date || "",
-            end: q.project_end_date || ""
           });
 
           // Sync due_date into invoiceDetails (the Invoice Details card reads this field)
@@ -426,7 +428,7 @@ const CreateInvoicePage = () => {
                 w: s.width || 0,
                 h: s.height || 0,
                 v: s.quantity || 0
-              })) : [{ l: 0, w: 0, h: 0, v: 0 }] // Use 0 instead of 500 for initial state if empty
+              })) : [{ l: 500, w: 0, h: 0, v: 0 }]
             });
           }
         }
@@ -529,30 +531,6 @@ const CreateInvoicePage = () => {
     }
   };
 
-  const handleConvertToBill = async () => {
-    if (!id) return;
-    if (!selectedProjectId) {
-      toast.error("Please select a project first");
-      return;
-    }
-    setPendingConversionType("bill");
-    setIsContractorModalOpen(true);
-  };
-
-  const handleConvertToInvoice = async () => {
-    if (!id) return;
-    try {
-      setIsConvertingInvoice(true);
-      await financeService.convertQuotationToInvoice(Number(id));
-      toast.success("Converted to invoice successfully!");
-      navigate("/admin/finance/invoices");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to convert to invoice");
-    } finally {
-      setIsConvertingInvoice(false);
-    }
-  };
-
   const handleConvertToWorkOrder = async () => {
     if (!id) return;
     if (!selectedProjectId) {
@@ -567,19 +545,12 @@ const CreateInvoicePage = () => {
     if (!id || !selectedProjectId || !pendingConversionType) return;
 
     try {
-      if (pendingConversionType === "bill") {
-        setIsConvertingBill(true);
-        await quotationService.convertToBill(Number(id), selectedProjectId, contractorId);
-        toast.success("Converted to bill successfully!");
-      } else {
-        setIsConvertingWorkOrder(true);
-        await quotationService.convertToWorkOrder(Number(id), selectedProjectId, contractorId);
-        toast.success("Converted to work order successfully!");
-      }
+      setIsConvertingWorkOrder(true);
+      await quotationService.convertToWorkOrder(Number(id), selectedProjectId, contractorId);
+      toast.success("Converted to work order successfully!");
     } catch (err: any) {
       toast.error(err.message || `Failed to convert to ${pendingConversionType}`);
     } finally {
-      setIsConvertingBill(false);
       setIsConvertingWorkOrder(false);
       setPendingConversionType(null);
     }
@@ -598,7 +569,7 @@ const CreateInvoicePage = () => {
         billing_address: clientDetails.address,
         site_address: projectDetails.siteAddress,
         gst_number: clientDetails.gst,
-        project_id: selectedProjectId,
+        project_id: selectedProjectId === 0 ? null : selectedProjectId,
 
         project_name: projectDetails.name,
         project_type: projectDetails.type,
@@ -689,71 +660,9 @@ const CreateInvoicePage = () => {
 
       console.log(`${id ? "Updating" : "Creating"} Quotation Payload:`, JSON.stringify(payload, null, 2));
 
-      if (id) {
-        await quotationService.updateQuotation(Number(id), payload);
-
-        // POST new items
-        const newItemsLocal = items.filter(i => String(i.id).startsWith("new_"));
-        for (const newItem of newItemsLocal) {
-          let measurements: any[] = [];
-          let itemType = "stone_work";
-          if (newItem.id.includes("soling")) {
-            itemType = "soling";
-            measurements = [{ length: measurementData.soling.l, width: measurementData.soling.w, height: measurementData.soling.h, unit: "ft" }];
-          } else if (newItem.id.includes("plum")) {
-            itemType = "plum_concrete";
-            measurements = [{ length: measurementData.plum.l, width: measurementData.plum.w, height: measurementData.plum.h, unit: "m" }];
-          } else {
-            measurements = measurementData.stone
-              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
-              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
-          }
-
-          const itemPayload = {
-            item_type: itemType,
-            title: newItem.description.split('\n')[0] || "New Work",
-            description: newItem.description,
-            unit: newItem.unit,
-            rate: newItem.rate,
-            measurements: measurements
-          };
-          await quotationService.addQuotationItem(Number(id), itemPayload);
-        }
-
-        // UPDATE existing items
-        const existingItemsLocal = items.filter(i => !String(i.id).startsWith("new_"));
-        for (const existingItem of existingItemsLocal) {
-          let measurements: any[] = [];
-          let itemType = "stone_work";
-          if (String(existingItem.id) === "1" || String(existingItem.id).includes("soling")) {
-            itemType = "soling";
-            measurements = [{ length: measurementData.soling.l, width: measurementData.soling.w, height: measurementData.soling.h, unit: "ft" }];
-          } else if (String(existingItem.id) === "2" || String(existingItem.id).includes("plum")) {
-            itemType = "plum_concrete";
-            measurements = [{ length: measurementData.plum.l, width: measurementData.plum.w, height: measurementData.plum.h, unit: "m" }];
-          } else {
-            measurements = measurementData.stone
-              .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
-              .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
-          }
-
-          const itemPayload = {
-            item_type: itemType,
-            title: existingItem.description.split('\n')[0] || "Existing Work",
-            description: existingItem.description,
-            unit: existingItem.unit,
-            rate: existingItem.rate,
-            measurements: measurements
-          };
-          await quotationService.updateQuotationItem(Number(existingItem.id), itemPayload);
-        }
-
-        toast.success("Quotation Updated Successfully!");
-
-      } else {
-        await quotationService.createQuotation(payload);
-        toast.success("Quotation Saved Successfully!");
-        navigate("/admin/invoices/all");
+      if (onSave) {
+        onSave(payload);
+        return;
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to save quotation");
@@ -1190,12 +1099,7 @@ const CreateInvoicePage = () => {
 
   return (
     <>
-      <Navbar
-        title={id ? "View/Edit Quotation" : "Create Invoice / Estimate"}
-        breadcrumb={["Dashboard", "Invoices", id ? "View Quotation" : "Create Invoice"]}
-      />
-
-      <PageTransition className="p-4 lg:p-6 bg-[#f8fafc] min-h-screen">
+    <div className="bg-white min-h-screen">
         <div className="max-w-[1600px] mx-auto flex flex-col gap-4 mb-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -1234,13 +1138,13 @@ const CreateInvoicePage = () => {
           </div>
         </div>
 
-        <div className="max-w-[1600px] mx-auto flex flex-col xl:flex-row gap-6">
+        <div className="max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6">
 
           {/* LEFT COLUMN: FORM */}
-          <div className="flex-1 space-y-6">
+          <div className="flex flex-col gap-6 xl:contents">
 
             {/* TOP GRID: DETAILS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 xl:col-start-1">
 
               {/* CLIENT DETAILS */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
@@ -1335,22 +1239,20 @@ const CreateInvoicePage = () => {
                     >
                       <option value={0}>Select Project</option>
                       {projects.map(p => (
-                        <option key={p.id} value={p.id}>{p.project_name}</option>
+                        <option key={p.id} value={p.id}>{(p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`}</option>
                       ))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>
-                    <select
+                    <input
+                      type="text"
                       value={projectDetails.type}
                       onChange={(e) => setProjectDetails({ ...projectDetails, type: e.target.value })}
-                      disabled={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    >
-                      <option>Gravity Wall</option>
-                      <option>Building Construction</option>
-                      <option>Road Work</option>
-                    </select>
+                      readOnly={isReadOnly}
+                      placeholder="e.g. Gravity Wall"
+                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>
@@ -1395,6 +1297,7 @@ const CreateInvoicePage = () => {
                   <h3 className="font-bold text-slate-800 uppercase tracking-tight text-sm">Quotation Details</h3>
                 </div>
                 <div className="space-y-4">
+
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Quotation Date</label>
                     <div className="relative">
@@ -1406,6 +1309,7 @@ const CreateInvoicePage = () => {
                       />
                     </div>
                   </div>
+
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
                     <div className="relative">
@@ -1423,7 +1327,7 @@ const CreateInvoicePage = () => {
             </div>
 
             {/* MIDDLE SECTION: ITEMS TABLE */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden xl:col-start-1">
               <div className="p-4 border-b border-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
@@ -1529,7 +1433,7 @@ const CreateInvoicePage = () => {
             </div>
 
             {/* BOTTOM SECTION: TABS & SUMMARY */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden xl:col-span-2">
               <div className="flex border-b border-slate-100 overflow-x-auto no-scrollbar">
                 {[
                   { id: "measurements", label: "Measurement Details", icon: <Calendar className="w-3.5 h-3.5" /> },
@@ -2245,7 +2149,7 @@ const CreateInvoicePage = () => {
           </div>
 
           {/* RIGHT COLUMN: SUMMARY & PREVIEW */}
-          <div className="w-full xl:w-[400px] space-y-6">
+          <div className="w-full space-y-6 xl:col-start-2 xl:row-start-1 xl:row-span-2">
 
             {/* INVOICE SUMMARY */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
@@ -2408,22 +2312,7 @@ const CreateInvoicePage = () => {
                     <Zap className="w-3 h-3 text-indigo-500" />
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Conversion Actions</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={handleConvertToBill}
-                      disabled={isConvertingBill}
-                      className="py-2.5 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-indigo-100 hover:bg-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {isConvertingBill ? <RefreshCw className="w-3 h-3 animate-spin" /> : <PlusCircle className="w-3 h-3" />} Bill
-                    </button>
-                    <button
-                      onClick={handleConvertToInvoice}
-                      disabled={isConvertingInvoice}
-                      className="py-2.5 bg-emerald-50 text-emerald-600 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-emerald-100 hover:bg-emerald-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {isConvertingInvoice ? <RefreshCw className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />} Invoice
-                    </button>
-                  </div>
+
                   <button
                     onClick={handleConvertToWorkOrder}
                     disabled={isConvertingWorkOrder}
@@ -2455,7 +2344,7 @@ const CreateInvoicePage = () => {
                 </button>
               </div>
 
-              <button className="w-full py-3.5 bg-slate-50 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:text-rose-500 transition-all flex items-center justify-center gap-2">
+              <button onClick={onCancel} className="w-full py-3.5 bg-slate-50 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:text-rose-500 transition-all flex items-center justify-center gap-2">
                 <X className="w-4 h-4" /> Cancel
               </button>
             </div>
@@ -2468,8 +2357,63 @@ const CreateInvoicePage = () => {
           </div>
 
         </div>
-      </PageTransition>
+      </div>
 
+      {status?.toLowerCase() === "converted" || status?.toLowerCase() === "invoice" ? (
+        <InvoicePreviewModal
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          data={previewData ? previewData : {
+            clientName: clientDetails.name,
+            clientAddress: clientDetails.address,
+            clientGst: clientDetails.gst,
+            invoiceNo: invoiceDetails.invoiceNo,
+            date: invoiceDetails.date,
+            items: items,
+            labourItems: labourItems,
+            materialItems: materialItems,
+            extraChargeItems: extraChargeItems,
+            subTotal: subTotal,
+            grandTotal: grandTotal,
+            cgstRate: gstRates.cgst,
+            sgstRate: gstRates.sgst,
+            discount: discount,
+            advancePaid: advancePaid,
+            balanceDue: balanceDue,
+          }}
+        />
+      ) : (
+        <QuotationPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          data={previewData ? previewData : {
+            clientName: clientDetails.name,
+            clientAddress: clientDetails.address || projectDetails.siteAddress,
+            mobile_number: clientDetails.mobile,
+            gst_number: clientDetails.gst,
+            projectName: projectDetails.name || "N/A",
+            siteAddress: projectDetails.siteAddress || clientDetails.address,
+            invoiceNo: invoiceDetails.invoiceNo || (id ? `QTN-${id}` : "NEW"),
+            date: invoiceDetails.date || new Date().toLocaleDateString(),
+            items: items,
+            labourItems: labourItems,
+            materialItems: materialItems,
+            extraChargeItems: extraChargeItems,
+            subTotal: subTotal,
+            grandTotal: grandTotal,
+            cgstRate: gstRates.cgst,
+            sgstRate: gstRates.sgst,
+            discount: discount,
+            advancePaid: advancePaid,
+            balanceDue: balanceDue,
+            // Add missing dynamic fields
+            projectType: projectDetails.type || "Commercial",
+            engineerName: projectDetails.engineer || "N/A",
+            workOrderNo: projectDetails.workOrderNo || "N/A",
+            terms: terms || "50% advance payment required."
+          }}
+        />
+      )}
 
       <EditInvoiceItemModal
         isOpen={isEditModalOpen}
@@ -2478,24 +2422,165 @@ const CreateInvoicePage = () => {
         onSave={handleSaveItem}
       />
 
+      {/* PORTAL FOR PERFECT PRINTING (ULTRATECH STYLE) */}
+      {createPortal(
+        <div id="ultra-tech-print-zone" className="hidden print:block fixed inset-0 z-[9999] bg-white p-12 overflow-y-auto">
+          <div className="bg-white max-w-[210mm] mx-auto p-0 min-h-[297mm]">
+            {/* Header: Logo and Title */}
+            <div className="flex justify-between items-center mb-8">
+              <img src={logo} alt="Logo" className="w-24 h-24 object-contain" />
+              <h1 className="text-3xl font-bold text-[#1F4E79] tracking-tight">
+                {status?.toLowerCase() === "converted" || status?.toLowerCase() === "invoice" ? "TAX INVOICE" : "PROJECT QUOTATION"}
+              </h1>
+            </div>
+
+            {/* Company Info */}
+            <div className="mb-8">
+              <h2 className="text-lg font-bold text-slate-900">Infra Pilot</h2>
+              <p className="text-xs text-slate-600">GST: 27ABCDE1234F1Z5</p>
+              <p className="text-xs text-slate-600">Mobile: 9876543210</p>
+              <p className="text-xs text-slate-600">Email: info@infrapilot.com</p>
+            </div>
+
+            {/* Main Info Table */}
+            <div className="mb-6">
+              <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
+                <div className="w-1/2">Field</div>
+                <div className="w-1/2 text-left">Value</div>
+              </div>
+              <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
+                <div className="flex p-2">
+                  <div className="w-1/2 font-bold">Document No</div>
+                  <div className="w-1/2">{invoiceDetails.invoiceNo}</div>
+                </div>
+                <div className="flex p-2 bg-slate-50">
+                  <div className="w-1/2 font-bold">Date</div>
+                  <div className="w-1/2">{invoiceDetails.date}</div>
+                </div>
+                <div className="flex p-2">
+                  <div className="w-1/2 font-bold">Project</div>
+                  <div className="w-1/2 uppercase">{(() => { const p = projects.find(p => p.id === selectedProjectId); return p ? ((p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`) : "N/A"; })()}</div>
+                </div>
+                <div className="flex p-2 bg-slate-50">
+                  <div className="w-1/2 font-bold">Project Type</div>
+                  <div className="w-1/2">Residential</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Client Details */}
+            <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Client Details</h3>
+            <div className="mb-6">
+              <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
+                <div className="w-1/2">Field</div>
+                <div className="w-1/2 text-left">Value</div>
+              </div>
+              <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
+                <div className="flex p-2">
+                  <div className="w-1/2 font-bold">Client Name</div>
+                  <div className="w-1/2 uppercase text-slate-900 font-black">{clientDetails.name || "N/A"}</div>
+                </div>
+                <div className="flex p-2 bg-slate-50">
+                  <div className="w-1/2 font-bold">Billing Address</div>
+                  <div className="w-1/2">{clientDetails.address || "N/A"}</div>
+                </div>
+                <div className="flex p-2">
+                  <div className="w-1/2 font-bold">GST Number</div>
+                  <div className="w-1/2">{clientDetails.gst || "N/A"}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Item Details */}
+            <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Item Details</h3>
+            <table className="w-full border-collapse border border-slate-300 text-xs mb-8">
+              <thead>
+                <tr className="bg-[#1F4E79] text-white font-bold">
+                  <th className="border border-slate-300 p-2 text-left">Item</th>
+                  <th className="border border-slate-300 p-2 text-center w-16">Qty</th>
+                  <th className="border border-slate-300 p-2 text-center w-20">Unit</th>
+                  <th className="border border-slate-300 p-2 text-right w-24">Rate</th>
+                  <th className="border border-slate-300 p-2 text-right w-28">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-300 text-slate-700">
+                {items.map((item, idx) => (
+                  <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50" : ""}>
+                    <td className="border border-slate-300 p-2 font-bold whitespace-pre-line">{item.description}</td>
+                    <td className="border border-slate-300 p-2 text-center">{item.quantity}</td>
+                    <td className="border border-slate-300 p-2 text-center">{item.unit}</td>
+                    <td className="border border-slate-300 p-2 text-right">{item.rate.toLocaleString()}</td>
+                    <td className="border border-slate-300 p-2 text-right font-black text-slate-900">{item.amount.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Summary Footer */}
+            <div className="flex justify-end mb-8">
+              <div className="w-1/2 space-y-1 text-sm border border-slate-300 p-4">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Subtotal:</span>
+                  <span className="font-bold">INR {subTotal.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Grand Total:</span>
+                  <span className="font-black text-slate-900 text-lg">INR {grandTotal.toLocaleString()}</span>
+                </div>
+                <div className="pt-2 border-t border-slate-200">
+                  <p className="text-[10px] font-bold text-slate-400 italic leading-tight">Amount in Words: {toWords(grandTotal)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-auto border-t-2 border-slate-900 pt-8 flex justify-between items-end">
+              <div>
+                <p className="text-[8px] text-slate-400 italic">This is a computer generated document.</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-black mb-12 uppercase text-slate-900">For Infra Pilot</p>
+                <div className="border-t border-slate-400 pt-1">
+                  <p className="text-[10px] font-black uppercase">Authorized Signatory</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      <style>{`
+        @media print {
+          /* Hide the main application root entirely */
+          #root { 
+            display: none !important; 
+            visibility: hidden !important; 
+          }
+          
+          /* Show specifically our print zone */
+          #ultra-tech-print-zone {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            z-index: 9999999 !important;
+          }
+
+          body { 
+            background: white !important; 
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+        }
+      `}</style>
       <ImportEstimateModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSelect={handleImportQuotation}
-      />
-
-      <PDFPreviewModal
-        isOpen={isPDFModalOpen}
-        onClose={() => {
-          setIsPDFModalOpen(false);
-          if (pdfUrl) {
-            window.URL.revokeObjectURL(pdfUrl);
-            setPdfUrl(null);
-          }
-        }}
-        pdfUrl={pdfUrl}
-        title={`Preview Quotation: ${invoiceDetails.invoiceNo || 'New'}`}
-        onDownload={handleDownloadFromPreview}
       />
 
       {/* Action Confirmation Modals */}
@@ -2530,4 +2615,4 @@ const CreateInvoicePage = () => {
   );
 };
 
-export default CreateInvoicePage;
+export default AccountantCreateInvoice;
