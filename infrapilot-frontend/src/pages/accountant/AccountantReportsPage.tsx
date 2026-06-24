@@ -118,7 +118,7 @@ const DashboardSection = () => {
 };
 
 // Generic Wrapper Generator
-const createWrapper = (categoryTabs: {key: string, label: string}[], tableGenerators: Record<string, () => React.ReactNode>) => {
+const createWrapper = (categoryTabs: {key: string, label: string, icon?: string}[], tableGenerators: Record<string, () => React.ReactNode>) => {
   return ({ initialSubTab }: { initialSubTab?: string }) => {
     const navigate = useNavigate();
     const sub = initialSubTab || categoryTabs[0].key;
@@ -129,9 +129,10 @@ const createWrapper = (categoryTabs: {key: string, label: string}[], tableGenera
           <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 overflow-x-auto">
             {categoryTabs.map(t => (
               <button key={t.key} onClick={() => navigate(`?sub=${t.key}`, { replace: true })}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                   sub === t.key ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
                 }`}>
+                {t.icon && <span>{t.icon}</span>}
                 {t.label}
               </button>
             ))}
@@ -149,8 +150,8 @@ const createWrapper = (categoryTabs: {key: string, label: string}[], tableGenera
 };
 
 const FinancialReportsWrapper = createWrapper([
-  { key: "pl", label: "Profit & Loss" }, { key: "bs", label: "Balance Sheet" }, { key: "cashflow", label: "Cash Flow Statement" }, 
-  { key: "trial", label: "Trial Balance" }, { key: "ledger", label: "General Ledger" }, { key: "journal", label: "Journal Report" }
+  { key: "pl", label: "Profit & Loss", icon: "📈" }, { key: "bs", label: "Balance Sheet", icon: "⚖️" }, { key: "cashflow", label: "Cash Flow Statement", icon: "💸" }, 
+  { key: "trial", label: "Trial Balance", icon: "📊" }, { key: "ledger", label: "General Ledger", icon: "📓" }, { key: "journal", label: "Journal Report", icon: "📔" }
 ], {
   "pl": () => (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 font-mono text-sm max-w-3xl">
@@ -183,44 +184,44 @@ const FinancialReportsWrapper = createWrapper([
 });
 
 const ReceivableReportsWrapper = createWrapper([
-  { key: "client", label: "Client Ledger" }, { key: "outstanding", label: "Outstanding Receivables" }, { key: "invoice", label: "Invoice Report" },
-  { key: "rabill", label: "RA Bill Report" }, { key: "collection", label: "Collection Report" }, { key: "credit", label: "Credit Note Report" }
+  { key: "client", label: "Client Ledger", icon: "👥" }, { key: "outstanding", label: "Outstanding Receivables", icon: "📥" }, { key: "invoice", label: "Invoice Report", icon: "📄" },
+  { key: "rabill", label: "RA Bill Report", icon: "🏗️" }, { key: "collection", label: "Collection Report", icon: "💰" }, { key: "credit", label: "Credit Note Report", icon: "💳" }
 ], {
   "client": () => <GenericTableSection title="Client Ledger Report" columns={["Date", "Invoice", "Debit", "Credit", "Balance"]} data={[["2024-10-01", "INV-882", "₹5,00,000", "-", "₹5,00,000 Dr"], ["2024-10-15", "RCPT-102", "-", "₹3,00,000", "₹2,00,000 Dr"]]} />,
   "outstanding": () => <GenericTableSection title="Outstanding Receivables" columns={["Client", "Project", "Invoice No", "Due Date", "Amount Due"]} data={[["Govt Infra Dept", "Metro Line 3", "INV-882", "2024-11-01", "₹2,00,000"]]} />
 });
 
 const PayableReportsWrapper = createWrapper([
-  { key: "vendor", label: "Vendor Ledger" }, { key: "contractor", label: "Contractor Ledger" }, { key: "outstanding", label: "Outstanding Payables" },
-  { key: "bill", label: "Vendor Bill Report" }, { key: "due", label: "Due Payment Report" }
+  { key: "vendor", label: "Vendor Ledger", icon: "🏢" }, { key: "contractor", label: "Contractor Ledger", icon: "👷" }, { key: "outstanding", label: "Outstanding Payables", icon: "📤" },
+  { key: "bill", label: "Vendor Bill Report", icon: "🧾" }, { key: "due", label: "Due Payment Report", icon: "⏰" }
 ], {
   "vendor": () => <GenericTableSection title="Vendor Ledger Report" columns={["Date", "Bill No", "Debit", "Credit", "Balance"]} data={[["2024-10-05", "BILL-V01", "-", "₹1,00,000", "₹1,00,000 Cr"], ["2024-10-20", "PMT-55", "₹1,00,000", "-", "Nil"]]} />,
   "outstanding": () => <GenericTableSection title="Outstanding Payables" columns={["Vendor/Contractor", "Type", "Bill No", "Due Date", "Amount Due"]} data={[["ABC Cements", "Material", "BILL-V05", "2024-11-10", "₹4,50,000"]]} />
 });
 
 const ExpenseReportsWrapper = createWrapper([
-  { key: "summary", label: "Expense Summary" }, { key: "project", label: "Project Expense Report" }, { key: "category", label: "Category-wise Expense Report" },
-  { key: "monthly", label: "Monthly Expense Report" }, { key: "site", label: "Site Expense Report" }
+  { key: "summary", label: "Expense Summary", icon: "📉" }, { key: "project", label: "Project Expense Report", icon: "🏗️" }, { key: "category", label: "Category-wise Expense Report", icon: "🏷️" },
+  { key: "monthly", label: "Monthly Expense Report", icon: "📅" }, { key: "site", label: "Site Expense Report", icon: "📍" }
 ], {});
 
 const PayrollReportsWrapper = createWrapper([
-  { key: "salary", label: "Salary Report" }, { key: "wage", label: "Labor Wage Report" }, { key: "contractor", label: "Contractor Payment Report" },
-  { key: "attendance", label: "Attendance Report" }, { key: "overtime", label: "Overtime Report" }
+  { key: "salary", label: "Salary Report", icon: "💸" }, { key: "wage", label: "Labor Wage Report", icon: "👷" }, { key: "contractor", label: "Contractor Payment Report", icon: "🛠️" },
+  { key: "attendance", label: "Attendance Report", icon: "⏱️" }, { key: "overtime", label: "Overtime Report", icon: "⏳" }
 ], {});
 
 const AssetReportsWrapper = createWrapper([
-  { key: "register", label: "Asset Register" }, { key: "valuation", label: "Asset Valuation" }, { key: "depreciation", label: "Depreciation Report" },
-  { key: "transfer", label: "Asset Transfer Report" }, { key: "maintenance", label: "Maintenance Cost Report" }
+  { key: "register", label: "Asset Register", icon: "📋" }, { key: "valuation", label: "Asset Valuation", icon: "💲" }, { key: "depreciation", label: "Depreciation Report", icon: "📉" },
+  { key: "transfer", label: "Asset Transfer Report", icon: "🔁" }, { key: "maintenance", label: "Maintenance Cost Report", icon: "🔧" }
 ], {});
 
 const TaxReportsWrapper = createWrapper([
-  { key: "gst", label: "GST Report" }, { key: "input", label: "Input GST Report" }, { key: "output", label: "Output GST Report" },
-  { key: "tds", label: "TDS Report" }, { key: "recon", label: "GST Reconciliation Report" }, { key: "filing", label: "Tax Filing Report" }
+  { key: "gst", label: "GST Report", icon: "🏛️" }, { key: "input", label: "Input GST Report", icon: "📥" }, { key: "output", label: "Output GST Report", icon: "📤" },
+  { key: "tds", label: "TDS Report", icon: "✂️" }, { key: "recon", label: "GST Reconciliation Report", icon: "🔍" }, { key: "filing", label: "Tax Filing Report", icon: "✅" }
 ], {});
 
 const ProjectCostReportsWrapper = createWrapper([
-  { key: "budget", label: "Budget vs Actual" }, { key: "profit", label: "Project Profitability" }, { key: "material", label: "Material Cost Report" },
-  { key: "labor", label: "Labor Cost Report" }, { key: "contractor", label: "Contractor Cost Report" }, { key: "equipment", label: "Equipment Cost Report" }, { key: "variance", label: "Cost Variance Report" }
+  { key: "budget", label: "Budget vs Actual", icon: "📊" }, { key: "profit", label: "Project Profitability", icon: "📈" }, { key: "material", label: "Material Cost Report", icon: "🧱" },
+  { key: "labor", label: "Labor Cost Report", icon: "👷" }, { key: "contractor", label: "Contractor Cost Report", icon: "🛠️" }, { key: "equipment", label: "Equipment Cost Report", icon: "🚜" }, { key: "variance", label: "Cost Variance Report", icon: "📉" }
 ], {
   "budget": () => <GenericTableSection title="Budget vs Actual" columns={["Project", "Budget", "Actual Cost", "Variance"]} data={[["Metro Line 3", "₹50,00,00,000", "₹45,00,00,000", "₹5,00,00,000 (10%)"]]} />,
   "profit": () => <GenericTableSection title="Project Profitability" columns={["Project", "Revenue", "Expense", "Profit", "Margin"]} data={[["Highway Proj A", "₹10,00,00,000", "₹8,00,00,000", "₹2,00,00,000", "20%"]]} />,
@@ -229,13 +230,13 @@ const ProjectCostReportsWrapper = createWrapper([
 });
 
 const BankingReportsWrapper = createWrapper([
-  { key: "cash", label: "Cash Book" }, { key: "bank", label: "Bank Book" }, { key: "recon", label: "Bank Reconciliation" },
-  { key: "transfer", label: "Fund Transfer Report" }, { key: "petty", label: "Petty Cash Report" }
+  { key: "cash", label: "Cash Book", icon: "💵" }, { key: "bank", label: "Bank Book", icon: "🏦" }, { key: "recon", label: "Bank Reconciliation", icon: "🔍" },
+  { key: "transfer", label: "Fund Transfer Report", icon: "🔁" }, { key: "petty", label: "Petty Cash Report", icon: "🪙" }
 ], {});
 
 const MISReportsWrapper = createWrapper([
-  { key: "dashboard", label: "Executive Dashboard" }, { key: "monthly", label: "Monthly Financial Summary" }, { key: "performance", label: "Project Performance Report" },
-  { key: "revexp", label: "Revenue vs Expense" }, { key: "management", label: "Management MIS" }
+  { key: "dashboard", label: "Executive Dashboard", icon: "📊" }, { key: "monthly", label: "Monthly Financial Summary", icon: "📅" }, { key: "performance", label: "Project Performance Report", icon: "📈" },
+  { key: "revexp", label: "Revenue vs Expense", icon: "⚖️" }, { key: "management", label: "Management MIS", icon: "📋" }
 ], {});
 
 // --- MAIN PAGE ---

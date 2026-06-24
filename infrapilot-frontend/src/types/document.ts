@@ -54,5 +54,4 @@ export interface DocumentUpdateParams {
     version?: string;
     file_url?: string | null;
     file_size?: number;
-    file?: File;
 }

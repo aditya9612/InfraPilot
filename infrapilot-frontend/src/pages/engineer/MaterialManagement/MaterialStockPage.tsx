@@ -92,7 +92,7 @@ const MaterialStockPage = () => {
 
     const fetchReports = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getMaterialReport(projectId); setReports(data); }
+        try { const data = await materialService.getMaterialReport(projectId); setReports(data.materials || []); }
         catch (e) { toast.error("Failed to load reports"); }
         finally { setIsLoading(false); }
     };

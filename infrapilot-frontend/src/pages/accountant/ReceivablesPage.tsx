@@ -9,6 +9,12 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import AccountantCreateInvoice from "./AccountantCreateInvoice";
+import { quotationService } from "../../services/quotationService";
+import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, Briefcase } from "lucide-react";
+import QuotationViewModal from "./QuotationViewModal";
+import SelectContractorModal from "../../components/forms/SelectContractorModal";
+import ConvertToProjectModal from "../../components/forms/ConvertToProjectModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock Data
@@ -194,76 +200,148 @@ const InvoicesSection = ({
 }: {
   initialSubTab?: string;
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval">(
-    (initialSubTab as "list" | "create" | "approval") || "list"
+  const [activeSubTab, setActiveSubTab] = useState<"quotation_list" | "create" | "approval" | "invoice_list">(
+    (initialSubTab as any) || "quotation_list"
   );
-  const [invoices, setInvoices] = useState<any[]>(MOCK_INVOICES);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  const [viewQuotationId, setViewQuotationId] = useState<number | null>(null);
 
-  const handleApprove = (id: number) => {
-    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, payment_status: "Paid" } : inv));
-    toast.success("Invoice approved!");
+  const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
+  const [pendingConversionInvoice, setPendingConversionInvoice] = useState<any>(null);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [pendingProjectInvoice, setPendingProjectInvoice] = useState<any>(null);
+
+  const handleOpenConvertToProject = (inv: any) => {
+    setPendingProjectInvoice(inv);
+    setIsProjectModalOpen(true);
   };
 
-  const handleReject = (id: number) => {
-    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, payment_status: "Overdue" } : inv));
-    toast("Sent back for revision.");
-  };
-
-  const handleDelete = (id: number) => {
-    setInvoices(prev => prev.filter(inv => inv.id !== id));
-    toast.success("Invoice deleted!");
-  };
-
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const newInv: any = {};
-    formData.forEach((value, key) => { newInv[key] = value; });
-
-    if (editingInvoice) {
-      setInvoices(prev => prev.map(inv => inv.id === editingInvoice.id ? { ...inv, ...newInv } : inv));
-      toast.success("Invoice updated successfully!");
-    } else {
-      newInv.id = Date.now();
-      newInv.invoice_number = newInv.invoice_number || `INV-${Math.floor(Math.random() * 1000)}`;
-      newInv.amount = Number(newInv.quantity || 0) * Number(newInv.rate || 0);
-      newInv.gst_amount = newInv.amount * 0.18;
-      newInv.total_with_gst = newInv.amount + newInv.gst_amount;
-      newInv.pending_amount = newInv.total_with_gst - Number(newInv.received_amount || 0);
-      setInvoices(prev => [newInv, ...prev]);
-      toast.success("Invoice created successfully!");
+  const handleProjectSelect = async (data: any) => {
+    if (!pendingProjectInvoice) return;
+    try {
+      await quotationService.convertToProject(pendingProjectInvoice.id, data);
+      toast.success("Converted to project successfully!");
+      setInvoices(prev => prev.map(inv => inv.id === pendingProjectInvoice.id ? { ...inv, status: "converted_to_project" } : inv));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to convert to project");
+    } finally {
+      setIsProjectModalOpen(false);
+      setPendingProjectInvoice(null);
     }
-    setActiveSubTab("list");
   };
 
-  // Sync when sidebar item changes (e.g., "Invoice List" → "Create Invoice")
   useEffect(() => {
-    if (initialSubTab) setActiveSubTab(initialSubTab as "list" | "create" | "approval");
+    const fetchQuotations = async () => {
+      try {
+        const data = await quotationService.getQuotations();
+        setInvoices(data);
+      } catch (err) {
+        console.error("Failed to fetch quotations:", err);
+      }
+    };
+    fetchQuotations();
+  }, []);
+
+  const handleApprove = async (id: number) => {
+    try {
+      await quotationService.approveQuotation(id, "Quotation approved");
+      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, is_approved: true, status: "approved", payment_status: "Paid" } : inv));
+      toast.success("Quotation approved!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve quotation");
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    try {
+      await quotationService.rejectQuotation(id, "Rejected");
+      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, is_approved: false, status: "rejected", payment_status: "Overdue" } : inv));
+      toast.success("Quotation rejected!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reject quotation");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await quotationService.deleteQuotation(id);
+      setInvoices(prev => prev.filter(inv => inv.id !== id));
+      toast.success("Quotation deleted successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete quotation");
+    }
+  };
+
+  const handleOpenConvertToInvoice = (inv: any) => {
+    setPendingConversionInvoice(inv);
+    setIsContractorModalOpen(true);
+  };
+
+  const handleContractorSelect = async (contractorId: number) => {
+    if (!pendingConversionInvoice) return;
+    try {
+      await quotationService.convertToInvoice(pendingConversionInvoice.id, pendingConversionInvoice.project_id || 0, contractorId);
+      toast.success("Converted to invoice successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to convert to invoice");
+    } finally {
+      setIsContractorModalOpen(false);
+      setPendingConversionInvoice(null);
+    }
+  };
+
+  const handleDownloadPDF = async (inv: any) => {
+    try {
+      toast.loading("Generating PDF...", { id: `pdf-${inv.id}` });
+      const blob = await quotationService.downloadQuotationPDF(inv.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Quotation_${inv.quotation_no || inv.invoice_number || inv.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("PDF Downloaded!", { id: `pdf-${inv.id}` });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to download PDF", { id: `pdf-${inv.id}` });
+    }
+  };
+
+  useEffect(() => {
+    if (initialSubTab) setActiveSubTab(initialSubTab as any);
   }, [initialSubTab]);
 
   const subTabs = [
-    { key: "create", label: "Create Invoice" },
-    { key: "list", label: "Invoice List" },
-    { key: "approval", label: "Invoice Approval" },
+    { key: "create", label: "Create Quotation" },
+    { key: "quotation_list", label: "Quotation List" },
+    { key: "approval", label: "Quotation Approval" },
+    { key: "invoice_list", label: "Invoice List" },
   ] as const;
 
-  const filtered = invoices.filter(inv =>
-    (filter === "All" || inv.payment_status === filter) &&
-    (inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
-      inv.client_name.toLowerCase().includes(search.toLowerCase()))
-  );
+  const isConverted = (inv: any) => inv.status?.toLowerCase() === "converted" || inv.status?.toLowerCase() === "invoice";
+  const isApprovedOrRejected = (inv: any) => inv.is_approved || inv.status?.toLowerCase() === "approved" || inv.status?.toLowerCase() === "rejected";
 
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-  const inputClasses = (readOnly?: boolean) => `w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${readOnly ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"}`;
+  const filtered = invoices.filter(inv => {
+    const matchSearch = (inv.quotation_no || inv.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
+                        (inv.client_name || "").toLowerCase().includes(search.toLowerCase());
+    const matchFilter = filter === "All" || inv.status === filter || inv.payment_status === filter;
+    
+    if (!matchSearch || !matchFilter) return false;
+
+    if (activeSubTab === "quotation_list") return !isConverted(inv) && !isApprovedOrRejected(inv);
+    if (activeSubTab === "approval") return !isConverted(inv) && isApprovedOrRejected(inv);
+    if (activeSubTab === "invoice_list") return isConverted(inv);
+    return true; // For "create"
+  });
 
   return (
     <div className="space-y-5">
-      {/* Sub-tab + Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 flex-wrap">
           {subTabs.map(t => (
             <button key={t.key} onClick={() => { setActiveSubTab(t.key); if (t.key !== 'create') setEditingInvoice(null); }}
               className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
@@ -273,7 +351,7 @@ const InvoicesSection = ({
         </div>
         <div className="flex items-center gap-3">
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search invoices…"
+            placeholder="Search…"
             className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" />
           <select value={filter} onChange={e => setFilter(e.target.value)}
             className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
@@ -282,13 +360,13 @@ const InvoicesSection = ({
         </div>
       </div>
 
-      {activeSubTab === "list" && (
+      {(activeSubTab === "quotation_list" || activeSubTab === "approval" || activeSubTab === "invoice_list") && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
+          <div className="overflow-x-auto pb-3 scrollbar-thin">
+            <table className="w-full text-left min-w-max">
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
-                  {["Invoice No", "Client Name", "Project", "Billing Date", "Due Date", "Work Description", "Qty", "Unit", "Rate", "Amount", "GST %", "GST Amt", "Total w/ GST", "Recd Amt", "Pending Amt", "Status", "Actions"].map(h => (
+                  {["Quotation No", "Client Name", "Company Name", "Mobile Number", "Email", "Billing Address", "Site Address", "Project Name", "Project Type", "Subtotal", "GST %", "GST Amt", "CGST %", "SGST %", "TDS %", "CGST Amt", "SGST Amt", "TDS Amt", "Discount", "Grand Total", "Advance Paid", "Balance Due", "Payment Mode", "UPI ID", "Bank Name", "Acc Holder", "Acc No", "IFSC", "Due Date", "Is Approved", "Status", "Created At", "Actions"].map(h => (
                     <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -296,28 +374,74 @@ const InvoicesSection = ({
               <tbody className="divide-y divide-slate-50">
                 {filtered.map(inv => (
                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
-                    <td className="px-4 py-3 text-xs font-bold text-primary">{inv.invoice_number}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-primary">{inv.quotation_no || inv.invoice_number}</td>
                     <td className="px-4 py-3 text-xs font-semibold text-slate-700">{inv.client_name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.company_name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.mobile_number}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.email}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px] truncate">{inv.billing_address}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px] truncate">{inv.site_address}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.project_name}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.billing_date}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.due_date}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px] truncate">{inv.work_description}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{inv.quantity.toLocaleString("en-IN")}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.unit}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.rate)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-slate-700 text-right">{fmt(inv.amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.project_type}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.subtotal || inv.amount)}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 text-right">{inv.gst_percent}%</td>
                     <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.gst_amount)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(inv.total_with_gst)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700 text-right">{fmt(inv.received_amount)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-rose-600 text-right">{fmt(inv.pending_amount)}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.payment_status)}`}>{inv.payment_status}</span></td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{inv.cgst_percent}%</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{inv.sgst_percent}%</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{inv.tds_percent}%</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.cgst_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.sgst_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.tds_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.discount_amount)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(inv.grand_total || inv.total_with_gst)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700 text-right">{fmt(inv.advance_paid || inv.received_amount)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-rose-600 text-right">{fmt(inv.balance_due || inv.pending_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.payment_mode}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.upi_id}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[120px] truncate">{inv.bank_name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[120px] truncate">{inv.account_holder_name}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.account_number}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.ifsc_code}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.due_date}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.is_approved ? 'Yes' : 'No'}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status || inv.payment_status)}`}>{inv.status || inv.payment_status}</span></td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.created_at?.substring(0,10)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
-                        <button onClick={() => { setEditingInvoice(inv); setActiveSubTab("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
-                        <button onClick={() => toast.success("Invoice PDF downloaded!")} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="PDF">📄</button>
-                        <button onClick={() => handleDelete(inv.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
+                      <div className="flex gap-3 items-center justify-center">
+                        {activeSubTab === "quotation_list" && (
+                          <>
+                            <button onClick={() => handleApprove(inv.id)} className="text-emerald-500 hover:text-emerald-600 transition-colors" title="Approve">
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleReject(inv.id)} className="text-rose-500 hover:text-rose-600 transition-colors" title="Reject">
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                        {activeSubTab === "approval" && inv.status?.toLowerCase() !== "rejected" && (
+                          <button onClick={() => handleOpenConvertToProject(inv)} className="text-blue-500 hover:text-blue-600 transition-colors" title="Convert to Project">
+                            <Briefcase className="w-4 h-4" />
+                          </button>
+                        )}
+                        {(activeSubTab === "quotation_list" || (activeSubTab === "approval" && inv.status?.toLowerCase() !== "rejected")) && (
+                          <button onClick={() => handleOpenConvertToInvoice(inv)} className="text-indigo-500 hover:text-indigo-600 transition-colors" title="Convert to Invoice">
+                            <Zap className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button onClick={() => setViewQuotationId(inv.id)} className="text-slate-400 hover:text-primary transition-colors" title="View">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        {activeSubTab !== "invoice_list" && (
+                          <button onClick={() => { setEditingInvoice(inv); setActiveSubTab("create"); }} className="text-slate-400 hover:text-amber-500 transition-colors" title="Edit">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button onClick={() => handleDownloadPDF(inv)} className="text-slate-400 hover:text-slate-700 transition-colors" title="Download">
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDelete(inv.id)} className="text-slate-400 hover:text-rose-600 transition-colors" title="Delete">
+                          <Trash className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -328,173 +452,66 @@ const InvoicesSection = ({
         </div>
       )}
 
-      {activeSubTab === "approval" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100">
-            <h3 className="font-bold text-slate-800">Invoice Approval Queue</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Invoices pending manager / client approval</p>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {invoices.filter(i => i.payment_status === "Pending" || i.payment_status === "Overdue").map(inv => (
-              <div key={inv.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
-                <div>
-                  <p className="text-sm font-bold text-slate-800">{inv.invoice_number} — {inv.client_name}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{inv.project_name} · Due: {inv.due_date}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-700">{fmt(inv.total_with_gst)}</span>
-                  <span className={`px-2 py-0.5 text-[10px] font-black rounded-full ${statusBadge(inv.payment_status)}`}>{inv.payment_status}</span>
-                  <button onClick={() => handleApprove(inv.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all active:scale-95">Approve</button>
-                  <button onClick={() => handleReject(inv.id)} className="px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition-all active:scale-95">Reject</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {activeSubTab === "create" && (
+        <AccountantCreateInvoice
+          editingInvoice={editingInvoice}
+          onCancel={() => { setActiveSubTab("quotation_list"); setEditingInvoice(null); }}
+          onSave={async (data) => {
+            try {
+              if (editingInvoice) {
+                const res = await quotationService.updateQuotation(editingInvoice.id, data);
+                setInvoices(prev => prev.map(inv => inv.id === editingInvoice.id ? { ...inv, ...res, amount: res.subtotal || data.subtotal, total_with_gst: res.grand_total || data.grand_total, pending_amount: res.balance_due || data.balance_due } : inv));
+                toast.success("Invoice updated successfully!");
+              } else {
+                const { items, labour_items, material_items, extra_charge_items, ...basicData } = data;
+                const res = await quotationService.createQuotation(basicData);
+                const quotationId = res.id;
+
+                // Post all items
+                if (items?.length) await Promise.all(items.map((it: any) => quotationService.addQuotationItem(quotationId!, it)));
+                if (labour_items?.length) await Promise.all(labour_items.map((it: any) => quotationService.addLabourItem(quotationId!, it)));
+                if (material_items?.length) await Promise.all(material_items.map((it: any) => quotationService.addMaterialItem(quotationId!, it)));
+                if (extra_charge_items?.length) await Promise.all(extra_charge_items.map((it: any) => quotationService.addExtraCharge(quotationId!, it)));
+
+                const newInv = { ...res, amount: res.subtotal || data.subtotal, total_with_gst: res.grand_total || data.grand_total, pending_amount: res.balance_due || data.balance_due };
+                setInvoices(prev => [newInv, ...prev]);
+                toast.success("Quotation created successfully!");
+              }
+              setActiveSubTab("quotation_list");
+              setEditingInvoice(null);
+            } catch (err: any) {
+              toast.error(err.message || "Failed to save quotation/invoice");
+            }
+          }}
+        />
       )}
 
-      {activeSubTab === "create" && (
-        <form onSubmit={handleFormSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Form Sections */}
-          <div className="lg:col-span-2 space-y-5">
+      {viewQuotationId && (
+        <QuotationViewModal
+          quotationId={viewQuotationId}
+          onClose={() => setViewQuotationId(null)}
+        />
+      )}
 
-            {/* 1. Basic Details */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-                Basic Details
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: "Invoice Number", name: "invoice_number", placeholder: "Auto: INV-2026-005", readOnly: true, val: editingInvoice?.invoice_number },
-                  { label: "Invoice Date", name: "billing_date", placeholder: "", type: "date", val: editingInvoice?.billing_date },
-                  { label: "Client Name", name: "client_name", placeholder: "Select client…", val: editingInvoice?.client_name },
-                  { label: "Project Name", name: "project_name", placeholder: "Select project…", val: editingInvoice?.project_name },
-                  { label: "Billing Date", name: "billing_date", placeholder: "", type: "date", val: editingInvoice?.billing_date },
-                  { label: "Due Date", name: "due_date", placeholder: "", type: "date", val: editingInvoice?.due_date },
-                  { label: "Payment Terms", name: "payment_terms", placeholder: "e.g. Net 30 days", val: editingInvoice ? "Net 30 days" : "" },
-                ].map((f, i) => (
-                  <div key={i} className={`${i === 6 ? "col-span-2" : ""}`}>
-                    <label className={labelClasses}>{f.label}</label>
-                    <input type={f.type || "text"} name={f.name} placeholder={f.placeholder} readOnly={f.readOnly} defaultValue={f.val || ""}
-                      className={inputClasses(f.readOnly)} />
-                  </div>
-                ))}
-              </div>
-            </div>
+      {isContractorModalOpen && (
+        <SelectContractorModal
+          isOpen={isContractorModalOpen}
+          onClose={() => { setIsContractorModalOpen(false); setPendingConversionInvoice(null); }}
+          onSelect={handleContractorSelect}
+        />
+      )}
 
-            {/* 2. Work Details */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-                Work Details
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className={labelClasses}>Work Description</label>
-                  <textarea name="work_description" rows={3} placeholder="Describe work done e.g. RCC Column Casting – Ground Floor, Grid A to D" defaultValue={editingInvoice?.work_description || ""}
-                    className={inputClasses(false) + " resize-none"} />
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  {[
-                    { label: "Quantity", name: "quantity", placeholder: "e.g. 500", type: "number", val: editingInvoice?.quantity },
-                    { label: "Unit", name: "unit", placeholder: "e.g. CuM", val: editingInvoice?.unit },
-                    { label: "Rate (₹)", name: "rate", placeholder: "e.g. 4500", type: "number", val: editingInvoice?.rate },
-                    { label: "Total Amount", name: "amount", placeholder: "Auto", readOnly: true, val: editingInvoice?.amount },
-                  ].map((f, i) => (
-                    <div key={i}>
-                      <label className={labelClasses}>{f.label}</label>
-                      <input type={f.type || "text"} name={f.name} placeholder={f.placeholder} readOnly={f.readOnly} defaultValue={f.val || ""}
-                        className={inputClasses(f.readOnly)} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Tax Details */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-                Tax Details
-              </h3>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: "GST (%)", name: "gst_percent", placeholder: "e.g. 18", type: "number", val: editingInvoice?.gst_percent },
-                  { label: "GST Amount (₹)", name: "gst_amount", placeholder: "Auto", readOnly: true, val: editingInvoice?.gst_amount },
-                  { label: "Total with GST", name: "total_with_gst", placeholder: "Auto", readOnly: true, val: editingInvoice?.total_with_gst },
-                ].map((f, i) => (
-                  <div key={i}>
-                    <label className={labelClasses}>{f.label}</label>
-                    <input type={f.type || "text"} name={f.name} placeholder={f.placeholder} readOnly={f.readOnly} defaultValue={f.val || ""}
-                      className={inputClasses(f.readOnly)} />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 4. Attachments */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">5</span>
-                Attachments
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                {["BOQ Upload", "Invoice PDF", "Supporting Documents"].map(att => (
-                  <label key={att} className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-blue-50/30 transition-all group">
-                    <div className="text-2xl mb-2">📎</div>
-                    <p className="text-xs font-semibold text-slate-500 group-hover:text-primary">{att}</p>
-                    <input type="file" className="hidden" />
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Payment Summary Sidebar */}
-          <div className="space-y-5">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">4</span>
-                Payment Details
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className={labelClasses}>Payment Status</label>
-                  <select name="payment_status" className={inputClasses(false) + " cursor-pointer"} defaultValue={editingInvoice?.payment_status || "Pending"}>
-                    {["Pending", "Partial", "Paid"].map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClasses}>Received Amount (₹)</label>
-                  <input type="number" name="received_amount" placeholder="0" defaultValue={editingInvoice?.received_amount || ""} className={inputClasses(false)} />
-                </div>
-                <div>
-                  <label className={labelClasses}>Pending Amount (₹)</label>
-                  <input type="number" name="pending_amount" placeholder="Auto" readOnly defaultValue={editingInvoice?.pending_amount || ""} className={inputClasses(true)} />
-                </div>
-              </div>
-              <div className="mt-6 pt-4 border-t border-slate-100 space-y-3">
-                <div className="flex justify-between text-xs text-slate-500"><span>Gross Amount</span><span className="font-semibold text-slate-700">{editingInvoice ? fmt(editingInvoice.amount) : "—"}</span></div>
-                <div className="flex justify-between text-xs text-slate-500"><span>GST Amount</span><span className="font-semibold text-slate-700">{editingInvoice ? fmt(editingInvoice.gst_amount) : "—"}</span></div>
-                <div className="flex justify-between text-xs font-bold text-primary border-t border-slate-100 pt-2"><span>Total with GST</span><span>{editingInvoice ? fmt(editingInvoice.total_with_gst) : "—"}</span></div>
-              </div>
-              <button type="submit"
-                className="w-full mt-6 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all active:scale-95 shadow-md shadow-primary/20">
-                {editingInvoice ? "Update Invoice" : "Create Invoice"}
-              </button>
-              <button type="button" onClick={() => setActiveSubTab("list")}
-                className="w-full mt-2 bg-slate-50 text-slate-500 py-2.5 rounded-xl text-sm font-bold border border-slate-200 hover:bg-slate-100 transition-all">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </form>
+      {isProjectModalOpen && (
+        <ConvertToProjectModal
+          isOpen={isProjectModalOpen}
+          onClose={() => { setIsProjectModalOpen(false); setPendingProjectInvoice(null); }}
+          onSelect={handleProjectSelect}
+          title="Convert to Project"
+        />
       )}
     </div>
   );
 };
-
 
 // 3. RA Bills
 const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {

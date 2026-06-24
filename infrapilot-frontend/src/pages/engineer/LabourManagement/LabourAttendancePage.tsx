@@ -14,7 +14,9 @@ import {
     ArrowRight,
     Eye,
     X,
-    User
+    User,
+    Users,
+    UserCheck
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -95,6 +97,7 @@ const LabourAttendancePage: React.FC = () => {
     const [isExporting, setIsExporting] = useState(false);
 
     const [labourAttendances, setLabourAttendances] = useState<any[]>([]);
+    const [dashboardStats, setDashboardStats] = useState({ total_labour: 0, present: 0 });
     const [contractorMap] = useState<Record<number, string>>(LOCAL_CONTRACTOR_MAP);
 
     const getActiveProjectId = () => {
@@ -129,6 +132,14 @@ const LabourAttendancePage: React.FC = () => {
             } else {
                 fromDate = today;
                 toDate = today;
+            }
+
+            // 0. Fetch Dashboard Stats
+            try {
+                const stats = await labourService.getAttendanceDashboard(activeProjectId, fromDate || undefined, toDate || undefined);
+                if (stats) setDashboardStats({ total_labour: stats.total_labour || 0, present: stats.present || 0 });
+            } catch (err) {
+                console.error("Failed to fetch dashboard stats", err);
             }
 
             // 1. Fetch ALL labourers for this project
@@ -406,6 +417,28 @@ const LabourAttendancePage: React.FC = () => {
                         >
                             Labour Attendance
                         </button>
+                    </div>
+                </div>
+
+                {/* Stat Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-2">
+                    <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                            <Users className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Labour</p>
+                            <h3 className="text-2xl font-black text-slate-800">{dashboardStats.total_labour}</h3>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                            <UserCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Present Today</p>
+                            <h3 className="text-2xl font-black text-slate-800">{dashboardStats.present}</h3>
+                        </div>
                     </div>
                 </div>
 

@@ -196,10 +196,12 @@ export const quotationService = {
      * Convert quotation to invoice
      * POST /api/v1/quotations/{id}/convert-to-invoice
      */
-    async convertToInvoice(id: number, projectId: number): Promise<any> {
+    async convertToInvoice(id: number, projectId: number, contractorId: number): Promise<any> {
         try {
-            const response = await api.post(`/quotations/${id}/convert-to-invoice`, { quotation_id: id }, {
-                params: { project_id: projectId }
+            const response = await api.post(`/quotations/${id}/convert-to-invoice`, { 
+                quotation_id: id,
+                project_id: projectId,
+                contractor_id: contractorId
             });
             return response.data;
         } catch (error: any) {
@@ -216,14 +218,32 @@ export const quotationService = {
         try {
             const response = await api.post(`/quotations/${id}/convert-to-work-order`, {
                 quotation_id: id,
+                project_id: projectId,
                 contractor_id: contractorId
-            }, {
-                params: { project_id: projectId, contractor_id: contractorId }
             });
             return response.data;
         } catch (error: any) {
-            console.error(`Convert to Work Order ${id} Error:`, error.response?.data || error.message);
+            console.error(`Convert to Work Order Error:`, error.response?.data || error.message);
             throw error;
+        }
+    },
+
+    /**
+     * Convert Quotation To Project
+     * POST /api/v1/quotations/{id}/convert-to-project
+     */
+    async convertToProject(id: number, data: any): Promise<any> {
+        try {
+            const response = await api.post(`/quotations/${id}/convert-to-project`, data);
+            return response.data;
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            const message = typeof detail === 'string' ? detail :
+                (Array.isArray(detail) ? detail.map(d => d.msg).join(', ') :
+                    (error.response?.data?.message || error.message));
+
+            console.error(`Convert to Project Error:`, error.response?.data || error.message);
+            throw new Error(message);
         }
     },
 
