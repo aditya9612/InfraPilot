@@ -268,8 +268,10 @@ export const materialService = {
     return mapSupplier(response.data);
   },
 
-  async getSuppliers(): Promise<Supplier[]> {
-    const response = await api.get<any>("/materials/suppliers");
+  async getSuppliers(project_id?: number): Promise<Supplier[]> {
+    const params: any = {};
+    if (project_id) params.project_id = project_id;
+    const response = await api.get<any>("/materials/suppliers", { params });
     const data = response.data;
     const items = Array.isArray(data) ? data : (data.items || data.data || []);
     return items.map(mapSupplier);
@@ -316,7 +318,7 @@ export const materialService = {
 
   async listPurchaseOrders(project_id?: number, skip: number = 0, limit: number = 500): Promise<PurchaseOrder[]> {
     const params: any = { skip, limit };
-    if (project_id !== undefined) params.project_id = project_id;
+    if (project_id) params.project_id = project_id;
     const response = await api.get<PurchaseOrder[]>("/materials/purchase-orders", { params });
     return response.data;
   },

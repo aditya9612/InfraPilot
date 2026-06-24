@@ -43,6 +43,13 @@ const mapPriority = (priority: number | string): "LOW" | "MEDIUM" | "HIGH" => {
     if (priority === 2 || priority === "Medium" || priority === "MEDIUM") return "MEDIUM";
     return "LOW";
 };
+
+const getFullUrl = (path: string | null | undefined) => {
+    if (!path) return null;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '') : 'http://127.0.0.1:8000';
+    return `${baseUrl}/${path.replace(/^\/+/, '')}`;
+};
 const AudioButton = ({ audioData }: { audioData: string }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -1015,19 +1022,16 @@ const TaskManagementPage = () => {
                                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
 
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Project</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Milestone</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">BOQ</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Title</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Description</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Start Date</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">End Date</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Start / End Date</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Actual Start / End</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Created By</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned Users</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Completion %</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Is Delayed</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Execution Duration</th>
+
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Delay Days</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Actual Cost</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Planned Cost</th>
@@ -1042,8 +1046,6 @@ const TaskManagementPage = () => {
                                                     <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors block md:table-row">
 
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.projectName || 'null'}</td>
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.milestoneName || 'null'}</td>
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.boqName || 'null'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs font-bold text-slate-800 block md:table-cell">{task.title}</td>
                                                         <td className="p-4 text-xs text-slate-500 truncate max-w-[200px] block md:table-cell">{task.description}</td>
                                                         <td className="p-4 text-center block md:table-cell">
@@ -1077,32 +1079,31 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap block md:table-cell">
                                                             <div className="flex flex-col gap-1">
-                                                                <span className="text-xs font-bold text-slate-800">{task.start_date || 'null'}</span>
-                                                                <span className="text-[10px] text-slate-500">Actual: {(task as any).actual_start_date || 'null'}</span>
+                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{task.start_date || 'null'}</span></span>
+                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{task.end_date || 'null'}</span></span>
                                                             </div>
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap block md:table-cell">
                                                             <div className="flex flex-col gap-1">
-                                                                <span className="text-xs font-bold text-slate-800">{task.end_date || 'null'}</span>
-                                                                <span className="text-[10px] text-slate-500">Actual: {(task as any).actual_end_date || 'null'}</span>
+                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{(task as any).actual_start_date || 'null'}</span></span>
+                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date || 'null'}</span></span>
                                                             </div>
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName || 'null'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length ? task.assignedNames.join(', ') : 'Unassigned'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).is_delayed ? 'true' : 'false'}</td>
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).execution_duration || 0}</td>
+
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).delay_days || 0}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).actual_cost || 0}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).planned_cost || 0}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
-                                                            {(task as any).audio_instruction_url ? (
-                                                                <audio controls src={String((task as any).audio_instruction_url)} className="h-8 w-32" />
+                                                            {task.audio_data || (task as any).audio_instruction_url ? (
+                                                                <audio controls src={task.audio_data ? getFullUrl(task.audio_data) || '' : getFullUrl(String((task as any).audio_instruction_url)) || ''} className="h-8 w-32" />
                                                             ) : 'null'}
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {(task as any).instruction_image_url ? (
-                                                                <img src={String((task as any).instruction_image_url)} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
+                                                                <img src={getFullUrl(String((task as any).instruction_image_url)) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
                                                             ) : 'null'}
                                                         </td>
 
@@ -1463,7 +1464,7 @@ const TaskManagementPage = () => {
                         </div>
 
                         {/* Modal Tabs */}
-                        <div className="flex bg-white border-b border-slate-200 px-6 pt-4 gap-4 overflow-x-auto custom-scrollbar">
+                        <div className="flex bg-white border-b border-slate-200 px-6 pt-4 gap-4 overflow-x-auto custom-scrollbar shrink-0">
                             <button
                                 onClick={() => setModalTab("Details")}
                                 className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${modalTab === 'Details' ? 'border-slate-800 text-slate-800 bg-slate-100 rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
@@ -1656,14 +1657,14 @@ const TaskManagementPage = () => {
                                                 <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                                     <p className="text-xs font-bold text-slate-400 mb-3">Instruction Image</p>
                                                     <div className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video max-w-sm">
-                                                        <img src={String((selectedTask as any).instruction_image_url)} alt="Instruction" className="w-full h-full object-cover" />
+                                                        <img src={getFullUrl(String((selectedTask as any).instruction_image_url)) || ''} alt="Instruction" className="w-full h-full object-cover" />
                                                     </div>
                                                 </div>
                                             )}
                                             {(selectedTask.audio_data || (selectedTask as any).audio_instruction_url) && (
                                                 <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                                     <p className="text-xs font-bold text-slate-400 mb-3">Audio Instruction</p>
-                                                    <audio controls src={selectedTask.audio_data || (selectedTask as any).audio_instruction_url} className="w-full max-w-sm" />
+                                                    <audio controls src={selectedTask.audio_data ? (getFullUrl(selectedTask.audio_data) || '') : (getFullUrl(String((selectedTask as any).audio_instruction_url)) || '')} className="w-full max-w-sm" />
                                                 </div>
                                             )}
                                         </div>

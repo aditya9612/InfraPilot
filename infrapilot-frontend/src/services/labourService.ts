@@ -578,6 +578,30 @@ export const labourService = {
     },
 
     /**
+     * Get Attendance Dashboard Stats
+     * GET /api/v1/labour/attendance/dashboard?project_id=1&from_date=2026-04-22&to_date=2026-04-22
+     */
+    async getAttendanceDashboard(projectId: number | string, fromDate?: string, toDate?: string) {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const params: any = {
+                project_id: projectId,
+                from_date: fromDate || today,
+                to_date: toDate || today
+            };
+            console.log("GET /api/v1/labour/attendance/dashboard", params);
+            const response = await api.get("/labour/attendance/dashboard", { params });
+            return response.data;
+        } catch (error: any) {
+            console.warn("getAttendanceDashboard API error, using virtual success fallback:", error.message);
+            return {
+                total_labour: 0,
+                present: 0
+            };
+        }
+    },
+
+    /**
      * List all attendance records for a project
      * GET /api/v1/labour/attendance?project_id=1&from_date=2024-01-01&to_date=2024-12-31
      */
@@ -587,9 +611,13 @@ export const labourService = {
             const params: any = {
                 limit: 50,
                 offset: 0,
-                start_date: fromDate || today,
-                end_date: toDate || today
             };
+            if (fromDate !== 'ALL') {
+                params.start_date = fromDate || today;
+            }
+            if (toDate !== 'ALL') {
+                params.end_date = toDate || today;
+            }
             if (projectId) params.project_id = projectId;
 
             console.log("GET /api/v1/attendance/list", params);

@@ -43,6 +43,16 @@ const formatAadhaar = (value: string) => {
     return groups ? groups.join("-") : digits;
 };
 
+const getFullUrl = (url: string | null) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('data:image')) return url;
+    const baseUrl = import.meta.env.VITE_API_URL 
+        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '') 
+        : 'http://127.0.0.1:8000';
+    return `${baseUrl}/${url.replace(/^\/+/, '')}`;
+};
+
 const LaborDetailsPage = () => {
     const [laborers, setLaborers] = useState<LabourItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -268,11 +278,12 @@ const LaborDetailsPage = () => {
         try {
             if (formMode === "edit" && editId) {
                 const updatePayload = {
+                    aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
                     labour_name: formData.labour_name,
                     mobile_number: formData.mobile_number || undefined,
-                    email: formData.email || undefined,
-                    pan_number: formData.pan_number || undefined,
-                    address: formData.address || undefined,
+                    email: formData.email || null,
+                    pan_number: formData.pan_number || null,
+                    address: formData.address || null,
                     labour_type_id: Number(formData.labour_type_id),
                     custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : undefined,
                     custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : undefined,
@@ -304,7 +315,9 @@ const LaborDetailsPage = () => {
 
                 toast.success("Profile updated successfully");
             } else {
+                const activePId = assignProjectId ? Number(assignProjectId) : (projectId || 92);
                 const createPayload = {
+                    project_id: activePId,
                     aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
                     labour_name: formData.labour_name,
                     mobile_number: formData.mobile_number,
@@ -323,7 +336,6 @@ const LaborDetailsPage = () => {
                 const newLaborer = await labourService.createLabour(createPayload);
 
                 // Step 2: Explicitly assign worker to the project to ensure they appear in the list
-                const activePId = assignProjectId ? Number(assignProjectId) : (projectId || 92);
                 console.log(`Step 2: Assigning Worker ${newLaborer.id} to Project ${activePId}...`);
                 try {
                     await labourService.assignLabourToProject(newLaborer.id, activePId);
@@ -541,7 +553,6 @@ const LaborDetailsPage = () => {
                                         <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Effective OT Rate (₹)</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Contractor Name</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Status</th>
-                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Notes</th>
                                         <th className="px-4 py-4 text-right font-inter whitespace-nowrap">Actions</th>
                                     </tr>
                                 </thead>
@@ -579,7 +590,7 @@ const LaborDetailsPage = () => {
                                             {/* profile_image */}
                                             <td className="px-4 py-4">
                                                 {labor.profile_image ? (
-                                                    <img src={labor.profile_image} alt="profile" className="w-7 h-7 rounded-full object-cover border border-slate-200" />
+                                                    <img src={getFullUrl(labor.profile_image)} alt="profile" className="w-7 h-7 rounded-full object-cover border border-slate-200" />
                                                 ) : (
                                                     <span className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] text-slate-400 font-bold">{labor.labour_name?.charAt(0)}</span>
                                                 )}
@@ -621,10 +632,6 @@ const LaborDetailsPage = () => {
                                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter whitespace-nowrap ${labor.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                     {labor.status}
                                                 </span>
-                                            </td>
-                                            {/* notes */}
-                                            <td className="px-4 py-4">
-                                                <p className="text-[10px] text-slate-400 font-bold font-inter truncate max-w-[120px]" title={labor.notes || ""}>{labor.notes || "—"}</p>
                                             </td>
                                             {/* actions */}
                                             <td className="px-4 py-4 text-right">
@@ -833,8 +840,17 @@ const LaborDetailsPage = () => {
 
                             {/* labour_type_id * */}
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type ID <span className="text-rose-500">*</span></label>
-                                <input type="number" value={formData.labour_type_id || ""} onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })} placeholder="1" min="1" className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} />
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type <span className="text-rose-500">*</span></label>
+                                <select 
+                                    value={formData.labour_type_id || ""} 
+                                    onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })} 
+                                    className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`}
+                                >
+                                    <option value="" disabled>Select Labour Type</option>
+                                    {labourTypes.map((type) => (
+                                        <option key={type.id} value={type.id}>{type.name || type.type_name || `Type ${type.id}`}</option>
+                                    ))}
+                                </select>
                                 {errors.labour_type_id && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.labour_type_id}</p>}
                             </div>
 
@@ -900,7 +916,7 @@ const LaborDetailsPage = () => {
                             <div className="flex items-center gap-5">
                                 <div className="w-20 h-20 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative flex-shrink-0">
                                     {selectedLaborer.profile_image ? (
-                                        <img src={selectedLaborer.profile_image} alt="profile" className="w-full h-full rounded-2xl object-cover" />
+                                        <img src={getFullUrl(selectedLaborer.profile_image)} alt="profile" className="w-full h-full rounded-2xl object-cover" />
                                     ) : (
                                         <span className="text-3xl font-bold">{selectedLaborer.labour_name.charAt(0)}</span>
                                     )}
@@ -933,7 +949,6 @@ const LaborDetailsPage = () => {
                                 { label: 'PAN Number', value: selectedLaborer.pan_number || '—' },
                                 { label: 'Address', value: selectedLaborer.address || '—' },
                                 { label: 'Email', value: selectedLaborer.email || '—' },
-                                { label: 'Labour Type ID', value: selectedLaborer.labour_type_id ?? '—' },
                                 { label: 'Labour Type Name', value: selectedLaborer.labour_type_name || '—' },
                                 { label: 'Skill Category', value: selectedLaborer.skill_category || '—' },
                                 { label: 'Default Daily Wage (₹)', value: selectedLaborer.default_daily_wage != null ? `₹${selectedLaborer.default_daily_wage}` : '—' },

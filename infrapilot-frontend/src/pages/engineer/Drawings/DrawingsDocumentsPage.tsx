@@ -835,7 +835,14 @@ const DrawingsDocumentsPage = () => {
 
                     {/* Breadcrumbs for folder navigation */}
                     {folderPath.length > 0 && (
-                        <div className="flex items-center gap-2 mt-4 px-1 pb-2">
+                        <div className="flex items-center gap-2 mt-4 px-4 pb-2">
+                            <button 
+                                onClick={() => handleBreadcrumbClick(folderPath.length - 2)} 
+                                className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors mr-2 border border-slate-200 shadow-sm"
+                            >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                                Back
+                            </button>
                             <button onClick={() => handleBreadcrumbClick(-1)} className="text-xs font-bold text-slate-500 hover:text-primary transition-colors">Root Vault</button>
                             {folderPath.map((folder, idx) => (
                                 <React.Fragment key={folder.id}>
@@ -857,12 +864,8 @@ const DrawingsDocumentsPage = () => {
                                             <th className="px-4 py-4">project_name</th>
                                             <th className="px-4 py-4">title</th>
                                             <th className="px-4 py-4">document_type</th>
-                                            <th className="px-4 py-4">file_url</th>
-                                            <th className="px-4 py-4">file_size</th>
                                             <th className="px-4 py-4">version</th>
                                             <th className="px-4 py-4">status</th>
-                                            <th className="px-4 py-4">is_folder</th>
-                                            <th className="px-4 py-4">parent_id</th>
                                             <th className="px-4 py-4">uploaded_at</th>
                                             <th className="px-4 py-4">remarks</th>
                                             <th className="px-4 py-4 text-right">Actions</th>
@@ -890,16 +893,12 @@ const DrawingsDocumentsPage = () => {
                                                         )}
                                                     </td>
                                                     <td className="px-4 py-3">{drawing.document_type !== undefined ? String(drawing.document_type) : "null"}</td>
-                                                    <td className="px-4 py-3 truncate max-w-[150px]" title={drawing.file_url}>{drawing.file_url || "null"}</td>
-                                                    <td className="px-4 py-3">{drawing.file_size !== undefined ? String(drawing.file_size) : "null"}</td>
                                                     <td className="px-4 py-3">{drawing.version}</td>
                                                     <td className="px-4 py-3">
                                                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                                                             {drawing.status || drawing.approval_status}
                                                         </span>
                                                     </td>
-                                                    <td className="px-4 py-3">{drawing.is_folder ? "true" : "false"}</td>
-                                                    <td className="px-4 py-3">{drawing.parent_id !== undefined && drawing.parent_id !== null ? (drawingData.find((d: any) => d.id == drawing.parent_id)?.drawing_name || drawing.parent_id) : "null"}</td>
                                                     <td className="px-4 py-3">{drawing.uploaded_at || "null"}</td>
                                                     <td className="px-4 py-3 truncate max-w-[150px]" title={drawing.remarks}>{drawing.remarks || "null"}</td>
                                                     <td className="px-4 py-3 text-right">

@@ -95,7 +95,7 @@ const MaterialConsumptionPage = () => {
 
     const fetchTransactions = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getProjectTransactions(projectId); setTransactions(data); }
+        try { const data = await materialService.getLogs({ project_id: projectId }); setTransactions(data as any); }
         catch (e) { toast.error("Failed to load transactions"); }
         finally { setIsLoading(false); }
     };

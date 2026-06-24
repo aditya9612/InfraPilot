@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
-import ProjectSelector from "./ProjectSelector";
+
 import { useState, useRef, useEffect } from "react";
 import { LogOut, User as UserIcon, Settings, Bell, CheckCheck } from "lucide-react";
 import Modal from "./Modal";
@@ -242,7 +242,6 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-          <ProjectSelector />
           {action && (
             <button
               onClick={action.onClick}
