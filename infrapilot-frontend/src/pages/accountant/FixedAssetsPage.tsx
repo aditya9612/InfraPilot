@@ -157,13 +157,13 @@ const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
 const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "list");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const tabs = [{ key: "list", label: "Asset List" }, { key: "details", label: "Asset Details" }, { key: "transfer", label: "Asset Transfer" }];
+  const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }, { key: "transfer", label: "Asset Transfer", icon: "🔁" }];
   
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <div className="flex gap-2 overflow-x-auto">
-          {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
+          {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
         </div>
         <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
           + Add Asset
@@ -200,16 +200,16 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
 const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "monthly");
   const tabs = [
-    { key: "setup", label: "Depreciation Setup" },
-    { key: "monthly", label: "Monthly Depreciation" },
-    { key: "annual", label: "Annual Depreciation" },
-    { key: "history", label: "Depreciation History" }
+    { key: "setup", label: "Depreciation Setup", icon: "⚙️" },
+    { key: "monthly", label: "Monthly Depreciation", icon: "📅" },
+    { key: "annual", label: "Annual Depreciation", icon: "🗓️" },
+    { key: "history", label: "Depreciation History", icon: "⏳" }
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
+        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
       </div>
       
       {activeSubTab === "setup" && <GenericTableSection title="Depreciation Methods Configured" columns={["Asset Category", "Method", "Rate (%)", "Status"]} data={[["Vehicles", "SLM", "15", "Active"], ["Machinery", "WDV", "20", "Active"]]} />}
@@ -250,16 +250,16 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
 const AssetMaintenanceWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "schedule");
   const tabs = [
-    { key: "schedule", label: "Maintenance Schedule" },
-    { key: "history", label: "Service History" },
-    { key: "cost", label: "Repair Cost" },
-    { key: "amc", label: "AMC Tracking" }
+    { key: "schedule", label: "Maintenance Schedule", icon: "📅" },
+    { key: "history", label: "Service History", icon: "⏳" },
+    { key: "cost", label: "Repair Cost", icon: "💸" },
+    { key: "amc", label: "AMC Tracking", icon: "🛡️" }
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
+        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
       </div>
       
       {activeSubTab === "schedule" && (
@@ -323,15 +323,15 @@ const AssetTransferForm = () => (
 const AssetTransfersWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "site");
   const tabs = [
-    { key: "site", label: "Site Transfer" },
-    { key: "department", label: "Department Transfer" },
-    { key: "history", label: "Asset Movement History" }
+    { key: "site", label: "Site Transfer", icon: "🏗️" },
+    { key: "department", label: "Department Transfer", icon: "🏢" },
+    { key: "history", label: "Asset Movement History", icon: "⏳" }
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
+        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
       </div>
       
       {activeSubTab === "site" && (
@@ -356,15 +356,15 @@ const AssetTransfersWrapper = ({ initialSubTab }: { initialSubTab?: string }) =>
 const AssetDisposalWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "sale");
   const tabs = [
-    { key: "sale", label: "Asset Sale" },
-    { key: "scrap", label: "Asset Scrap" },
-    { key: "writeoff", label: "Asset Write-Off" }
+    { key: "sale", label: "Asset Sale", icon: "💰" },
+    { key: "scrap", label: "Asset Scrap", icon: "⚙️" },
+    { key: "writeoff", label: "Asset Write-Off", icon: "❌" }
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
+        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
       </div>
       
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -407,17 +407,17 @@ const AssetDisposalWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
 const ReportsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "register");
   const tabs = [
-    { key: "register", label: "Asset Register Report" },
-    { key: "depreciation", label: "Depreciation Report" },
-    { key: "valuation", label: "Asset Valuation Report" },
-    { key: "maintenance", label: "Maintenance Report" },
-    { key: "disposal", label: "Disposal Report" }
+    { key: "register", label: "Asset Register Report", icon: "📋" },
+    { key: "depreciation", label: "Depreciation Report", icon: "📉" },
+    { key: "valuation", label: "Asset Valuation Report", icon: "💲" },
+    { key: "maintenance", label: "Maintenance Report", icon: "🔧" },
+    { key: "disposal", label: "Disposal Report", icon: "🗑️" }
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
+        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
       </div>
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex justify-between items-center mb-4">
         <div>
