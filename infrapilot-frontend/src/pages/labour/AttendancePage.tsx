@@ -58,7 +58,7 @@ const AttendancePage: React.FC = () => {
         try {
             const formData = new FormData();
             formData.append('attendance_date', new Date().toISOString().split('T')[0]);
-            formData.append('project_id', "1"); // Static or from context
+            formData.append('project_id', (data.project_id || 1).toString());
             formData.append('status', 'present');
             formData.append('in_time', new Date().toISOString());
             formData.append('check_in_latitude', data.latitude?.toString() || "");
@@ -355,7 +355,7 @@ const AttendancePage: React.FC = () => {
                 isOpen={isCheckInModalOpen}
                 onClose={() => setIsCheckInModalOpen(false)}
                 onSubmit={handleCheckIn}
-                projectId={1}
+                projectId={0}
             />
 
             <CheckOutModal
