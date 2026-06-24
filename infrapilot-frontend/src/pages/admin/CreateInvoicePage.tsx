@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   User,
@@ -33,14 +32,12 @@ import { financeService } from "../../services/financeService";
 import type { LabourItem, MaterialItem, ExtraChargeItem } from "../../types/quotation";
 import type { Project } from "../../types/project";
 import toast from "react-hot-toast";
-import InvoicePreviewModal from "../../components/forms/InvoicePreviewModal";
-import QuotationPreviewModal from "../../components/forms/QuotationPreviewModal";
 import SelectContractorModal from "../../components/forms/SelectContractorModal";
+import PDFPreviewModal from "../../components/common/PDFPreviewModal";
 import ConfirmationModal from "../../components/common/ConfirmationModal";
 import RejectReasonModal from "../../components/common/RejectReasonModal";
 import EditInvoiceItemModal from "../../components/forms/EditInvoiceItemModal";
 import ImportEstimateModal from "../../components/forms/ImportEstimateModal";
-import logo from "../../assets/logo.png";
 import type { Quotation } from "../../types/quotation";
 
 interface InvoiceItem {
@@ -67,9 +64,9 @@ const CreateInvoicePage = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
   const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
   const [isSaving, setIsSaving] = useState(false);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<any>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>("draft");
   const isReadOnly = status === "approved";
 
@@ -90,38 +87,29 @@ const CreateInvoicePage = () => {
     if (id) {
       setIsPreviewLoading(true);
       try {
-        const data = await quotationService.getQuotationPreview(Number(id));
-        setPreviewData({
-          clientName: data.client_name,
-          clientAddress: data.billing_address || data.site_address,
-          clientGst: data.gst_number,
-          clientMobile: data.mobile_number,
-          invoiceNo: data.quotation_no,
-          date: data.created_at ? new Date(data.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
-          projectName: data.project_name || projectDetails.name,
-          terms: data.terms_conditions,
-          items: (data.items || []) as any[],
-          labourItems: (data.labour_items || []) as any[],
-          materialItems: (data.material_items || []) as any[],
-          extraChargeItems: (data.extra_charge_items || []) as any[],
-          subTotal: data.subtotal,
-          grandTotal: data.grand_total,
-          cgstRate: data.cgst_percent,
-          sgstRate: data.sgst_percent,
-          discount: data.discount_amount,
-          advancePaid: data.advance_paid,
-          balanceDue: data.balance_due,
-        });
+        const blob = await quotationService.downloadQuotationPDF(Number(id));
+        const url = window.URL.createObjectURL(blob);
+        setPdfUrl(url);
+        setIsPDFModalOpen(true);
       } catch (err) {
-        setPreviewData(null);
+        console.error("Preview Error:", err);
+        toast.error("Failed to generate PDF preview");
       } finally {
         setIsPreviewLoading(false);
-        setIsPreviewOpen(true);
       }
     } else {
-      setPreviewData(null);
-      setIsPreviewOpen(true);
+      toast.error("Please save the quotation first to preview the PDF", { duration: 3000 });
     }
+  };
+
+  const handleDownloadFromPreview = async () => {
+    if (!id || !pdfUrl) return;
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.setAttribute('download', `Quotation_${invoiceDetails.invoiceNo || id}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -2482,61 +2470,6 @@ const CreateInvoicePage = () => {
         </div>
       </PageTransition>
 
-      {status?.toLowerCase() === "converted" || status?.toLowerCase() === "invoice" ? (
-        <InvoicePreviewModal
-          isOpen={isPreviewOpen}
-          onClose={() => setIsPreviewOpen(false)}
-          data={previewData ? previewData : {
-            clientName: clientDetails.name,
-            clientAddress: clientDetails.address,
-            clientGst: clientDetails.gst,
-            invoiceNo: invoiceDetails.invoiceNo,
-            date: invoiceDetails.date,
-            items: items,
-            labourItems: labourItems,
-            materialItems: materialItems,
-            extraChargeItems: extraChargeItems,
-            subTotal: subTotal,
-            grandTotal: grandTotal,
-            cgstRate: gstRates.cgst,
-            sgstRate: gstRates.sgst,
-            discount: discount,
-            advancePaid: advancePaid,
-            balanceDue: balanceDue,
-          }}
-        />
-      ) : (
-        <QuotationPreviewModal
-          isOpen={isPreviewOpen}
-          onClose={() => setIsPreviewOpen(false)}
-          data={previewData ? previewData : {
-            clientName: clientDetails.name,
-            clientAddress: clientDetails.address || projectDetails.siteAddress,
-            mobile_number: clientDetails.mobile,
-            gst_number: clientDetails.gst,
-            projectName: projectDetails.name || "N/A",
-            siteAddress: projectDetails.siteAddress || clientDetails.address,
-            invoiceNo: invoiceDetails.invoiceNo || (id ? `QTN-${id}` : "NEW"),
-            date: invoiceDetails.date || new Date().toLocaleDateString(),
-            items: items,
-            labourItems: labourItems,
-            materialItems: materialItems,
-            extraChargeItems: extraChargeItems,
-            subTotal: subTotal,
-            grandTotal: grandTotal,
-            cgstRate: gstRates.cgst,
-            sgstRate: gstRates.sgst,
-            discount: discount,
-            advancePaid: advancePaid,
-            balanceDue: balanceDue,
-            // Add missing dynamic fields
-            projectType: projectDetails.type || "Commercial",
-            engineerName: projectDetails.engineer || "N/A",
-            workOrderNo: projectDetails.workOrderNo || "N/A",
-            terms: terms || "50% advance payment required."
-          }}
-        />
-      )}
 
       <EditInvoiceItemModal
         isOpen={isEditModalOpen}
@@ -2545,165 +2478,24 @@ const CreateInvoicePage = () => {
         onSave={handleSaveItem}
       />
 
-      {/* PORTAL FOR PERFECT PRINTING (ULTRATECH STYLE) */}
-      {createPortal(
-        <div id="ultra-tech-print-zone" className="hidden print:block fixed inset-0 z-[9999] bg-white p-12 overflow-y-auto">
-          <div className="bg-white max-w-[210mm] mx-auto p-0 min-h-[297mm]">
-            {/* Header: Logo and Title */}
-            <div className="flex justify-between items-center mb-8">
-              <img src={logo} alt="Logo" className="w-24 h-24 object-contain" />
-              <h1 className="text-3xl font-bold text-[#1F4E79] tracking-tight">
-                {status?.toLowerCase() === "converted" || status?.toLowerCase() === "invoice" ? "TAX INVOICE" : "PROJECT QUOTATION"}
-              </h1>
-            </div>
-
-            {/* Company Info */}
-            <div className="mb-8">
-              <h2 className="text-lg font-bold text-slate-900">Infra Pilot</h2>
-              <p className="text-xs text-slate-600">GST: 27ABCDE1234F1Z5</p>
-              <p className="text-xs text-slate-600">Mobile: 9876543210</p>
-              <p className="text-xs text-slate-600">Email: info@infrapilot.com</p>
-            </div>
-
-            {/* Main Info Table */}
-            <div className="mb-6">
-              <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
-                <div className="w-1/2">Field</div>
-                <div className="w-1/2 text-left">Value</div>
-              </div>
-              <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
-                <div className="flex p-2">
-                  <div className="w-1/2 font-bold">Document No</div>
-                  <div className="w-1/2">{invoiceDetails.invoiceNo}</div>
-                </div>
-                <div className="flex p-2 bg-slate-50">
-                  <div className="w-1/2 font-bold">Date</div>
-                  <div className="w-1/2">{invoiceDetails.date}</div>
-                </div>
-                <div className="flex p-2">
-                  <div className="w-1/2 font-bold">Project</div>
-                  <div className="w-1/2 uppercase">{projects.find(p => p.id === selectedProjectId)?.project_name || "N/A"}</div>
-                </div>
-                <div className="flex p-2 bg-slate-50">
-                  <div className="w-1/2 font-bold">Project Type</div>
-                  <div className="w-1/2">Residential</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Client Details */}
-            <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Client Details</h3>
-            <div className="mb-6">
-              <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
-                <div className="w-1/2">Field</div>
-                <div className="w-1/2 text-left">Value</div>
-              </div>
-              <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
-                <div className="flex p-2">
-                  <div className="w-1/2 font-bold">Client Name</div>
-                  <div className="w-1/2 uppercase text-slate-900 font-black">{clientDetails.name || "N/A"}</div>
-                </div>
-                <div className="flex p-2 bg-slate-50">
-                  <div className="w-1/2 font-bold">Billing Address</div>
-                  <div className="w-1/2">{clientDetails.address || "N/A"}</div>
-                </div>
-                <div className="flex p-2">
-                  <div className="w-1/2 font-bold">GST Number</div>
-                  <div className="w-1/2">{clientDetails.gst || "N/A"}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Item Details */}
-            <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Item Details</h3>
-            <table className="w-full border-collapse border border-slate-300 text-xs mb-8">
-              <thead>
-                <tr className="bg-[#1F4E79] text-white font-bold">
-                  <th className="border border-slate-300 p-2 text-left">Item</th>
-                  <th className="border border-slate-300 p-2 text-center w-16">Qty</th>
-                  <th className="border border-slate-300 p-2 text-center w-20">Unit</th>
-                  <th className="border border-slate-300 p-2 text-right w-24">Rate</th>
-                  <th className="border border-slate-300 p-2 text-right w-28">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-300 text-slate-700">
-                {items.map((item, idx) => (
-                  <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50" : ""}>
-                    <td className="border border-slate-300 p-2 font-bold whitespace-pre-line">{item.description}</td>
-                    <td className="border border-slate-300 p-2 text-center">{item.quantity}</td>
-                    <td className="border border-slate-300 p-2 text-center">{item.unit}</td>
-                    <td className="border border-slate-300 p-2 text-right">{item.rate.toLocaleString()}</td>
-                    <td className="border border-slate-300 p-2 text-right font-black text-slate-900">{item.amount.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Summary Footer */}
-            <div className="flex justify-end mb-8">
-              <div className="w-1/2 space-y-1 text-sm border border-slate-300 p-4">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Subtotal:</span>
-                  <span className="font-bold">INR {subTotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Grand Total:</span>
-                  <span className="font-black text-slate-900 text-lg">INR {grandTotal.toLocaleString()}</span>
-                </div>
-                <div className="pt-2 border-t border-slate-200">
-                  <p className="text-[10px] font-bold text-slate-400 italic leading-tight">Amount in Words: {toWords(grandTotal)}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-auto border-t-2 border-slate-900 pt-8 flex justify-between items-end">
-              <div>
-                <p className="text-[8px] text-slate-400 italic">This is a computer generated document.</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-black mb-12 uppercase text-slate-900">For Infra Pilot</p>
-                <div className="border-t border-slate-400 pt-1">
-                  <p className="text-[10px] font-black uppercase">Authorized Signatory</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      <style>{`
-        @media print {
-          /* Hide the main application root entirely */
-          #root { 
-            display: none !important; 
-            visibility: hidden !important; 
-          }
-          
-          /* Show specifically our print zone */
-          #ultra-tech-print-zone {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-            z-index: 9999999 !important;
-          }
-
-          body { 
-            background: white !important; 
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-        }
-      `}</style>
       <ImportEstimateModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSelect={handleImportQuotation}
+      />
+
+      <PDFPreviewModal
+        isOpen={isPDFModalOpen}
+        onClose={() => {
+          setIsPDFModalOpen(false);
+          if (pdfUrl) {
+            window.URL.revokeObjectURL(pdfUrl);
+            setPdfUrl(null);
+          }
+        }}
+        pdfUrl={pdfUrl}
+        title={`Preview Quotation: ${invoiceDetails.invoiceNo || 'New'}`}
+        onDownload={handleDownloadFromPreview}
       />
 
       {/* Action Confirmation Modals */}
