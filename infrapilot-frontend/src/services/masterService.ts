@@ -8,6 +8,16 @@ export interface MasterEntity {
     system_tag?: string;
     unit?: string | null;
     is_active?: boolean;
+    // Extended fields
+    brand?: string;
+    specification?: string;
+    hsn_code?: string;
+    default_rate?: number | string;
+    minimum_stock_level?: number;
+    skill_category?: string;
+    default_daily_wage?: number;
+    default_working_hours?: number;
+    default_ot_rate_per_hour?: number;
 }
 
 export interface MasterStats {
@@ -52,9 +62,11 @@ export const masterService = {
      * Get entities for a specific master category
      * GET /api/v1/master/{entity}
      */
-    async getEntities(entity: "units" | "labour-types" | "activity-types" | "materials"): Promise<MasterEntity[]> {
+    async getEntities(entity: "units" | "labour-types" | "activity-types" | "materials", search: string = ""): Promise<MasterEntity[]> {
         try {
-            const response = await api.get(`/master/${entity}`);
+            const response = await api.get(`/master/${entity}`, {
+                params: { search }
+            });
             return response.data;
         } catch (error: any) {
             console.error(`Get ${entity} Error:`, error.response?.data || error.message);

@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import { BellRing, Calendar, Briefcase, User, Info, CheckCircle, Clock } from "lucide-react";
+import { projectService } from "../../services/projectService";
+import { userService } from "../../services/userService";
 
 interface AlertDetailsModalProps {
   isOpen: boolean;
@@ -17,7 +19,58 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
   projectMap = {},
   usersMap = {},
 }) => {
+  const [projectName, setProjectName] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+
+  // Fetch project and user names individually by ID when the modal opens
+  useEffect(() => {
+    if (!alert || !isOpen) {
+      setProjectName(null);
+      setUserName(null);
+      return;
+    }
+
+    // Try to extract project_id from a link URL like /projects/14/boq
+    let resolvedProjectId = alert.project_id;
+    if (!resolvedProjectId && alert.link && typeof alert.link === 'string') {
+      const match = alert.link.match(/\/projects\/(\d+)/);
+      if (match) resolvedProjectId = Number(match[1]);
+    }
+
+    // Use inline name from the alert object first
+    if (alert.project_name) {
+      setProjectName(alert.project_name);
+    } else if (resolvedProjectId && projectMap[Number(resolvedProjectId)]) {
+      setProjectName(projectMap[Number(resolvedProjectId)]);
+    } else if (resolvedProjectId) {
+      projectService.getProjectById(Number(resolvedProjectId))
+        .then((p: any) => setProjectName(p?.name || p?.project_name || null))
+        .catch(() => setProjectName(null));
+    }
+
+    if (alert.user_name) {
+      setUserName(alert.user_name);
+    } else if (alert.user_id && usersMap[Number(alert.user_id)]) {
+      setUserName(usersMap[Number(alert.user_id)]);
+    } else if (alert.user_id) {
+      userService.getUserById(Number(alert.user_id))
+        .then((u: any) => setUserName(u?.full_name || u?.name || u?.username || u?.email || null))
+        .catch(() => setUserName(null));
+    }
+  }, [alert, isOpen, projectMap, usersMap]);
+
   if (!alert) return null;
+
+  // Fields already shown explicitly — exclude from Additional Data
+  const EXCLUDED_FIELDS = new Set([
+    "message", "details", "description", "title", "alert_type", "type", "status",
+    "created_at", "project_id", "user_id", "is_read", "source", "id", "read",
+    "timestamp", "role_target", "project_name", "user_name",
+  ]);
+
+  const additionalEntries = Object.entries(alert).filter(
+    ([key, value]) => !EXCLUDED_FIELDS.has(key) && value !== null && value !== undefined && value !== ""
+  );
 
   const footer = (
     <button
@@ -51,7 +104,7 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
 
             <div className="text-center md:text-left">
               <div className="flex flex-col md:flex-row items-center gap-3">
-                <h3 className="text-2xl font-black tracking-tight">{alert.alert_type || alert.type || "System"} Alert</h3>
+                <h3 className="text-2xl font-black tracking-tight">{alert.title || alert.alert_type || alert.type || "System"} Alert</h3>
                 <span className="px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest">
                   {alert.status || "Normal"}
                 </span>
@@ -73,7 +126,7 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
             </div>
             <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
               <p className="text-slate-800 font-semibold leading-relaxed">
-                {alert.message || "No message provided."}
+                {alert.message || alert.details || alert.description || "No message provided."}
               </p>
             </div>
           </div>
@@ -85,9 +138,11 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
                 <h4 className="text-[11px] font-black uppercase tracking-widest">Project</h4>
               </div>
               <p className="text-sm font-bold text-slate-700 pl-6">
-                {alert.project_id
-                  ? (projectMap[alert.project_id] || `#${alert.project_id}`)
-                  : "—"}
+                {projectName
+                  ? projectName
+                  : alert.project_id
+                    ? <span className="text-slate-400 italic text-xs">Loading…</span>
+                    : "—"}
               </p>
             </div>
 
@@ -97,9 +152,11 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
                 <h4 className="text-[11px] font-black uppercase tracking-widest">Requested By</h4>
               </div>
               <p className="text-sm font-bold text-slate-700 pl-6">
-                {alert.user_id
-                  ? (usersMap[alert.user_id] || `#${alert.user_id}`)
-                  : "—"}
+                {userName
+                  ? userName
+                  : alert.user_id
+                    ? <span className="text-slate-400 italic text-xs">Loading…</span>
+                    : "—"}
               </p>
             </div>
 
@@ -123,6 +180,26 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
                 {alert.is_read ? "Marked as Read" : "Unread / Pending"}
               </p>
             </div>
+
+            {/* Additional Metadata — only show non-null values */}
+            {additionalEntries.length > 0 && (
+              <div className="col-span-full pt-4 mt-4 border-t border-slate-100 space-y-4">
+                <div className="flex items-center gap-2 text-slate-400">
+                  <Info size={16} strokeWidth={2.5} />
+                  <h4 className="text-[11px] font-black uppercase tracking-widest">Additional Data</h4>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-2xl border border-dashed border-slate-200">
+                  {additionalEntries.map(([key, value]) => (
+                    <div key={key} className="space-y-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{key.replace(/_/g, ' ')}</p>
+                      <p className="text-xs font-bold text-slate-600 truncate" title={String(value)}>
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

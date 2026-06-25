@@ -47,6 +47,7 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
           </div>
         </div>
 
+        {/* Classification Section */}
         <div>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-primary rounded-full"></div>
@@ -56,25 +57,40 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InfoItem label="Unique code" value={item.unique_code} isMono />
             <InfoItem label="Category group" value={item.category} />
-            {item.unit && <InfoItem label="Unit" value={item.unit} />}
-            {item.brand && <InfoItem label="Brand" value={item.brand} />}
-            {item.hsn_code && <InfoItem label="HSN Code" value={item.hsn_code} />}
+            {item.system_tag === "MATERIAL" && (
+              <>
+                <InfoItem label="Unit" value={item.unit} />
+                <InfoItem label="Brand" value={item.brand} />
+                <InfoItem label="HSN Code" value={item.hsn_code} />
+              </>
+            )}
+            {item.system_tag === "ACTIVITY" && (
+              <InfoItem label="Default Unit" value={item.unit} />
+            )}
           </div>
         </div>
 
-        {(item.specification || item.skill_category || item.default_daily_wage !== undefined) && (
+        {/* Extended Details Section - Always show for Material/Labour */}
+        {(item.system_tag === "MATERIAL" || item.system_tag === "LABOR" || item.specification || item.skill_category) && (
           <div>
             <div className="flex items-center gap-2 mb-4">
               <div className="w-1 h-6 bg-primary rounded-full"></div>
               <h3 className="font-semibold text-gray-700">Extended details</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {item.skill_category && <InfoItem label="Skill category" value={item.skill_category} />}
-              {item.default_daily_wage !== undefined && (
-                <InfoItem label="Default daily wage" value={`₹${item.default_daily_wage}`} />
+              {item.system_tag === "LABOR" && (
+                <>
+                  <InfoItem label="Skill category" value={item.skill_category} />
+                  <InfoItem label="Daily wage" value={item.default_daily_wage !== undefined && item.default_daily_wage !== null ? `₹${item.default_daily_wage}` : "—"} />
+                  <InfoItem label="Working hours" value={item.default_working_hours !== undefined && item.default_working_hours !== null ? `${item.default_working_hours} hrs` : "—"} />
+                  <InfoItem label="OT rate / hour" value={item.default_ot_rate_per_hour !== undefined && item.default_ot_rate_per_hour !== null ? `₹${item.default_ot_rate_per_hour}` : "—"} />
+                </>
               )}
-              {item.default_working_hours !== undefined && (
-                <InfoItem label="Working hours" value={`${item.default_working_hours} hrs`} />
+              {item.system_tag === "MATERIAL" && (
+                <>
+                  <InfoItem label="Default rate" value={item.default_rate !== undefined && item.default_rate !== null ? `₹${item.default_rate}` : "—"} />
+                  <InfoItem label="Min stock level" value={item.minimum_stock_level !== undefined && item.minimum_stock_level !== null ? item.minimum_stock_level.toString() : "—"} />
+                </>
               )}
               {item.specification && (
                 <div className="md:col-span-2">
@@ -93,7 +109,6 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <InfoItem label="Entity ID" value={`#MD-${item.id.toString().padStart(4, '0')}`} isMono />
-            <InfoItem label="Creation status" value="Verified Master Entry" />
           </div>
         </div>
       </div>

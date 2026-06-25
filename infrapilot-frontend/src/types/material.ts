@@ -81,6 +81,7 @@ export type MaterialUpdate = UpdateMaterialPayload;
 export interface UsagePayload {
   quantity: number;
   project_id: number;
+  task_id: number;
   issue_type: IssueType;
 }
 
@@ -89,6 +90,7 @@ export interface PurchasePayload {
   rate: number;
   amount_paid: number;
   project_id: number;
+  task_id?: number;
   issue_type: IssueType;
 }
 

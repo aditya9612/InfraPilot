@@ -162,20 +162,12 @@ export const ownerService = {
    * Export owner ledger PDF
    * GET /api/v1/owners/{owner_id}/ledger/pdf
    */
-  async exportLedgerPdf(ownerId: string): Promise<void> {
+  async exportLedgerPdf(ownerId: string): Promise<Blob> {
     try {
       const response = await api.get(`/owners/${ownerId}/ledger/pdf`, {
         responseType: "blob",
       });
-      const blob = new Blob([response.data], { type: "application/pdf" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Owner_Ledger_${ownerId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      return response.data;
     } catch (error: any) {
       console.error(
         `Export Ledger PDF Error:`,
@@ -189,20 +181,12 @@ export const ownerService = {
    * Fetch owner ledger Excel
    * GET /api/v1/owners/{owner_id}/ledger/excel
    */
-  async exportLedgerExcel(ownerId: string): Promise<void> {
+  async exportLedgerExcel(ownerId: string): Promise<Blob> {
     try {
       const response = await api.get(`/owners/${ownerId}/ledger/excel`, {
         responseType: "blob",
       });
-      const blob = new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Owner_Ledger_${ownerId}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      return response.data;
     } catch (error: any) {
       console.error(
         `Export Ledger Excel Error:`,

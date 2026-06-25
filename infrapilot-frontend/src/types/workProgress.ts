@@ -58,6 +58,7 @@ export interface UpdateActivityRequest {
   start_date: string;
   end_date: string;
   status: string;
+  engineer_id?: number;
 }
 
 export interface DailyProgressRequest {

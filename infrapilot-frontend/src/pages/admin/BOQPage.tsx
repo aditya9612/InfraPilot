@@ -172,14 +172,13 @@ const BOQPage = () => {
     }
   };
 
-  // Fetch versions when project filter changes
+  // Fetch versions when boqData changes
   useEffect(() => {
     const fetchVersions = async () => {
-      if (projectFilter !== "all") {
+      const firstItem = boqData[0];
+      if (firstItem && firstItem.id) {
         try {
-          const versions = await boqService.getBoqVersions(
-            Number(projectFilter),
-          );
+          const versions = await boqService.getBoqVersions(firstItem.id);
           setVersionsList(versions);
         } catch (error: any) {
           if (error.response?.status === 404) {
@@ -194,7 +193,7 @@ const BOQPage = () => {
       }
     };
     fetchVersions();
-  }, [projectFilter]);
+  }, [boqData]);
 
   // Re-fetch when filters or page change
   useEffect(() => {

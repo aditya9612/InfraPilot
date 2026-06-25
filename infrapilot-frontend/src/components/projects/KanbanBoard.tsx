@@ -53,7 +53,7 @@ const KanbanBoard = ({
     }
   };
 
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = 10;
   const [currentPage, setCurrentPage] = useState(0);
 
   const filteredTasks = tasks.filter(t =>
@@ -117,7 +117,7 @@ const KanbanBoard = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+      <div className="flex-1">
         <TaskListView
           tasks={paginatedTasks}
           members={members}
@@ -127,38 +127,27 @@ const KanbanBoard = ({
         />
       </div>
 
-      {/* Pagination Controls */}
+      {/* Pagination Controls (Matching UsersPage style) */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-50">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-            Showing <span className="text-slate-900">{currentPage * PAGE_SIZE + 1}</span> to <span className="text-slate-900">{Math.min((currentPage + 1) * PAGE_SIZE, filteredTasks.length)}</span> of <span className="text-slate-900">{filteredTasks.length}</span> activities
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredTasks.length)} of {filteredTasks.length} Activities
           </p>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
               disabled={currentPage === 0}
-              className="p-2 bg-slate-50 border border-slate-100 rounded-lg text-slate-400 hover:bg-white hover:text-primary hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <div className="flex items-center gap-1">
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentPage(i)}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === i
-                    ? "bg-primary text-white shadow-md shadow-primary/20"
-                    : "bg-slate-50 text-slate-400 hover:bg-white hover:text-slate-600"
-                    }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
+            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700 font-inter bg-white shadow-sm shadow-slate-100">
+              {currentPage + 1}
             </div>
             <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
-              disabled={currentPage === totalPages - 1}
-              className="p-2 bg-slate-50 border border-slate-100 rounded-lg text-slate-400 hover:bg-white hover:text-primary hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
             </button>

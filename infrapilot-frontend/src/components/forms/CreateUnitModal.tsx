@@ -17,7 +17,6 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
 }) => {
     const [formData, setFormData] = useState({
         name: "",
-        unique_code: "",
         category: "",
         type: "Unit",
         is_active: true
@@ -35,7 +34,6 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
         } else {
             setFormData({
                 name: "",
-                unique_code: "",
                 category: "",
                 type: "Unit",
                 is_active: true
@@ -49,7 +47,6 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
         const newErrors: Record<string, string> = {};
 
         if (!formData.name.trim()) newErrors.name = "Unit name is required.";
-        if (!formData.unique_code.trim()) newErrors.unique_code = "Unique code is required.";
         if (!formData.category.trim()) newErrors.category = "Category is required.";
 
         if (Object.keys(newErrors).length > 0) {
@@ -90,34 +87,20 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
         >
             <form id="unit-master-form" onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <label className="block text-sm font-medium text-gray-600 mb-1">
-                                Unit Name <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="e.g. Square Feet"
-                                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.name ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            />
-                            {errors.name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.name}</p>}
-                        </div>
-                        <div className="space-y-1">
-                            <label className="block text-sm font-medium text-gray-600 mb-1">
-                                Unique Code <span className="text-gray-400 font-normal italic">(Optional)</span>
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="UOM-001 (Auto-generated if empty)"
-                                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-mono font-bold ${errors.unique_code ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
-                                value={formData.unique_code}
-                                onChange={(e) => setFormData({ ...formData, unique_code: e.target.value })}
-                            />
-                            {errors.unique_code && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.unique_code}</p>}
-                        </div>
+                    <div className="space-y-1">
+                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                            Unit Name <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="e.g. Square Feet"
+                            className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all font-medium ${errors.name ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500" : "border-gray-200 focus:ring-primary/10 focus:border-primary"}`}
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        />
+                        {errors.name && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.name}</p>}
                     </div>
+
                     <div className="space-y-1">
                         <label className="block text-sm font-medium text-gray-600 mb-1">
                             Category <span className="text-rose-500">*</span>
@@ -131,6 +114,7 @@ const CreateUnitModal: React.FC<CreateUnitModalProps> = ({
                         />
                         {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
                     </div>
+
                     <div className="flex items-center gap-2 pt-2">
                         <input
                             type="checkbox"
