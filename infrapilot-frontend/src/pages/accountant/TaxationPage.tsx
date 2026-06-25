@@ -4,6 +4,20 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
+import api from "../../services/api";
+
+export interface GSTReturn {
+  id: number;
+  filing_period: string;
+  return_type: string;
+  taxable_value: number;
+  gst_liability: number;
+  itc_available: number;
+  net_gst_payable: number;
+  status: string;
+  filing_date: string;
+  created_at: string;
+}
 
 // --- SECTIONS ---
 
@@ -261,6 +275,44 @@ const GSTInvoicesWrapperSection = () => {
 // 3. GST Returns
 const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "gstr1");
+  const [returnsList, setReturnsList] = useState<GSTReturn[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    filing_period: "",
+    filing_date: "",
+    status: "Draft",
+    taxable_value: 0,
+    gst_liability: 0,
+    itc_available: 0,
+    net_gst_payable: 0,
+  });
+
+  useEffect(() => {
+    // Auto-calculate net_gst_payable
+    setFormData(prev => ({
+      ...prev,
+      net_gst_payable: (prev.gst_liability || 0) - (prev.itc_available || 0)
+    }));
+  }, [formData.gst_liability, formData.itc_available]);
+
+  useEffect(() => {
+    const fetchReturns = async () => {
+      setIsLoading(true);
+      try {
+        const res = await api.get('/api/v1/accountant/gst/returns');
+        if (res.data) {
+          setReturnsList(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch GST returns", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchReturns();
+  }, []);
 
   const tabs = [
     { key: "gstr1", label: "GSTR-1" },
@@ -268,6 +320,38 @@ const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string })
     { key: "gstr2a", label: "GSTR-2A Recon" },
     { key: "gstr2b", label: "GSTR-2B Recon" }
   ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const payload = {
+      ...formData,
+      return_type: tabs.find((t) => t.key === activeSubTab)?.label || "GSTR-1",
+    };
+
+    try {
+      await api.post('/api/v1/accountant/gst/returns', payload);
+      toast.success("GST Return created successfully!");
+      // Reset form
+      setFormData({
+        filing_period: "",
+        filing_date: "",
+        status: "Draft",
+        taxable_value: 0,
+        gst_liability: 0,
+        itc_available: 0,
+        net_gst_payable: 0,
+      });
+      // Re-fetch
+      const res = await api.get('/api/v1/accountant/gst/returns');
+      if (res.data) setReturnsList(res.data);
+    } catch (err) {
+      toast.error("Failed to create GST Return");
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -284,27 +368,124 @@ const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string })
         <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
           File / Track {tabs.find(t=>t.key===activeSubTab)?.label}
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Return Type</label><input type="text" value={tabs.find(t=>t.key===activeSubTab)?.label} readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Period</label>
-            <input type="month" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Return Type</label>
+              <input type="text" value={tabs.find(t=>t.key===activeSubTab)?.label || ""} readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Period</label>
+              <input type="month" required value={formData.filing_period} onChange={(e) => setFormData({...formData, filing_period: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Date</label>
+              <input type="date" required value={formData.filing_date} onChange={(e) => setFormData({...formData, filing_date: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+              <select required value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none font-bold text-amber-600">
+                <option value="Draft">Draft</option>
+                <option value="Pending">Pending</option>
+                <option value="Filed">Filed</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Revised">Revised</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Taxable Value</label>
+              <input type="number" required value={formData.taxable_value || ""} onChange={(e) => setFormData({...formData, taxable_value: Number(e.target.value)})} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Liability</label>
+              <input type="number" required value={formData.gst_liability || ""} onChange={(e) => setFormData({...formData, gst_liability: Number(e.target.value)})} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ITC Available</label>
+              <input type="number" required value={formData.itc_available || ""} onChange={(e) => setFormData({...formData, itc_available: Number(e.target.value)})} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-primary/20 outline-none" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Payable</label>
+              <input type="number" value={formData.net_gst_payable} readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-indigo-50 font-bold text-indigo-700 outline-none" />
+            </div>
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Date</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
-            <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold text-amber-600">
-              <option>Draft</option><option>Pending</option><option>Filed</option><option>Rejected</option><option>Revised</option>
-            </select>
+          <div className="mt-6 flex justify-end">
+            <button type="submit" disabled={isSubmitting} className="bg-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-primary/90 transition-all disabled:opacity-50">
+              {isSubmitting ? "Creating..." : "Create GST"}
+            </button>
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Taxable Value</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Liability</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ITC Available</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Payable</label><input type="number" placeholder="0" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-indigo-50 font-bold text-indigo-700" /></div>
-        </div>
-        <div className="mt-6 flex justify-end">
-          <button onClick={() => toast.success("Return status updated")} className="bg-primary text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-primary/90 transition-all">Update Record</button>
-        </div>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mt-6">
+        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+          Previous Returns
+        </h3>
+        {isLoading ? (
+          <p className="text-sm text-slate-400">Loading GST returns...</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Filing Period</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Taxable Value</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">GST Liability</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">ITC Available</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Net Payable</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Filing Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {returnsList
+                  .filter((r) => r.return_type.toLowerCase().replace("-", "") === activeSubTab.toLowerCase())
+                  .map((ret, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-5 py-3.5 text-sm font-bold text-slate-700">{ret.filing_period}</td>
+                      <td className="px-5 py-3.5">
+                        <span className="inline-block text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 font-mono">
+                          {ret.return_type}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-600 tabular-nums text-right">
+                        {ret.taxable_value.toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-600 tabular-nums text-right">
+                        {ret.gst_liability.toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-600 tabular-nums text-right">
+                        {ret.itc_available.toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm font-bold text-indigo-700 tabular-nums text-right">
+                        {ret.net_gst_payable.toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest border ${
+                            ret.status === "Filed"
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              : "bg-amber-50 text-amber-600 border-amber-200"
+                          }`}
+                        >
+                          {ret.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-slate-500 tabular-nums text-right">{ret.filing_date}</td>
+                    </tr>
+                  ))}
+                {returnsList.filter((r) => r.return_type.toLowerCase().replace("-", "") === activeSubTab.toLowerCase()).length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-12 text-center text-sm text-slate-500">
+                      No returns found for {tabs.find((t) => t.key === activeSubTab)?.label}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
