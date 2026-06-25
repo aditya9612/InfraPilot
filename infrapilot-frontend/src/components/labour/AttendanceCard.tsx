@@ -25,14 +25,20 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
             {isCheckedIn ? (
                 <button
                     onClick={onCheckOut}
-                    className="px-5 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-md shadow-rose-100"
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${isCheckedIn
+                        ? 'bg-rose-500 text-white hover:bg-rose-600 shadow-md shadow-rose-100 active:scale-95'
+                        : 'bg-rose-50 text-rose-600 border border-rose-100 cursor-default'
+                        }`}
                 >
                     Check Out
                 </button>
             ) : (
                 <button
                     onClick={onCheckIn}
-                    className="px-5 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 flex items-center gap-2"
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${!isCheckedIn
+                        ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md shadow-emerald-100 active:scale-95'
+                        : 'bg-emerald-50 text-emerald-600 border border-emerald-100 cursor-default'
+                        }`}
                 >
                     <MapPin className="w-3 h-3" />
                     Check In

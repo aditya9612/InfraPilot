@@ -1,9 +1,9 @@
 export interface UserSettings {
     user_id: number;
     default_project_id: number | null;
-    unit: any; // Flexible for now
-    notifications_enabled: any;
-    preferences: any;
+    unit?: any; 
+    notifications_enabled?: any;
+    preferences?: any;
     financial_year?: string;
     currency?: string;
     tax_settings?: any;
@@ -28,9 +28,9 @@ export interface UserProfile {
 
 export interface UpdateSettingsRequest {
     default_project_id: number | null;
-    unit: any;
-    notifications_enabled: any;
-    preferences: any;
+    unit?: any;
+    notifications_enabled?: any;
+    preferences?: any;
     financial_year?: string;
     currency?: string;
     tax_settings?: any;

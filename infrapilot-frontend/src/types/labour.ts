@@ -101,6 +101,8 @@ export interface CheckInRequest {
     location_address: string;
     resolved_address?: string;
     task_description: string;
+    remarks?: string;
+    work_location_type?: string;
     check_in_image: string | null;
 }
 
@@ -111,5 +113,8 @@ export interface CheckOutRequest {
     resolved_address?: string;
     overtime_hours: number;
     overtime_rate: number;
+    remarks?: string;
+    work_summary?: string;
+    task_deadline_reason?: string;
     check_out_image: string | null;
 }

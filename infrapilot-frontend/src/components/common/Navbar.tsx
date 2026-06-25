@@ -57,8 +57,8 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Only fetch notifications if not a Client or Labour (to avoid 401 logouts for new roles)
-    if (!user || user.role === "Labour") return;
+    // Only fetch notifications if not a Client (to avoid 401 logouts for new roles)
+    if (!user) return;
 
     const fetchNotifs = async () => {
       try {
@@ -117,6 +117,19 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           data = projectId
             ? combined.filter(a => Number(a.project_id) === Number(projectId))
             : combined;
+        } else if (user.role === "Labour") {
+          const listRes = await notificationService.listNotifications(10, 0);
+          const rawItems = Array.isArray(listRes) ? listRes : (listRes.items || listRes.data || []);
+          data = rawItems.map((n: any) => ({
+            id: n.id,
+            title: n.title || "Notification",
+            description: n.description || n.message || "New update",
+            details: n.details || n.description || n.message || "",
+            type: n.type || "Info",
+            timestamp: n.timestamp || n.created_at || new Date().toISOString(),
+            read: !!(n.read || n.is_read || n.status === 'read'),
+            source: n.source || "general"
+          }));
         } else {
           data = await notificationService.getNotifications();
         }
@@ -294,7 +307,8 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
                       setIsNotificationOpen(false);
                       const target = user?.role === "Admin" ? "/admin/notifications" :
                         user?.role === "SiteEngineer" ? "/engineer/notifications" :
-                          user?.role === "Client" ? "/client/communication/announcements" : "/";
+                          user?.role === "Client" ? "/client/communication/announcements" : 
+                          user?.role === "Labour" ? "/labour/notifications" : "/";
                       navigate(target);
                     }}
                     className="w-full py-2 text-xs font-bold text-primary hover:text-blue-700 transition-colors"

@@ -141,12 +141,21 @@ const ClientAnnouncementsPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Communication", "Announcements"]} />
-      <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-        <div className="mb-8 items-center justify-between gap-6">
-          <div className="flex-1">
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight">Official Project Notifications</h1>
-            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Important project updates, mobilization notices, and official company communications</p>
+      <Navbar
+        title="Notifications"
+        breadcrumb={["InfraPilot", "Client", "Communication", "Announcements"]}
+      />
+      <div className="p-8 bg-[#f8fafc] min-h-screen font-inter pb-20">
+
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <div>
+            <h1 className="text-4xl font-black text-slate-800 tracking-tight">
+              Official Project Notifications
+            </h1>
+            <p className="text-slate-400 font-medium mt-1 text-sm tracking-tight">
+              Important project updates, task alerts, and official system communications.
+            </p>
           </div>
         </div>
 

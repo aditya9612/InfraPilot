@@ -12,7 +12,7 @@ const ChatDashboard: React.FC = () => {
     return (
         <>
             <Navbar
-                title="Collaboration Hub"
+                title="Chat"
                 breadcrumb={user?.role === "Client" ? ["InfraPilot", "Chat"] : ["InfraPilot", "Communication", "Chat"]}
             />
 

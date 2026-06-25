@@ -182,7 +182,7 @@ const ClientFinancialDetailsPage = () => {
   return (
     <>
       <Navbar
-        title="Project Transparency Portal"
+        title="Financial Summary"
         breadcrumb={["InfraPilot", "Client", "Reports", "Financial Report"]}
       />
       <div className="p-6 bg-slate-50 min-h-screen pb-12">

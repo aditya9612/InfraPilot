@@ -13,7 +13,7 @@ export const paymentService = {
      */
     async paySalary(payload: any): Promise<any> {
         console.log("POST /api/v1/labour/payroll/pay Request Body:", payload);
-        const response = await api.post<any>("/labour/payroll/pay", payload);
+        const response = await api.post<any>("labour/payroll/pay", payload);
         console.log("POST /api/v1/labour/payroll/pay Raw Response Body:", response.data);
         return response.data;
     },
@@ -24,7 +24,7 @@ export const paymentService = {
      */
     async generatePayroll(payload: { month: number; year: number }): Promise<any> {
         console.log("POST /api/v1/labour/payroll/generate Request Body:", payload);
-        const response = await api.post<any>("/labour/payroll/generate", payload);
+        const response = await api.post<any>("labour/payroll/generate", payload);
         console.log("POST /api/v1/labour/payroll/generate Raw Response Body:", response.data);
         return response.data;
     },
@@ -35,7 +35,7 @@ export const paymentService = {
      */
     async exportPayroll(month: number, year: number): Promise<void> {
         console.log(`GET /api/v1/labour/payroll/export?month=${month}&year=${year}`);
-        const response = await api.get("/labour/payroll/export", {
+        const response = await api.get("labour/payroll/export", {
             params: { month, year },
             responseType: 'blob'
         });
@@ -59,7 +59,7 @@ export const paymentService = {
      */
     async requestAdvance(payload: any): Promise<any> {
         console.log("POST /api/v1/labour/advance Request Body:", payload);
-        const response = await api.post<any>("/labour/advance", payload);
+        const response = await api.post<any>("labour/advance", payload);
         console.log("POST /api/v1/labour/advance Raw Response Body:", response.data);
         return response.data;
     },
@@ -77,7 +77,7 @@ export const paymentService = {
             if (params?.offset !== undefined) cleanParams.offset = Number(params.offset);
 
             console.log("GET /api/v1/labour/payroll/disbursement-history Request Params:", cleanParams);
-            const response = await api.get<Payment[]>("/labour/payroll/disbursement-history", { params: cleanParams });
+            const response = await api.get<Payment[]>("labour/payroll/disbursement-history", { params: cleanParams });
             console.log("GET /api/v1/labour/payroll/disbursement-history Raw Response Body:", response.data);
             return response.data;
         } catch (err: any) {
@@ -102,7 +102,7 @@ export const paymentService = {
                 year: params?.year?.toString() || now.getFullYear().toString()
             };
             console.log("GET /api/v1/labour/payroll/contractor-liability Request Params:", cleanParams);
-            const response = await api.get("/labour/payroll/contractor-liability", { params: cleanParams });
+            const response = await api.get("labour/payroll/contractor-liability", { params: cleanParams });
             console.log("GET /api/v1/labour/payroll/contractor-liability Raw Response Body:", response.data);
             return response.data;
         } catch (err) {
@@ -124,7 +124,7 @@ export const paymentService = {
         };
         console.log("GET /api/v1/labour/payroll/aggregate-report Request Params:", cleanParams);
         try {
-            const response = await api.get("/labour/payroll/aggregate-report", { params: cleanParams });
+            const response = await api.get("labour/payroll/aggregate-report", { params: cleanParams });
             console.log("GET /api/v1/labour/payroll/aggregate-report Raw Response Body:", response.data);
             return Array.isArray(response.data) ? response.data : (response.data?.items || []);
         } catch (err) {
@@ -146,7 +146,7 @@ export const paymentService = {
         };
         console.log("GET /api/v1/labour/payroll/fiscal-summary Request Params:", cleanParams);
         try {
-            const response = await api.get("/labour/payroll/fiscal-summary", { params: cleanParams });
+            const response = await api.get("labour/payroll/fiscal-summary", { params: cleanParams });
             console.log("GET /api/v1/labour/payroll/fiscal-summary Raw Response Body:", response.data);
             return response.data;
         } catch (err) {
@@ -170,7 +170,7 @@ export const paymentService = {
         };
         console.log("GET /api/v1/labour/payroll/momentum Request Params:", cleanParams);
         try {
-            const response = await api.get("/labour/payroll/momentum", { params: cleanParams });
+            const response = await api.get("labour/payroll/momentum", { params: cleanParams });
             console.log("GET /api/v1/labour/payroll/momentum Raw Response Body:", response.data);
             return Array.isArray(response.data) ? response.data : (response.data?.items || []);
         } catch (err) {
@@ -191,7 +191,7 @@ export const paymentService = {
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/weekly-velocity Request Params:", cleanParams);
-        const response = await api.get("/labour/payroll/weekly-velocity", { params: cleanParams });
+        const response = await api.get("labour/payroll/weekly-velocity", { params: cleanParams });
         console.log("GET /api/v1/labour/payroll/weekly-velocity Raw Response Body:", response.data);
         return response.data;
     },
@@ -208,7 +208,7 @@ export const paymentService = {
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll Request Params:", cleanParams);
-        const response = await api.get("/labour/payroll", { params: cleanParams });
+        const response = await api.get("labour/payroll", { params: cleanParams });
         console.log("GET /api/v1/labour/payroll Raw Response Body:", response.data);
         return response.data;
     },
@@ -225,7 +225,7 @@ export const paymentService = {
             year: params?.year?.toString() || now.getFullYear().toString()
         };
         console.log("GET /api/v1/labour/payroll/stats Request Params:", cleanParams);
-        const response = await api.get("/labour/payroll/stats", { params: cleanParams });
+        const response = await api.get("labour/payroll/stats", { params: cleanParams });
         console.log("GET /api/v1/labour/payroll/stats Raw Response Body:", response.data);
         return response.data;
     },

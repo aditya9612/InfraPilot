@@ -1,429 +1,498 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
-import { Camera, Clipboard, CheckCircle, TrendingUp, Trash2 } from 'lucide-react';
+import { 
+    Upload, 
+    Calendar, 
+    Clock, 
+    MapPin, 
+    Send, 
+    X,
+    Bold, Italic, Underline, List, ListOrdered, Undo, Redo,
+    ChevronDown,
+    FileText,
+    History
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const WorkUpdatesPage: React.FC = () => {
-    const [progress, setProgress] = useState('');
+    const query = new URLSearchParams(useLocation().search);
+    const taskId = query.get('taskId');
+    const taskName = query.get('taskName');
+    const taskCategory = query.get('taskCategory');
+
+    // Current date for default
+    const today = new Date().toISOString().split('T')[0];
+
+    // State matching the screenshot fields
+    const [description, setDescription] = useState(taskName ? `Working on: ${taskName}` : '');
     const [beforePhotos, setBeforePhotos] = useState<string[]>([]);
     const [afterPhotos, setAfterPhotos] = useState<string[]>([]);
+    const [workDate, setWorkDate] = useState(today);
+    const [startTime, setStartTime] = useState('09:00');
+    const [endTime, setEndTime] = useState('17:30');
+    const [category, setCategory] = useState(taskCategory || '');
+    const [location, setLocation] = useState('');
+    const [remarks, setRemarks] = useState('');
 
-    // --- Rich List state for Before / After ---
-    interface WorkItem {
-        id: string;
-        text: string;
-        photo?: string;
-        status: 'prior' | 'today';
-        isCompleted?: boolean;
-    }
-
-    const [beforeTasks, setBeforeTasks] = useState<WorkItem[]>([
-        { id: '1', text: 'Wall reinforcement on Section C', status: 'prior' },
-        { id: '2', text: 'Setup scaffolding for Level 3', status: 'prior' }
-    ]);
-    const [afterTasks, setAfterTasks] = useState<WorkItem[]>([]);
-
-    const [priorPhotos] = useState<string[]>([
-        "https://images.unsplash.com/photo-1503387762-592dee581106?auto=format&fit=crop&q=80&w=400",
-        "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=400"
+    const [priorPhotos, setPriorPhotos] = useState<string[]>([
+        "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=200",
+        "https://images.unsplash.com/photo-1510673398445-94f476ef2ca9?auto=format&fit=crop&q=80&w=200",
+        "https://images.unsplash.com/photo-1590069230002-70cc6945ebd7?auto=format&fit=crop&q=80&w=200",
+        "https://images.unsplash.com/photo-1503387762-592dee581106?auto=format&fit=crop&q=80&w=200"
     ]);
 
-    const [beforeInput, setBeforeInput] = useState('');
-    const [afterInput, setAfterInput] = useState('');
+    // Calculated state
+    const [totalHours, setTotalHours] = useState('8h 30m');
 
-    const addItem = (type: 'before' | 'after') => {
-        const val = type === 'before' ? beforeInput.trim() : afterInput.trim();
-        if (!val) return;
-        const newItem: WorkItem = {
-            id: Math.random().toString(36).substr(2, 9),
-            text: val,
-            status: 'today'
+    // Persistence keys
+    const persistenceKey = taskId ? `work_update_data_${taskId}` : `work_update_data_last_draft`;
+    const historyKey = taskId ? `task_history_photos_${taskId}` : `task_history_photos_global`;
+
+    // Persistence: Load data on mount
+    useEffect(() => {
+        // Load current update data
+        const savedData = localStorage.getItem(persistenceKey);
+        if (savedData) {
+            const data = JSON.parse(savedData);
+            if (data.description !== undefined) setDescription(data.description);
+            if (data.beforePhotos) setBeforePhotos(data.beforePhotos);
+            if (data.afterPhotos) setAfterPhotos(data.afterPhotos);
+            if (data.workDate) setWorkDate(data.workDate);
+            if (data.startTime) setStartTime(data.startTime);
+            if (data.endTime) setEndTime(data.endTime);
+            if (data.category) setCategory(data.category);
+            if (data.location) setLocation(data.location);
+            if (data.remarks !== undefined) setRemarks(data.remarks);
+        }
+
+        // Load Historical Photos
+        const savedHistory = localStorage.getItem(historyKey);
+        if (savedHistory) {
+            setPriorPhotos(JSON.parse(savedHistory));
+        }
+    }, [persistenceKey, historyKey]);
+
+    // Persistence: Save data on any change
+    useEffect(() => {
+        const dataToSave = {
+            description, beforePhotos, afterPhotos, workDate, 
+            startTime, endTime, category, location, remarks
         };
-        if (type === 'before') {
-            setBeforeTasks(prev => [...prev, newItem]);
-            setBeforeInput('');
-        } else {
-            setAfterTasks(prev => [...prev, newItem]);
-            setAfterInput('');
-        }
-    };
+        localStorage.setItem(persistenceKey, JSON.stringify(dataToSave));
+    }, [description, beforePhotos, afterPhotos, workDate, startTime, endTime, category, location, remarks, persistenceKey]);
 
-    const removeItem = (type: 'before' | 'after', id: string) => {
-        if (type === 'before') setBeforeTasks(prev => prev.filter(item => item.id !== id));
-        else setAfterTasks(prev => prev.filter(item => item.id !== id));
-    };
-
-    const handlePhotoUpload = (type: 'before' | 'after') => {
-        // Mock upload
-        const mockUrl = "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=400";
-        if (type === 'before') {
-            setBeforePhotos(prev => [...prev, mockUrl]);
-            toast.success("Before photo uploaded!");
-        } else {
-            setAfterPhotos(prev => [...prev, mockUrl]);
-            toast.success("After photo uploaded!");
+    // Handle time calculation
+    useEffect(() => {
+        if (startTime && endTime) {
+            const [sH, sM] = startTime.split(':').map(Number);
+            const [eH, eM] = endTime.split(':').map(Number);
+            
+            let diff = (eH * 60 + eM) - (sH * 60 + sM);
+            if (diff < 0) diff += 24 * 60; // Handle overnight work if needed
+            
+            const h = Math.floor(diff / 60);
+            const m = diff % 60;
+            setTotalHours(`${h}h ${m}m`);
         }
+    }, [startTime, endTime]);
+
+    const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Validation
+        if (!file.type.startsWith('image/')) {
+            return toast.error("Please select an image file");
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            return toast.error("File size exceeds 5MB");
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64String = reader.result as string;
+            
+            // Add to Prior Site History immediately as requested
+            const currentHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            // Avoid duplicates in history
+            if (!currentHistory.includes(base64String)) {
+                const updatedHistory = [base64String, ...currentHistory].slice(0, 6);
+                localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
+                setPriorPhotos(updatedHistory);
+            }
+
+            if (type === 'before') {
+                if (beforePhotos.length >= 4) return toast.error("Max 4 photos allowed");
+                setBeforePhotos(prev => {
+                    const newPhotos = [...prev, base64String];
+                    return newPhotos;
+                });
+                
+                // Sync status to In Progress
+                if (taskId) {
+                    localStorage.setItem(`task_status_${taskId}`, 'In Progress');
+                }
+                toast.success("Added to history & attached as Before photo");
+            } else {
+                if (afterPhotos.length >= 4) return toast.error("Max 4 photos allowed");
+                setAfterPhotos(prev => {
+                    const newPhotos = [...prev, base64String];
+                    return newPhotos;
+                });
+
+                // Sync status to Completed
+                if (taskId) {
+                    localStorage.setItem(`task_status_${taskId}`, 'Completed');
+                }
+                toast.success("Added to history & attached as After photo");
+            }
+        };
+        reader.readAsDataURL(file);
+        
+        // Reset input
+        event.target.value = '';
     };
 
     const handleRemovePhoto = (type: 'before' | 'after', index: number) => {
-        if (type === 'before') {
-            setBeforePhotos(prev => prev.filter((_, i) => i !== index));
-        } else {
-            setAfterPhotos(prev => prev.filter((_, i) => i !== index));
-        }
+        if (type === 'before') setBeforePhotos(prev => prev.filter((_, i) => i !== index));
+        else setAfterPhotos(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleSubmit = () => {
-        if (!progress || beforePhotos.length === 0 || afterPhotos.length === 0) {
-            toast.error("Please fill in all details and upload photos!");
-            return;
-        }
+        if (!description.trim()) return toast.error("Work description is required");
+        if (beforePhotos.length === 0 || afterPhotos.length === 0) return toast.error("Please upload before and after photos");
+        
         toast.promise(
-            new Promise(resolve => setTimeout(resolve, 2000)),
+            new Promise(resolve => setTimeout(resolve, 1500)),
             {
                 loading: 'Submitting update...',
-                success: 'Daily update submitted successfully!',
-                error: 'Could not submit update.',
+                success: 'Work update submitted successfully!',
+                error: 'Submission failed',
             }
         ).then(() => {
-            setProgress('');
+            // Save to history before clearing
+            const existingHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            // Filter out existing to avoid duplicates when merging
+            const currentUpdatePhotos = [...beforePhotos, ...afterPhotos];
+            const filteredOldHistory = existingHistory.filter((p: string) => !currentUpdatePhotos.includes(p));
+            const newHistory = [...currentUpdatePhotos, ...filteredOldHistory].slice(0, 8);
+            localStorage.setItem(historyKey, JSON.stringify(newHistory));
+            setPriorPhotos(newHistory);
+            
+            if (taskId) {
+                // Update final status to Completed in local storage
+                localStorage.setItem(`task_status_${taskId}`, 'Completed');
+                localStorage.removeItem(`work_update_data_${taskId}`);
+            }
+
+            // Reset fields
+            setDescription('');
             setBeforePhotos([]);
             setAfterPhotos([]);
-            setBeforeTasks([]);
-            setAfterTasks([]);
+            setRemarks('');
         });
     };
 
     return (
         <>
-            <Navbar title="Work Updates" breadcrumb={['InfraPilot', 'Labour', 'Daily Update']} />
-            <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen font-inter pb-32">
-                <div className="w-full h-full space-y-10">
-                    {/* Header */}
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                        <div>
-                            <h1 className="text-4xl font-black text-slate-800 tracking-tighter">Today's Progress</h1>
-                            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em] mt-2 ml-1">Submit your site updates and photos</p>
+            <Navbar title="Work Update" breadcrumb={['InfraPilot', 'Labour', 'Daily Update', 'Work Update']} />
+            <PageTransition className="p-6 md:p-8 bg-[#f5f7fb] min-h-screen font-inter pb-20">
+                <div className="max-w-full mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    
+                    {/* Header Section */}
+                    <div className="p-8 pb-4 flex items-center gap-5">
+                        <div className="w-12 h-12 rounded-xl bg-[#2563eb] flex items-center justify-center shadow-lg shadow-blue-100">
+                            <FileText className="w-6 h-6 text-white" />
                         </div>
-                        <div className="flex items-center gap-3 bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Live Session: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-800">Update Your Work Progress</h1>
+                            <p className="text-sm text-slate-500 font-medium">Provide details of work completed along with photos</p>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
-                        {/* Main Content Area */}
-                        <div className="xl:col-span-8 space-y-10">
-                            {/* Daily Progress Info */}
-                            <section className="bg-white p-10 rounded-[50px] border border-slate-100 shadow-sm transition-all hover:shadow-md group">
-                                <div className="flex items-center gap-5 mb-8">
-                                    <div className="w-14 h-14 rounded-[22px] bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100 group-hover:scale-105 transition-transform">
-                                        <TrendingUp className="w-7 h-7 text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Work Details</h2>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Describe your accomplishments</p>
-                                    </div>
+                    <div className="p-8 space-y-8">
+                        
+                        {/* Work Description Section */}
+                        <div className="space-y-3">
+                            <label className="text-sm font-bold text-slate-700">Work Description <span className="text-red-500">*</span></label>
+                            <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:border-blue-400 transition-all">
+                                {/* Editor Toolbar */}
+                                <div className="flex items-center gap-1 p-2 bg-slate-50 border-b border-slate-200">
+                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Bold className="w-4 h-4" /></button>
+                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Italic className="w-4 h-4" /></button>
+                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Underline className="w-4 h-4" /></button>
+                                    <div className="w-px h-6 bg-slate-200 mx-2" />
+                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><List className="w-4 h-4" /></button>
+                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><ListOrdered className="w-4 h-4" /></button>
+                                    <div className="w-px h-6 bg-slate-200 mx-2" />
+                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Undo className="w-4 h-4" /></button>
+                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Redo className="w-4 h-4" /></button>
                                 </div>
-                                <div className="relative">
-                                    <textarea
-                                        value={progress}
-                                        onChange={(e) => setProgress(e.target.value)}
-                                        placeholder="Example: Completed brickwork for 2 rooms on Level 2 section A. All reinforcement inspections cleared..."
-                                        className="w-full p-8 bg-slate-50 border border-slate-100 rounded-[35px] focus:outline-none focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-400 transition-all text-base font-bold text-slate-700 min-h-[220px] placeholder:text-slate-300 resize-none shadow-inner"
-                                    />
-                                    <div className="absolute right-6 bottom-6 flex items-center gap-2">
-                                        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${progress.length > 50 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                                            {progress.length} characters
-                                        </div>
-                                    </div>
+                                <textarea 
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
+                                    placeholder="Write a detailed description of the work completed..."
+                                    className="w-full p-4 min-h-[120px] focus:outline-none text-slate-700 text-sm placeholder:text-slate-300"
+                                />
+                                <div className="p-2 px-4 bg-slate-50/50 flex justify-end">
+                                    <span className="text-[10px] font-bold text-slate-400 tabular-nums">{description.length}/1000</span>
                                 </div>
-                            </section>
-
-                            {/* Before & After Cards */}
-                            <section className="grid grid-cols-1 md:grid-cols-2 gap-10">
-
-                                {/* ── Before Work Card ── */}
-                                <div className="bg-white p-8 rounded-[50px] border border-slate-100 shadow-sm transition-all hover:shadow-md flex flex-col gap-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h2 className="text-lg font-black text-slate-800 tracking-tight">Before Work</h2>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Initial site state</p>
-                                        </div>
-                                        <div className="px-4 py-1.5 bg-indigo-50 rounded-full">
-                                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{beforePhotos.length} / 4</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {beforePhotos.map((url, i) => (
-                                            <div key={i} className="relative aspect-square rounded-[24px] overflow-hidden group shadow-sm border border-slate-50">
-                                                <img src={url} alt="Before" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                                                    <button
-                                                        onClick={() => handleRemovePhoto('before', i)}
-                                                        className="w-10 h-10 rounded-2xl bg-white/20 hover:bg-rose-500 text-white transition-all transform hover:rotate-12 flex items-center justify-center backdrop-blur-md border border-white/30"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {beforePhotos.length < 4 && (
-                                            <button
-                                                onClick={() => handlePhotoUpload('before')}
-                                                className="aspect-square rounded-[24px] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all group/btn bg-slate-50/50"
-                                            >
-                                                <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm group-hover/btn:scale-110 transition-transform">
-                                                    <Camera className="w-5 h-5 text-indigo-500" />
-                                                </div>
-                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Add Photo</span>
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <div className="border-t border-slate-100" />
-
-                                    <div className="flex flex-col gap-4">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Prior Tasks & Reference</p>
-                                            <span className="text-[8px] font-bold text-indigo-400 bg-indigo-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">from yesterday</span>
-                                        </div>
-                                        
-                                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                            {priorPhotos.map((url, i) => (
-                                                <div key={i} className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 border-white shadow-sm">
-                                                    <img src={url} alt="Prior" className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity" />
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        <div className="flex flex-col gap-3">
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={beforeInput}
-                                                    onChange={e => setBeforeInput(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && addItem('before')}
-                                                    placeholder="Add initial observation..."
-                                                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 transition-all"
-                                                />
-                                                <button
-                                                    onClick={() => addItem('before')}
-                                                    className="w-10 h-10 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shrink-0 transition-all active:scale-95 shadow-sm shadow-indigo-200"
-                                                >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                </button>
-                                            </div>
-
-                                            <ul className="flex flex-col gap-2">
-                                                {beforeTasks.map((item) => (
-                                                    <li key={item.id} className={`flex items-start gap-3 rounded-2xl px-4 py-3 group/item border transition-all ${item.status === 'prior' ? 'bg-slate-50/50 border-slate-100' : 'bg-indigo-50/30 border-indigo-100 animate-in fade-in slide-in-from-left-2'}`}>
-                                                        <div className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${item.status === 'prior' ? 'bg-slate-300' : 'bg-indigo-400'}`} />
-                                                        <div className="flex-1">
-                                                            <span className={`text-xs font-bold leading-snug ${item.status === 'prior' ? 'text-slate-500' : 'text-indigo-900'}`}>{item.text}</span>
-                                                            {item.status === 'prior' && <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest mt-1">Pending from yesterday</p>}
-                                                        </div>
-                                                        <button
-                                                            onClick={() => removeItem('before', item.id)}
-                                                            className="opacity-0 group-hover/item:opacity-100 transition-opacity text-slate-300 hover:text-rose-500 shrink-0"
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* ── After Work Card ── */}
-                                <div className="bg-white p-8 rounded-[50px] border border-slate-100 shadow-sm transition-all hover:shadow-md flex flex-col gap-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h2 className="text-lg font-black text-slate-800 tracking-tight">After Work</h2>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Final completion state</p>
-                                        </div>
-                                        <div className="px-4 py-1.5 bg-emerald-50 rounded-full">
-                                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{afterPhotos.length} / 4</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {afterPhotos.map((url, i) => (
-                                            <div key={i} className="relative aspect-square rounded-[24px] overflow-hidden group shadow-sm border border-slate-50">
-                                                <img src={url} alt="After" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                                                    <button
-                                                        onClick={() => handleRemovePhoto('after', i)}
-                                                        className="w-10 h-10 rounded-2xl bg-white/20 hover:bg-rose-500 text-white transition-all transform hover:rotate-12 flex items-center justify-center backdrop-blur-md border border-white/30"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {afterPhotos.length < 4 && (
-                                            <button
-                                                onClick={() => handlePhotoUpload('after')}
-                                                className="aspect-square rounded-[24px] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 hover:border-emerald-400 hover:bg-emerald-50/30 transition-all group/btn bg-slate-50/50"
-                                            >
-                                                <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm group-hover/btn:scale-110 transition-transform">
-                                                    <Camera className="w-5 h-5 text-emerald-500" />
-                                                </div>
-                                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Add Photo</span>
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <div className="border-t border-slate-100" />
-
-                                    <div className="flex flex-col gap-6">
-                                        {/* Prior Reference in After Card */}
-                                        <div className="bg-slate-50/50 rounded-3xl p-5 border border-slate-100/50">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reference: Prior State</p>
-                                            </div>
-                                            
-                                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4">
-                                                {priorPhotos.map((url, i) => (
-                                                    <div key={i} className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-white shadow-sm opacity-50">
-                                                        <img src={url} alt="Prior" className="w-full h-full object-cover" />
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            <ul className="flex flex-col gap-2">
-                                                {beforeTasks.filter(t => t.status === 'prior').map((item) => (
-                                                    <li key={item.id} className="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-slate-100">
-                                                        <div className="w-1 h-1 rounded-full bg-slate-300 shrink-0" />
-                                                        <span className="text-[10px] font-bold text-slate-500 truncate">{item.text}</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-
-                                        <div className="border-t border-slate-100" />
-
-                                        <div>
-                                            <div className="flex items-center justify-between mb-4">
-                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Completed Today</p>
-                                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                                            </div>
-
-                                            <div className="flex gap-2 mb-4">
-                                                <input
-                                                    type="text"
-                                                    value={afterInput}
-                                                    onChange={e => setAfterInput(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && addItem('after')}
-                                                    placeholder="Add specific completion..."
-                                                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-400 transition-all"
-                                                />
-                                                <button
-                                                    onClick={() => addItem('after')}
-                                                    className="w-10 h-10 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shrink-0 transition-all active:scale-95 shadow-sm shadow-emerald-200"
-                                                >
-                                                    <CheckCircle className="w-4 h-4" />
-                                                </button>
-                                            </div>
-
-                                            <ul className="flex flex-col gap-2">
-                                                {afterTasks.length > 0 ? (
-                                                    afterTasks.map((item) => (
-                                                        <li key={item.id} className="flex items-start gap-3 bg-emerald-50/50 border border-emerald-100 rounded-2xl px-4 py-3 group/item animate-in fade-in slide-in-from-right-2">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2 shrink-0" />
-                                                            <span className="flex-1 text-xs font-bold text-emerald-900 leading-snug">{item.text}</span>
-                                                            <button
-                                                                onClick={() => removeItem('after', item.id)}
-                                                                className="opacity-0 group-hover/item:opacity-100 transition-opacity text-emerald-300 hover:text-rose-500 shrink-0"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        </li>
-                                                    ))
-                                                ) : (
-                                                    <div className="py-8 border-2 border-dashed border-slate-50 rounded-[30px] flex flex-col items-center justify-center gap-2 opacity-40">
-                                                        <Clipboard className="w-6 h-6 text-slate-300" />
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">No completions added</p>
-                                                    </div>
-                                                )}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </section>
+                            </div>
                         </div>
 
-                        {/* Summary & Submit Sidebar */}
-                        <div className="xl:col-span-4 h-fit space-y-8 sticky top-24">
-                            <div className="bg-white p-10 rounded-[50px] border border-slate-100 shadow-2xl shadow-slate-100 overflow-hidden relative">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
-                                <h2 className="text-2xl font-black mb-10 tracking-tight text-slate-800">Summary</h2>
-                                <div className="space-y-6">
-                                    <div className="flex justify-between items-center bg-slate-50 p-6 rounded-3xl border border-slate-100 transition-colors hover:bg-slate-100/50">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                                                <TrendingUp className="w-5 h-5 text-indigo-500" />
-                                            </div>
-                                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Words</span>
-                                        </div>
-                                        <span className="text-xl font-black text-slate-800">{progress.split(' ').filter(x => x).length}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center bg-slate-50 p-6 rounded-3xl border border-slate-100 transition-colors hover:bg-slate-100/50">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                                                <Camera className="w-5 h-5 text-emerald-500" />
-                                            </div>
-                                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Media</span>
-                                        </div>
-                                        <span className="text-xl font-black text-slate-800">{beforePhotos.length + afterPhotos.length}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center bg-slate-50 p-6 rounded-3xl border border-slate-100 transition-colors hover:bg-slate-100/50">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                                                <CheckCircle className="w-5 h-5 text-amber-500" />
-                                            </div>
-                                            <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Items</span>
-                                        </div>
-                                        <span className="text-xl font-black text-slate-800">{beforeTasks.length + afterTasks.length}</span>
-                                    </div>
+                        {/* Photo Upload Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            
+                            {/* Before Work Photos */}
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-sm font-bold text-slate-700">Before Work Photos <span className="text-red-500">*</span></label>
+                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{beforePhotos.length} / 4</span>
                                 </div>
+                                <p className="text-[11px] text-slate-400 font-medium">Upload photos before starting the work (Max 4)</p>
+                                <input 
+                                    type="file" 
+                                    id="before-upload" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={(e) => handlePhotoUpload(e, 'before')} 
+                                />
                                 <button 
-                                    onClick={handleSubmit}
-                                    className="w-full mt-10 py-6 bg-indigo-600 hover:bg-indigo-500 rounded-[30px] font-black uppercase tracking-[0.25em] text-[11px] text-white shadow-xl shadow-indigo-500/20 transition-all active:scale-95 flex items-center justify-center gap-3 border-b-4 border-indigo-800 active:border-b-0 active:translate-y-1"
+                                    onClick={() => document.getElementById('before-upload')?.click()}
+                                    className="w-full py-8 border-2 border-dashed border-blue-100 bg-blue-50/30 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-blue-50/50 hover:border-blue-300 transition-all group"
                                 >
-                                    Submit Update <CheckCircle className="w-5 h-5" />
+                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform">
+                                        <Upload className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-xs font-bold text-slate-700">Drag & drop images here</p>
+                                        <p className="text-[11px] font-bold text-blue-600">or click to upload</p>
+                                        <p className="text-[10px] text-slate-400 mt-1">JPG, PNG up to 5MB</p>
+                                    </div>
                                 </button>
-                                <p className="text-[9px] font-bold text-center text-slate-400 mt-6 uppercase tracking-widest opacity-80 italic">Your update will be reviewed by Site Engineer</p>
+                                
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <History className="w-3 h-3 text-slate-400" />
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Prior Site History</p>
+                                    </div>
+                                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                        {priorPhotos.map((url, i) => (
+                                            <div key={i} className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-slate-100 opacity-60 hover:opacity-100 transition-opacity cursor-pointer">
+                                                <img src={url} alt="History" className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Preview</p>
+                                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[60px]">
+                                        {beforePhotos.length > 0 ? (
+                                            <div className="flex flex-wrap gap-3">
+                                                {beforePhotos.map((url, i) => (
+                                                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white shadow-sm group">
+                                                        <img src={url} alt="Before" className="w-full h-full object-cover" />
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleRemovePhoto('before', i); }}
+                                                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <X className="w-4 h-4 text-white" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-[11px] text-slate-400 font-medium">No images uploaded yet</p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="bg-amber-50 p-10 rounded-[50px] border border-amber-100 relative overflow-hidden group">
-                                <div className="absolute -right-8 -bottom-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                                    <Clipboard className="w-32 h-32 text-amber-900" />
+                            {/* After Work Photos */}
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-sm font-bold text-slate-700">After Work Photos <span className="text-red-500">*</span></label>
+                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{afterPhotos.length} / 4</span>
                                 </div>
-                                <div className="flex items-center gap-4 text-amber-600 mb-6">
-                                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                                        <Clipboard className="w-5 h-5" />
+                                <p className="text-[11px] text-slate-400 font-medium">Upload photos after completing the work (Max 4)</p>
+                                <input 
+                                    type="file" 
+                                    id="after-upload" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={(e) => handlePhotoUpload(e, 'after')} 
+                                />
+                                <button 
+                                    onClick={() => document.getElementById('after-upload')?.click()}
+                                    className="w-full py-8 border-2 border-dashed border-blue-100 bg-blue-50/30 rounded-2xl flex flex-col items-center justify-center gap-3 hover:bg-blue-50/50 hover:border-blue-300 transition-all group"
+                                >
+                                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm text-blue-600 group-hover:scale-110 transition-transform">
+                                        <Upload className="w-5 h-5" />
                                     </div>
-                                    <h3 className="text-xs font-black uppercase tracking-[0.2em]">Guidelines</h3>
+                                    <div className="text-center">
+                                        <p className="text-xs font-bold text-slate-700">Drag & drop images here</p>
+                                        <p className="text-[11px] font-bold text-blue-600">or click to upload</p>
+                                        <p className="text-[10px] text-slate-400 mt-1">JPG, PNG up to 5MB</p>
+                                    </div>
+                                </button>
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <History className="w-3 h-3 text-slate-400" />
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Prior Site History</p>
+                                    </div>
+                                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                        {priorPhotos.map((url, i) => (
+                                            <div key={i} className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-slate-100 opacity-60 hover:opacity-100 transition-opacity cursor-pointer">
+                                                <img src={url} alt="History" className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <ul className="space-y-4">
-                                    {[
-                                        "Use natural site light for photos",
-                                        "Clear debris before 'after' photo",
-                                        "Mention exact level/section",
-                                        "Note any material shortages"
-                                    ].map((guide, i) => (
-                                        <li key={i} className="flex gap-4 items-start">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0"></div>
-                                            <p className="text-xs font-bold text-amber-800 tracking-tight leading-relaxed">{guide}</p>
-                                        </li>
-                                    ))}
-                                </ul>
+
+                                <div className="space-y-2">
+                                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Preview</p>
+                                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 min-h-[60px]">
+                                        {afterPhotos.length > 0 ? (
+                                            <div className="flex flex-wrap gap-3">
+                                                {afterPhotos.map((url, i) => (
+                                                    <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white shadow-sm group">
+                                                        <img src={url} alt="After" className="w-full h-full object-cover" />
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleRemovePhoto('after', i); }}
+                                                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <X className="w-4 h-4 text-white" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-[11px] text-slate-400 font-medium">No images uploaded yet</p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        {/* Date and Time Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700">Work Date <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input 
+                                        type="date" 
+                                        value={workDate}
+                                        onChange={(e) => setWorkDate(e.target.value)}
+                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700">Start Time <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input 
+                                        type="time" 
+                                        value={startTime}
+                                        onChange={(e) => setStartTime(e.target.value)}
+                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700">End Time <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input 
+                                        type="time" 
+                                        value={endTime}
+                                        onChange={(e) => setEndTime(e.target.value)}
+                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5 transition-all"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700">Total Hours</label>
+                                <div className="relative">
+                                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input 
+                                        type="text" 
+                                        readOnly
+                                        value={totalHours}
+                                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-500 italic"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Dropdowns Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700">Work Category <span className="text-red-500">*</span></label>
+                                <div className="relative group">
+                                    <select 
+                                        value={category}
+                                        onChange={(e) => setCategory(e.target.value)}
+                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 appearance-none cursor-pointer"
+                                    >
+                                        <option value="">Select Category</option>
+                                        <option value="Reinforcement">Reinforcement</option>
+                                        <option value="Concreting">Concreting</option>
+                                        <option value="Masonry">Masonry</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform" />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700">Location / Area <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input 
+                                        type="text" 
+                                        value={location}
+                                        onChange={(e) => setLocation(e.target.value)}
+                                        placeholder="Enter work location or area"
+                                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 transition-all font-medium"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Remarks Section */}
+                        <div className="space-y-3">
+                            <label className="text-sm font-bold text-slate-700">Remarks (Optional)</label>
+                            <div className="relative">
+                                <textarea 
+                                    value={remarks}
+                                    onChange={(e) => setRemarks(e.target.value.slice(0, 500))}
+                                    placeholder="Add any additional remarks..."
+                                    className="w-full p-4 min-h-[100px] border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 text-slate-700 text-sm placeholder:text-slate-300"
+                                />
+                                <div className="absolute right-4 bottom-3">
+                                    <span className="text-[10px] font-bold text-slate-400 tabular-nums">{remarks.length}/500</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer Buttons */}
+                        <div className="flex items-center justify-between pt-6 border-t border-slate-100">
+                            <button className="px-10 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all">
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSubmit}
+                                className="px-10 py-3 bg-[#2563eb] text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100 flex items-center gap-3 hover:bg-blue-700 transition-all"
+                            >
+                                Submit Update
+                                <Send className="w-4 h-4" />
+                            </button>
+                        </div>
+
                     </div>
                 </div>
             </PageTransition>

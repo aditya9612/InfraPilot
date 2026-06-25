@@ -157,7 +157,7 @@ const ClientMessagesPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Chat", "Messages"]} />
+      <Navbar title="Chat" breadcrumb={["InfraPilot", "Client", "Chat", "Messages"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-6">
         <div className="mb-6 flex items-center justify-between">
           <div>

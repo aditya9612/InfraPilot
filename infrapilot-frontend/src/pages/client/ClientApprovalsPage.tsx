@@ -207,7 +207,7 @@ const ClientApprovalsPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Approvals"]} />
+      <Navbar title="Approvals" breadcrumb={["InfraPilot", "Client", "Approvals"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>

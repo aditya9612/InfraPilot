@@ -121,6 +121,14 @@ export interface AdminDashboardData {
   };
 }
 
+export interface LabourDashboardResponse {
+  total_tasks: number;
+  completed_tasks: number;
+  pending_tasks: number;
+  earnings_current_month: number;
+  tasks: any[];
+}
+
 export const dashboardService = {
   /**
    * Get Client Dashboard stats
@@ -168,6 +176,14 @@ export const dashboardService = {
    */
   async getAccountantDashboard(): Promise<any> {
     const response = await api.get('/dashboard/accountant');
+    return response.data;
+  },
+
+  /**
+   * PM Dashboard APIs
+   */
+  async getLabourDashboard(): Promise<LabourDashboardResponse> {
+    const response = await api.get<LabourDashboardResponse>('dashboard/labour');
     return response.data;
   },
 };

@@ -131,7 +131,7 @@ const ClientPhotosPage = () => {
 
     return (
         <>
-            <Navbar title="Project Transparency Portal" breadcrumb={["Client", "Site Updates", "Photos"]} />
+            <Navbar title="Photos" breadcrumb={["Client", "Site Updates", "Photos"]} />
 
             <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}

@@ -6,6 +6,8 @@ import { useClientProjectId } from "../../hooks/useClientProjectId";
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [timeRange, setTimeRange] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const { projectId } = useClientProjectId();
@@ -28,10 +30,20 @@ const ClientProgressPage = () => {
     fetchProgressData();
   }, [projectId]);
 
+  // Filtering Logic
+  const filteredActivities = activities.filter(act => {
+    if (filterStatus === "ALL") return true;
+    const status = act.status?.toUpperCase() || "";
+    if (filterStatus === "ON_TRACK") return ["COMPLETED", "ON_TRACK", "ON TRACK"].includes(status);
+    if (filterStatus === "DELAYED") return ["DELAY", "DELAYED", "DELAY_ONGOING"].includes(status);
+    if (filterStatus === "NOT_STARTED") return ["NOT_STARTED", "NOT STARTED"].includes(status);
+    return true;
+  });
+
   // Pagination Logic
-  const totalItems = activities.length;
+  const totalItems = filteredActivities.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const paginatedActivities = activities.slice(
+  const paginatedActivities = filteredActivities.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -55,55 +67,82 @@ const ClientProgressPage = () => {
     return pages;
   };
 
-  // Compute overall progress from activities
-  const overallProgress = activities.length > 0
-    ? Math.round(activities.reduce((sum, a) => sum + (a.completion_percentage || 0), 0) / activities.length)
-    : 0;
+  // Compute status counts
+  const stats = {
+    all: activities.length,
+    onTrack: activities.filter(a => ["COMPLETED", "Completed", "ON TRACK", "ON_TRACK", "On Track"].includes(a.status?.toUpperCase() || a.status)).length,
+    notStarted: activities.filter(a => ["NOT_STARTED", "NOT STARTED", "Not Started"].includes(a.status?.toUpperCase() || a.status)).length,
+    delayed: activities.filter(a => ["DELAY", "DELAYED", "Delayed", "DELAY_ONGOING"].includes(a.status?.toUpperCase() || a.status)).length,
+  };
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Work Progress"]} />
+      <Navbar title="Work Progress" breadcrumb={["InfraPilot", "Client", "Work Progress"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         <div className="mb-8">
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">Work Progress</h1>
           <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time construction progress tracking</p>
         </div>
 
-        {/* Overall */}
-        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8 flex items-center gap-10">
-          <div className="relative w-36 h-36 shrink-0">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 144 144">
-              <circle cx="72" cy="72" r="60" stroke="#f1f5f9" strokeWidth="10" fill="none" />
-              <circle cx="72" cy="72" r="60" stroke="#2563eb" strokeWidth="10" fill="none"
-                strokeDasharray={376.99} strokeDashoffset={376.99 * (1 - overallProgress / 100)} strokeLinecap="round" />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-black text-blue-600 tracking-tighter">{overallProgress}%</span>
-              <span className="text-[9px] font-bold text-slate-400 tracking-widest uppercase">Overall</span>
-            </div>
-          </div>
-          <div>
-            <p className="text-xl font-black text-slate-800">
-              {activities.length > 0 ? "Project Status Overview" : "Phase 3 — Superstructure"}
-            </p>
-            <p className="text-sm text-slate-500 mt-1">
-              {activities.length > 0
-                ? `${overallProgress}% completed across ${activities.length} tracked activities.`
-                : "Roof slab casting and waterproofing in progress. On schedule."}
-            </p>
-            <div className="flex gap-3 mt-4">
-              <span className={`px-3 py-1.5 ${overallProgress >= 50 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'} text-[10px] font-black rounded-full uppercase tracking-widest`}>
-                {overallProgress >= 50 ? 'On Track' : 'In Progress'}
+        {/* Status Filter Cards — Redesigned to match requested format */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {[
+            { id: "ALL", label: "Total Activities", sub: "All time records", count: stats.all, color: "text-slate-800" },
+            { id: "ON_TRACK", label: "On Track", sub: "Performing Well", count: stats.onTrack, color: "text-emerald-500" },
+            { id: "NOT_STARTED", label: "Not Started", sub: "Pending Commencement", count: stats.notStarted, color: "text-amber-500" },
+            { id: "DELAYED", label: "Delayed", sub: "Intervention Required", count: stats.delayed, color: "text-rose-500" }
+          ].map(card => (
+            <button
+              key={card.id}
+              onClick={() => {
+                setFilterStatus(card.id);
+                setCurrentPage(1);
+              }}
+              className={`p-6 rounded-2xl bg-white border transition-all flex flex-col items-start gap-4 text-left group active:scale-[0.98] ${
+                filterStatus === card.id 
+                  ? "border-blue-500 shadow-lg shadow-blue-50" 
+                  : "border-slate-100 shadow-sm hover:border-slate-200"
+              }`}
+            >
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                {card.label}
               </span>
-            </div>
-          </div>
+              <span className={`text-4xl font-black tracking-tighter leading-none ${card.color}`}>
+                {card.count}
+              </span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                {card.sub}
+              </span>
+            </button>
+          ))}
         </div>
-
 
         {/* Detailed Activity Progress — now from API */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-8 border-b border-slate-50">
+          <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Detailed Activity Progress</h2>
+            
+            <div className="flex items-center gap-3">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Time Range:</span>
+              <div className="relative inline-block">
+                <select 
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value)}
+                  className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[10px] font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all cursor-pointer appearance-none pr-8"
+                >
+                  <option value="ALL">All Time</option>
+                  <option value="DAILY">Daily</option>
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="3_MONTHS">3 Months</option>
+                  <option value="6_MONTHS">6 Months</option>
+                  <option value="1_YEAR">1 Year</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

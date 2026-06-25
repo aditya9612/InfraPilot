@@ -62,7 +62,6 @@ const LabourNotificationsPage = () => {
             }));
 
             // Force injection of requested "Assigned Task" notification for demonstration
-            // This ensures it shows up even if API returns nothing
             const demoTask: Alert = {
                 id: "t-demo-001",
                 project_id: pId,
@@ -128,7 +127,7 @@ const LabourNotificationsPage = () => {
         const allowedTypes = [
             "Delay", "MaterialDelay", "Planning", "InProgress", "In Progress", "In-Progress",
             "Announcement", "NewAlert", "New Alert", "Safety", "Quality", "Material",
-            "Task", "Milestone", "Alert", "Warning", "Critical", "Info", "Approval"
+            "Task", "Milestone", "Alert", "Warning", "Critical", "Info", "Approval", "Task Assigned"
         ];
         return allowedTypes.some(t => a.alert_type.toLowerCase().replace(/[^a-z]/g, '') === t.toLowerCase().replace(/[^a-z]/g, ''));
     });
@@ -209,8 +208,40 @@ const LabourNotificationsPage = () => {
                         </div>
                     ) : filteredAlerts.length > 0 ? (
                         filteredAlerts.map((ann) => (
-                            <div key={ann.id} className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-indigo-500/5 group relative flex flex-col lg:row gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="flex-1 w-full">
+                            <div key={ann.id} className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 transition-all hover:shadow-xl hover:shadow-indigo-500/5 group relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                {/* Action Buttons - Top Right */}
+                                <div className="absolute top-8 right-8 flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedAlert(ann);
+                                            setIsModalOpen(true);
+                                        }}
+                                        className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-all flex items-center justify-center group/btn"
+                                        title="View Details"
+                                    >
+                                        <Eye className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                                    </button>
+                                    <button
+                                        onClick={() => ann.status !== 'read' && handleMarkRead(ann.id)}
+                                        disabled={ann.status === 'read'}
+                                        className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center group/btn ${ann.status === 'read'
+                                            ? 'bg-emerald-50 text-emerald-400 cursor-default'
+                                            : 'bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 active:scale-95'
+                                            }`}
+                                        title={ann.status === 'read' ? "Acknowledged" : "Mark as Read"}
+                                    >
+                                        <Check className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(ann.id)}
+                                        className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all flex items-center justify-center group/btn"
+                                        title="Delete Notification"
+                                    >
+                                        <Trash2 className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                                    </button>
+                                </div>
+
+                                <div className="pr-36 flex-1 w-full">
                                     <div className="flex flex-wrap items-center gap-4 mb-6">
                                         <div className="flex items-center gap-2">
                                             {ann.status === 'active' && (
@@ -224,7 +255,7 @@ const LabourNotificationsPage = () => {
                                         <div className={`px-4 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${getPriorityColor(ann.alert_type)}`}>
                                             {ann.alert_type}
                                         </div>
-                                        <div className="flex items-center gap-2 text-slate-400 ml-auto md:ml-0">
+                                        <div className="flex items-center gap-2 text-slate-400">
                                             <Clock className="w-3.5 h-3.5" />
                                             <p className="text-[9px] font-black uppercase tracking-widest">{formatDate(ann.created_at)}</p>
                                         </div>
@@ -258,37 +289,6 @@ const LabourNotificationsPage = () => {
                                             </div>
                                         )}
                                     </div>
-                                </div>
-
-                                <div className="flex items-center gap-4 lg:self-center">
-                                    <button
-                                        onClick={() => {
-                                            setSelectedAlert(ann);
-                                            setIsModalOpen(true);
-                                        }}
-                                        className="w-12 h-12 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-all flex items-center justify-center group/btn"
-                                        title="View Details"
-                                    >
-                                        <Eye className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
-                                    </button>
-                                    <button
-                                        onClick={() => ann.status !== 'read' && handleMarkRead(ann.id)}
-                                        disabled={ann.status === 'read'}
-                                        className={`w-12 h-12 rounded-2xl transition-all flex items-center justify-center group/btn ${ann.status === 'read'
-                                                ? 'bg-emerald-50 text-emerald-400 cursor-default'
-                                                : 'bg-slate-50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 active:scale-95'
-                                            }`}
-                                        title={ann.status === 'read' ? "Acknowledged" : "Mark as Read"}
-                                    >
-                                        <Check className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(ann.id)}
-                                        className="w-12 h-12 rounded-2xl bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all flex items-center justify-center group/btn"
-                                        title="Delete Notification"
-                                    >
-                                        <Trash2 className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
-                                    </button>
                                 </div>
                             </div>
                         ))

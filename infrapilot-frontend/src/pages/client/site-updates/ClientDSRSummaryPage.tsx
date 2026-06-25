@@ -140,7 +140,7 @@ const ClientDSRSummaryPage = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Site Updates", "DSR Suite"]} />
+      <Navbar title="Site Updates" breadcrumb={["InfraPilot", "Client", "Site Updates", "DSR Suite"]} />
       <div className="p-8 bg-[#f8fafc] min-h-screen font-inter pb-20">
         
         {/* Page Header */}

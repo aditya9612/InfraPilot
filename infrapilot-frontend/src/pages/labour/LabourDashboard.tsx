@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTextToAudio } from '../../utils/useTextToAudio';
 import AttendanceCard from '../../components/labour/AttendanceCard';
@@ -7,6 +7,8 @@ import TaskDetailModal from '../../components/labour/TaskDetailModal';
 import PageTransition from '../../components/common/PageTransition';
 import Navbar from '../../components/common/Navbar';
 import { useNavigate } from 'react-router-dom';
+import { dashboardService } from '../../services/dashboardService';
+import type { Task } from '../../types/task';
 import {
     Clipboard,
     CheckCircle,
@@ -18,23 +20,10 @@ import {
     TrendingUp,
     ArrowRight,
     Camera,
-    Play
+    Play,
+    Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-interface Task {
-    id: string;
-    name: string;
-    project: string;
-    contractorId?: string;
-    assignedFrom?: 'Self' | 'Site Engineer';
-    description: string;
-    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold';
-    priority: 'High' | 'Medium' | 'Low';
-    startDate: string;
-    endDate: string;
-    progress: number;
-}
 
 const LabourDashboard: React.FC = () => {
     const { user } = useAuth();
@@ -43,23 +32,68 @@ const LabourDashboard: React.FC = () => {
     const [isCheckedIn, setIsCheckedIn] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [statsData, setStatsData] = useState({
+        total: 0,
+        completed: 0,
+        pending: 0,
+        earnings: '₹0'
+    });
 
-    const [tasks] = useState<Task[]>([
-        { id: 'T-001', name: 'FOUNDATION REINFORCEMENT', project: 'Urban Heights', description: 'Reinforcing foundation columns', status: 'In Progress', priority: 'High', startDate: '2026-05-27', endDate: '2026-05-30', progress: 65 },
-        { id: 'T-002', name: 'CONCRETING SECTION B', project: 'Urban Heights', description: 'Pouring concrete for section B', status: 'Pending', priority: 'Medium', startDate: '2026-05-28', endDate: '2026-06-02', progress: 0 },
-        { id: 'T-003', name: 'CLEAR DEBRIS', project: 'Urban Heights', description: 'Remove construction waste', status: 'Completed', priority: 'Low', startDate: '2026-05-26', endDate: '2026-05-28', progress: 100 },
-    ]);
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            setIsLoading(true);
+            try {
+                const data = await dashboardService.getLabourDashboard();
+                if (data) {
+                    setStatsData({
+                        total: data.total_tasks || 0,
+                        completed: data.completed_tasks || 0,
+                        pending: data.pending_tasks || 0,
+                        earnings: `₹${(data.earnings_current_month || 0).toLocaleString()}`
+                    });
+                    
+                    // Map API tasks to UI Task interface
+                    const mappedTasks: Task[] = (data.tasks || []).map((t: any) => ({
+                        id: t.id || t.task_id || `T-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+                        name: t.name || t.title || t.task_name || 'UNNAMED TASK',
+                        project: t.project_name || t.project || 'General',
+                        assignedTo: t.assigned_to_name || user?.name || 'Self',
+                        assignedFrom: t.assigned_from === 'self' ? 'Self' : 'Site Engineer',
+                        description: t.description || 'No description provided.',
+                        status: (t.status === 'in_progress' ? 'In Progress' : (t.status?.charAt(0).toUpperCase() + t.status?.slice(1))) || 'Pending',
+                        priority: t.priority || 'Medium',
+                        startDate: t.start_date || new Date().toISOString().split('T')[0],
+                        endDate: t.end_date || new Date().toISOString().split('T')[0],
+                        progress: t.progress_percent || (t.status === 'completed' ? 100 : 0)
+                    }));
+                    setTasks(mappedTasks);
+                }
+            } catch (err) {
+                console.error("Failed to fetch labour dashboard data", err);
+                toast.error("Could not load dashboard data");
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-    const handleUpdateTask = (_id: string, status: string) => {
-        toast.success(`Task ${status}!`);
+        fetchDashboardData();
+    }, [user?.name]);
+
+    const handleUpdateTask = (id: string, status: string) => {
+        // Optimistic UI update
+        setTasks(prev => prev.map(t => t.id === id ? { ...t, status: status as any } : t));
+        localStorage.setItem(`task_status_${id}`, status);
+        toast.success(`Task marked as ${status}!`);
         setIsTaskModalOpen(false);
     };
 
     const stats = [
-        { label: 'Total Tasks', value: 12, icon: Clipboard, color: 'text-blue-500', bg: 'bg-blue-50' },
-        { label: 'Completed', value: 8, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { label: 'Pending', value: 3, icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
-        { label: 'This Month Earnings', value: '₹14,500', icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+        { label: 'Total Tasks', value: statsData.total, icon: Clipboard, color: 'text-blue-500', bg: 'bg-blue-50' },
+        { label: 'Completed', value: statsData.completed, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+        { label: 'Pending', value: statsData.pending, icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
+        { label: 'This Month Earnings', value: statsData.earnings, icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
     ];
 
     const quickActions = [
@@ -122,14 +156,13 @@ const LabourDashboard: React.FC = () => {
                                 <stat.icon className={`w-5 h-5 ${stat.color}`} />
                             </div>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{stat.label}</p>
-                            <p className="text-xl md:text-2xl font-black text-slate-800">{stat.value}</p>
+                            <p className="text-xl md:text-2xl font-black text-slate-800">{isLoading ? '...' : stat.value}</p>
                         </div>
                     ))}
                 </div>
 
                 {/* ── Main Dashboard Layout ── */}
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                    {/* Left Column: Tasks & Quick Actions */}
                     <div className="xl:col-span-12 space-y-8">
                         {/* Quick Action Grid */}
                         <div>
@@ -157,20 +190,23 @@ const LabourDashboard: React.FC = () => {
                         <div>
                             <div className="flex justify-between items-center mb-6 px-1">
                                 <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Recent Tasks</h2>
-                                <button className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 group">
+                                <button onClick={() => navigate('/labour/tasks')} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 group">
                                     View All <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                                 </button>
                             </div>
-                            <TaskList
-                                tasks={tasks}
-                                onSelectTask={(t) => { setSelectedTask(t as any); setIsTaskModalOpen(true); }}
-                                onSelfAssign={(id) => handleUpdateTask(id, 'In Progress')}
-                            />
+                            {isLoading ? (
+                                <div className="flex items-center justify-center py-20 bg-white rounded-[32px] border border-slate-100 italic text-slate-400">
+                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                    Synchronizing tasks...
+                                </div>
+                            ) : (
+                                <TaskList
+                                    tasks={tasks.slice(0, 3)}
+                                    onSelectTask={(t) => { setSelectedTask(t as any); setIsTaskModalOpen(true); }}
+                                    onSelfAssign={(id) => handleUpdateTask(id, 'In Progress')}
+                                />
+                            )}
                         </div>
-                    </div>
-
-                    {/* Right Column: Activity & Payments */}
-                    <div className="xl:col-span-12 space-y-8">
                     </div>
                 </div>
 

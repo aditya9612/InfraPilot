@@ -2,7 +2,7 @@ import Navbar from "../../components/common/Navbar";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../components/common/Modal";
-import { dashboardService, type ClientCommandCenterData } from "../../services/dashboardService";
+import { type ClientCommandCenterData, dashboardService } from "../../services/dashboardService";
 import { projectService } from "../../services/projectService";
 import { workProgressService } from "../../services/workProgressService";
 import toast from "react-hot-toast";
@@ -15,6 +15,8 @@ const ClientDashboard = () => {
   const [dashboardData, setDashboardData] = useState<ClientCommandCenterData | null>(null);
   const [projectData, setProjectData] = useState<any>(null);
   const [liveFeed, setLiveFeed] = useState<any[]>([]);
+  const [activitiesCount, setActivitiesCount] = useState(0);
+  const [calculatedOverallProgress, setCalculatedOverallProgress] = useState(0);
   const [loading, setLoading] = useState(true);
   const { projectId } = useClientProjectId();
 
@@ -76,20 +78,27 @@ const ClientDashboard = () => {
         try {
           const activities = await workProgressService.listActivities(projectId);
           if (active && activities.length > 0) {
-            const mappedFeed = activities.slice(0, 5).map((act: any) => {
+            const onTrackActivities = activities.filter((act: any) =>
+              act.status?.toUpperCase() === 'ON_TRACK' ||
+              act.status?.toUpperCase() === 'COMPLETED'
+            );
+
+            setActivitiesCount(onTrackActivities.length);
+
+            if (onTrackActivities.length > 0) {
+              const avgProgress = Math.round(onTrackActivities.reduce((sum: number, a: any) => sum + (Number(a.completion_percentage) || 0), 0) / onTrackActivities.length);
+              setCalculatedOverallProgress(avgProgress);
+            } else {
+              setCalculatedOverallProgress(0);
+            }
+
+            const mappedFeed = onTrackActivities.slice(0, 5).map((act: any) => {
               const timeVal = act.updated_at || act.created_at || new Date().toISOString();
               const dateObj = new Date(timeVal);
-              const timeString = isNaN(dateObj.getTime())
-                ? "Just now"
-                : dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-
-              const statusText = act.status ? act.status.replace(/_/g, ' ').toLowerCase() : 'active';
-              const formattedStatus = statusText.charAt(0).toUpperCase() + statusText.slice(1);
-
               return {
-                id: act.id || Math.random(),
-                text: `${act.activity_name || 'Activity update'} - ${act.completion_percentage || 0}% completed (${formattedStatus})`,
-                time: timeString,
+                id: act.id,
+                text: `${act.activity_name} - ${act.completion_percentage}%`,
+                time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 icon: act.status?.toUpperCase() === 'COMPLETED' ? "✔" : "🏗️"
               };
             });
@@ -192,7 +201,7 @@ const ClientDashboard = () => {
   if (loading) {
     return (
       <>
-        <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+        <Navbar title="Dashboard" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
         <div className="flex items-center justify-center min-h-screen bg-slate-50">
           <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
         </div>
@@ -203,7 +212,7 @@ const ClientDashboard = () => {
   if (!dashboardData) {
     return (
       <>
-        <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+        <Navbar title="Dashboard" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
         <div className="p-6 bg-slate-50 min-h-screen font-inter">
           <p className="text-slate-500">Failed to load dashboard data.</p>
         </div>
@@ -213,7 +222,7 @@ const ClientDashboard = () => {
 
   return (
     <>
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
+      <Navbar title="Dashboard" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -265,76 +274,70 @@ const ClientDashboard = () => {
                   card.value
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{card.sub}</p>
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+          {/* Live Execution Feed - Now on the left side */}
           <div className="lg:col-span-2">
-            {/* Project Progress Viz */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 relative overflow-hidden h-full">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32" />
-              <div className="flex flex-col md:flex-row gap-12 items-center relative z-10">
-                <div className="relative w-40 h-40 flex items-center justify-center shrink-0">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 224 224">
-                    <circle cx="112" cy="112" r="100" stroke="#e2e8f0" strokeWidth="14" fill="transparent" />
-                    <circle cx="112" cy="112" r="100" stroke="#2563EB" strokeWidth="14" fill="transparent"
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 h-full overflow-hidden">
+              <div className="flex items-center justify-between mb-6 border-b border-slate-50 pb-4">
+                <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Live Execution Feed</h2>
+                <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">{liveFeed.length} Updates</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                {liveFeed.length > 0 ? liveFeed.map(update => (
+                  <div key={update.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                    <span className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-lg shadow-sm shrink-0">{update.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-bold text-slate-700 leading-tight tracking-tight truncate">{update.text}</p>
+                      <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1 italic">{update.time}</p>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="col-span-full py-10 text-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No active feed records found</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Project Activities Overview - Now on the right side - Clickable to Progress Page */}
+          <div className="lg:col-span-1">
+            <div
+              onClick={() => navigate('/client/progress')}
+              className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 h-full flex flex-col justify-center relative overflow-hidden cursor-pointer hover:border-blue-200 hover:shadow-md transition-all group/card"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/40 rounded-full blur-2xl -mr-16 -mt-16" />
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="relative w-52 h-52 mb-6">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 224 224">
+                    <circle cx="112" cy="112" r="100" stroke="#f1f5f9" strokeWidth="12" fill="none" />
+                    <circle cx="112" cy="112" r="100" stroke="#2563eb" strokeWidth="12" fill="none"
                       strokeDasharray={628.3}
-                      strokeDashoffset={628.3 - (628.3 * (dashboardData?.summary?.overall_progress ?? 0)) / 100}
+                      strokeDashoffset={628.3 * (1 - (calculatedOverallProgress || (dashboardData?.summary?.overall_progress ?? 0)) / 100)}
                       strokeLinecap="round"
                       className="transition-all duration-1000"
                     />
                   </svg>
-                  <div className="absolute flex flex-col items-center">
-                    <span className="text-3xl font-black text-blue-600 tracking-tighter leading-none">{dashboardData ? `${Number(dashboardData.summary.overall_progress).toFixed(2)}%` : "0%"}</span>
-                    <span className="text-[7px] font-black text-slate-400 tracking-[0.15em] uppercase mt-1">Project Progress</span>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-4xl font-black text-blue-600 tracking-tighter">
+                      {Math.round(calculatedOverallProgress || (dashboardData?.summary?.overall_progress ?? 0))}%
+                    </span>
+                    <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase mt-2">Overall</span>
                   </div>
                 </div>
-                <div className="flex-1 space-y-8">
-                  <div>
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-tight">
-                      {dashboardData.work_progress?.current_task || "Structural Phase III: Roof Slab & MEP Hookups"}
-                    </h2>
-                    <p className="text-slate-400 text-sm font-medium mt-2 leading-relaxed">
-                      {dashboardData.work_progress?.task_description || "Today's Work focus: Finalizing rebar arrangement for the primary roof slab and ensuring plumbing sleeves are accurately placed."}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100" onClick={() => navigate('/last-completed')} style={{ cursor: 'pointer' }}>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Last Completed</p>
-                      <p className="text-xs font-black text-slate-700 uppercase tracking-tight">
-                        {dashboardData.work_progress?.last_completed || "4th Floor Column Pour"}
-                      </p>
-                    </div>
-                    <div className="p-6 bg-blue-600 rounded-2xl shadow-xl shadow-blue-500/20" onClick={() => navigate('/upcoming-today')} style={{ cursor: 'pointer' }}>
-                      <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1 italic">Upcoming Today</p>
-                      <p className="text-xs font-black text-white uppercase tracking-tight">
-                        {dashboardData.work_progress?.upcoming || "Casting Prep Meeting"}
-                      </p>
-                    </div>
-                  </div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight mb-2">Project Activities Overview</h2>
+                <p className="text-xs text-slate-500 font-medium mb-4">
+                  {activitiesCount || 7} tracked activities in phase.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-widest border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    On Track
+                  </span>
                 </div>
-              </div>
-            </div>
-
-          </div>
-          {/* Side Module: Alerts, Updates, and Actions */}
-          <div className="lg:col-span-1">
-            {/* Timeline Stream */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 h-full">
-              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-50 pb-4">Live Execution Feed</h2>
-              <div className="space-y-10 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-100">
-                {liveFeed.length > 0 ? liveFeed.map(update => (
-                  <div key={update.id} className="relative pl-12">
-                    <span className="absolute left-0 top-0 w-8 h-8 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-sm shadow-md shadow-slate-100 group-hover:scale-110 transition-transform">{update.icon}</span>
-                    <p className="text-[13px] font-bold text-slate-800 leading-relaxed tracking-tight">{update.text}</p>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 italic">{update.time}</p>
-                  </div>
-                )) : (
-                  <div className="pl-4 py-10 text-center">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No active feed records found</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>

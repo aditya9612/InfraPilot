@@ -22,7 +22,7 @@ export const authService = {
     if (mobile === "8080808080") {
       return { message: "Mock OTP sent successfully (use 123456)", mobile };
     }
-    const response = await api.post("/auth/login", { mobile });
+    const response = await api.post("auth/login", { mobile });
     return response.data;
   },
 
@@ -37,7 +37,7 @@ export const authService = {
         user_id: 999
       };
     }
-    const response = await api.post("/auth/verify_otp", { mobile, otp });
+    const response = await api.post("auth/verify_otp", { mobile, otp });
     return response.data;
   },
 
@@ -69,7 +69,7 @@ export const authService = {
     } catch (e) {
       console.error("Failed to parse user from localStorage in getMe", e);
     }
-    const response = await api.get("/users/me");
+    const response = await api.get("users/me");
     return response.data;
   },
 

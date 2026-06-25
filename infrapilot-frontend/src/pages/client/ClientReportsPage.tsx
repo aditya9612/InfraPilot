@@ -985,7 +985,7 @@ const ClientReportsPage = () => {
 
   return (
     <div className="bg-slate-50 min-h-screen font-inter pb-20 overflow-x-hidden">
-      <Navbar title="Project Transparency Portal" breadcrumb={["InfraPilot", "Client", "Reports"]} />
+      <Navbar title="Reports" breadcrumb={["InfraPilot", "Client", "Reports"]} />
 
       {/* PAGE HEADER */}
       <div className="max-w-[1440px] mx-auto px-6 md:px-10 pt-6">

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import Modal from "../common/Modal";
-import { Camera } from "lucide-react";
+import { Camera, MapPin, RefreshCcw, Loader2, Upload, X } from "lucide-react";
 import toast from "react-hot-toast";
 import type { CheckOutRequest } from "../../types/labour";
 
@@ -11,35 +10,40 @@ interface CheckOutModalProps {
     attendanceId: number;
 }
 
-const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModalProps) => {
-    const [formData, setFormData] = useState<CheckOutRequest>({
-        latitude: 18.5204,
-        longitude: 73.8567,
-        location_address: "",
-        resolved_address: "",
-        overtime_hours: 0,
-        overtime_rate: 200,
-        check_out_image: null,
-    });
+const CheckOutModal = ({ isOpen, onClose, onSubmit }: CheckOutModalProps) => {
+    const now = new Date();
 
-    useEffect(() => {
-        if (isOpen) {
-            captureGPS();
-        }
-    }, [isOpen]);
-
-    const [errors, setErrors] = useState<Record<string, string>>({});
-    const [isLoading, setIsLoading] = useState(false);
+    const [outTime, setOutTime] = useState(now.toISOString().slice(0, 16));
+    const [resolvedAddress, setResolvedAddress] = useState("");
+    const [latitude, setLatitude] = useState(0);
+    const [longitude, setLongitude] = useState(0);
     const [gpsStatus, setGpsStatus] = useState<"idle" | "capturing" | "captured" | "error">("idle");
+    const [workSummary, setWorkSummary] = useState("");
+    const [taskDeadlineReason, setTaskDeadlineReason] = useState("");
+    const [pdfFile, setPdfFile] = useState<File | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
     const [isPhotoCaptured, setIsPhotoCaptured] = useState(false);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen) {
+            // Reset form
+            setOutTime(new Date().toISOString().slice(0, 16));
+            setWorkSummary("");
+            setTaskDeadlineReason("");
+            setPdfFile(null);
+            setIsPhotoCaptured(false);
+            setCapturedImage(null);
+            setErrors({});
+            captureGPS();
             startCamera();
         } else {
             stopCamera();
@@ -49,33 +53,30 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModa
 
     const startCamera = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "user" } 
-            });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            if (videoRef.current) videoRef.current.srcObject = stream;
             streamRef.current = stream;
         } catch (err) {
-            toast.error("Camera access denied");
+            console.error("Camera access denied", err);
         }
     };
 
     const stopCamera = () => {
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current.getTracks().forEach(t => t.stop());
             streamRef.current = null;
         }
     };
 
     const capturePhoto = () => {
         if (videoRef.current && canvasRef.current) {
-            const context = canvasRef.current.getContext("2d");
-            if (context) {
+            const ctx = canvasRef.current.getContext("2d");
+            if (ctx) {
                 canvasRef.current.width = videoRef.current.videoWidth;
                 canvasRef.current.height = videoRef.current.videoHeight;
-                context.drawImage(videoRef.current, 0, 0);
-                const dataUrl = canvasRef.current.toDataURL("image/png");
+                ctx.drawImage(videoRef.current, 0, 0);
+                // Use JPEG — backend rejects PNG ("Invalid image type")
+                const dataUrl = canvasRef.current.toDataURL("image/jpeg", 0.85);
                 setCapturedImage(dataUrl);
                 setIsPhotoCaptured(true);
                 stopCamera();
@@ -83,58 +84,88 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModa
         }
     };
 
+    const retakePhoto = () => {
+        setIsPhotoCaptured(false);
+        setCapturedImage(null);
+        startCamera();
+    };
+
     const captureGPS = () => {
         setGpsStatus("capturing");
+        setResolvedAddress("");
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 async (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    setFormData(prev => ({ ...prev, latitude, longitude }));
-                    setGpsStatus("captured");
-                    
+                    const { latitude: lat, longitude: lng } = pos.coords;
+                    setLatitude(lat);
+                    setLongitude(lng);
                     try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
+                        const res = await fetch(
+                            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+                        );
                         const data = await res.json();
-                        const address = data.display_name || "";
-                        setFormData(prev => ({ 
-                            ...prev, 
-                            resolved_address: address,
-                            location_address: prev.location_address || address 
-                        }));
-                    } catch (err) {
-                        console.warn("Reverse Geocoding failed:", err);
+                        setResolvedAddress(data.display_name || "");
+                        setGpsStatus("captured");
+                    } catch {
+                        setGpsStatus("captured");
                     }
                 },
                 () => {
-                    setFormData(prev => ({ ...prev, latitude: 18.5204, longitude: 73.8567 }));
                     setGpsStatus("error");
-                    toast.error("GPS unavailable. Using default location.");
+                    toast.error("GPS access denied or unavailable.");
                 },
                 { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
             );
         } else {
-            setFormData(prev => ({ ...prev, latitude: 18.5204, longitude: 73.8567 }));
             setGpsStatus("error");
+        }
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file && file.type === "application/pdf") {
+            setPdfFile(file);
+        } else {
+            toast.error("Please upload a PDF file.");
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file && file.type === "application/pdf") {
+            setPdfFile(file);
+        } else if (file) {
+            toast.error("Please upload a PDF file.");
         }
     };
 
     const validate = () => {
         const errs: Record<string, string> = {};
-        if (formData.overtime_hours < 0) errs.overtime_hours = "Overtime cannot be negative";
-        if (formData.overtime_rate < 0) errs.overtime_rate = "Rate cannot be negative";
-        if (!capturedImage) errs.photo = "Identity verification (photo) is required";
-        
+        if (!workSummary.trim()) errs.workSummary = "Work summary is required";
+        if (!capturedImage) errs.photo = "Photo capture is required";
         setErrors(errs);
         return Object.keys(errs).length === 0;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         if (!validate()) return;
-        
         setIsLoading(true);
         try {
-            await onSubmit({ ...formData, check_out_image: capturedImage });
+            const payload: CheckOutRequest = {
+                latitude,
+                longitude,
+                location_address: resolvedAddress,
+                resolved_address: resolvedAddress,
+                overtime_hours: 0,
+                overtime_rate: 0,
+                remarks: workSummary,
+                work_summary: workSummary,
+                task_deadline_reason: taskDeadlineReason,
+                check_out_image: capturedImage,
+            };
+            await onSubmit(payload);
             onClose();
         } catch (err) {
             console.error(err);
@@ -143,185 +174,212 @@ const CheckOutModal = ({ isOpen, onClose, onSubmit, attendanceId }: CheckOutModa
         }
     };
 
+    if (!isOpen) return null;
+
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Site Personnel Check-Out"
-            maxWidth="max-w-4xl"
-        >
-            <div className="p-6 bg-slate-50/50 space-y-6 font-inter">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Camera Card */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center">
-                        <div className="w-full flex items-center justify-between mb-4 border-b border-slate-50 pb-2">
-                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Biometric Capture</h3>
-                            <div className="flex items-center gap-2 px-2 py-1 bg-rose-50 rounded-lg text-[9px] font-black text-rose-600 uppercase tracking-widest">
-                                <Camera className="w-3 h-3" />
-                                Live Feed
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto font-inter">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                    <h2 className="text-xl font-bold text-slate-800">Self Check-Out</h2>
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                <div className="px-6 pb-6 space-y-4">
+                    {/* Check-Out Details Section */}
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+                        <h3 className="text-sm font-bold text-slate-800">Check-Out Details</h3>
+
+                        {/* Out Time - Full Width */}
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                OUT TIME
+                            </label>
+                            <input
+                                type="datetime-local"
+                                value={outTime}
+                                onChange={e => setOutTime(e.target.value)}
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-rose-100 focus:border-rose-400 transition-all"
+                            />
+                        </div>
+
+                        {/* Check Out Address - Full Width */}
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                CHECK OUT ADDRESS
+                            </label>
+                            <div className="flex items-center gap-2 px-3 py-2.5 border border-slate-200 rounded-lg bg-slate-50">
+                                <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                                <span className="flex-1 text-sm text-slate-600 truncate">
+                                    {gpsStatus === "capturing"
+                                        ? "Fetching location..."
+                                        : gpsStatus === "error"
+                                            ? "Location unavailable"
+                                            : resolvedAddress || "Waiting for GPS..."}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={captureGPS}
+                                    className="text-rose-600 text-xs font-bold hover:text-rose-800 transition-colors flex items-center gap-1 shrink-0"
+                                >
+                                    {gpsStatus === "capturing"
+                                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                                        : <RefreshCcw className="w-3 h-3" />}
+                                    Refresh
+                                </button>
                             </div>
                         </div>
-                        
-                        <div className="w-full aspect-[4/3] bg-black rounded-2xl border-2 border-slate-100 shadow-inner overflow-hidden mb-6 relative flex items-center justify-center">
+
+                        {/* Work Summary - Full Width */}
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                WORK SUMMARY <span className="text-rose-500">*</span>
+                            </label>
+                            <textarea
+                                value={workSummary}
+                                onChange={e => setWorkSummary(e.target.value)}
+                                placeholder="Describe the work completed..."
+                                rows={4}
+                                className={`w-full px-3 py-2.5 border ${errors.workSummary ? "border-rose-300" : "border-slate-200"} rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-rose-100 focus:border-rose-400 transition-all resize-none placeholder:text-slate-300`}
+                            />
+                            {errors.workSummary && (
+                                <p className="text-[10px] text-rose-500 font-bold mt-1">{errors.workSummary}</p>
+                            )}
+                        </div>
+
+                        {/* Task Deadline Reason - Full Width */}
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                TASK DEADLINE REASON
+                            </label>
+                            <input
+                                type="text"
+                                value={taskDeadlineReason}
+                                onChange={e => setTaskDeadlineReason(e.target.value)}
+                                placeholder="If applicable, reason for task status..."
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none focus:ring-2 focus:ring-rose-100 focus:border-rose-400 transition-all placeholder:text-slate-300"
+                            />
+                        </div>
+
+                        {/* Work Report PDF Upload */}
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                WORK REPORT PDF
+                            </label>
+                            <div
+                                onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                                onDragLeave={() => setIsDragging(false)}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`w-full px-4 py-3 border-2 border-dashed ${isDragging ? "border-rose-400 bg-rose-50" : "border-slate-200 bg-white"} rounded-lg cursor-pointer transition-all hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center gap-2`}
+                            >
+                                <Upload className="w-4 h-4 text-slate-400" />
+                                <span className="text-sm text-slate-500">
+                                    {pdfFile ? (
+                                        <span className="font-semibold text-slate-700">{pdfFile.name}</span>
+                                    ) : (
+                                        "Choose PDF file or drag and drop"
+                                    )}
+                                </span>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="application/pdf"
+                                    className="hidden"
+                                    onChange={handleFileChange}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Camera Section */}
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                        {/* Video / Captured Image */}
+                        <div className="relative bg-black aspect-video flex items-center justify-center">
                             {!isPhotoCaptured ? (
-                                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover mirror" />
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    className="w-full h-full object-cover"
+                                    style={{ transform: "scaleX(-1)" }}
+                                />
                             ) : (
                                 <img src={capturedImage!} alt="captured" className="w-full h-full object-cover" />
                             )}
                             <canvas ref={canvasRef} className="hidden" />
-                            
+
+                            {/* Face oval guide (only when live) */}
                             {!isPhotoCaptured && (
-                                <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div
+                                        className="border-2 border-rose-500/70 rounded-full"
+                                        style={{ width: "160px", height: "200px" }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Live indicator */}
+                            {!isPhotoCaptured && (
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
                                     <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
-                                    <span className="text-[9px] text-white font-black uppercase tracking-widest">Recording</span>
+                                    <span className="text-white text-xs font-bold tracking-widest">LIVE</span>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-4 w-full">
+                        {/* Capture / Retake Button */}
+                        <div className="p-3">
                             {!isPhotoCaptured ? (
-                                <button 
+                                <button
+                                    type="button"
                                     onClick={capturePhoto}
-                                    className="w-full flex items-center justify-center gap-2 py-3.5 bg-rose-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95"
+                                    className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 text-white rounded-lg text-[11px] font-black uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95"
                                 >
                                     <Camera className="w-4 h-4" />
-                                    Capture Exit Photo
+                                    Capture Image
                                 </button>
                             ) : (
-                                <div className="flex items-center gap-3 w-full">
-                                    <button 
-                                        onClick={() => {
-                                            setIsPhotoCaptured(false);
-                                            setCapturedImage(null);
-                                            startCamera();
-                                        }} 
-                                        className="flex-1 py-3.5 bg-slate-100 text-slate-600 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
-                                    >
-                                        Retake
-                                    </button>
-                                    <button 
-                                        onClick={() => {
-                                            toast.success("Identity Verified!");
-                                        }} 
-                                        className="flex-1 py-3.5 bg-rose-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-rose-200 hover:bg-rose-700 transition-all active:scale-95"
-                                    >
-                                        Use Photo
-                                    </button>
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={retakePhoto}
+                                    className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 text-slate-700 rounded-lg text-[11px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+                                >
+                                    <RefreshCcw className="w-4 h-4" />
+                                    Retake
+                                </button>
+                            )}
+                            {errors.photo && (
+                                <p className="text-[10px] text-rose-500 font-bold mt-2 text-center">{errors.photo}</p>
                             )}
                         </div>
-                        {errors.photo && <p className="mt-3 text-[10px] text-rose-500 font-bold uppercase tracking-widest">{errors.photo}</p>}
-                    </div>
-
-                    {/* Form Card */}
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                        <div className="w-full flex items-center justify-between mb-4 border-b border-slate-50 pb-2">
-                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest">Exit Audit Trail</h3>
-                        </div>
-
-                        <form onSubmit={handleSubmit} className="space-y-5">
-                            <div className="space-y-1.5">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Attendance Ref *</label>
-                                <input 
-                                    readOnly 
-                                    value={`ATT-00${attendanceId}`}
-                                    className="w-full px-4 py-3 bg-slate-100 border border-slate-100 rounded-xl text-[11px] font-bold text-slate-500"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Overtime Hours *</label>
-                                    <input 
-                                        type="number" 
-                                        step="0.1"
-                                        placeholder="0.0"
-                                        value={formData.overtime_hours}
-                                        onChange={(e) => setFormData({...formData, overtime_hours: Number(e.target.value)})}
-                                        className={`w-full px-4 py-3 bg-slate-50 border ${errors.overtime_hours ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold`}
-                                    />
-                                    {errors.overtime_hours && <p className="text-[10px] text-rose-500 font-bold ml-1">{errors.overtime_hours}</p>}
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Overtime Rate (₹) *</label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="200"
-                                        value={formData.overtime_rate}
-                                        onChange={(e) => setFormData({...formData, overtime_rate: Number(e.target.value)})}
-                                        className={`w-full px-4 py-3 bg-slate-50 border ${errors.overtime_rate ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold`}
-                                    />
-                                    {errors.overtime_rate && <p className="text-[10px] text-rose-500 font-bold ml-1">{errors.overtime_rate}</p>}
-                                </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] ml-1">Site Location *</label>
-                                <input 
-                                    type="text" 
-                                    name="location_address"
-                                    value={formData.location_address}
-                                    onChange={(e) => setFormData({...formData, location_address: e.target.value})}
-                                    placeholder="Enter site location"
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-bold"
-                                />
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <div className="flex flex-col gap-3 w-full">
-                                    <div className="flex flex-col gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span className={`w-2.5 h-2.5 rounded-full ${gpsStatus === "captured" ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : gpsStatus === "capturing" ? "bg-amber-500 animate-pulse" : "bg-rose-500"}`}></span>
-                                                <span className="text-[10px] font-black text-slate-800 uppercase tracking-[0.1em]">GPS Status: {gpsStatus.toUpperCase()}</span>
-                                            </div>
-                                            <button type="button" onClick={captureGPS} className="text-rose-500 hover:text-rose-700 transition-colors font-black text-[10px] uppercase tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm">
-                                                Recapture
-                                            </button>
-                                        </div>
-                                        
-                                        {gpsStatus === "captured" && (
-                                            <div className="flex flex-col gap-2 mt-1 border-t border-slate-100 pt-2">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-100 flex-1">
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Latitude</p>
-                                                        <p className="text-xs font-black text-slate-700 tracking-tight">{formData.latitude.toFixed(6)}</p>
-                                                    </div>
-                                                    <div className="bg-white px-3 py-1.5 rounded-xl border border-slate-100 flex-1">
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Longitude</p>
-                                                        <p className="text-xs font-black text-slate-700 tracking-tight">{formData.longitude.toFixed(6)}</p>
-                                                    </div>
-                                                </div>
-                                                {formData.resolved_address && (
-                                                    <div className="bg-emerald-50/50 px-3 py-2.5 rounded-xl border border-emerald-100/50">
-                                                        <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Live Captured Address</p>
-                                                        <p className="text-[11px] font-bold text-slate-600 leading-relaxed italic-none">{formData.resolved_address}</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl">
-                                <p className="text-[10px] font-bold text-amber-800 leading-relaxed italic-none">
-                                    I hereby confirm my exit from the site and verify that the overtime hours logged above are accurate for today's deployment.
-                                </p>
-                            </div>
-
-                            <button 
-                                disabled={isLoading}
-                                type="submit"
-                                className="w-full py-4.5 bg-rose-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.25em] shadow-2xl shadow-rose-300 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50 mt-4"
-                            >
-                                {isLoading ? "Syncing Exit Logs..." : "Submit Exit Verification"}
-                            </button>
-                        </form>
                     </div>
                 </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={isLoading}
+                        className="px-8 py-2.5 bg-rose-600 text-white text-sm font-black uppercase tracking-wider rounded-lg shadow-lg shadow-rose-500/20 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                    >
+                        {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Submit Check-Out
+                    </button>
+                </div>
             </div>
-        </Modal>
+        </div>
     );
 };
 

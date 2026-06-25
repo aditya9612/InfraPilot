@@ -21,7 +21,7 @@ export const siteRequestService = {
      */
     async createRequest(data: CreateSiteRequest) {
         try {
-            const response = await api.post("/site-requests", data);
+            const response = await api.post("site-requests", data);
             return response.data;
         } catch (error: any) {
             if (error.response?.status === 403 || error.response?.status === 404 || error.response?.status === 500) {
@@ -45,7 +45,7 @@ export const siteRequestService = {
     async getRequests(projectId: number) {
         try {
             // Must pass project_id in params as backend strictly validates the query string
-            const response = await api.get("/site-requests", { params: { project_id: projectId } });
+            const response = await api.get("site-requests", { params: { project_id: projectId } });
             if (response.data && (Array.isArray(response.data) || response.data.items)) {
                 return Array.isArray(response.data) ? response.data : response.data.items;
             }
@@ -84,7 +84,7 @@ export const siteRequestService = {
      */
     async approveRequest(id: number | string) {
         try {
-            const response = await api.put(`/site-requests/${id}/approve`);
+            const response = await api.put(`site-requests/${id}/approve`);
             return response.data;
         } catch (error: any) {
             console.warn(`Virtual Success 200: Bypassing error for Site Request Approval`);
@@ -98,7 +98,7 @@ export const siteRequestService = {
      */
     async rejectRequest(id: number | string) {
         try {
-            const response = await api.put(`/site-requests/${id}/reject`);
+            const response = await api.put(`site-requests/${id}/reject`);
             return response.data;
         } catch (error: any) {
             console.warn(`Virtual Success 200: Bypassing error for Site Request Rejection`);
