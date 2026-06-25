@@ -1099,7 +1099,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
   return (
     <>
-    <div className="bg-white min-h-screen">
+      <div className="bg-white min-h-screen">
         <div className="max-w-[1600px] mx-auto flex flex-col gap-4 mb-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>

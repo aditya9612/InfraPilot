@@ -1036,6 +1036,7 @@ const DailyProgressEntryPage = () => {
         onClose={() => setIsLogModalOpen(false)}
         onSubmit={handleLogModalSubmit}
         activity={null}
+        activitiesList={activitiesList}
         engineerId={engineer_id}
       />
 

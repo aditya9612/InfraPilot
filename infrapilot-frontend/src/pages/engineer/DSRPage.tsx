@@ -47,7 +47,6 @@ const DSRPage = () => {
     const [statusFilter, setStatusFilter] = useState("All");
     const [projectId, setProjectId] = useState<number | null>(null);
 
-
     // Filter state for StatCards
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Draft" | "Submitted" | "Approved">("All");
     const [currentPage, setCurrentPage] = useState(1);
@@ -68,6 +67,36 @@ const DSRPage = () => {
     const [labourTrend, setLabourTrend] = useState<LabourTrend[]>([]);
     const [contractorAnalytics, setContractorAnalytics] = useState<ContractorAnalytics[]>([]);
     const [issueAnalytics, setIssueAnalytics] = useState<IssueAnalytics | null>(null);
+
+    // ─── Export Filter State ───────────────────────────────────────────────────
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportFilters, setExportFilters] = useState({ start_date: "", end_date: "", contractor_name: "" });
+    const [isExporting, setIsExporting] = useState(false);
+
+    const handleExport = async () => {
+        setIsExporting(true);
+        const toastId = toast.loading("Generating Excel report...");
+        try {
+            const params: { start_date?: string; end_date?: string; contractor_name?: string } = {};
+            if (exportFilters.start_date) params.start_date = exportFilters.start_date;
+            if (exportFilters.end_date) params.end_date = exportFilters.end_date;
+            if (exportFilters.contractor_name.trim()) params.contractor_name = exportFilters.contractor_name.trim();
+            await dsrService.exportDsrExcel(projectId || 92, params);
+            toast.success("Excel report exported!", { id: toastId });
+            setIsExportModalOpen(false);
+        } catch (err: any) {
+            console.error("DSR Export failed:", err);
+            if (err.response?.status === 404) {
+                toast.error("No DSR records found for selected filters.", { id: toastId });
+            } else {
+                toast.error("Export failed", { id: toastId });
+            }
+        } finally {
+            setIsExporting(false);
+        }
+    };
+    // ──────────────────────────────────────────────────────────────────────────
+
 
     const resolveProjectId = useCallback(() => {
         try {
@@ -106,28 +135,15 @@ const DSRPage = () => {
             const apiData = response.items.filter((item: any) => Number(item.project_id) === Number(projectId));
             setTotalItems(apiData.length);
 
-            // Resolve photos for each item
-            const itemsWithPhotos = await Promise.all(apiData.map(async (item: any) => {
-                let photos = item.photos?.map((p: any) => ({
+            // Use photos already included in the DSR list response
+            // (Removed per-item getDsrPhotos() calls that were causing N duplicate network requests)
+            const itemsWithPhotos = apiData.map((item: any) => {
+                const photos = item.photos?.map((p: any) => ({
                     id: p.id,
                     url: p.url || p.file_url
                 })) || [];
-
-                // Always fetch the latest photos from the dedicated API to guarantee synchronization
-                try {
-                    const extraPhotos = await dsrService.getDsrPhotos(item.id);
-                    if (extraPhotos && Array.isArray(extraPhotos) && extraPhotos.length > 0) {
-                        photos = extraPhotos.map((p: any) => ({
-                            id: p.id,
-                            url: p.url || p.file_url
-                        }));
-                    }
-                } catch (e) {
-                    console.warn(`Could not fetch photos for DSR ${item.id}`, e);
-                }
-
                 return { ...item, photos };
-            }));
+            });
 
             setDsrList(itemsWithPhotos);
         } catch (error) {
@@ -349,19 +365,7 @@ const DSRPage = () => {
                             <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
-                            onClick={() => {
-                                const toastId = toast.loading("Generating Excel report...");
-                                dsrService.exportDsrExcel(projectId || 92, {})
-                                    .then(() => toast.success("Excel report exported!", { id: toastId }))
-                                    .catch((err: any) => {
-                                        console.error("DSR Export failed:", err);
-                                        if (err.response?.status === 404) {
-                                            toast.error("No daily site reports found for this project.", { id: toastId });
-                                        } else {
-                                            toast.error("Export failed", { id: toastId });
-                                        }
-                                    });
-                            }}
+                            onClick={() => setIsExportModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95"
                         >
                             <FileDown className="w-4 h-4" />
@@ -1039,6 +1043,81 @@ const DSRPage = () => {
                 }}
                 dsr={selectedDsr}
             />
+
+            {/* ── Export Filter Modal ─────────────────────────────────────────── */}
+            {isExportModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">Export DSR to Excel</h2>
+                                <p className="text-xs text-slate-400 mt-0.5">Apply filters before downloading (all fields optional)</p>
+                            </div>
+                            <button
+                                onClick={() => setIsExportModalOpen(false)}
+                                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Start Date */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Start Date</label>
+                                <input
+                                    type="date"
+                                    value={exportFilters.start_date}
+                                    onChange={e => setExportFilters(f => ({ ...f, start_date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* End Date */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">End Date</label>
+                                <input
+                                    type="date"
+                                    value={exportFilters.end_date}
+                                    onChange={e => setExportFilters(f => ({ ...f, end_date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* Contractor Name */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Contractor Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Shree Construction"
+                                    value={exportFilters.contractor_name}
+                                    onChange={e => setExportFilters(f => ({ ...f, contractor_name: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all placeholder:text-slate-300"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setExportFilters({ start_date: "", end_date: "", contractor_name: "" });
+                                }}
+                                className="flex-1 px-4 py-2.5 text-sm font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors"
+                            >
+                                Clear Filters
+                            </button>
+                            <button
+                                onClick={handleExport}
+                                disabled={isExporting}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-emerald-200"
+                            >
+                                <FileDown className="w-4 h-4" />
+                                {isExporting ? "Exporting..." : "Download Excel"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

@@ -360,17 +360,22 @@ export const projectService = {
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
     try {
-      const response = await api.put(`/projects/${projectId}/tasks/${taskId}`, taskData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      // Auto-detect: FormData → multipart (for file/audio uploads), plain object → JSON
+      const isFormData = taskData instanceof FormData;
+      const response = await api.put(
+        `/projects/${projectId}/tasks/${taskId}`,
+        taskData,
+        isFormData
+          ? { headers: { "Content-Type": "multipart/form-data" } }
+          : { headers: { "Content-Type": "application/json" } }
+      );
       return response.data;
     } catch (error: any) {
       console.error(`Update Task ${taskId} API Error:`, error.response?.data || error.message);
       throw error;
     }
   },
+
 
   async updateTaskStatus(projectId: number, taskId: number, status: string) {
     try {
