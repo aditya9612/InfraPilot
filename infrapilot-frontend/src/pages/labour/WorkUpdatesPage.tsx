@@ -9,7 +9,6 @@ import {
     MapPin, 
     Send, 
     X,
-    Bold, Italic, Underline, List, ListOrdered, Undo, Redo,
     ChevronDown,
     FileText,
     History
@@ -218,18 +217,7 @@ const WorkUpdatesPage: React.FC = () => {
                         <div className="space-y-3">
                             <label className="text-sm font-bold text-slate-700">Work Description <span className="text-red-500">*</span></label>
                             <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:border-blue-400 transition-all">
-                                {/* Editor Toolbar */}
-                                <div className="flex items-center gap-1 p-2 bg-slate-50 border-b border-slate-200">
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Bold className="w-4 h-4" /></button>
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Italic className="w-4 h-4" /></button>
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Underline className="w-4 h-4" /></button>
-                                    <div className="w-px h-6 bg-slate-200 mx-2" />
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><List className="w-4 h-4" /></button>
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><ListOrdered className="w-4 h-4" /></button>
-                                    <div className="w-px h-6 bg-slate-200 mx-2" />
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Undo className="w-4 h-4" /></button>
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Redo className="w-4 h-4" /></button>
-                                </div>
+
                                 <textarea 
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value.slice(0, 1000))}

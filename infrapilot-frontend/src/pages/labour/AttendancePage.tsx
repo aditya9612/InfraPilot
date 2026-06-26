@@ -14,16 +14,22 @@ import { attendanceService, type AttendanceRecord, type TodayStatusResponse } fr
 import toast from 'react-hot-toast';
 import CheckInModal from '../../components/labour/CheckInModal';
 import CheckOutModal from '../../components/labour/CheckOutModal';
+import { useAuth } from '../../context/AuthContext';
+
 
 const AttendancePage: React.FC = () => {
+    const { user } = useAuth();
     const [currentTime, setCurrentTime] = useState(new Date());
-    const [historyFilter, setHistoryFilter] = useState('All');
+
+    const [historyFilter, setHistoryFilter] = useState('Today');
     const [statusData, setStatusData] = useState<TodayStatusResponse | null>(null);
     const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
     const [liveLocation, setLiveLocation] = useState<string | null>(null);
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -274,10 +280,27 @@ const AttendancePage: React.FC = () => {
                                     <p className="text-sm font-black text-slate-400 tracking-tight">Not Checked in Yet.</p>
                                 </div>
 
-                                <button className="w-full bg-[#0062ff] hover:bg-[#0056e0] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-blue-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] group/btn">
-                                    <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                                    Check In
-                                </button>
+                                {statusData?.checked_in && !statusData?.checked_out ? (
+                                    <button
+                                        onClick={() => setIsCheckOutModalOpen(true)}
+                                        className="w-full bg-rose-500 hover:bg-rose-600 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-rose-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] group/btn"
+                                    >
+                                        <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                                        Check Out
+                                    </button>
+                                ) : statusData?.checked_in && statusData?.checked_out ? (
+                                    <div className="w-full bg-emerald-50 border border-emerald-100 text-emerald-600 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] flex items-center justify-center gap-3">
+                                        ✓ Checked Out for Today
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setIsCheckInModalOpen(true)}
+                                        className="w-full bg-[#0062ff] hover:bg-[#0056e0] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-blue-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] group/btn"
+                                    >
+                                        <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                                        Check In
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -305,6 +328,25 @@ const AttendancePage: React.FC = () => {
                                             </button>
                                         ))}
                                     </div>
+                                    {/* Date range picker — shown only when Date filter is active */}
+                                    {historyFilter === 'Date' && (
+                                        <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3 px-5 w-fit mt-2">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">FROM</span>
+                                            <input
+                                                type="date"
+                                                value={dateFrom}
+                                                onChange={(e) => setDateFrom(e.target.value)}
+                                                className="bg-transparent text-[11px] font-black text-slate-700 focus:outline-none cursor-pointer"
+                                            />
+                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mx-1">TO</span>
+                                            <input
+                                                type="date"
+                                                value={dateTo}
+                                                onChange={(e) => setDateTo(e.target.value)}
+                                                className="bg-transparent text-[11px] font-black text-slate-700 focus:outline-none cursor-pointer"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -324,8 +366,21 @@ const AttendancePage: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {attendanceList.length > 0 ? (
-                                            attendanceList.map((record) => (
+                                        {(() => {
+                                            const today = new Date().toISOString().split('T')[0];
+                                            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                                            const filtered = attendanceList.filter(record => {
+                                                if (historyFilter === 'Today') return record.attendance_date === today;
+                                                if (historyFilter === 'Yesterday') return record.attendance_date === yesterday;
+                                                if (historyFilter === 'Date') {
+                                                    if (dateFrom && dateTo) return record.attendance_date >= dateFrom && record.attendance_date <= dateTo;
+                                                    if (dateFrom) return record.attendance_date >= dateFrom;
+                                                    if (dateTo) return record.attendance_date <= dateTo;
+                                                }
+                                                return true; // 'All'
+                                            });
+                                            return filtered.length > 0 ? (
+                                            filtered.map((record) => (
                                                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-600">
                                                         {record.attendance_date}
@@ -333,11 +388,12 @@ const AttendancePage: React.FC = () => {
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 uppercase">
-                                                                {record.full_name?.charAt(0) || 'L'}
+                                                                {(record.full_name || user?.name || 'L').charAt(0)}
                                                             </div>
-                                                            <span className="text-sm font-bold text-slate-700">{record.full_name || 'Labour'}</span>
+                                                            <span className="text-sm font-bold text-slate-700">{record.full_name || user?.name || 'Labour'}</span>
                                                         </div>
                                                     </td>
+
                                                     <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-500">
                                                         {/* Department Placeholder */}
                                                         Site Ops
@@ -385,7 +441,8 @@ const AttendancePage: React.FC = () => {
                                                     </div>
                                                 </td>
                                             </tr>
-                                        )}
+                                         );
+                                        })()}
                                     </tbody>
                                 </table>
                             </div>
