@@ -56,9 +56,9 @@ export const expenseService = {
    * Get expenses by project ID
    * GET /api/v1/expenses/project/{project_id}
    */
-  async getExpensesByProject(projectId: number): Promise<Expense[]> {
-    console.log(`[Network Tab Note] Fetching expenses using API: GET /api/v1/expenses/project/${projectId}`);
-    const response = await api.get(`/expenses/project/${projectId}`);
+  async getExpensesByProject(projectId: number, params?: any): Promise<Expense[]> {
+    console.log(`[Network Tab Note] Fetching expenses using API: GET /api/v1/expenses/project/${projectId}`, params);
+    const response = await api.get(`/expenses/project/${projectId}`, { params });
     return response.data;
   },
 

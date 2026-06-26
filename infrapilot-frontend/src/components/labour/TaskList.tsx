@@ -1,12 +1,14 @@
 import React from 'react';
-import { Clock, MoreVertical, Circle } from 'lucide-react';
+import { Clock, MoreVertical, Circle, Calendar } from 'lucide-react';
 
 interface Task {
     id: string;
+    project: string;
     name: string;
     status: 'Pending' | 'In Progress' | 'Completed' | 'Hold';
     priority: 'High' | 'Medium' | 'Low';
     startDate: string;
+    endDate: string;
     progress: number;
 }
 
@@ -49,11 +51,13 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                     <thead>
                         <tr className="bg-slate-50/50">
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Task ID</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Project Name</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Task Name</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Status</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 text-center">Priority</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Progress</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Start Date</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">End Date</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 text-right">Action</th>
                         </tr>
                     </thead>
@@ -68,6 +72,9 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                                 >
                                     <td className="px-8 py-6">
                                         <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{task.id}</span>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{task.project}</p>
                                     </td>
                                     <td className="px-8 py-6">
                                         <h3 className="text-sm font-bold text-slate-800 tracking-tight uppercase">{task.name}</h3>
@@ -100,6 +107,12 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                                         <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
                                             <Clock className="w-3.5 h-3.5 text-slate-300" />
                                             {task.startDate}
+                                        </div>
+                                    </td>
+                                    <td className="px-8 py-6">
+                                        <div className="flex items-center gap-2 text-[11px] font-bold text-blue-500 uppercase tracking-tight">
+                                            <Calendar className="w-3.5 h-3.5 text-blue-300" />
+                                            {task.endDate}
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-right">

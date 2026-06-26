@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { alertService, type Alert } from "../../services/alertService";
+import { notificationService } from "../../services/notificationService";
 import { projectService } from "../../services/projectService";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
@@ -24,64 +25,41 @@ const LabourNotificationsPage = () => {
                 pId = user.project_id || user.user?.project_id || 92;
             }
 
-            // Individual try-catches to prevent one failure from blocking all notifications
-            let generalData: Alert[] = [];
-            try { generalData = await alertService.getAlerts(); } catch (e) { console.error("General alerts fail", e); }
+            // Fetch from the requested high-level endpoint
+            const rawNotifications = await notificationService.getNotificationsOverview(50, 0);
 
-            let projectAlertsRaw: any[] = [];
-            try { projectAlertsRaw = await projectService.getProjectAlerts(); } catch (e) { console.error("Project alerts fail", e); }
-
-            let taskAlertsRaw: any[] = [];
-            try { taskAlertsRaw = await projectService.getTaskAlerts(); } catch (e) { console.error("Task alerts fail", e); }
-
-            // Map project alerts
-            const mappedProjectAlerts: Alert[] = projectAlertsRaw.map((p: any) => ({
-                id: `p-${p.project_id}`,
-                project_id: p.project_id,
-                alert_type: p.status || "Update",
-                message: p.project_name || "Project Update",
-                project_name: p.project_name,
-                end_date: p.end_date,
+            // Map standard notifications to the local Alert structure used by this page
+            const mapped: Alert[] = rawNotifications.map(n => ({
+                id: n.id,
+                project_id: pId, // Assume current project if not specified
+                alert_type: n.title || "Notification",
+                message: n.description || n.details || "",
                 user_id: 0,
-                status: 'active',
-                created_at: new Date().toISOString()
-            }));
+                status: n.read ? 'read' : 'active',
+                created_at: n.created_at || n.timestamp,
+                project_name: n.title // Use title as project name placeholder for UI display
+            })) as Alert[];
 
-            // Map task alerts
-            const mappedTaskAlerts: Alert[] = taskAlertsRaw.map((t: any) => ({
-                id: `t-${t.task_id}`,
-                project_id: t.project_id,
-                alert_type: t.status || "Task Alert",
-                message: t.title || "Task Alert",
-                project_name: t.project_name || "Task Assignment",
-                end_date: t.end_date,
-                start_date: t.start_date,
-                user_id: 0,
-                status: 'active',
-                created_at: new Date().toISOString()
-            }));
-
-            // Force injection of requested "Assigned Task" notification for demonstration
-            const demoTask: Alert = {
-                id: "t-demo-001",
-                project_id: pId,
-                alert_type: "Task Assigned",
-                message: "Plastering Work - Secondary Hall",
-                project_name: "Urban Heights Phase 2",
-                start_date: new Date().toISOString(),
-                end_date: new Date(Date.now() + 86400000 * 3).toISOString(),
-                user_id: 0,
-                status: 'active',
-                created_at: new Date().toISOString()
-            };
-
-            const combined = [...generalData, ...mappedProjectAlerts, ...mappedTaskAlerts, demoTask];
-
-            // Filter for labour's project
-            const filtered = combined.filter(a => Number(a.project_id) === Number(pId));
-            setAlerts(filtered);
+            // Force inject demo task if no data yet to ensure UI stability
+            if (mapped.length === 0) {
+                 const demoTask: Alert = {
+                    id: "t-demo-001",
+                    project_id: pId,
+                    alert_type: "Task Assigned",
+                    message: "Plastering Work - Secondary Hall",
+                    project_name: "Urban Heights Phase 2",
+                    start_date: new Date().toISOString(),
+                    end_date: new Date(Date.now() + 86400000 * 3).toISOString(),
+                    user_id: 0,
+                    status: 'active',
+                    created_at: new Date().toISOString()
+                };
+                setAlerts([demoTask]);
+            } else {
+                setAlerts(mapped);
+            }
         } catch (err) {
-            console.error("Failed to fetch alerts:", err);
+            console.error("Failed to fetch alerts from overview API:", err);
             toast.error("Connecting to notification server...");
         } finally {
             setLoading(false);
@@ -127,9 +105,9 @@ const LabourNotificationsPage = () => {
         const allowedTypes = [
             "Delay", "MaterialDelay", "Planning", "InProgress", "In Progress", "In-Progress",
             "Announcement", "NewAlert", "New Alert", "Safety", "Quality", "Material",
-            "Task", "Milestone", "Alert", "Warning", "Critical", "Info", "Approval", "Task Assigned"
+            "Task", "Milestone", "Alert", "Warning", "Critical", "Info", "Approval", "Task Assigned", "New Task Assigned"
         ];
-        return allowedTypes.some(t => a.alert_type.toLowerCase().replace(/[^a-z]/g, '') === t.toLowerCase().replace(/[^a-z]/g, ''));
+        return allowedTypes.some(t => a.alert_type.toLowerCase().trim() === t.toLowerCase().trim());
     });
 
     const filteredAlerts = displayableAlerts.filter(a => {

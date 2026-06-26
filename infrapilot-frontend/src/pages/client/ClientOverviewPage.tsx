@@ -121,16 +121,24 @@ const ClientOverviewPage = () => {
                   </div>
                 </div>
 
-                {/* Project Status & Type */}
+                {/* Project Status */}
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-lg shrink-0">🟢</div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status & Type</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Status</p>
                     <p className="text-sm font-bold text-slate-800">
-                      {projectData?.status || "—"}
-                      <span className="text-slate-400 font-medium ml-1">
-                        ({projectData?.type || "General Construction"})
-                      </span>
+                      {projectData?.status || "Ongoing"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Project Type */}
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-lg shrink-0">🏗️</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Type</p>
+                    <p className="text-sm font-bold text-slate-800">
+                      {projectData?.type || "RESIDENTIAL"}
                     </p>
                   </div>
                 </div>
@@ -204,18 +212,20 @@ const ClientOverviewPage = () => {
             ) : team.length === 0 ? (
               <div className="text-slate-400 text-xs font-bold py-4 tracking-widest uppercase">No specialized members assigned yet.</div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                {team.map((member, i) => (
-                  <div key={member.user_id || i} className="flex items-center gap-4 bg-slate-50/50 p-4 rounded-2xl border border-transparent hover:border-slate-100 transition-all group">
-                    <div className={`w-12 h-12 rounded-2xl ${getRoleColor(member.role)} text-white flex items-center justify-center text-sm font-black shadow-lg shadow-slate-100 group-hover:scale-110 transition-transform`}>
-                      {getInitials(member.full_name)}
+              <div className="max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                  {team.map((member, i) => (
+                    <div key={member.user_id || i} className="flex items-center gap-4 bg-slate-50/50 p-4 rounded-2xl border border-transparent hover:border-slate-100 transition-all group">
+                      <div className={`w-12 h-12 rounded-2xl ${getRoleColor(member.role)} text-white flex items-center justify-center text-sm font-black shadow-lg shadow-slate-100 group-hover:scale-110 transition-transform`}>
+                        {getInitials(member.full_name)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 tracking-tight">{member.full_name}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{member.role}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-black text-slate-800 tracking-tight">{member.full_name}</p>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{member.role}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -229,32 +239,34 @@ const ClientOverviewPage = () => {
           ) : milestones.length === 0 ? (
             <div className="text-slate-400 text-sm font-bold">No milestones recorded for this project.</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-              {milestones.map((milestone, i) => (
-                <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-4 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-full ${getStatusColor(milestone.status)} flex items-center justify-center text-white text-xs font-bold`}>
-                      {milestone.status?.toLowerCase() === "completed" ? "✓" : milestone.status?.toLowerCase() === "in progress" ? "●" : "○"}
+            <div className="max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                {milestones.map((milestone, i) => (
+                  <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-4 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-full ${getStatusColor(milestone.status)} flex items-center justify-center text-white text-xs font-bold`}>
+                        {milestone.status?.toLowerCase() === "completed" ? "✓" : milestone.status?.toLowerCase() === "in progress" ? "●" : "○"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{milestone.title || milestone.name}</p>
+                        {milestone.description && (
+                          <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 max-w-sm">{milestone.description}</p>
+                        )}
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">
+                          {milestone.start_date} – {milestone.end_date}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{milestone.title || milestone.name}</p>
-                      {milestone.description && (
-                        <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 max-w-sm">{milestone.description}</p>
-                      )}
-                      <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">
-                        {milestone.start_date} – {milestone.end_date}
-                      </p>
-                    </div>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${milestone.status?.toLowerCase() === "completed" ? "text-emerald-500" :
+                      milestone.status?.toLowerCase() === "in progress" ? "text-blue-500" :
+                        milestone.status?.toLowerCase() === "delayed" ? "text-red-500" :
+                          "text-slate-400"
+                      }`}>
+                      {getStatusText(milestone.status)}
+                    </span>
                   </div>
-                  <span className={`text-[10px] font-black uppercase tracking-widest ${milestone.status?.toLowerCase() === "completed" ? "text-emerald-500" :
-                    milestone.status?.toLowerCase() === "in progress" ? "text-blue-500" :
-                      milestone.status?.toLowerCase() === "delayed" ? "text-red-500" :
-                        "text-slate-400"
-                    }`}>
-                    {getStatusText(milestone.status)}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>

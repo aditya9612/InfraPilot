@@ -76,7 +76,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
           const mappedProjectAlerts = projectAlertsRaw.map((p: any) => ({
             id: `p-${p.project_id}`,
-            title: `Project ${p.status}`,
+            title: p.status,
             description: `${p.project_name} is currently ${p.status}.`,
             details: `Expected completion: ${p.end_date || 'N/A'}`,
             type: "Alert",
@@ -88,8 +88,8 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
 
           const mappedTaskAlerts = taskAlertsRaw.map((t: any) => ({
             id: `t-${t.task_id}`,
-            title: `Task: ${t.title}`,
-            description: `Status: ${t.status || 'Delayed'}`,
+            title: t.status || 'Delayed',
+            description: `Task: ${t.title}`,
             details: `Due: ${t.end_date || 'N/A'}`,
             type: "Alert",
             timestamp: new Date().toISOString(),
@@ -114,22 +114,27 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
             ...mappedTaskAlerts
           ];
 
+          // Filter by allowed alert types to match Announcements page list
+          const allowedTypes = [
+            "Delay", "MaterialDelay", "Planning", "InProgress", "In Progress", "In-Progress",
+            "Announcement", "NewAlert", "New Alert", "Safety", "Quality", "Material",
+            "Task", "Milestone", "Alert", "Warning", "Critical", "Info", "Approval"
+          ];
+
+          const filteredByType = combined.filter(a => {
+            // Check both the raw status/type and the display title
+            const typeValue = (a.title || "").toString().replace(/^Project\s+|Task:\s+/i, "");
+            return allowedTypes.some(t => 
+              typeValue.toLowerCase().replace(/[^a-z]/g, '') === t.toLowerCase().replace(/[^a-z]/g, '')
+            );
+          });
+
           data = projectId
-            ? combined.filter(a => Number(a.project_id) === Number(projectId))
-            : combined;
+            ? filteredByType.filter(a => Number(a.project_id) === Number(projectId))
+            : filteredByType;
         } else if (user.role === "Labour") {
-          const listRes = await notificationService.listNotifications(10, 0);
-          const rawItems = Array.isArray(listRes) ? listRes : (listRes.items || listRes.data || []);
-          data = rawItems.map((n: any) => ({
-            id: n.id,
-            title: n.title || "Notification",
-            description: n.description || n.message || "New update",
-            details: n.details || n.description || n.message || "",
-            type: n.type || "Info",
-            timestamp: n.timestamp || n.created_at || new Date().toISOString(),
-            read: !!(n.read || n.is_read || n.status === 'read'),
-            source: n.source || "general"
-          }));
+          // Use the unified overview endpoint for Labour to match the main notifications page
+          data = await notificationService.getNotificationsOverview();
         } else {
           data = await notificationService.getNotifications();
         }
@@ -281,21 +286,21 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
             {isNotificationOpen && (
               <div className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-1.5rem)] bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center font-inter">
-                  <h3 className="font-bold text-slate-800">Notifications</h3>
+                  <h3 className="font-black text-black uppercase tracking-widest text-[11px]">Notifications</h3>
                   {unreadCount > 0 && (
-                    <button onClick={markAllRead} className="text-[10px] font-bold text-primary hover:text-blue-700 transition-colors uppercase tracking-widest flex items-center gap-1">
-                      <CheckCheck className="w-3 h-3" /> Mark all read
+                    <button onClick={markAllRead} className="text-[10px] font-black text-slate-900 hover:text-black transition-colors uppercase tracking-widest flex items-center gap-1">
+                      <CheckCheck className="w-3.5 h-3.5" /> Mark all read
                     </button>
                   )}
                 </div>
                 <div className="max-h-80 overflow-y-auto font-inter">
                   {notifications.length > 0 ? notifications.map(notif => (
-                    <div key={notif.id} onClick={() => handleNotifClick(notif)} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${notif.read ? 'opacity-60' : 'bg-blue-50/30'}`}>
+                    <div key={notif.id} onClick={() => handleNotifClick(notif)} className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${notif.read ? 'opacity-80' : 'bg-blue-50/20'}`}>
                       <div className="flex justify-between items-start mb-1">
-                        <p className="text-sm font-bold text-slate-800">{notif.title}</p>
+                        <p className="text-sm font-black text-black tracking-tight">{notif.title}</p>
                         <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap ml-2">{new Date(notif.timestamp).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
-                      <p className="text-xs text-slate-500 line-clamp-2 font-medium">{notif.description}</p>
+                      <p className="text-xs text-slate-600 line-clamp-2 font-bold tracking-tight">{notif.description}</p>
                     </div>
                   )) : (
                     <div className="p-8 text-center text-slate-400 text-xs font-medium">No notifications</div>
@@ -311,7 +316,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
                           user?.role === "Labour" ? "/labour/notifications" : "/";
                       navigate(target);
                     }}
-                    className="w-full py-2 text-xs font-bold text-primary hover:text-blue-700 transition-colors"
+                    className="w-full py-2 text-[10px] font-black text-slate-900 hover:text-black transition-colors uppercase tracking-[0.2em]"
                   >
                     View All Notifications
                   </button>

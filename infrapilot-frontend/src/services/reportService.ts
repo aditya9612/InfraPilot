@@ -175,8 +175,9 @@ export const reportService = {
         return response.data;
     },
 
-    exportMaterialExcel: async (_projectId: number) => {
-        const response = await api.get(`/materials/reports/materials/excel`, {
+    exportMaterialExcel: async (projectId: number) => {
+        const response = await api.get(`/materials/reports/excel`, {
+            params: { project_id: projectId },
             responseType: 'blob'
         });
         return response.data;

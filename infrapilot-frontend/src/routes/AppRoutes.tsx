@@ -465,7 +465,7 @@ function AppRoutes() {
               <Route path="/labour" element={<LabourDashboard />} />
               <Route path="/labour/attendance" element={<LabourAttendancePageSelf />} />
               <Route path="/labour/tasks" element={<MyTasksPage />} />
-              <Route path="/labour/work-updates" element={<WorkUpdatesPage />} />
+              {/* <Route path="/labour/work-updates" element={<WorkUpdatesPage />} /> */}
               <Route path="/labour/task-requests" element={<TaskRequestsPage />} />
               <Route path="/labour/notifications" element={<LabourNotificationsPage />} />
               <Route path="/labour/payments" element={<PaymentsPage />} />

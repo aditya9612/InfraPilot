@@ -7,7 +7,8 @@ import {
     ChevronLeft,
     ChevronRight,
     FileSpreadsheet,
-    FileMinus
+    FileMinus,
+    Calendar
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/common/Navbar';
@@ -20,6 +21,7 @@ const PaymentsPage: React.FC = () => {
     const [startDate, setStartDate] = useState("2026-06-01");
     const [endDate, setEndDate] = useState("2026-06-30");
     const [recordsPerPage, setRecordsPerPage] = useState(20);
+    const [showDateFilter, setShowDateFilter] = useState(false);
 
     const userName = user?.name || 'Gopal Yadav';
 
@@ -50,15 +52,21 @@ const PaymentsPage: React.FC = () => {
                 if (startDate && d.date < startDate) return false;
                 if (endDate && d.date > endDate) return false;
                 return true;
-            }).map(d => ({
-                period: new Date(d.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-                ...d
-            }));
+            }).map(d => {
+                const dateObj = new Date(d.date);
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const month = months[dateObj.getMonth()];
+                return {
+                    period: `${day} ${month}`,
+                    ...d
+                };
+            });
         }
     }, [filterPeriod, startDate, endDate, basePayrollData]);
 
     const getStatusStyles = (status: string) => {
-        switch(status.toUpperCase()) {
+        switch (status.toUpperCase()) {
             case 'PAID':
             case 'ACTIVE':
                 return 'bg-emerald-50 text-emerald-600';
@@ -85,14 +93,14 @@ const PaymentsPage: React.FC = () => {
                 breadcrumb={['Labour', 'Human Resources', 'Payroll Reports']}
             />
             <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen font-inter pb-32">
-                
+
                 {/* Header Section */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div>
                         <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Fiscal Payroll Analysis</h1>
                         <p className="text-sm font-bold text-slate-400">Historical man-power costing and wage distribution trends.</p>
                     </div>
-                    <button 
+                    <button
                         onClick={() => toast.success("Downloading PDF Report...")}
                         className="bg-[#111827] hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all active:scale-95"
                     >
@@ -113,14 +121,14 @@ const PaymentsPage: React.FC = () => {
 
                 {/* Main Table Card */}
                 <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
-                    
+
                     {/* Filters Bar */}
                     <div className="p-8 border-b border-slate-50 flex flex-wrap items-center justify-between gap-6">
                         <div className="flex items-center gap-4">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">View Mode</span>
                             <div className="flex items-center gap-2">
                                 <div className="relative">
-                                    <select 
+                                    <select
                                         value={filterPeriod}
                                         onChange={(e) => setFilterPeriod(e.target.value)}
                                         className="appearance-none pl-6 pr-12 py-3 bg-white border border-slate-200 rounded-2xl text-[11px] font-black text-slate-700 uppercase tracking-widest focus:ring-2 focus:ring-indigo-500/20 outline-none cursor-pointer min-w-[200px]"
@@ -139,22 +147,52 @@ const PaymentsPage: React.FC = () => {
 
                         {/* Combined Date Filter Range */}
                         <div className="flex items-center gap-4 ml-auto">
-                            <div className="flex items-center gap-2 bg-slate-50 p-2 px-4 rounded-2xl border border-slate-100">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">FROM</span>
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="bg-transparent text-[11px] font-black text-slate-600 focus:outline-none cursor-pointer"
-                                />
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mx-1">TO</span>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="bg-transparent text-[11px] font-black text-slate-600 focus:outline-none cursor-pointer"
-                                />
-                            </div>
+                            <button 
+                                onClick={() => setShowDateFilter(!showDateFilter)}
+                                className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showDateFilter ? 'bg-[#111827] text-white shadow-lg' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Date
+                            </button>
+
+                            {showDateFilter && (
+                                <div className="flex items-center gap-2 bg-slate-50 p-2 px-4 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-right-4 duration-300">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">FROM</span>
+                                    <div className="relative group">
+                                        <span className="text-[11px] font-black text-slate-600 pointer-events-none">
+                                            {(() => {
+                                                const d = new Date(startDate);
+                                                const day = String(d.getDate()).padStart(2, '0');
+                                                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                                return `${day} ${months[d.getMonth()]}`;
+                                            })()}
+                                        </span>
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                        />
+                                    </div>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mx-1">TO</span>
+                                    <div className="relative group">
+                                        <span className="text-[11px] font-black text-slate-600 pointer-events-none">
+                                            {(() => {
+                                                const d = new Date(endDate);
+                                                const day = String(d.getDate()).padStart(2, '0');
+                                                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                                return `${day} ${months[d.getMonth()]}`;
+                                            })()}
+                                        </span>
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                             
                             <button 
                                 onClick={() => toast.success("Exporting Excel...")}
@@ -194,48 +232,48 @@ const PaymentsPage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                    {displayData.map((row, idx) => {
-                                        const dailyWage = (row as any).dailyWage || 0;
-                                        const otHours = (row as any).otHours || 0;
-                                        const earned = (row as any).totalEarned || (dailyWage + (otHours * (dailyWage / 8)));
-                                        
-                                        return (
-                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
-                                                <td className="px-10 py-6">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{row.period}</span>
-                                                </td>
-                                                <td className="px-10 py-6">
-                                                    <span className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-bold tracking-tight">
-                                                        {row.skill}
-                                                    </span>
-                                                </td>
-                                                <td className="px-10 py-6">
-                                                    <span className="text-sm font-black text-slate-700">₹{dailyWage}</span>
-                                                </td>
-                                                <td className="px-10 py-6 text-center">
-                                                    <span className="text-sm font-black text-slate-300">{otHours}h</span>
-                                                </td>
-                                                <td className="px-10 py-6">
-                                                    <span className="text-sm font-black text-emerald-500">₹{earned.toLocaleString()}</span>
-                                                </td>
-                                                <td className="px-10 py-6">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{(row as any).remarks}</span>
-                                                </td>
-                                                <td className="px-10 py-6 text-left">
-                                                    <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black tracking-widest ${getStatusStyles((row as any).status || '')}`}>
-                                                        {(row as any).status}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {displayData.length === 0 && (
-                                        <tr>
-                                            <td colSpan={7} className="px-10 py-20 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">
-                                                No records found
+                                {displayData.map((row, idx) => {
+                                    const dailyWage = (row as any).dailyWage || 0;
+                                    const otHours = (row as any).otHours || 0;
+                                    const earned = (row as any).totalEarned || (dailyWage + (otHours * (dailyWage / 8)));
+
+                                    return (
+                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-10 py-6">
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{row.period}</span>
+                                            </td>
+                                            <td className="px-10 py-6">
+                                                <span className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-bold tracking-tight">
+                                                    {row.skill}
+                                                </span>
+                                            </td>
+                                            <td className="px-10 py-6">
+                                                <span className="text-sm font-black text-slate-700">₹{dailyWage}</span>
+                                            </td>
+                                            <td className="px-10 py-6 text-center">
+                                                <span className="text-sm font-black text-slate-300">{otHours}h</span>
+                                            </td>
+                                            <td className="px-10 py-6">
+                                                <span className="text-sm font-black text-emerald-500">₹{earned.toLocaleString()}</span>
+                                            </td>
+                                            <td className="px-10 py-6">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{(row as any).remarks}</span>
+                                            </td>
+                                            <td className="px-10 py-6 text-left">
+                                                <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black tracking-widest ${getStatusStyles((row as any).status || '')}`}>
+                                                    {(row as any).status}
+                                                </span>
                                             </td>
                                         </tr>
-                                    )}
+                                    );
+                                })}
+                                {displayData.length === 0 && (
+                                    <tr>
+                                        <td colSpan={7} className="px-10 py-20 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">
+                                            No records found
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -245,7 +283,7 @@ const PaymentsPage: React.FC = () => {
                         <div className="flex items-center gap-3">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Records per page:</span>
                             <div className="relative">
-                                <select 
+                                <select
                                     value={recordsPerPage}
                                     onChange={(e) => setRecordsPerPage(Number(e.target.value))}
                                     className="appearance-none pl-4 pr-10 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-black text-slate-600 outline-none cursor-pointer"

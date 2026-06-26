@@ -289,7 +289,7 @@ return (
                                         <tr
                                             key={task.id}
                                             className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50 cursor-pointer"
-                                            onClick={() => navigate(`/labour/work-updates?taskId=${task.id}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.description.split('|')[0] || '')}`)}
+                                            onClick={() => navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.description.split('|')[0] || '')}`)}
                                         >
                                             <td className="px-8 py-6">
                                                 <div>
@@ -374,7 +374,7 @@ return (
                             {filteredTasks.map(task => (
                                 <div
                                     key={task.id}
-                                    onClick={() => navigate(`/labour/work-updates?taskId=${task.id}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.description.split('|')[0] || '')}`)}
+                                    onClick={() => navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.description.split('|')[0] || '')}`)}
                                     className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-50 transition-all cursor-pointer group flex flex-col justify-between"
                                 >
                                     <div className="space-y-4">

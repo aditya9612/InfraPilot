@@ -38,6 +38,7 @@ export const projectService = {
         return {
           ...p,
           id: p.project_id || p.id,
+          name: p.name || p.project_name || `Project ${p.project_id || p.id}`,
           status: normalizedStatus as any
         };
       });
@@ -453,10 +454,10 @@ export const projectService = {
    * Get work progress activities for a project and engineer
    * GET /api/v1/projects/work-progress/activities
    */
-  async getWorkProgressActivities(projectId: number, engineerId?: number) {
+  async getWorkProgressActivities(projectId: number, engineerId?: number, limit?: number, offset?: number) {
     try {
       const response = await api.get('work-progress/activities', {
-        params: { project_id: projectId, engineer_id: engineerId }
+        params: { project_id: projectId, engineer_id: engineerId, limit, offset }
       });
       const rawData = response.data;
 
