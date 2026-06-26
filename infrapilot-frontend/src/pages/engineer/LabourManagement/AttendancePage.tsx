@@ -77,6 +77,54 @@ const AttendancePage: React.FC = () => {
 
     const [selfAttendances, setSelfAttendances] = useState<any[]>([]);
 
+    // ─── Restore today's check-in state on page load / refresh ───────────────
+    const restoreTodayAttendanceState = async () => {
+        try {
+            const userId = user?.id;
+            const todayData = await labourService.getTodayStatus(userId);
+            const att = todayData?.attendance || todayData;
+
+            const parseTimeStr = (timeStr: string) => {
+                if (!timeStr || timeStr === "--:--" || timeStr === "null") return null;
+                try {
+                    if (timeStr.includes('T')) return new Date(timeStr);
+                    const d = new Date();
+                    if (timeStr.includes('PM') || timeStr.includes('AM')) {
+                        const [time, period] = timeStr.split(' ');
+                        let [hours, minutes] = time.split(':');
+                        let h = parseInt(hours);
+                        if (period === 'PM' && h !== 12) h += 12;
+                        if (period === 'AM' && h === 12) h = 0;
+                        d.setHours(h, parseInt(minutes), 0, 0);
+                    } else {
+                        const [h, m, s] = timeStr.split(':');
+                        d.setHours(parseInt(h) || 0, parseInt(m) || 0, parseInt(s) || 0, 0);
+                    }
+                    return d;
+                } catch { return null; }
+            };
+
+            if (att && att.in_time && att.in_time !== "--:--") {
+                const parsedIn = parseTimeStr(att.in_time);
+                const parsedOut = parseTimeStr(att.out_time);
+                if (parsedOut) {
+                    setAttendanceState("CHECKED_OUT");
+                    if (parsedIn) setCheckInTime(parsedIn);
+                    setCheckOutTime(parsedOut);
+                } else if (parsedIn) {
+                    setAttendanceState("CHECKED_IN");
+                    setCheckInTime(parsedIn);
+                }
+            } else {
+                setAttendanceState("NOT_CHECKED_IN");
+            }
+        } catch (err) {
+            console.warn("getTodayStatus failed, falling back to NOT_CHECKED_IN:", err);
+            setAttendanceState("NOT_CHECKED_IN");
+        }
+    };
+    // ─────────────────────────────────────────────────────────────────────────
+
     const fetchSelfAttendances = async () => {
         try {
             const getActiveProjectId = () => {
@@ -91,7 +139,6 @@ const AttendancePage: React.FC = () => {
             };
 
             const activeProjectId = getActiveProjectId();
-            // Assuming project_id=1 as per user request
             let fromDate: string | null = null;
             let toDate: string | null = null;
             const today = new Date().toISOString().split('T')[0];
@@ -115,7 +162,7 @@ const AttendancePage: React.FC = () => {
 
             const data = await labourService.getAttendanceList(activeProjectId, fromDate || undefined, toDate || undefined);
             
-            // Filter out other labourers, only keep self attendance
+            // Filter only this engineer's own records
             const allItems = data.items || [];
             const userIdNum = user?.id ? Number(user.id) : null;
             const filteredItems = allItems.filter((item: any) => 
@@ -125,54 +172,18 @@ const AttendancePage: React.FC = () => {
             );
             
             setSelfAttendances(filteredItems);
-            // Check today's status to update UI state across reloads
-            const todayRecord = filteredItems.find((item: any) => item.attendance_date === today);
-            
-            const parseTimeStr = (timeStr: string) => {
-                if (!timeStr || timeStr === "--:--") return null;
-                if (timeStr.includes('T')) return new Date(timeStr);
-                
-                const d = new Date();
-                if (timeStr.includes('PM') || timeStr.includes('AM')) {
-                    const [time, period] = timeStr.split(' ');
-                    let [hours, minutes] = time.split(':');
-                    let h = parseInt(hours);
-                    if (period === 'PM' && h !== 12) h += 12;
-                    if (period === 'AM' && h === 12) h = 0;
-                    d.setHours(h, parseInt(minutes), 0, 0);
-                } else {
-                    const [h, m, s] = timeStr.split(':');
-                    d.setHours(parseInt(h) || 0, parseInt(m) || 0, parseInt(s) || 0, 0);
-                }
-                return d;
-            };
-            
-            if (todayRecord) {
-                const parsedIn = parseTimeStr(todayRecord.in_time);
-                const parsedOut = parseTimeStr(todayRecord.out_time);
-                
-                if (parsedOut) {
-                    setAttendanceState("CHECKED_OUT");
-                    if (parsedIn) setCheckInTime(parsedIn);
-                    setCheckOutTime(parsedOut);
-                } else if (parsedIn) {
-                    setAttendanceState("CHECKED_IN");
-                    setCheckInTime(parsedIn);
-                } else {
-                    setAttendanceState("NOT_CHECKED_IN");
-                }
-            } else {
-                setAttendanceState("NOT_CHECKED_IN");
-            }
         } catch (error) {
             console.error("Failed to fetch self attendances", error);
         }
     };
 
+    // On mount: restore today's state from API (persists across refresh)
     useEffect(() => {
+        restoreTodayAttendanceState();
+    }, []);
 
+    useEffect(() => {
         fetchSelfAttendances();
-
     }, [historyFilter, historyDateInput]);
 
     const paginatedHistory = selfAttendances.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage);

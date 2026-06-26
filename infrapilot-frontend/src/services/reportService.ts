@@ -135,10 +135,11 @@ export const reportService = {
         });
         return response.data;
     },
-    exportMaterialPDF: async (_projectId: number) => {
-        const url = `/materials/reports/materials/pdf`;
-        console.log(`Calling Material Export: GET ${url}`);
+    exportMaterialPDF: async (projectId: number) => {
+        const url = `/materials/reports/pdf`;
+        console.log(`Calling Material Export: GET ${url} with project_id=${projectId}`);
         const response = await api.get(url, {
+            params: { project_id: projectId },
             responseType: 'blob'
         });
         return response.data;
@@ -176,7 +177,8 @@ export const reportService = {
     },
 
     exportMaterialExcel: async (projectId: number) => {
-        const response = await api.get(`/materials/reports/excel`, {
+        const url = `/materials/reports/excel`;
+        const response = await api.get(url, {
             params: { project_id: projectId },
             responseType: 'blob'
         });

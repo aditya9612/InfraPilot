@@ -762,14 +762,15 @@ export const labourService = {
 
     /**
      * Export Attendance Excel
-     * GET /api/v1/labour/attendance/export?project_id=1
+     * GET /api/v1/labour/attendance/export?project_id=1&from_date=...&to_date=...
+     * Note: Swagger requires from_date & to_date (NOT start_date/end_date)
      */
     async exportAttendanceExcel(projectId: number | string, fromDate?: string, toDate?: string) {
         const today = new Date().toISOString().split('T')[0];
         const params = {
-            project_id: projectId,
-            start_date: fromDate || today,
-            end_date: toDate || today
+            project_id: Number(projectId),
+            from_date: fromDate || today,
+            to_date: toDate || today
         };
         console.log("GET /api/v1/labour/attendance/export Request Params:", params);
         const response = await api.get("labour/attendance/export", {

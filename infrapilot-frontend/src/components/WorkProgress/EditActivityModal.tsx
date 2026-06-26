@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { ActivityItem, UpdateActivityRequest } from "../../types/workProgress";
 import { masterService } from "../../services/masterService";
+import { projectService } from "../../services/projectService";
 
 interface EditActivityModalProps {
   isOpen: boolean;
@@ -9,6 +10,16 @@ interface EditActivityModalProps {
   onSubmit: (id: number, data: UpdateActivityRequest) => Promise<void>;
   activity: ActivityItem | null;
 }
+
+const uniqueById = (arr: any[]) => {
+  const seen = new Set();
+  return arr.filter(item => {
+    const id = item.id || item.user_id || item.name;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
 
 
 const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivityModalProps) => {
@@ -19,19 +30,38 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
     unit: "Cum",
     start_date: "",
     end_date: "",
-    status: "NOT_STARTED"
+    status: "NOT_STARTED",
+    engineer_id: undefined
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [unitList, setUnitList] = useState<any[]>([]);
+  const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen) {
-        masterService.getEntities("units")
-            .then(res => setUnitList(Array.isArray(res) ? res : []))
-            .catch(err => console.error("Failed to fetch units", err));
+      masterService.getEntities("units")
+        .then(res => setUnitList(uniqueById(Array.isArray(res) ? res : [])))
+        .catch(err => console.error("Failed to fetch units", err));
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && activity?.project_id) {
+      projectService.getProjectMembers(activity.project_id)
+        .then(mems => {
+          const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
+          const engineers = memberList.filter((m: any) =>
+            (m.role === 'SiteEngineer' || m.role?.name === 'SiteEngineer' || m.user?.role === 'SiteEngineer')
+          ).map((m: any) => ({
+            id: m.user_id || m.id || m.user?.id,
+            name: m.full_name || m.name || m.user?.full_name || `Engineer #${m.user_id || m.id}`
+          }));
+          setSiteEngineers(uniqueById(engineers));
+        })
+        .catch(err => console.error("Failed to fetch site engineers", err));
+    }
+  }, [isOpen, activity?.project_id]);
 
   useEffect(() => {
     if (activity) {
@@ -41,7 +71,8 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
         unit: activity.unit,
         start_date: activity.start_date,
         end_date: activity.end_date,
-        status: activity.status
+        status: activity.status,
+        engineer_id: activity.engineer_id
       });
     }
   }, [activity]);
@@ -60,7 +91,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
 
     if (!formData.start_date) errs.start_date = "Start date is required";
     if (!formData.end_date) errs.end_date = "End date is required";
-    
+
     if (formData.start_date && formData.end_date && new Date(formData.start_date) > new Date(formData.end_date)) {
       errs.end_date = "End date cannot be before start date";
     }
@@ -86,18 +117,18 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
+
     if (name === "activity_name" && /[0-9]/.test(value)) {
-        setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in activity name" }));
-        return;
+      setErrors(prev => ({ ...prev, [name]: "Numbers are not allowed in activity name" }));
+      return;
     }
 
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
-        setErrors(prev => {
-            const { [name]: _, ...rest } = prev;
-            return rest;
-        });
+      setErrors(prev => {
+        const { [name]: _, ...rest } = prev;
+        return rest;
+      });
     }
   };
 
@@ -140,7 +171,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={labelClasses}>Activity Name*</label>
-              <input 
+              <input
                 required type="text" name="activity_name"
                 className={inputClasses(errors.activity_name)}
                 value={formData.activity_name} onChange={handleChange}
@@ -159,10 +190,10 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Provisioned Quantity*</label>
-              <input 
+              <input
                 required type="number" name="planned_quantity" min="0" step="any"
                 className={inputClasses(errors.planned_quantity)}
-                value={formData.planned_quantity} onChange={e => setFormData({...formData, planned_quantity: Number(e.target.value)})}
+                value={formData.planned_quantity} onChange={e => setFormData({ ...formData, planned_quantity: Number(e.target.value) })}
               />
               {errors.planned_quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.planned_quantity}</p>}
             </div>
@@ -172,6 +203,35 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
                 <option value="">Select Unit</option>
                 {unitList.map(u => <option key={u.id || u.name} value={u.name}>{u.name}</option>)}
               </select>
+            </div>
+          </div>
+
+          {/* Assignment Section */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+            <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
+              Re-Assignment
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optional</span>
+            </h3>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className={labelClasses}>Assigned Site Engineer</label>
+                <select
+                  name="engineer_id"
+                  className={inputClasses()}
+                  value={formData.engineer_id || ""}
+                  onChange={(e) => setFormData({ ...formData, engineer_id: Number(e.target.value) || undefined })}
+                >
+                  <option value="">No Assignment (Select to Assign)</option>
+                  {siteEngineers.map(eng => (
+                    <option key={eng.id} value={eng.id}>
+                      {eng.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] text-slate-400 font-medium ml-1 italic font-inter">
+                  Update the engineer responsible for this activity.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -184,7 +244,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Mobilization Date*</label>
-              <input 
+              <input
                 required type="date" name="start_date" className={inputClasses(errors.start_date)}
                 value={formData.start_date} onChange={handleChange}
               />
@@ -192,7 +252,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
             </div>
             <div>
               <label className={labelClasses}>Estimated Completion*</label>
-              <input 
+              <input
                 required type="date" name="end_date" className={inputClasses(errors.end_date)}
                 value={formData.end_date} onChange={handleChange}
               />

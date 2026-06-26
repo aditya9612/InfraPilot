@@ -16,13 +16,16 @@ import {
     X,
     User,
     Users,
-    UserCheck
+    UserCheck,
+    Building2,
+    FileSpreadsheet
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import labourService from '../../../services/labourService';
 import CheckInModal from '../../../components/attendance/CheckInModal';
 import CheckOutModal from '../../../components/attendance/CheckOutModal';
+import { useProject } from '../../../context/ProjectContext';
 
 const LOCAL_CONTRACTOR_MAP: Record<number, string> = {
     1: "string",
@@ -39,6 +42,7 @@ const LOCAL_CONTRACTOR_MAP: Record<number, string> = {
 
 // Removed AttendanceState
 const LabourAttendancePage: React.FC = () => {
+    const { selectedProject, selectedProjectId: contextProjectId } = useProject();
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
 
     // Geolocation state (removed unused locationAddress)
@@ -92,15 +96,21 @@ const LabourAttendancePage: React.FC = () => {
     const [empDurationFilter, setEmpDurationFilter] = useState("Today");
 
     // History Quick Filter & Pagination
-    const [historyFilter] = useState<"Today" | "Yesterday" | "All" | "Date">("Today");
-    const [historyDateInput] = useState("");
     const [isExporting, setIsExporting] = useState(false);
+
+    // ─── Export Filter Modal State ────────────────────────────────────────────
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportFromDate, setExportFromDate] = useState("");
+    const [exportToDate, setExportToDate] = useState("");
+    // ─────────────────────────────────────────────────────────────────────────
 
     const [labourAttendances, setLabourAttendances] = useState<any[]>([]);
     const [dashboardStats, setDashboardStats] = useState({ total_labour: 0, present: 0 });
     const [contractorMap] = useState<Record<number, string>>(LOCAL_CONTRACTOR_MAP);
 
     const getActiveProjectId = () => {
+        // Prefer ProjectContext value, fallback to localStorage
+        if (contextProjectId) return contextProjectId;
         try {
             const userStr = localStorage.getItem("infrapilot_user");
             if (userStr) {
@@ -109,6 +119,18 @@ const LabourAttendancePage: React.FC = () => {
             }
         } catch (e) { }
         return 92;
+    };
+
+    const getActiveProjectName = () => {
+        if (selectedProject?.project_name) return selectedProject.project_name;
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const parsed = JSON.parse(userStr);
+                return parsed.user?.project_name || parsed.project_name || `Project #${getActiveProjectId()}`;
+            }
+        } catch (e) { }
+        return `Project #${getActiveProjectId()}`;
     };
 
     const fetchLabourAttendances = async () => {
@@ -222,48 +244,25 @@ const LabourAttendancePage: React.FC = () => {
     const handleExport = async () => {
         setIsExporting(true);
         try {
-            const getActiveProjectId = () => {
-                try {
-                    const userStr = localStorage.getItem("infrapilot_user");
-                    if (userStr) {
-                        const parsed = JSON.parse(userStr);
-                        return parsed.user?.project_id || parsed.project_id || 92;
-                    }
-                } catch (e) { }
-                return 92;
-            };
-
             const activeProjectId = getActiveProjectId();
-            let fromDate = "";
-            let toDate = "";
             const today = new Date().toISOString().split('T')[0];
-
-            if (historyFilter === 'Today') {
-                fromDate = today;
-                toDate = today;
-            } else if (historyFilter === 'Yesterday') {
-                const y = new Date();
-                y.setDate(y.getDate() - 1);
-                const yStr = y.toISOString().split('T')[0];
-                fromDate = yStr;
-                toDate = yStr;
-            } else if (historyFilter === 'Date' && historyDateInput) {
-                fromDate = historyDateInput;
-                toDate = historyDateInput;
-            }
+            const fromDate = exportFromDate || today;
+            const toDate = exportToDate || today;
 
             const toastId = toast.loading("Generating Export...");
-            const blob = await labourService.exportAttendanceExcel(activeProjectId, fromDate || undefined, toDate || undefined);
+            const blob = await labourService.exportAttendanceExcel(activeProjectId, fromDate, toDate);
 
             const url = window.URL.createObjectURL(new Blob([blob]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Attendance_Report_${fromDate || today}_to_${toDate || today}.xlsx`);
+            link.setAttribute('download', `Attendance_Report_${fromDate}_to_${toDate}.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
             toast.dismiss(toastId);
             toast.success("Attendance report downloaded successfully!");
+            setIsExportModalOpen(false);
         } catch (error) {
             console.error("Failed to export attendance report", error);
             toast.dismiss();
@@ -272,6 +271,7 @@ const LabourAttendancePage: React.FC = () => {
             setIsExporting(false);
         }
     };
+
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentDateTime(new Date()), 60000);
@@ -367,8 +367,18 @@ const LabourAttendancePage: React.FC = () => {
 
 
     const filteredLabourAttendances = labourAttendances.filter(lab => {
-        // We can add logic to filter API data if it returned those fields, 
-        // for now just basic text search
+        // Date-based filtering: ensure records match the selected duration
+        const today = new Date().toISOString().split('T')[0];
+        if (empDurationFilter === 'Today') {
+            if (lab.attendance_date && lab.attendance_date !== today) return false;
+        } else if (empDurationFilter === 'Current Month') {
+            const date = new Date();
+            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
+            if (lab.attendance_date && (lab.attendance_date < monthStart || lab.attendance_date > monthEnd)) return false;
+        }
+
+        // Text search
         if (empSearch) {
             const searchLower = empSearch.toLowerCase();
             return (lab.labour_name && lab.labour_name.toLowerCase().includes(searchLower)) ||
@@ -376,6 +386,7 @@ const LabourAttendancePage: React.FC = () => {
         }
         return true;
     });
+
 
     return (
         <>
@@ -393,11 +404,29 @@ const LabourAttendancePage: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3 font-inter">
                         <button
-                            onClick={handleExport}
-                            disabled={isExporting}
-                            className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter w-fit disabled:opacity-70 disabled:cursor-not-allowed">
-                            <Download className={`w-4 h-4 ${isExporting ? 'animate-bounce' : ''}`} />
-                            {isExporting ? "Exporting..." : "Export Report"}
+                            onClick={() => {
+                                // Pre-fill with current duration filter dates
+                                const today = new Date().toISOString().split('T')[0];
+                                if (empDurationFilter === 'Today') {
+                                    setExportFromDate(today);
+                                    setExportToDate(today);
+                                } else if (empDurationFilter === 'Current Month') {
+                                    const d = new Date();
+                                    setExportFromDate(new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]);
+                                    setExportToDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]);
+                                } else if (empDurationFilter === 'Last Month') {
+                                    const d = new Date();
+                                    setExportFromDate(new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().split('T')[0]);
+                                    setExportToDate(new Date(d.getFullYear(), d.getMonth(), 0).toISOString().split('T')[0]);
+                                } else {
+                                    setExportFromDate(today);
+                                    setExportToDate(today);
+                                }
+                                setIsExportModalOpen(true);
+                            }}
+                            className="flex items-center justify-center gap-2 px-6 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95 font-inter w-fit">
+                            <Download className="w-4 h-4" />
+                            Export Report
                         </button>
                     </div>
                 </div>
@@ -939,6 +968,96 @@ const LabourAttendancePage: React.FC = () => {
                 )}
             </Modal>
 
+            {/* ── Export Filter Modal ─────────────────────────────────────────── */}
+            {isExportModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">Export Attendance Report</h2>
+                                <p className="text-xs text-slate-400 mt-0.5">Select date range to download Excel (all fields required)</p>
+                            </div>
+                            <button
+                                onClick={() => setIsExportModalOpen(false)}
+                                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Project Name Display (read-only) */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+                                    Project
+                                </label>
+                                <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-100 rounded-xl">
+                                    <Building2 className="w-4 h-4 text-blue-500 shrink-0" />
+                                    <span className="text-sm font-bold text-blue-800 truncate">
+                                        {getActiveProjectName()}
+                                    </span>
+                                </div>
+                            </div>
+                            {/* From Date */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+                                    From Date <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={exportFromDate}
+                                    onChange={e => setExportFromDate(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* To Date */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+                                    To Date <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    value={exportToDate}
+                                    onChange={e => setExportToDate(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* Preview summary */}
+                            {exportFromDate && exportToDate && (
+                                <div className="flex items-start gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                                    <FileSpreadsheet className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                                    <p className="text-[11px] text-emerald-700 font-medium">
+                                        Excel report for <strong>{getActiveProjectName()}</strong> from <strong>{exportFromDate}</strong> to <strong>{exportToDate}</strong> will be downloaded.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    const today = new Date().toISOString().split('T')[0];
+                                    setExportFromDate(today);
+                                    setExportToDate(today);
+                                }}
+                                className="flex-1 px-4 py-2.5 text-sm font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors"
+                            >
+                                Reset to Today
+                            </button>
+                            <button
+                                onClick={handleExport}
+                                disabled={isExporting || !exportFromDate || !exportToDate}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-emerald-200"
+                            >
+                                <Download className="w-4 h-4" />
+                                {isExporting ? "Downloading..." : "Download Excel"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

@@ -122,34 +122,38 @@ const MaterialReceiptPage = () => {
     const [poForm, setPoForm] = useState<Partial<PurchaseOrder>>({});
 
     // Fetch Methods
-    const fetchMaterials = async () => {
+    const fetchMaterials = async (pId: number = projectId) => {
         setIsLoading(true);
-        try { const data = await materialService.listMaterials(projectId, 0, 500); setMaterials(data); }
+        try { 
+            const data = await materialService.listMaterials(pId, 0, 500); 
+            // Sort by id descending so newest is first
+            setMaterials(data.sort((a: any, b: any) => (b.id || b.material_id || 0) - (a.id || a.material_id || 0))); 
+        }
         catch (e) { toast.error("Failed to load materials"); }
         finally { setIsLoading(false); }
     };
 
-    const fetchSuppliers = async () => {
+    const fetchSuppliers = async (pId: number = projectId) => {
         setIsLoading(true);
-        try { const data = await materialService.getSuppliers(projectId); setSuppliers(data); }
+        try { const data = await materialService.getSuppliers(pId); setSuppliers(data); }
         catch (e) { toast.error("Failed to load suppliers"); }
         finally { setIsLoading(false); }
     };
 
-    const fetchPOs = async () => {
+    const fetchPOs = async (pId: number = projectId) => {
         setIsLoading(true);
-        try { const data = await materialService.listPurchaseOrders(projectId, 0, 500); setPurchaseOrders(data); }
+        try { const data = await materialService.listPurchaseOrders(pId, 0, 500); setPurchaseOrders(data); }
         catch (e) { toast.error("Failed to load POs"); }
         finally { setIsLoading(false); }
     };
 
-    const fetchDashboard = async () => {
+    const fetchDashboard = async (pId: number = projectId) => {
         setIsLoading(true);
         try {
             const [sum, val, al] = await Promise.all([
-                materialService.getMaterialSummary(projectId),
-                materialService.getInventoryValuation(projectId),
-                materialService.getMaterialAlerts(200, projectId)
+                materialService.getMaterialSummary(pId),
+                materialService.getInventoryValuation(pId),
+                materialService.getMaterialAlerts(200, pId)
             ]);
             setSummary(sum);
             setInventoryValue(val.total_value);
@@ -160,10 +164,10 @@ const MaterialReceiptPage = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-        if (activeTab === "Materials") { fetchMaterials(); fetchSuppliers(); fetchDashboard(); }
-        else if (activeTab === "Suppliers") fetchSuppliers();
-        else if (activeTab === "Purchase Orders") { fetchPOs(); fetchSuppliers(); fetchMaterials(); }
-        else if (activeTab === "Dashboard") fetchDashboard();
+        if (activeTab === "Materials") { fetchMaterials(projectId); fetchSuppliers(projectId); fetchDashboard(projectId); }
+        else if (activeTab === "Suppliers") fetchSuppliers(projectId);
+        else if (activeTab === "Purchase Orders") { fetchPOs(projectId); fetchSuppliers(projectId); fetchMaterials(projectId); }
+        else if (activeTab === "Dashboard") fetchDashboard(projectId);
     }, [activeTab, projectId]);
 
     // Derived Data
@@ -444,7 +448,7 @@ const MaterialReceiptPage = () => {
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                 <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                             </div>
-                            <button onClick={activeTab === "Materials" ? fetchMaterials : activeTab === "Suppliers" ? fetchSuppliers : fetchPOs} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                            <button onClick={() => activeTab === "Materials" ? fetchMaterials(projectId) : activeTab === "Suppliers" ? fetchSuppliers(projectId) : fetchPOs(projectId)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                         </div>
                         <div className="flex-1 overflow-auto scrollbar-thin">
                             <table className="w-full text-left whitespace-nowrap">

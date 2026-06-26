@@ -198,10 +198,8 @@ export const quotationService = {
      */
     async convertToInvoice(id: number, projectId: number, contractorId: number): Promise<any> {
         try {
-            const response = await api.post(`/quotations/${id}/convert-to-invoice`, { 
-                quotation_id: id,
-                project_id: projectId,
-                contractor_id: contractorId
+            const response = await api.post(`/quotations/${id}/convert-to-invoice`, { quotation_id: id }, {
+                params: { project_id: projectId, contractor_id: contractorId }
             });
             return response.data;
         } catch (error: any) {
@@ -216,10 +214,8 @@ export const quotationService = {
      */
     async convertToWorkOrder(id: number, projectId: number, contractorId: number): Promise<any> {
         try {
-            const response = await api.post(`/quotations/${id}/convert-to-work-order`, {
-                quotation_id: id,
-                project_id: projectId,
-                contractor_id: contractorId
+            const response = await api.post(`/quotations/${id}/convert-to-work-order`, { quotation_id: id }, {
+                params: { project_id: projectId, contractor_id: contractorId }
             });
             return response.data;
         } catch (error: any) {

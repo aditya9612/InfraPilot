@@ -342,6 +342,7 @@ const InventoryPage = () => {
         const payload = {
           quantity: data.quantity,
           project_id: data.project_id || material.project_id,
+          task_id: data.task_id || 0,
           issue_type: data.issue_type || "SITE"
         };
         const updatedMaterial = await materialService.recordUsage(material.id, payload);
@@ -369,7 +370,7 @@ const InventoryPage = () => {
         // Also create a formal PO record so it appears in the "Orders" tab
         try {
           await materialService.createPurchaseOrder({
-            supplier_id: material.supplier_id,
+            supplier_id: Number(data.supplier_id) || material.supplier_id,
             project_id: payload.project_id,
             material_id: material.id,
             quantity: payload.quantity,
@@ -980,6 +981,8 @@ const InventoryPage = () => {
         onSubmit={handlePurchaseAction}
         actionType={purchaseActionConfig.type}
         material={purchaseActionConfig.material}
+        projects={projectList}
+        suppliers={suppliers}
       />
       {/* Passing inventory strictly styled as what TransferMaterial expects or reformatted locally */}
       <TransferMaterialModal

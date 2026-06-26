@@ -1235,7 +1235,11 @@ const MachineryPage = () => {
                         <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between mb-6">
                             <div>
                                 <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-0.5">Allocation Status</p>
-                                <p className="text-sm font-bold text-blue-900">{allocationStatus.allocated ? `Allocated to Project ${allocationStatus.project_id}` : 'Available in Yard'}</p>
+                                <p className="text-sm font-bold text-blue-900">
+                                    {allocationStatus.allocated 
+                                        ? `Allocated to ${projects.find(p => Number(p.id) === Number(allocationStatus.project_id))?.project_name || projects.find(p => Number(p.id) === Number(allocationStatus.project_id))?.name || `Project ${allocationStatus.project_id}`}` 
+                                        : 'Available in Yard'}
+                                </p>
                             </div>
                             {allocationStatus.allocated ? <Link2 className="w-5 h-5 text-blue-500" /> : <ShieldCheck className="w-5 h-5 text-emerald-500" />}
                         </div>

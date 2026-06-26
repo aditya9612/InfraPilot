@@ -12,6 +12,7 @@ import { projectService } from "../../services/projectService";
 import { financeService } from "../../services/financeService";
 import type { Project, ProjectStatus } from "../../types/project";
 import SortDropdown from "../../components/common/SortDropdown";
+import ConvertQuotationModal from "../../components/dashboard/ConvertQuotationModal";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
@@ -64,6 +65,7 @@ const ProjectsPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
   const [activities, setActivities] = useState<any[]>([]);
+  const [showConvertModal, setShowConvertModal] = useState(false);
 
   // Edit State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -81,40 +83,29 @@ const ProjectsPage = () => {
       const statusParam = filterStatus === "All" ? "" : (backendStatusMap[filterStatus] || "");
       console.log(`Fetching projects with filterStatus="${filterStatus}", statusParam="${statusParam}"`);
 
-      const [pRes, allRes, pAlerts, tAlerts, invoices] = await Promise.all([
-        projectService.getProjects(100, 0, debouncedSearch, statusParam),
-        projectService.getProjects(100, 0),
+      let projectList: Project[] = [];
+      let fullList: Project[] = [];
+
+      if (user?.role === "ProjectManager") {
+        // Use optimized fast-path for PMs - this handles assignment filtering internally with concurrency limits
+        const assignedRes = await projectService.getAssignedProjects(Number(user.id));
+        projectList = assignedRes;
+        fullList = assignedRes;
+      } else {
+        // Admin or other roles: use standard fetching
+        const [pRes, allRes] = await Promise.all([
+          projectService.getProjects(100, 0, debouncedSearch, statusParam),
+          projectService.getProjects(100, 0),
+        ]);
+        projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
+        fullList = Array.isArray(allRes) ? allRes : (allRes.items || allRes.data || []);
+      }
+
+      const [pAlerts, tAlerts, invoices] = await Promise.all([
         projectService.getProjectAlerts().catch(() => []),
         projectService.getTaskAlerts().catch(() => []),
         financeService.getInvoices(50, 0).catch(() => [])
       ]);
-
-      let projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
-      let fullList = Array.isArray(allRes) ? allRes : (allRes.items || allRes.data || []);
-
-      if (user?.role === "ProjectManager") {
-        try {
-          const memberChecks = await Promise.all(
-            fullList.map(async (p: any) => {
-              const mems = await projectService.getProjectMembers(p.id).catch(() => []);
-              const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
-              const isAssigned = memberList.some((m: any) =>
-                String(m.user_id) === String(user.id) ||
-                String(m.user?.id) === String(user.id) ||
-                String(m.userId) === String(user.id)
-              );
-              return { id: p.id, isAssigned };
-            })
-          );
-          const assignedIds = new Set(memberChecks.filter(c => c.isAssigned).map(c => c.id));
-          if (assignedIds.size > 0) {
-            projectList = projectList.filter((p: any) => assignedIds.has(p.id));
-            fullList = fullList.filter((p: any) => assignedIds.has(p.id));
-          }
-        } catch (err) {
-          console.error("Failed to filter assigned projects:", err);
-        }
-      }
 
       setProjects(projectList);
       setAllProjects(fullList);
@@ -317,6 +308,15 @@ const ProjectsPage = () => {
             >
               Download CSV
             </button>
+            {user?.role !== "ProjectManager" && (
+              <button
+                onClick={() => setShowConvertModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all active:scale-95"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M7 7h10v10" /><path d="M7 17 17 7" /></svg>
+                <span>Convert Quotation</span>
+              </button>
+            )}
             {user?.role !== "ProjectManager" && (
               <button
                 onClick={() => setShowForm(true)}
@@ -740,6 +740,12 @@ const ProjectsPage = () => {
           message="Are you sure you want to delete this project? This will permanently remove all associated data including tasks and finance records."
           confirmText="Delete"
           type="danger"
+        />
+
+        <ConvertQuotationModal
+          isOpen={showConvertModal}
+          onClose={() => setShowConvertModal(false)}
+          onSuccess={fetchProjects}
         />
       </PageTransition>
     </>
