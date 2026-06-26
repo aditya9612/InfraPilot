@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
+import { useAuth } from "../../context/AuthContext";
 
 interface AddActivityModalProps {
   isOpen: boolean;
@@ -15,9 +16,18 @@ import { boqService } from "../../services/boqService";
 import api from "../../services/api";
 import { masterService } from "../../services/masterService";
 
-const STATUSES = ["NOT_STARTED", "ON_TRACK", "DELAY", "COMPLETED"];
+const uniqueById = (arr: any[]) => {
+  const seen = new Set();
+  return arr.filter(item => {
+    const id = item.id || item.boq_id || item.user_id || item.boq_code;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
 
 const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: AddActivityModalProps) => {
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -29,11 +39,13 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     start_date: "",
     end_date: "",
     status: "NOT_STARTED",
-    work_order_id: "" as any
+    work_order_id: "" as any,
+    engineer_id: "" as any
   });
 
   const [allBoqs, setAllBoqs] = useState<any[]>([]);
   const [allWorkOrders, setAllWorkOrders] = useState<any[]>([]);
+  const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
   const [unitList, setUnitList] = useState<any[]>([]);
 
   useEffect(() => {
@@ -42,16 +54,22 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
       const fetchAllData = async () => {
         try {
-          const res = await projectService.getProjects(100, 0);
-          const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
-          setProjects(projectsList);
+          let projectsList = [];
+          if (user?.role === "ProjectManager") {
+            projectsList = await projectService.getAssignedProjects(Number(user.id));
+          } else {
+            const res = await projectService.getProjects(100, 0);
+            projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+          }
+          setProjects(uniqueById(projectsList));
         } catch (err) {
           console.error("Failed to fetch projects", err);
         }
 
         try {
           const boqs = await boqService.getBoqs({ limit: 100 });
-          setAllBoqs(Array.isArray(boqs.items) ? boqs.items : []);
+          const items = Array.isArray(boqs.items) ? boqs.items : [];
+          setAllBoqs(uniqueById(items));
         } catch (err) {
           console.error("Failed to fetch all BOQs", err);
           setAllBoqs([]);
@@ -60,7 +78,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
 
         try {
           const woRes = await api.get(`/work-orders`).catch(() => ({ data: [] }));
-          setAllWorkOrders(Array.isArray(woRes.data) ? woRes.data : (woRes.data.items || []));
+          const items = Array.isArray(woRes.data) ? woRes.data : (woRes.data.items || []);
+          setAllWorkOrders(uniqueById(items));
         } catch (err) {
           console.error("Failed to fetch all Work Orders", err);
           setAllWorkOrders([]);
@@ -77,6 +96,33 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
       fetchAllData();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    const fetchEngineersForProject = async () => {
+      const targetProjectId = Number(formData.project_id) || projectId;
+      if (!targetProjectId) return;
+
+      try {
+        const mems = await projectService.getProjectMembers(targetProjectId);
+        const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
+        // Filter for SiteEngineers
+        const engineers = memberList.filter((m: any) =>
+          (m.role === 'SiteEngineer' || m.role?.name === 'SiteEngineer' || m.user?.role === 'SiteEngineer')
+        ).map((m: any) => ({
+          id: m.user_id || m.id || m.user?.id,
+          name: m.full_name || m.name || m.user?.full_name || `Engineer #${m.user_id || m.id}`
+        }));
+        setSiteEngineers(uniqueById(engineers));
+      } catch (err) {
+        console.error("Failed to fetch site engineers", err);
+        setSiteEngineers([]);
+      }
+    };
+
+    if (isOpen) {
+      fetchEngineersForProject();
+    }
+  }, [formData.project_id, isOpen, projectId]);
 
   const displayedBoqs = allBoqs;
   const displayedWorkOrders = allWorkOrders;
@@ -99,9 +145,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
       errs.planned_quantity = "Planned quantity must be greater than 0";
     }
 
-    if (!formData.work_order_id) {
-      errs.work_order_id = "Work Order ID is required";
-    } else if (formData.work_order_id <= 0) {
+    if (formData.work_order_id && formData.work_order_id <= 0) {
       errs.work_order_id = "Work Order ID must be greater than 0";
     }
 
@@ -124,10 +168,10 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
       await onSubmit({
         ...formData,
         project_id: Number(formData.project_id) || projectId,
-        engineer_id: engineerId,
         planned_quantity: Number(formData.planned_quantity),
         boq_code: formData.boq_code ? Number(formData.boq_code) : null,
-        work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null
+        work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null,
+        engineer_id: formData.engineer_id ? Number(formData.engineer_id) : (engineerId || null)
       });
       setFormData({
         project_id: "",
@@ -138,7 +182,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         start_date: "",
         end_date: "",
         status: "NOT_STARTED",
-        work_order_id: "" as any
+        work_order_id: "" as any,
+        engineer_id: "" as any
       });
       setErrors({});
     } catch (err) {
@@ -244,9 +289,8 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               </select>
             </div>
             <div>
-              <label className={labelClasses}>Work Order ID*</label>
+              <label className={labelClasses}>Work Order</label>
               <select
-                required
                 name="work_order_id"
                 className={inputClasses(errors.work_order_id)}
                 value={formData.work_order_id}
@@ -255,17 +299,40 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                 <option value="">Select Work Order</option>
                 {displayedWorkOrders.map(w => (
                   <option key={w.id} value={w.id}>
-                    {w.title || w.work_order_no || `Work Order`}
+                    {w.title || w.work_order_no || "Work Order"}
                   </option>
                 ))}
               </select>
               {errors.work_order_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.work_order_id}</p>}
             </div>
-            <div className="md:col-span-2">
-              <label className={labelClasses}>Current Status*</label>
-              <select name="status" className={inputClasses()} value={formData.status} onChange={handleChange}>
-                {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </div>
+        </div>
+
+        {/* Assignment Section */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center justify-between">
+            Assignment
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optional</span>
+          </h3>
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className={labelClasses}>Assign Site Engineer</label>
+              <select
+                name="engineer_id"
+                className={inputClasses()}
+                value={formData.engineer_id}
+                onChange={handleChange}
+              >
+                <option value="">No Assignment (Select to Assign)</option>
+                {siteEngineers.map(eng => (
+                  <option key={eng.id} value={eng.id}>
+                    {eng.name}
+                  </option>
+                ))}
               </select>
+              <p className="mt-1 text-[10px] text-slate-400 font-medium ml-1 italic font-inter">
+                Assign this activity to a specific site engineer for execution tracking.
+              </p>
             </div>
           </div>
         </div>

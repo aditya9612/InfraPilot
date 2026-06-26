@@ -1140,7 +1140,8 @@ const SidebarItem = ({
         item.path === "/engineer" ||
         item.path === "/contractor" ||
         item.path === "/accountant" ||
-        item.path === "/client"
+        item.path === "/client" ||
+        item.path === "/labour"
       }
       onClick={onClose}
       className={({ isActive: baseActive }) => {

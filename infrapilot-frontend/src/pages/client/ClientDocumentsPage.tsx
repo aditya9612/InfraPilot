@@ -285,24 +285,26 @@ const ClientDocumentsPage = () => {
 
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
-          <div>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight">
-              {currentFolderName ? `Vault: ${currentFolderName}` : "Engineering Document Vault"}
-            </h1>
-            <p className="text-slate-400 font-medium mt-1 text-sm tracking-tight">
-              Centralized repository for structural blueprints and technical revisions.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {currentFolderId && (
               <button
                 onClick={handleBack}
-                className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-slate-900 hover:border-slate-100 transition-all shadow-sm active:scale-95"
-                title="Back to Documents"
+                className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-slate-900 hover:shadow-md transition-all active:scale-90"
+                title="Back to Root Vault"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
               </button>
             )}
+            <div>
+              <h1 className="text-4xl font-black text-slate-800 tracking-tight">
+                {currentFolderName ? `Vault: ${currentFolderName}` : "Engineering Document Vault"}
+              </h1>
+              <p className="text-slate-400 font-medium mt-1 text-sm tracking-tight">
+                Centralized repository for structural blueprints and technical revisions.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
             <button
               onClick={fetchDrawingHistory}
               className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-slate-900 hover:border-slate-100 transition-all shadow-sm active:scale-95"

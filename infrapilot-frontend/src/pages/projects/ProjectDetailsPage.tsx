@@ -4,6 +4,7 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { projectService } from "../../services/projectService";
 import { sitePhotoService } from "../../services/sitePhotoService";
+import { expenseService } from "../../services/expenseService";
 import type { Project } from "../../types/project";
 import KanbanBoard from "../../components/projects/KanbanBoard";
 import MilestoneTimeline from "../../components/projects/MilestoneTimeline";
@@ -28,7 +29,7 @@ const ProjectDetailsPage = () => {
 
   // State for tabs
   const [activeTab, setActiveTab] = useState<
-    "Overview" | "Schedule" | "Members" | "Progress" | "Profit & Loss" | "Photos" | "Logs"
+    "Overview" | "Milestones" | "Members" | "Tasks" | "Profit & Loss" | "Photos" | "Logs"
   >(initialTab);
 
   // State for data
@@ -83,7 +84,7 @@ const ProjectDetailsPage = () => {
       // Stage 2: Load secondary data modules in parallel
       // We don't await this entire block before showing the page
       const loadSecondaryData = async () => {
-        const [mData, msData, tData, sData, prData, plData, phData, lData] = await Promise.all([
+        const [mData, msData, tData, sData, prData, plData, phData, lData, eData] = await Promise.all([
           projectService.getProjectMembers(projectId).catch((err) => {
             console.warn("Members Load Failure:", err);
             return [];
@@ -101,6 +102,10 @@ const ProjectDetailsPage = () => {
           projectService.getProjectProfitLoss(projectId).catch(() => null),
           sitePhotoService.getPhotos({ project_id: projectId }).catch(() => ({ items: [] })),
           projectService.getProjectLogs(projectId).catch(() => []),
+          expenseService.getExpensesByProject(projectId).catch((err) => {
+            console.warn("Project Expenses Load Failure:", err);
+            return [];
+          }),
         ]);
 
         // Process Members
@@ -130,11 +135,19 @@ const ProjectDetailsPage = () => {
         setPhotos(normalizedPhotos);
         setLogs(normalizedLogs);
 
-        // Fallback or process expenses if plData contains them (demo items handled by component)
-        // If plData has a list of items, we would use it here.
-        if (plData && plData.expenses) {
-          _setExpenses(plData.expenses);
-        }
+        // Process granular expenses with normalization for the table
+        const rawExpenses = Array.isArray(eData) ? eData : [];
+        const mappedExpenses = rawExpenses.map((ex: any) => ({
+          ...ex,
+          id: ex.id,
+          date: ex.expense_date || ex.date || new Date().toISOString(),
+          category: ex.category || "Other",
+          amount: Number(ex.amount) || 0,
+          description: ex.description || "No description",
+          status: ex.status || (ex.payment_mode ? "Paid" : "Pending")
+        }));
+
+        _setExpenses(mappedExpenses);
       };
 
       loadSecondaryData();
@@ -450,7 +463,7 @@ const ProjectDetailsPage = () => {
         {/* Tabs Navigation */}
         <div className="flex border-b border-slate-200 mb-8 overflow-x-auto no-scrollbar">
           {(
-            ["Overview", "Schedule", "Members", "Progress", "Profit & Loss", "Photos", "Logs"] as const
+            ["Overview", "Milestones", "Members", "Tasks", "Profit & Loss", "Photos", "Logs"] as const
           ).map((tab) => (
             <button
               key={tab}
@@ -614,12 +627,12 @@ const ProjectDetailsPage = () => {
             </div>
           )}
 
-          {activeTab === "Progress" && (
-            <div className="space-y-6 h-[calc(100vh-280px)] overflow-y-auto">
+          {activeTab === "Tasks" && (
+            <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Calculated Completion</p>
-                  <p className="text-2xl font-black text-primary">{progress?.completion_percentage || displayProgress}%</p>
+                  <p className="text-2xl font-black text-primary">{(progress?.completion_percentage || displayProgress).toFixed(2)}%</p>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status</p>
@@ -643,7 +656,7 @@ const ProjectDetailsPage = () => {
             </div>
           )}
 
-          {activeTab === "Schedule" && (
+          {activeTab === "Milestones" && (
             <div className="space-y-6 w-full">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">

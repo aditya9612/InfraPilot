@@ -131,8 +131,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                     {/* Description */}
                     <section>
                         <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.2em] mb-4">Description</h3>
-                        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-sm text-slate-600 leading-relaxed italic">
-                            "{task.description}"
+                        <div className={`bg-slate-50 p-6 rounded-3xl border border-slate-100 text-sm text-slate-600 leading-relaxed ${(task.description === 'ffghj' || !task.description) ? 'font-medium' : 'italic'}`}>
+                            {(task.description === 'ffghj' || !task.description) ? 'NA' : task.description}
                         </div>
                     </section>
 

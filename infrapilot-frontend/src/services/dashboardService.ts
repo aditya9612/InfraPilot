@@ -17,62 +17,6 @@ export interface ClientDashboardData {
   days_remaining: number;
 }
 
-export interface ClientCommandCenterData {
-  project: {
-    id: number;
-    name: string;
-    status: string;
-    start_date: string;
-    end_date: string;
-    days_remaining: number;
-  };
-  summary: {
-    overall_progress: number;
-    budget_total: number;
-    total_expense: number;
-    remaining_budget: number;
-    budget_used_percent: number;
-    tasks: {
-      completed: number;
-      pending: number;
-      total: number;
-    };
-    milestones: {
-      completed: number;
-      total: number;
-    };
-  };
-  work_progress: {
-    progress_percent: number;
-    current_task: string | null;
-    task_description: string | null;
-    task_status: string | null;
-    last_completed: string | null;
-    upcoming: string | null;
-  };
-  live_execution_feed: {
-    id: number;
-    action: string;
-    entity: string;
-    created_at: string;
-  }[];
-  cost_management_audit: any[];
-  project_health: {
-    status: string;
-    overall_progress: number;
-    budget_health: string;
-    schedule_health: string;
-    task_completion_rate: number;
-    budget_used_percent: number;
-  };
-}
-
-export interface EnterpriseDashboardResponse {
-  success: boolean;
-  message: string;
-  data: ClientCommandCenterData;
-}
-
 export interface AdminDashboardData {
   project_overview: {
     total: number;
@@ -136,17 +80,6 @@ export const dashboardService = {
    */
   async getClientDashboard(projectId: number): Promise<ClientDashboardData> {
     const response = await api.get<ClientDashboardData>(`/dashboard/client`, {
-      params: { project_id: projectId }
-    });
-    return response.data;
-  },
-
-  /**
-   * Get Client Command Center stats (Enterprise Dashboard)
-   * GET /api/v1/dashboard/client-command-center
-   */
-  async getClientCommandCenter(projectId: number): Promise<EnterpriseDashboardResponse> {
-    const response = await api.get<EnterpriseDashboardResponse>(`/dashboard/client-command-center`, {
       params: { project_id: projectId }
     });
     return response.data;

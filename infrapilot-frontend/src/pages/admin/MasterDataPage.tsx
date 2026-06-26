@@ -9,7 +9,7 @@ import CreateActivityModal from "../../components/forms/CreateActivityModal";
 import CreateUnitModal from "../../components/forms/CreateUnitModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
-import { Eye, Edit2, Trash2 } from "lucide-react";
+import { Eye, Trash2 } from "lucide-react";
 import MasterDataDetailsModal from "../../components/dashboard/MasterDataDetailsModal";
 import { masterService } from "../../services/masterService";
 import type { MasterEntity, MasterStats } from "../../services/masterService";
@@ -60,10 +60,29 @@ const MasterDataPage = () => {
         "Unit": "UNIT"
       };
 
-      const tag = activeTab === "All" ? "" : tagMap[activeTab];
-      // Note: Backend might already filter active records by default.
-      // We'll fetch all and filter in frontend if needed, or pass a param if supported.
-      const data = await masterService.getAllMasterData(searchTerm, tag);
+      const endpointMap: Record<string, "units" | "labour-types" | "activity-types" | "materials"> = {
+        "Material": "materials",
+        "Labour": "labour-types",
+        "Activity": "activity-types",
+        "Unit": "units"
+      };
+
+      let data: MasterEntity[] = [];
+
+      if (activeTab !== "All" && endpointMap[activeTab]) {
+        // Fetch from specific endpoint for full details
+        const rawData = await masterService.getEntities(endpointMap[activeTab], searchTerm);
+        // Ensure system_tag is present as modal logic depends on it
+        data = rawData.map(item => ({
+          ...item,
+          system_tag: tagMap[activeTab]
+        }));
+      } else {
+        // Fetch from generic list
+        const tag = activeTab === "All" ? "" : tagMap[activeTab];
+        data = await masterService.getAllMasterData(searchTerm, tag);
+      }
+
       setItems(data);
 
       // Always fetch stats to keep counters fresh

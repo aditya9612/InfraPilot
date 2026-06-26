@@ -261,7 +261,7 @@ const ClientSettingsPage = () => {
                     </div>
                 </div>
 
-                <div className="space-y-8 max-w-7xl mx-auto">
+                <div className="space-y-8">
                     {/* Profile & Account Card */}
                     <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
                         <div className="p-8 border-b border-slate-50 bg-white">

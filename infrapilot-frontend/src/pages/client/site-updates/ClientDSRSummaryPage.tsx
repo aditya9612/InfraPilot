@@ -194,36 +194,38 @@ const ClientDSRSummaryPage = () => {
           
           {/* Filter Bar */}
           <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="relative flex-1 max-w-xl">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text"
-                placeholder="Search by activity, location or ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-50/50 border border-slate-100 rounded-full py-4 pl-14 pr-8 text-sm font-medium text-slate-600 outline-none focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-400 font-inter"
-              />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Filter By Date:</p>
-              <div className="relative group">
-                <input
-                  type="date"
-                  value={dateFilter}
-                  max={new Date().toISOString().split("T")[0]}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 px-3 w-[155px] text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none hover:bg-white transition-all shadow-sm font-inter"
+            <div className="flex flex-col md:flex-row md:items-center gap-8 flex-1">
+              <div className="relative flex-1 max-w-xl">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type="text"
+                  placeholder="Search by activity, location or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-50/50 border border-slate-100 rounded-full py-4 pl-14 pr-8 text-sm font-medium text-slate-600 outline-none focus:bg-white focus:border-blue-500 transition-all placeholder:text-slate-400 font-inter"
                 />
-                {dateFilter && (
-                  <button
-                    onClick={() => setDateFilter("")}
-                    className="absolute -right-2 -top-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all shadow-sm active:scale-95"
-                    title="Clear Date"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
+              </div>
+
+              <div className="flex items-center gap-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-inter">Filter By Date:</p>
+                <div className="relative group">
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    max={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="bg-slate-50 border border-slate-100 rounded-xl py-3.5 px-3 w-[155px] text-[11px] font-black uppercase tracking-widest text-slate-700 outline-none hover:bg-white transition-all shadow-sm font-inter"
+                  />
+                  {dateFilter && (
+                    <button
+                      onClick={() => setDateFilter("")}
+                      className="absolute -right-2 -top-2 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all shadow-sm active:scale-95"
+                      title="Clear Date"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

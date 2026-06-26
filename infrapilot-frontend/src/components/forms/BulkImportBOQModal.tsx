@@ -186,217 +186,215 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-          <div>
-            <h3 className="text-xl font-bold text-slate-800 tracking-tight">
-              Bulk Import BOQ
-            </h3>
-            <p className="text-xs text-slate-500 font-medium">
-              Upload Excel or CSV to populate your project
-            </p>
+    <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="min-h-full flex items-center justify-center p-4 py-12">
+        <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300 relative">
+          <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight">
+                Bulk Import BOQ
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Upload Excel or CSV to populate your project
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                reset();
+                onClose();
+              }}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={() => {
-              reset();
-              onClose();
-            }}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        <div className="p-8">
-          {step === 1 ? (
-            <div className="space-y-6">
-              {/* BOQ Selection Input with Suggestions */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                    BOQ ID or Name
-                  </label>
-                  {isLoadingBoqs && (
-                    <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  )}
+          <div className="p-8">
+            {step === 1 ? (
+              <div className="space-y-6">
+                {/* BOQ Selection Input with Suggestions */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                      BOQ ID or Name
+                    </label>
+                    {isLoadingBoqs && (
+                      <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    )}
+                  </div>
+                  <div className="relative group">
+                    <input
+                      type="text"
+                      list="boq-suggestions"
+                      placeholder="Type name or select from suggestions..."
+                      value={boqName}
+                      onChange={(e) => setBoqName(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all pr-10"
+                    />
+                    <datalist id="boq-suggestions">
+                      {availableBoqs.map((boq) => (
+                        <option key={boq.id} value={boq.item_name}>
+                          {boq.item_name} (ID: {boq.id})
+                        </option>
+                      ))}
+                    </datalist>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    If the name doesn't exist, a new BOQ group will be created automatically.
+                  </p>
                 </div>
-                <div className="relative group">
+
+                {/* Activity Type Selection */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                    Activity Type <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative group">
+                    <select
+                      value={selectedActivityTypeId}
+                      onChange={(e) => setSelectedActivityTypeId(e.target.value)}
+                      className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:border-primary transition-all appearance-none cursor-pointer hover:border-slate-200"
+                    >
+                      <option value="">Select Activity Type for all items...</option>
+                      {activityTypes.map((type) => (
+                        <option key={type.id} value={type.id}>{type.name}</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
+                      <ChevronDown className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-bold px-1 flex items-center gap-1.5">
+                    <span className="w-1 h-1 bg-primary/40 rounded-full" />
+                    Category and Unit are derived from this selection
+                  </p>
+                </div>
+
+                <div
+                  className="relative border-2 border-dashed border-slate-200 rounded-3xl p-10 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-50 hover:border-primary/40 transition-all cursor-pointer group"
+                  onClick={() => document.getElementById("file-upload")?.click()}
+                >
                   <input
-                    type="text"
-                    list="boq-suggestions"
-                    placeholder="Type name or select from suggestions..."
-                    value={boqName}
-                    onChange={(e) => setBoqName(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all pr-10"
+                    id="file-upload"
+                    type="file"
+                    className="hidden"
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleFileChange}
                   />
-                  <datalist id="boq-suggestions">
-                    {availableBoqs.map((boq) => (
-                      <option key={boq.id} value={boq.item_name}>
-                        {boq.item_name} (ID: {boq.id})
-                      </option>
-                    ))}
-                  </datalist>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
-                    <ChevronDown className="w-4 h-4" />
+                  <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-primary mb-5 group-hover:scale-110 transition-transform duration-300">
+                    <Upload className="w-8 h-8" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-700 tracking-tight">
+                    Drop your file here or click to browse
+                  </h4>
+                  <p className="text-[10px] text-slate-400 mt-2 font-black uppercase tracking-widest">
+                    Supports XLSX, XLS, and CSV
+                  </p>
+                </div>
+
+                <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                  <div>
+                    <h5 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">
+                      Column Requirements
+                    </h5>
+                    <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                      Ensure your file contains following headers:{" "}
+                      <span className="font-bold">
+                        Item Name, Category, Quantity, Unit, Unit Cost
+                      </span>
+                      . Values will be mapped automatically.
+                    </p>
+                    <button
+                      onClick={downloadTemplate}
+                      className="mt-3 text-[10px] font-bold text-amber-800 bg-amber-200/50 hover:bg-amber-200 px-3 py-1 rounded-lg transition-all uppercase tracking-wider"
+                    >
+                      Download Template
+                    </button>
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-400 font-medium">
-                  If the name doesn't exist, a new BOQ group will be created automatically.
-                </p>
               </div>
-
-              {/* Activity Type Selection */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                  Activity Type <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={selectedActivityTypeId}
-                  onChange={(e) => setSelectedActivityTypeId(e.target.value)}
-                  className={`w-full px-4 py-3 bg-slate-50 border ${!selectedActivityTypeId ? 'border-slate-200' : 'border-primary/30'} rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none`}
-                >
-                  <option value="">Select Activity Type for all items...</option>
-                  {activityTypes.map((type) => (
-                    <option key={type.id} value={type.id}>{type.name}</option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-slate-400 font-medium">
-                  Category and Unit will be auto-assigned from the selected Activity Type.
-                </p>
-              </div>
-
-              <div
-                className="border-2 border-dashed border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center bg-slate-50/50 hover:bg-slate-50 hover:border-primary/50 transition-all cursor-pointer group"
-                onClick={() => document.getElementById("file-upload")?.click()}
-              >
-                <input
-                  id="file-upload"
-                  type="file"
-                  className="hidden"
-                  accept=".xlsx, .xls, .csv"
-                  onChange={handleFileChange}
-                />
-                <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
-                  <Upload className="w-8 h-8" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-700">
-                  Drop your file here or click to browse
-                </h4>
-                <p className="text-xs text-slate-400 mt-1">
-                  Supports XLSX, XLS, and CSV formats
-                </p>
-              </div>
-
-              <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-                <div>
-                  <h5 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">
-                    Column Requirements
-                  </h5>
-                  <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                    Ensure your file contains following headers:{" "}
-                    <span className="font-bold">
-                      Item Name, Category, Quantity, Unit, Unit Cost
-                    </span>
-                    . Values will be mapped automatically.
-                  </p>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 p-5 bg-emerald-50 rounded-2xl border border-emerald-100/50">
+                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-500 shadow-sm border border-emerald-50">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-black text-emerald-900 tracking-tight">
+                      {file?.name}
+                    </h4>
+                    <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mt-0.5">
+                      Importing to: <span className="underline decoration-2 underline-offset-4">{boqName}</span> • {parsedItems.length} items
+                    </p>
+                  </div>
                   <button
-                    onClick={downloadTemplate}
-                    className="mt-3 text-[10px] font-bold text-amber-800 bg-amber-200/50 hover:bg-amber-200 px-3 py-1 rounded-lg transition-all uppercase tracking-wider"
+                    onClick={reset}
+                    className="px-3 py-1.5 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-emerald-200 transition-colors"
                   >
-                    Download Template
+                    Change
+                  </button>
+                </div>
+
+                <div className="max-h-80 overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-inner shadow-slate-50/50">
+                  <table className="w-full text-left">
+                    <thead className="sticky top-0 bg-slate-50/90 backdrop-blur-md border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <tr>
+                        <th className="px-5 py-4">Item Name</th>
+                        <th className="px-5 py-4 text-right">Qty</th>
+                        <th className="px-5 py-4 text-right">Unit Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {parsedItems.map((item, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-5 py-4 font-bold text-slate-700 text-xs">
+                            {item.item_name}
+                          </td>
+                          <td className="px-5 py-4 text-right font-medium text-slate-600 text-xs">
+                            {item.quantity} {item.unit || 'pairs'}
+                          </td>
+                          <td className="px-5 py-4 text-right font-black text-primary text-xs">
+                            ₹{Number(item.unit_cost).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                    className="flex-2 px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                  >
+                    {isUploading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Confirm Import
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex items-center gap-4 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-500 shadow-sm">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-bold text-emerald-800">
-                    {file?.name}
-                  </h4>
-                  <p className="text-xs text-emerald-600 font-medium">
-                    Importing to: <span className="font-bold underline">{boqName}</span> • {parsedItems.length} items
-                  </p>
-                </div>
-                <button
-                  onClick={reset}
-                  className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors"
-                >
-                  Change File
-                </button>
-              </div>
-
-              <div className="max-h-60 overflow-y-auto rounded-2xl border border-slate-100 bg-white">
-                <table className="w-full text-left text-xs">
-                  <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-widest">
-                    <tr>
-                      <th className="px-4 py-3">Item Name</th>
-                      <th className="px-4 py-3 text-right">Qty</th>
-                      <th className="px-4 py-3 text-right">Unit Cost</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {parsedItems.slice(0, 10).map((item, i) => (
-                      <tr key={i}>
-                        <td className="px-4 py-3 font-bold text-slate-700">
-                          {item.item_name}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium text-slate-600">
-                          {item.quantity} {item.unit}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-primary">
-                          ₹{item.unit_cost}
-                        </td>
-                      </tr>
-                    ))}
-                    {parsedItems.length > 10 && (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="px-4 py-2 text-center text-slate-400 italic"
-                        >
-                          ... and {parsedItems.length - 10} more items
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-50 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpload}
-                  disabled={isUploading}
-                  className="flex-2 px-8 py-3 bg-primary text-white rounded-2xl text-sm font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-                >
-                  {isUploading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      Confirm Import
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

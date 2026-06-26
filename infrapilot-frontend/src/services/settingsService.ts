@@ -142,15 +142,15 @@ export const settingsService = {
             }
 
             // Backend endpoint specifically expects multipart/form-data. It ignores JSON entirely.
-            if (data.full_name !== undefined) formData.append("full_name", data.full_name);
-            if (data.address !== undefined) formData.append("address", data.address);
-            if (data.pan_number !== undefined) formData.append("pan_number", data.pan_number);
-            if (data.aadhaar_number !== undefined) formData.append("aadhaar_number", data.aadhaar_number);
-            if (data.designation !== undefined) formData.append("designation", data.designation);
-            if (data.joining_date !== undefined) formData.append("joining_date", data.joining_date);
-            if (data.mobile_number !== undefined) formData.append("mobile_number", data.mobile_number);
-            if (data.email !== undefined) formData.append("email", data.email);
-            if (data.role !== undefined) formData.append("role", data.role);
+            if (data.full_name) formData.append("full_name", data.full_name);
+            if (data.address) formData.append("address", data.address);
+            if (data.pan_number) formData.append("pan_number", data.pan_number);
+            if (data.aadhaar_number) formData.append("aadhaar_number", data.aadhaar_number);
+            if (data.designation) formData.append("designation", data.designation);
+            if (data.joining_date) formData.append("joining_date", data.joining_date);
+            if (data.mobile_number) formData.append("mobile_number", data.mobile_number);
+            if (data.email) formData.append("email", data.email);
+            if (data.role) formData.append("role", data.role);
             if (data.is_active !== undefined) formData.append("is_active", data.is_active ? "1" : "0");
 
             console.log("PUT /api/v1/settings/profile - Final FormData contents:");

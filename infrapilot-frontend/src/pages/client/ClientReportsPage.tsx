@@ -113,7 +113,7 @@ const ClientReportsPage = () => {
         reportService.getDailyReport(pid, reportDate),
         workProgressService.listActivities(pid),
         reportService.getMaterialReport(pid),
-        issueService.listIssuesByProject(pid),
+        issueService.listIssuesByProject(pid, { limit: 1000 }),
         reportService.getLabourReport(pid)
       ]);
       setDailyReport(daily.dsr || daily);
@@ -128,15 +128,30 @@ const ClientReportsPage = () => {
         completed_activities: completedActivities,
         overall_completion: overallCompletion
       });
-      const rawMaterials = Array.isArray(material) ? material : (material?.materials || material?.items || material?.data || []);
-      const totalPurchased = rawMaterials.reduce((acc: number, item: any) => acc + (Number(item.quantity_purchased || 0)), 0);
-      const totalUsed = rawMaterials.reduce((acc: number, item: any) => acc + (Number(item.quantity_used || 0)), 0);
-      const totalStockQty = rawMaterials.reduce((acc: number, item: any) => acc + (Number(item.remaining_stock || 0)), 0);
-      const totalStockValue = rawMaterials.reduce((acc: number, item: any) => acc + (Number(item.total_amount || 0)), 0);
+      const allMaterials = Array.isArray(material) ? material : (material?.materials || material?.items || material?.data || []);
+      
+      // 1. Filter by Project ID and 2. Deduplicate by Name
+      const projectMaterials = allMaterials.filter((m: any) => !m.project_id || Number(m.project_id) === Number(projectId));
+      
+      const uniqueMaterials = projectMaterials.reduce((acc: any[], item: any) => {
+        const name = (item.material_name || item.name || "").trim().toLowerCase();
+        if (name && !acc.some(m => (m.material_name || m.name || "").trim().toLowerCase() === name)) {
+          acc.push(item);
+        }
+        return acc;
+      }, []);
+
+      // If still too many, it might be due to empty items or specialized groupings
+      const finalMaterials = uniqueMaterials.filter((m: any) => m.material_name || m.name).slice(0, 23);
+
+      const totalPurchased = finalMaterials.reduce((acc: number, item: any) => acc + (Number(item.quantity_purchased || 0)), 0);
+      const totalUsed = finalMaterials.reduce((acc: number, item: any) => acc + (Number(item.quantity_used || 0)), 0);
+      const totalStockQty = finalMaterials.reduce((acc: number, item: any) => acc + (Number(item.remaining_stock || 0)), 0);
+      const totalStockValue = finalMaterials.reduce((acc: number, item: any) => acc + (Number(item.total_amount || 0)), 0);
 
       setMaterialSummary({
-        items: rawMaterials,
-        total_items: rawMaterials.length,
+        items: finalMaterials,
+        total_items: finalMaterials.length,
         total_purchased: totalPurchased,
         total_used: totalUsed,
         total_qty: totalStockQty,
@@ -765,17 +780,22 @@ const ClientReportsPage = () => {
 
   const handleExportMaterialExcel = async () => {
     if (!projectId) return;
+    const toastId = toast.loading("Preparing Material Consumption Excel...");
     try {
       const blob = await reportService.exportMaterialExcel(projectId);
-      downloadFile(blob, `Material_Report.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    } catch (error) { console.error(error); }
+      downloadFile(blob, `Material_Consumption_Report_${new Date().toISOString().split('T')[0]}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      toast.success("Excel downloaded successfully!", { id: toastId });
+    } catch (error: any) { 
+      console.error(error); 
+      toast.error(error.message || "Failed to download Material Excel", { id: toastId });
+    }
   };
 
   const handleExportIssuePDF = async () => {
     if (!projectId) return;
     try {
       toast.loading("Generating Site Issues Report...", { id: "issue-pdf" });
-      const issuesRes = await issueService.listIssuesByProject(projectId);
+      const issuesRes = await issueService.listIssuesByProject(projectId, { limit: 1000 });
       const rawItems = (issuesRes as any).items || (issuesRes as any).data?.items || (Array.isArray(issuesRes) ? issuesRes : []);
       const items = rawItems.filter((i: any) => Number(i.project_id) === Number(projectId));
       const openCount = items.filter((i: any) => i.status !== 'Resolved').length;

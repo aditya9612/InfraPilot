@@ -52,6 +52,7 @@ import LabourRegistryPage from "../pages/manager/Resources/LabourRegistryPage";
 import EquipmentRegistryPage from "../pages/manager/Resources/EquipmentRegistryPage";
 import MaterialInventoryPage from "../pages/manager/Resources/MaterialInventoryPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
+import ManagerReportsPage from "../pages/manager/ManagerReportsPage";
 
 // Client Pages
 import ClientOverviewPage from "../pages/client/ClientOverviewPage";
@@ -180,6 +181,10 @@ function AppRoutes() {
               />
               <Route path="/admin/clients" element={<ClientsPage />} />
               <Route path="/admin/clients/:id" element={<ClientDetailPage />} />
+              <Route
+                path="/admin/owners"
+                element={<Navigate to="/admin/owners/list" replace />}
+              />
               <Route path="/admin/owners/list" element={<OwnersListPage />} />
               <Route
                 path="/admin/owners/agreements"
@@ -309,6 +314,8 @@ function AppRoutes() {
               <Route path="documents" element={<ManagerDocumentsPage />} />
               <Route path="documents/:tab" element={<ManagerDocumentsPage />} />
               <Route path="settings" element={<ManagerSettingsPage />} />
+              <Route path="reports" element={<ManagerReportsPage />} />
+              <Route path="reports/:tab" element={<ManagerReportsPage />} />
             </Route>
 
             {/* Client Specific Routes */}
@@ -465,7 +472,7 @@ function AppRoutes() {
               <Route path="/labour" element={<LabourDashboard />} />
               <Route path="/labour/attendance" element={<LabourAttendancePageSelf />} />
               <Route path="/labour/tasks" element={<MyTasksPage />} />
-              <Route path="/labour/work-updates" element={<WorkUpdatesPage />} />
+              {/* <Route path="/labour/work-updates" element={<WorkUpdatesPage />} /> */}
               <Route path="/labour/task-requests" element={<TaskRequestsPage />} />
               <Route path="/labour/notifications" element={<LabourNotificationsPage />} />
               <Route path="/labour/payments" element={<PaymentsPage />} />

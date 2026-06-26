@@ -9,7 +9,7 @@ const ClientProgressPage = () => {
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [timeRange, setTimeRange] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
   const { projectId } = useClientProjectId();
 
   useEffect(() => {
@@ -18,7 +18,7 @@ const ClientProgressPage = () => {
     const fetchProgressData = async () => {
       try {
         setLoadingActivities(true);
-        const response = await projectService.getWorkProgressActivities(projectId);
+        const response = await projectService.getWorkProgressActivities(projectId, undefined, 50);
         const fetchedActivities = Array.isArray(response) ? response : (response.data || response.items || []);
         setActivities(fetchedActivities);
       } catch (err) {
@@ -34,7 +34,8 @@ const ClientProgressPage = () => {
   const filteredActivities = activities.filter(act => {
     if (filterStatus === "ALL") return true;
     const status = act.status?.toUpperCase() || "";
-    if (filterStatus === "ON_TRACK") return ["COMPLETED", "ON_TRACK", "ON TRACK"].includes(status);
+    if (filterStatus === "ON_TRACK") return ["ON_TRACK", "ON TRACK"].includes(status);
+    if (filterStatus === "COMPLETED") return ["COMPLETED"].includes(status);
     if (filterStatus === "DELAYED") return ["DELAY", "DELAYED", "DELAY_ONGOING"].includes(status);
     if (filterStatus === "NOT_STARTED") return ["NOT_STARTED", "NOT STARTED"].includes(status);
     return true;
@@ -70,7 +71,8 @@ const ClientProgressPage = () => {
   // Compute status counts
   const stats = {
     all: activities.length,
-    onTrack: activities.filter(a => ["COMPLETED", "Completed", "ON TRACK", "ON_TRACK", "On Track"].includes(a.status?.toUpperCase() || a.status)).length,
+    onTrack: activities.filter(a => ["ON TRACK", "ON_TRACK", "On Track"].includes(a.status?.toUpperCase() || a.status)).length,
+    completed: activities.filter(a => ["COMPLETED", "Completed"].includes(a.status?.toUpperCase() || a.status)).length,
     notStarted: activities.filter(a => ["NOT_STARTED", "NOT STARTED", "Not Started"].includes(a.status?.toUpperCase() || a.status)).length,
     delayed: activities.filter(a => ["DELAY", "DELAYED", "Delayed", "DELAY_ONGOING"].includes(a.status?.toUpperCase() || a.status)).length,
   };
@@ -88,8 +90,8 @@ const ClientProgressPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
             { id: "ALL", label: "Total Activities", sub: "All time records", count: stats.all, color: "text-slate-800" },
-            { id: "ON_TRACK", label: "On Track", sub: "Performing Well", count: stats.onTrack, color: "text-emerald-500" },
-            { id: "NOT_STARTED", label: "Not Started", sub: "Pending Commencement", count: stats.notStarted, color: "text-amber-500" },
+            { id: "ON_TRACK", label: "On Track", sub: "Performing Well", count: stats.onTrack, color: "text-blue-500" },
+            { id: "COMPLETED", label: "Completed", sub: "Phase Accomplished", count: stats.completed, color: "text-emerald-500" },
             { id: "DELAYED", label: "Delayed", sub: "Intervention Required", count: stats.delayed, color: "text-rose-500" }
           ].map(card => (
             <button

@@ -27,8 +27,11 @@ import {
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { workProgressService } from "../../services/workProgressService";
 import { reportService } from "../../services/reportService";
+import { projectService } from "../../services/projectService";
 import type { DailyEntry, ActivityItem, ProjectSummary } from "../../types/workProgress";
+
 import { useAuth } from "../../context/AuthContext";
+import { useProject } from "../../context/ProjectContext";
 import toast from "react-hot-toast";
 import LogProgressModal from "../../components/WorkProgress/LogProgressModal";
 import AddActivityModal from "../../components/WorkProgress/AddActivityModal";
@@ -40,14 +43,12 @@ const WorkProgressPage = () => {
     const { tab } = useParams();
     const activeTab = tab || "daily";
     const { user } = useAuth();
-
-    // Resolve Project ID
-    const [projectId, setProjectId] = useState<number | null>(null);
-    useEffect(() => {
-        const pId = (user as any)?.project_id || (user as any)?.user?.project_id || 92;
-        setProjectId(Number(pId));
-        (window as any).currentProjectId = Number(pId);
-    }, [user]);
+    const {
+        selectedProjectId: projectId,
+        setSelectedProjectId,
+        assignedProjects: projects,
+        isLoading: isLoadingProjects
+    } = useProject();
 
     const tabs = [
         { id: "activities", label: "Activity Registry", icon: <ClipboardList className="w-4 h-4" /> },
@@ -181,12 +182,46 @@ const WorkProgressPage = () => {
             />
 
             <PageTransition className="p-6 lg:p-8">
-                {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Project Execution Hub</h1>
-                        <p className="text-slate-500 mt-1">Monitor site velocity, milestones, and daily operational excellence.</p>
+                    <div className="flex flex-col md:flex-row md:items-center gap-6">
+                        <div>
+                            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Project Execution Hub</h1>
+                            <p className="text-slate-500 mt-1 text-sm">Monitor site velocity, milestones, and daily operational excellence.</p>
+                        </div>
+
+                        {/* Project Selection Dropdown */}
+                        <div className="relative min-w-[240px]">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                                <BarChart2 className="w-4 h-4 text-primary" />
+                            </div>
+                            <select
+                                value={projectId || ""}
+                                onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setSelectedProjectId(val);
+                                    (window as any).currentProjectId = val;
+                                }}
+                                disabled={isLoadingProjects}
+                                className="w-full pl-11 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none cursor-pointer shadow-sm hover:border-slate-300"
+                            >
+                                {isLoadingProjects ? (
+                                    <option>Loading Projects...</option>
+                                ) : (
+                                    <>
+                                        {projects.map(p => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.project_name || p.name || `Project #${p.id}`}
+                                            </option>
+                                        ))}
+                                    </>
+                                )}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                <ChevronRight className="w-4 h-4 rotate-90" />
+                            </div>
+                        </div>
                     </div>
+
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => setIsExportModalOpen(true)}
@@ -477,7 +512,7 @@ const ActivityListView = ({
             {/* Stat Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
-                    { title: "Total Tasks", value: stats.total.toString(), sub: "Active Ledger", accent: "text-slate-800", status: "All" },
+                    { title: "Total Activities", value: stats.total.toString(), sub: "Active Ledger", accent: "text-slate-800", status: "All" },
                     { title: "Compliance", value: stats.complianceRate, sub: "Completion Rate", accent: "text-blue-500", status: "Compliance" },
                     { title: "Behind Schedule", value: stats.delayed.toString(), sub: "Action Required", accent: "text-rose-500", status: "Delayed" },
                     { title: "Execution", value: stats.onTrack.toString(), sub: "On Track Items", accent: "text-emerald-500", status: "Execution" },
@@ -528,9 +563,6 @@ const ActivityListView = ({
                         )}
                         <button onClick={onRefresh} className="p-2 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm">
                             <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                        </button>
-                        <button onClick={onAdd} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
-                            <Plus className="w-4 h-4" /> Add Activity
                         </button>
                     </div>
                 </div>

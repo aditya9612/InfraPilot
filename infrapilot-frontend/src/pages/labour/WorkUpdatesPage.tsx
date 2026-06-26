@@ -9,16 +9,30 @@ import {
     MapPin, 
     Send, 
     X,
-    Bold, Italic, Underline, List, ListOrdered, Undo, Redo,
     ChevronDown,
     FileText,
     History
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+import { projectService } from '../../services/projectService';
+
+const base64ToFile = (base64String: string, filename: string): File => {
+    const arr = base64String.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+};
+
 const WorkUpdatesPage: React.FC = () => {
     const query = new URLSearchParams(useLocation().search);
     const taskId = query.get('taskId');
+    const projectId = query.get('projectId') || '92';
     const taskName = query.get('taskName');
     const taskCategory = query.get('taskCategory');
 
@@ -35,6 +49,31 @@ const WorkUpdatesPage: React.FC = () => {
     const [category, setCategory] = useState(taskCategory || '');
     const [location, setLocation] = useState('');
     const [remarks, setRemarks] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [selectedTaskId, setSelectedTaskId] = useState(taskId || '');
+
+    // Fetch tasks if missing
+    useEffect(() => {
+        const fetchTasks = async () => {
+            try {
+                const response = await projectService.getTasks(Number(projectId));
+                const items = Array.isArray(response) ? response : (response.items || []);
+                setTasks(items);
+                
+                // If we have a taskName/taskId from query, try to find it in the list to sync category
+                if (taskId && items.length > 0) {
+                    const currentTask = items.find((t: any) => String(t.id) === String(taskId));
+                    if (currentTask && !category) {
+                        setCategory(currentTask.category || currentTask.description?.split('|')[0]?.trim() || '');
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to fetch tasks:", error);
+            }
+        };
+        fetchTasks();
+    }, [projectId, taskId]);
 
     const [priorPhotos, setPriorPhotos] = useState<string[]>([
         "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=200",
@@ -160,39 +199,69 @@ const WorkUpdatesPage: React.FC = () => {
         else setAfterPhotos(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
+        if (!selectedTaskId) return toast.error("Please select a task first");
         if (!description.trim()) return toast.error("Work description is required");
         if (beforePhotos.length === 0 || afterPhotos.length === 0) return toast.error("Please upload before and after photos");
-        
-        toast.promise(
-            new Promise(resolve => setTimeout(resolve, 1500)),
-            {
-                loading: 'Submitting update...',
-                success: 'Work update submitted successfully!',
-                error: 'Submission failed',
+
+        setIsSubmitting(true);
+        const loadingToast = toast.loading("Updating mission task...");
+
+        try {
+            // 1. Update Status (PATCH) — Labour role has permission for this
+            await projectService.updateTaskStatus(Number(projectId), Number(selectedTaskId), 'Completed');
+
+            // 2. Best-effort: Update Task Details (PUT) — Labour may get 403, that's acceptable
+            try {
+                const formData = new FormData();
+                formData.append('description', `${description} | ${remarks}`);
+                formData.append('category', category);
+                formData.append('location', location);
+                formData.append('work_date', workDate);
+                formData.append('start_time', startTime);
+                formData.append('end_time', endTime);
+
+                beforePhotos.forEach((base64, index) => {
+                    formData.append('before_images', base64ToFile(base64, `before_${index}.jpg`));
+                });
+                afterPhotos.forEach((base64, index) => {
+                    formData.append('after_images', base64ToFile(base64, `after_${index}.jpg`));
+                });
+
+                await projectService.updateTask(Number(projectId), Number(selectedTaskId), formData);
+            } catch (putErr: any) {
+                // 403/401 = Labour doesn't have task-edit permission — status already updated, safe to continue
+                console.warn('PUT task details skipped (permission):', putErr?.response?.status || putErr.message);
             }
-        ).then(() => {
-            // Save to history before clearing
+
+            toast.success('Task status updated to Completed!', { id: loadingToast });
+
+            // Save photos to history
             const existingHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
-            // Filter out existing to avoid duplicates when merging
             const currentUpdatePhotos = [...beforePhotos, ...afterPhotos];
             const filteredOldHistory = existingHistory.filter((p: string) => !currentUpdatePhotos.includes(p));
             const newHistory = [...currentUpdatePhotos, ...filteredOldHistory].slice(0, 8);
             localStorage.setItem(historyKey, JSON.stringify(newHistory));
             setPriorPhotos(newHistory);
-            
-            if (taskId) {
-                // Update final status to Completed in local storage
-                localStorage.setItem(`task_status_${taskId}`, 'Completed');
-                localStorage.removeItem(`work_update_data_${taskId}`);
-            }
+
+            // Finalize status locally
+            localStorage.setItem(`task_status_${selectedTaskId}`, 'Completed');
+            localStorage.removeItem(`work_update_data_${selectedTaskId}`);
 
             // Reset fields
             setDescription('');
             setBeforePhotos([]);
             setAfterPhotos([]);
             setRemarks('');
-        });
+            if (!taskId) setSelectedTaskId('');
+
+        } catch (error: any) {
+            console.error('Submission Error:', error);
+            const errMsg = error?.response?.data?.detail || error?.message || 'Failed to update task status';
+            toast.error(errMsg, { id: loadingToast });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -213,23 +282,55 @@ const WorkUpdatesPage: React.FC = () => {
                     </div>
 
                     <div className="p-8 space-y-8">
+
+                        {/* Task Selection Section */}
+                        <div className="space-y-4">
+                            {!taskId ? (
+                                <div className="space-y-3">
+                                    <label className="text-sm font-bold text-slate-700">Select Task <span className="text-red-500">*</span></label>
+                                    <div className="relative group">
+                                        <select 
+                                            value={selectedTaskId}
+                                            onChange={(e) => setSelectedTaskId(e.target.value)}
+                                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 appearance-none cursor-pointer"
+                                        >
+                                            <option value="">Select a Task to Update</option>
+                                            {tasks.map(t => (
+                                                <option key={t.id} value={t.id}>
+                                                    {t.id} - {t.title || t.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform" />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Active Task</label>
+                                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
+                                                <FileText className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-800">{taskName || 'Selected Task'}</p>
+                                                <p className="text-[10px] font-bold text-blue-600 uppercase">Mission Update in Progress</p>
+                                            </div>
+                                        </div>
+                                        <div className="px-3 py-1.5 bg-white rounded-lg border border-blue-200 shadow-sm">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mr-1">Task ID</span>
+                                            <span className="text-sm font-black text-blue-600">{taskId}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         
                         {/* Work Description Section */}
                         <div className="space-y-3">
                             <label className="text-sm font-bold text-slate-700">Work Description <span className="text-red-500">*</span></label>
                             <div className="border border-slate-200 rounded-xl overflow-hidden focus-within:border-blue-400 transition-all">
-                                {/* Editor Toolbar */}
-                                <div className="flex items-center gap-1 p-2 bg-slate-50 border-b border-slate-200">
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Bold className="w-4 h-4" /></button>
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Italic className="w-4 h-4" /></button>
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Underline className="w-4 h-4" /></button>
-                                    <div className="w-px h-6 bg-slate-200 mx-2" />
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><List className="w-4 h-4" /></button>
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><ListOrdered className="w-4 h-4" /></button>
-                                    <div className="w-px h-6 bg-slate-200 mx-2" />
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Undo className="w-4 h-4" /></button>
-                                    <button className="p-1.5 hover:bg-white rounded text-slate-600 transition-colors"><Redo className="w-4 h-4" /></button>
-                                </div>
+
                                 <textarea 
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value.slice(0, 1000))}
@@ -481,14 +582,18 @@ const WorkUpdatesPage: React.FC = () => {
 
                         {/* Footer Buttons */}
                         <div className="flex items-center justify-between pt-6 border-t border-slate-100">
-                            <button className="px-10 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all">
+                            <button 
+                                disabled={isSubmitting}
+                                className="px-10 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all disabled:opacity-50"
+                            >
                                 Cancel
                             </button>
                             <button 
                                 onClick={handleSubmit}
-                                className="px-10 py-3 bg-[#2563eb] text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100 flex items-center gap-3 hover:bg-blue-700 transition-all"
+                                disabled={isSubmitting}
+                                className="px-10 py-3 bg-[#2563eb] text-white rounded-xl font-bold text-sm shadow-xl shadow-blue-100 flex items-center gap-3 hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Submit Update
+                                {isSubmitting ? 'Submitting...' : 'Submit Update'}
                                 <Send className="w-4 h-4" />
                             </button>
                         </div>

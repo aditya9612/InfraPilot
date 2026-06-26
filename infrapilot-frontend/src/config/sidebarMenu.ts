@@ -485,7 +485,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "calendar",
     },
     { label: "My Tasks", path: "/labour/tasks", icon: "clipboard" },
-    { label: "Work Updates", path: "/labour/work-updates", icon: "activity" },
+    // { label: "Work Updates", path: "/labour/work-updates", icon: "activity" },
     { label: "Task Requests", path: "/labour/task-requests", icon: "plus-circle" },
     { label: "Payments", path: "/labour/payments", icon: "wallet" },
     { label: "Chat", path: "/chat", icon: "message-circle" },

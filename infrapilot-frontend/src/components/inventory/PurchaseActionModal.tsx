@@ -1,34 +1,90 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { projectService } from "../../services/projectService";
+import type { IssueType } from "../../types/material";
 
 interface PurchaseActionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: any) => void;
   material: any;
-  actionType: "purchase" | "usage"; // "purchase" increases stock, "usage" decreases stock
+  actionType: "purchase" | "usage";
+  projects: any[];
+  suppliers: any[];
 }
 
-export default function PurchaseActionModal({ isOpen, onClose, onSubmit, material, actionType }: PurchaseActionModalProps) {
+export default function PurchaseActionModal({ isOpen, onClose, onSubmit, material, actionType, projects, suppliers }: PurchaseActionModalProps) {
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+
   const [formData, setFormData] = useState({
     quantity: 0,
     rate: material?.purchase_rate || 0,
     payment: 0,
+    project_id: material?.project_id || (projects && projects.length > 0 ? projects[0].id : ""),
+    task_id: 0,
+    issue_type: "SYSTEM" as IssueType,
+    supplier_id: material?.supplier_id || "",
+    material_id: material?.id || "",
   });
+
+  // Sync formData when modal opens or material changes
+  useEffect(() => {
+    if (isOpen && material) {
+      setFormData({
+        quantity: 0,
+        rate: material.purchase_rate || 0,
+        payment: 0,
+        project_id: material.project_id || (projects && projects.length > 0 ? projects[0].id : ""),
+        task_id: 0,
+        issue_type: "SYSTEM",
+        supplier_id: material.supplier_id || (suppliers && suppliers.length > 0 ? suppliers[0].id : ""),
+        material_id: material.id,
+      });
+    }
+  }, [isOpen, material, projects, suppliers]);
+
+  useEffect(() => {
+    if (formData.project_id) {
+      fetchTasks(Number(formData.project_id));
+    }
+  }, [formData.project_id, isOpen]);
+
+  const fetchTasks = async (projectId: number) => {
+    setIsLoadingTasks(true);
+    try {
+      const data = await projectService.getTasks(projectId);
+      setTasks(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to fetch tasks:", error);
+      setTasks([]);
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
 
   if (!isOpen || !material) return null;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: Number(value),
+      [name]: name === "issue_type" ? value : Number(value),
     }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({ ...formData, actionType });
-    setFormData({ quantity: 0, rate: material?.purchase_rate || 0, payment: 0 });
+    setFormData({
+      quantity: 0,
+      rate: material?.purchase_rate || 0,
+      payment: 0,
+      project_id: material?.project_id || (projects && projects.length > 0 ? projects[0].id : ""),
+      task_id: 0,
+      issue_type: "SYSTEM",
+      supplier_id: material?.supplier_id || (suppliers && suppliers.length > 0 ? suppliers[0].id : ""),
+      material_id: material?.id || "",
+    });
   };
 
   const isUsage = actionType === "usage";
@@ -91,41 +147,109 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
             </div>
 
             {!isUsage && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Rate *</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">₹</span>
-                  <input
-                    required
-                    type="number"
-                    name="rate"
-                    min="0.01"
-                    step="0.01"
-                    value={formData.rate || ""}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier *</label>
+                  <select
+                    name="supplier_id"
+                    value={formData.supplier_id}
                     onChange={handleChange}
-                    className="w-full pl-10 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none"
-                    placeholder="0.00"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">
-                    / {material.unit}
-                  </span>
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs font-bold outline-none"
+                  >
+                    <option value="">Select Supplier</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name || s.supplier_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Purchase Rate *</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">₹</span>
+                    <input
+                      required
+                      type="number"
+                      name="rate"
+                      min="0.01"
+                      step="0.01"
+                      value={formData.rate || ""}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-16 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none"
+                      placeholder="0.00"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">
+                      / {material.unit}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{paymentLabel}</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">₹</span>
-                <input
-                  required={!isUsage}
-                  type="number"
-                  name="payment"
-                  value={formData.payment || ""}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Project *</label>
+                <select
+                  required
+                  name="project_id"
+                  value={formData.project_id}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none ${!isUsage ? 'text-emerald-600' : ''}`}
-                  placeholder="0.00"
-                />
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs font-bold outline-none"
+                >
+                  <option value="">Select Site</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Task (Optional)</label>
+                <select
+                  name="task_id"
+                  value={formData.task_id}
+                  onChange={handleChange}
+                  disabled={isLoadingTasks}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs font-bold outline-none disabled:opacity-50"
+                >
+                  <option value="0">General Usage</option>
+                  {tasks.map((t) => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Issue Type</label>
+                <select
+                  name="issue_type"
+                  value={formData.issue_type}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs font-bold outline-none"
+                >
+                  <option value="SITE">Site Usage</option>
+                  <option value="SYSTEM">System Adjustment</option>
+                  <option value="DAMAGE">Damaged / Lost</option>
+                  <option value="TRANSFER">Transfer Out</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{paymentLabel}</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">₹</span>
+                  <input
+                    required={!isUsage}
+                    type="number"
+                    name="payment"
+                    value={formData.payment || ""}
+                    onChange={handleChange}
+                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none ${!isUsage ? 'text-emerald-600' : ''}`}
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
             </div>
 
