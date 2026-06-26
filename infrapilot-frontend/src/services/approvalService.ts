@@ -7,11 +7,12 @@ export interface ApprovalItem {
     status: "Pending" | "Approved" | "Rejected" | string;
     requested_by: string; // Updated to match likely API response
     requested_by_name?: string;
+    approved_by?: string | number | null;
+    reviewer_name?: string;
     project_id?: number;
     project_name?: string;
     detail?: string; // Add descriptive detail
     remarks: string | null;
-    reviewer_name?: string;
     date: string;
 }
 

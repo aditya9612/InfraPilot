@@ -175,14 +175,34 @@ export const projectService = {
     return response.data;
   },
 
+  // Map to track in-flight members requests per project to prevent duplicate network calls
+  _membersFetchPromises: new Map<number, Promise<any>>(),
+
+  /**
+   * Get members of a project
+   * GET /api/v1/projects/{project_id}/members
+   */
   async getProjectMembers(projectId: number) {
-    try {
-      const response = await api.get(`/projects/${projectId}/members`);
-      return response.data;
-    } catch (error: any) {
-      console.warn(`Failed to fetch members for project ${projectId}:`, error.message);
-      return [];
-    }
+    // 1. Check if a request for this projectId is already in progress
+    const existingPromise = this_._membersFetchPromises.get(projectId);
+    if (existingPromise) return existingPromise;
+
+    // 2. Start new request and store its promise
+    const fetchPromise = (async () => {
+      try {
+        const response = await api.get(`/projects/${projectId}/members`);
+        return response.data;
+      } catch (error: any) {
+        console.warn(`Failed to fetch members for project ${projectId}:`, error.message);
+        return [];
+      } finally {
+        // 3. Clean up the promise from the map once finished
+        this_._membersFetchPromises.delete(projectId);
+      }
+    })();
+
+    this_._membersFetchPromises.set(projectId, fetchPromise);
+    return fetchPromise;
   },
 
   // === Reporting & Finance ===
@@ -472,7 +492,7 @@ export const projectService = {
       return items.map((item: any) => ({
         ...item,
         discipline: item.discipline || "General",
-        activity_name: item.activity_name || `Activity ${item.id} (BOQ: ${item.boq_code})`,
+        activity_name: item.activity_name || "Untitled Activity",
         completion_percentage: item.completion_percentage !== undefined
           ? item.completion_percentage
           : (item.planned_quantity > 0
@@ -505,66 +525,108 @@ export const projectService = {
       ];
     }
   },
-  // Memory cache for assigned projects to prevent excessive membership API calls
-  _assignedProjectsCache: new Map<number, { data: any[], timestamp: number }>(),
-  _CACHE_TTL: 5 * 60 * 1000, // 5 minutes
+  // Persistent cache for assigned projects to prevent excessive membership API calls
+  _getCache() {
+    try {
+      const stored = localStorage.getItem('infrapilot_assigned_projects');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const cache = new Map<number, { data: any[], timestamp: number }>();
+        Object.keys(parsed).forEach(k => cache.set(Number(k), parsed[k]));
+        return cache;
+      }
+    } catch (e) {
+      console.error("Failed to load assigned projects cache", e);
+    }
+    return new Map<number, { data: any[], timestamp: number }>();
+  },
+
+  _saveCache(cache: Map<number, { data: any[], timestamp: number }>) {
+    try {
+      const obj: any = {};
+      cache.forEach((v, k) => { obj[k] = v; });
+      localStorage.setItem('infrapilot_assigned_projects', JSON.stringify(obj));
+    } catch (e) {
+      console.error("Failed to save assigned projects cache", e);
+    }
+  },
+
+  _CACHE_TTL: 30 * 60 * 1000, // 30 minutes
 
   /**
    * Get list of projects assigned to a specific user (Manager/Engineer)
-   * This is a utility method since the backend /projects doesn't filter by user assignment yet.
+   * This is optimized to handle membership verification without overloading the browser's network stack.
    */
   async getAssignedProjects(userId: number, forceRefresh = false) {
-    // Check cache first
-    const cached = this_._assignedProjectsCache.get(userId);
+    const cache = this_._getCache();
+    const cached = cache.get(userId);
+
     if (!forceRefresh && cached && (Date.now() - cached.timestamp < this_._CACHE_TTL)) {
+      console.log(`[ProjectService] Using cached assigned projects for user ${userId} (${cached.data.length} found)`);
       return cached.data;
     }
 
     try {
-      // 1. Fetch some projects (limit 100 for now)
+      console.log(`[ProjectService] Refreshing assigned projects for user ${userId}...`);
+      // 1. Fetch projects (limit 100)
       const pRes = await this.getProjects(100, 0);
       const projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
 
-      // 2. Check membership for each project
-      // Note: This is an expensive operation but mirrors existing logic in ProjectsPage.tsx
-      const memberChecks = await Promise.all(
-        projectList.map(async (p: any) => {
-          try {
-            const mems = await this.getProjectMembers(p.id);
-            const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
-            const isAssigned = memberList.some((m: any) =>
-              String(m.user_id) === String(userId) ||
-              String(m.user?.id) === String(userId) ||
-              String(m.userId) === String(userId)
-            );
-            return { project: p, isAssigned };
-          } catch (err) {
-            console.error(`Failed to check members for project ${p.id}:`, err);
-            return { project: p, isAssigned: false };
-          }
-        })
-      );
+      if (projectList.length === 0) return [];
 
-      const assigned = memberChecks.filter(c => c.isAssigned).map(c => c.project);
+      // 2. Concurrency-limited verification
+      // We use a smaller batch size (5) to stay well within the browser's 6-connection limit per host.
+      const assigned: any[] = [];
+      const CONCURRENCY_LIMIT = 5;
 
-      // Update cache
-      this_._assignedProjectsCache.set(userId, { data: assigned, timestamp: Date.now() });
+      for (let i = 0; i < projectList.length; i += CONCURRENCY_LIMIT) {
+        const batch = projectList.slice(i, i + CONCURRENCY_LIMIT);
+        const results = await Promise.all(
+          batch.map(async (p: any) => {
+            try {
+              const mems = await this.getProjectMembers(p.id);
+              const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
+              const isAssigned = memberList.some((m: any) =>
+                String(m.user_id) === String(userId) ||
+                String(m.user?.id) === String(userId) ||
+                String(m.userId) === String(userId)
+              );
+              return isAssigned ? p : null;
+            } catch (err) {
+              return null;
+            }
+          })
+        );
+        assigned.push(...results.filter(p => p !== null));
+
+        // Small breathing room between batches to allow other high-priority requests (like dashboard data) through
+        if (i + CONCURRENCY_LIMIT < projectList.length) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+
+      console.log(`[ProjectService] Verified ${assigned.length} assigned projects for user ${userId}`);
+
+      // Update persistent cache
+      cache.set(userId, { data: assigned, timestamp: Date.now() });
+      this_._saveCache(cache);
 
       return assigned;
     } catch (error) {
-      console.error("Failed to fetch assigned projects (falling back to empty list):", error);
-      return [];
+      console.error("Failed to fetch assigned projects:", error);
+      return cached?.data || []; // Fallback to stale cache on error
     }
   },
 
   clearAssignedProjectsCache(userId?: number) {
+    const cache = this_._getCache();
     if (userId) {
-      this_._assignedProjectsCache.delete(userId);
+      cache.delete(userId);
     } else {
-      this_._assignedProjectsCache.clear();
+      cache.clear();
     }
+    this_._saveCache(cache);
   }
 };
 
-// Use a self-reference to access the current object inside the service
 const this_ = projectService;

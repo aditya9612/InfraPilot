@@ -27,7 +27,9 @@ import { boqService } from "../../services/boqService";
 import { userService } from "../../services/userService";
 import { dashboardService } from "../../services/dashboardService";
 import { generateProjectListPDF } from "../../utils/projectPDFGenerator";
+import { notificationService } from "../../services/notificationService";
 import type { Project, ProjectStatus } from "../../types/project";
+import type { Notification } from "../../services/notificationService";
 
 // ─── Styling Helpers ──────────────────────────────────────────────────────────
 const statusBadge: Record<ProjectStatus, string> = {
@@ -64,7 +66,7 @@ const AdminDashboard = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [graphData, setGraphData] = useState<any[]>([]);
-  const [projectAlertsData, setProjectAlertsData] = useState<any[]>([]);
+  const [systemAlerts, setSystemAlerts] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   // Pagination
   const [progressPage, setProgressPage] = useState(0);
@@ -107,9 +109,9 @@ const AdminDashboard = () => {
       console.log("Dashboard: API response received", data);
 
       // --- Map stats from the correct API response shape ---
-      const po = data.project_overview || {};
-      const financial = data.financial || {};
-      const vitals = data.vitals || {};
+      const po = (data.project_overview || {}) as any;
+      const financial = (data.financial || {}) as any;
+      const vitals = (data.vitals || {}) as any;
 
       setDashboardStats({
         totalRevenue: Number(financial.revenue) || 0,
@@ -157,17 +159,10 @@ const AdminDashboard = () => {
       } as unknown as Project));
       setProjects(projectsList);
 
-      // Critical alerts: delayed projects from master_projects
-      const criticalAlerts = projectsList
-        .filter((p: any) => p.status === "Delayed" || (p.performance_score !== undefined && p.performance_score < -50))
-        .map((p: any) => ({
-          ...p,
-          display_name: p.project_name,
-          display_status: p.status,
-          display_date: p.end_date ? `End: ${new Date(p.end_date).toLocaleDateString()}` : "TBD",
-          project_id: p.id,
-        }));
-      setProjectAlertsData(criticalAlerts);
+      // System Critical Alerts: fetch aggregated notifications and filter for urgent types
+      const notifications = await notificationService.getAllNotifications();
+      const criticalOnes = notifications.filter(n => n.type === "Alert" || n.type === "Approval").slice(0, 8);
+      setSystemAlerts(criticalOnes);
 
       // Activity / alerts feed from recent_activities
       const activities = Array.isArray(data.recent_activities) ? data.recent_activities : [];
@@ -601,30 +596,35 @@ const AdminDashboard = () => {
               <h2 className="font-bold text-slate-800">Critical Alerts</h2>
             </div>
             <div className="space-y-4 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
-              {projectAlertsData.length === 0 ? (
+              {systemAlerts.length === 0 ? (
                 <div className="text-center py-6">
                   <p className="text-2xl mb-1">✅</p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    All Projects Healthy
+                    All Systems Healthy
                   </p>
                 </div>
               ) : (
-                projectAlertsData.map((alert, i) => (
+                systemAlerts.map((alert, i) => (
                   <div
                     key={i}
                     className="p-3 bg-red-50 rounded-xl flex items-start gap-3 border border-red-100/50 hover:bg-red-100/50 transition-all cursor-pointer"
-                    onClick={() => handleViewProject(alert.project_id)}
+                    onClick={() => {
+                      if ((alert as any).project_id) handleViewProject((alert as any).project_id);
+                    }}
                   >
                     <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 animate-pulse" />
                     <div className="flex-1">
                       <p className="text-xs font-bold text-red-900 flex justify-between items-center">
-                        {alert.display_name || alert.project_name}
+                        {alert.title}
                         <span className="text-[8px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded">
-                          {alert.display_status || alert.status}
+                          {alert.type}
                         </span>
                       </p>
-                      <p className="text-[10px] text-red-600 mt-0.5">
-                        {alert.display_date || (alert.end_date ? `Delayed since: ${new Date(alert.end_date).toLocaleDateString()}` : "TBD")}
+                      <p className="text-[10px] text-red-700 mt-1 font-medium leading-relaxed">
+                        {alert.description}
+                      </p>
+                      <p className="text-[9px] text-red-400 mt-0.5">
+                        {new Date(alert.timestamp).toLocaleString()}
                       </p>
                     </div>
                   </div>

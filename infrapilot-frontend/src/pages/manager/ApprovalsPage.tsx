@@ -9,6 +9,7 @@ import { Eye, Check, X, Search, RotateCcw } from "lucide-react";
 import { approvalService } from "../../services/approvalService";
 import type { ApprovalItem } from "../../services/approvalService";
 import { useProject } from "../../context/ProjectContext";
+import { userService } from "../../services/userService";
 
 const ApprovalsPage = () => {
     const location = useLocation();
@@ -21,6 +22,7 @@ const ApprovalsPage = () => {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [viewingApproval, setViewingApproval] = useState<ApprovalItem | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+    const [usersMap, setUsersMap] = useState<Record<string, string>>({});
 
     const fetchApprovals = useCallback(async () => {
         setIsLoading(true);
@@ -39,6 +41,22 @@ const ApprovalsPage = () => {
     }, [selectedProjectId]);
 
     useEffect(() => {
+        // Fetch users once to build an id→name lookup map
+        // Increase limit to 1000 to ensure we cover all possible site engineers
+        userService.getAllUsers(1000, 0).then((data) => {
+            const list = Array.isArray(data) ? data : (data?.items || data?.data || data?.users || []);
+            const map: Record<string, string> = {};
+            list.forEach((u: any) => {
+                const uid = u.user_id ?? u.id;
+                if (uid !== undefined && uid !== null) {
+                    map[String(uid)] = u.full_name || u.name || u.username || u.email || `User ${uid}`;
+                }
+            });
+            setUsersMap(map);
+        }).catch(() => {/* silently ignore */ });
+    }, []);
+
+    useEffect(() => {
         fetchApprovals();
     }, [fetchApprovals]);
 
@@ -53,12 +71,12 @@ const ApprovalsPage = () => {
             const matchesStatus = a.status === statusFilter;
             const matchesSearch =
                 (a.project_name || "").toLowerCase().includes(term) ||
-                (a.requested_by || "").toLowerCase().includes(term) ||
+                (usersMap[String(a.requested_by)] || a.requested_by || "").toLowerCase().includes(term) ||
                 (a.entity_type || "").toLowerCase().includes(term) ||
                 (a.detail || "").toLowerCase().includes(term);
             return matchesStatus && matchesSearch;
         });
-    }, [approvals, searchTerm, subPage]);
+    }, [approvals, searchTerm, subPage, usersMap]);
 
     const handleApprove = async (id: number, remarks: string = "Approved by Project Manager") => {
         try {
@@ -175,19 +193,18 @@ const ApprovalsPage = () => {
                                             onChange={handleSelectAll}
                                         />
                                     </th>
-                                    <th className="px-6 py-4">Entity Type</th>
+                                    <th className="px-6 py-4">Entity Type & ID</th>
                                     <th className="px-6 py-4">Site Engineer</th>
-                                    <th className="px-6 py-4">Project</th>
                                     <th className="px-6 py-4">Summary Detail</th>
                                     <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Date</th>
+                                    <th className="px-6 py-4">Approved By</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-20 text-center">
+                                        <td colSpan={7} className="px-6 py-20 text-center">
                                             <div className="inline-block w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin mb-2"></div>
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Synchronizing Registry...</p>
                                         </td>
@@ -204,22 +221,34 @@ const ApprovalsPage = () => {
                                                 />
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-xs font-bold text-slate-700">{item.entity_type}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold text-slate-700 uppercase tracking-tighter">{item.entity_type}</span>
+                                                    <span className="text-[10px] text-slate-400 font-medium tracking-widest">ID: {item.entity_id}</span>
+                                                </div>
                                             </td>
-                                            <td className="px-6 py-4 text-xs font-semibold text-slate-600">{item.requested_by}</td>
-                                            <td className="px-6 py-4 text-xs font-bold text-primary/80">{item.project_name || "Global"}</td>
-                                            <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-[200px] truncate">{item.detail}</td>
+                                            <td className="px-6 py-4 text-xs font-semibold text-slate-600">
+                                                {usersMap[String(item.requested_by)] || item.requested_by_name || `ID: ${item.requested_by}`}
+                                            </td>
+                                            <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-[200px] truncate">
+                                                {item.remarks || item.detail || "No details provided"}
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status === "Approved" ? "bg-emerald-100 text-emerald-600" : item.status === "Pending" ? "bg-amber-100 text-amber-600" : "bg-rose-100 text-rose-600"}`}>
                                                     {item.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-[10px] font-bold text-slate-400">{item.date}</td>
+                                            <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                                                {item.approved_by ? (usersMap[String(item.approved_by)] || `ID: ${item.approved_by}`) : "—"}
+                                            </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1 items-center">
                                                     <button
                                                         onClick={() => {
-                                                            setViewingApproval(item);
+                                                            setViewingApproval({
+                                                                ...item,
+                                                                requested_by_name: usersMap[String(item.requested_by)] || item.requested_by_name,
+                                                                reviewer_name: item.approved_by ? (usersMap[String(item.approved_by)] || item.reviewer_name) : item.reviewer_name
+                                                            });
                                                             setIsViewModalOpen(true);
                                                         }}
                                                         className="p-1.5 text-slate-400 hover:text-primary rounded-lg transition-colors"
@@ -248,7 +277,7 @@ const ApprovalsPage = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={8} className="px-6 py-20 text-center">
+                                        <td colSpan={6} className="px-6 py-20 text-center">
                                             <p className="text-xs font-bold text-slate-300 uppercase tracking-widest italic">No {subPage} records found</p>
                                         </td>
                                     </tr>

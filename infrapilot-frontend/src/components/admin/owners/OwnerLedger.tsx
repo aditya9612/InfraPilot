@@ -56,20 +56,67 @@ export default function OwnerLedger() {
     fetchLedger();
   }, [selectedOwnerId]);
 
-  const handleExport = async (type: "PDF" | "Excel") => {
+  const handleExport = async (format: "PDF" | "Excel") => {
     if (!selectedOwnerId) return;
 
+    const toastId = toast.loading(`Generating ${format} report...`);
     setLoading(true);
     try {
-      if (type === "PDF") {
-        await ownerService.exportLedgerPdf(selectedOwnerId);
+      let blob: Blob;
+      if (format === "PDF") {
+        blob = await ownerService.exportLedgerPdf(selectedOwnerId);
       } else {
-        await ownerService.exportLedgerExcel(selectedOwnerId);
+        blob = await ownerService.exportLedgerExcel(selectedOwnerId);
       }
-      toast.success(`${type} report exported successfully`);
+
+      // Robust check for binary (xlsx/pdf) or text data (csv)
+      const isSpreadsheet = blob.type.includes("spreadsheet") || blob.type.includes("excel") || blob.type.includes("officedocument.spreadsheetml");
+      const isPdf = blob.type.includes("pdf");
+      const isCsv = blob.type.includes("csv") || (blob.type.includes("text") && (await blob.text()).startsWith("Date,"));
+      const isValidFormat = isSpreadsheet || isPdf || isCsv;
+
+      console.log(`[OwnerLedger] Export ${format}: type="${blob.type}", size=${blob.size}, isValidFormat=${isValidFormat}`);
+
+      if (!isValidFormat || blob.size < 50) {
+        // Almost certainly a server error if it's too small or unknown format
+        const text = await blob.text();
+        console.error(`[OwnerLedger] Export failed. Response snippet: ${text.substring(0, 200)}`);
+
+        let errorMsg = `Server error: Could not generate ${format} report.`;
+        if (text.includes("<!DOCTYPE html>") || text.includes("<html")) {
+          errorMsg = "Server returned an error page (HTML). Financial service might be down.";
+        } else {
+          try {
+            const parsed = JSON.parse(text);
+            errorMsg = parsed.detail || parsed.message || errorMsg;
+          } catch {
+            if (text.length > 0 && text.length < 300) errorMsg = text;
+          }
+        }
+        toast.error(errorMsg, { id: toastId });
+        return;
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Determine extension based on actual content
+      let extension = "xlsx";
+      if (isPdf) extension = "pdf";
+      else if (isCsv) extension = "csv";
+      else if (isSpreadsheet) extension = "xlsx";
+
+      link.setAttribute("download", `Owner_Ledger_${selectedOwnerId}.${extension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`${format} report exported successfully`, { id: toastId });
     } catch (error) {
-      console.error(`Export ${type} failed`, error);
-      toast.error(`Failed to export ${type} report`);
+      console.error(`Export ${format} failed`, error);
+      toast.error(`Error generating ${format} report. Please try again later.`, { id: toastId });
     } finally {
       setLoading(false);
     }

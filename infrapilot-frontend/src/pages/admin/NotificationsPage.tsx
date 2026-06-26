@@ -11,7 +11,9 @@ import SortDropdown from "../../components/common/SortDropdown";
 import { notificationService } from "../../services/notificationService";
 import { projectService } from "../../services/projectService";
 import { userService } from "../../services/userService";
+
 import { useAuth } from "../../context/AuthContext";
+
 
 
 interface NotificationsPageProps {
@@ -36,11 +38,53 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   const [usersMap, setUsersMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 10;
 
+
+
+
   const fetchAlerts = async () => {
     try {
       setIsLoading(true);
       const data = await notificationService.listAlerts(100, 0);
       setAlerts(data);
+
+      // Build project name map by fetching each unique project_id individually
+      // (avoids the 422 error caused by bulk ?limit= params)
+      const uniqueProjectIds = [...new Set(
+        data.map((a: any) => a.project_id).filter(Boolean)
+      )] as number[];
+
+      if (uniqueProjectIds.length > 0) {
+        const results = await Promise.allSettled(
+          uniqueProjectIds.map(id => projectService.getProjectById(id))
+        );
+        const map: Record<number, string> = {};
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled' && result.value) {
+            const p = result.value;
+            map[uniqueProjectIds[i]] = p.name || p.project_name || `#${uniqueProjectIds[i]}`;
+          }
+        });
+        setProjectMap(map);
+      }
+
+      // Build user name map by fetching each unique user_id individually
+      const uniqueUserIds = [...new Set(
+        data.map((a: any) => a.user_id).filter(Boolean)
+      )] as number[];
+
+      if (uniqueUserIds.length > 0) {
+        const userResults = await Promise.allSettled(
+          uniqueUserIds.map(id => userService.getUserById(id))
+        );
+        const umap: Record<number, string> = {};
+        userResults.forEach((result, i) => {
+          if (result.status === 'fulfilled' && result.value) {
+            const u = result.value;
+            umap[uniqueUserIds[i]] = u.full_name || u.name || u.username || u.email || `#${uniqueUserIds[i]}`;
+          }
+        });
+        setUsersMap(umap);
+      }
     } catch (error) {
       console.error("Failed to fetch alerts:", error);
       toast.error("Could not load system alerts");
@@ -51,23 +95,6 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
 
   useEffect(() => {
     fetchAlerts();
-    // Fetch projects to build a name lookup map
-    projectService.getProjects(100, 0).then((res: any) => {
-      const list = Array.isArray(res) ? res : (res.items || res.data || []);
-      const map: Record<number, string> = {};
-      list.forEach((p: any) => { map[p.id || p.project_id] = p.name || p.project_name || `#${p.id}`; });
-      setProjectMap(map);
-    }).catch(() => { });
-    // Fetch users to build a name lookup map
-    userService.getAllUsers(100, 0).then((data: any) => {
-      const list = Array.isArray(data) ? data : (data?.items || data?.users || []);
-      const map: Record<number, string> = {};
-      list.forEach((u: any) => {
-        const uid = u.user_id ?? u.id;
-        if (uid) map[uid] = u.full_name || u.name || u.username || u.email || `#${uid}`;
-      });
-      setUsersMap(map);
-    }).catch(() => { });
   }, []);
 
   const filteredAlerts = useMemo(() => {
@@ -75,7 +102,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
       // Filter by source based on the 'filter' prop
       const matchesFilter = !filter ||
         (filter === "alerts" && (a.source === "project" || a.source === "task")) ||
-        (filter === "system" && (a.source === "general" || !a.source));
+        (filter === "system" && (a.source === "general" || a.source === "system" || !a.source));
 
       const matchProject = selectedProjectId === "all" || String(a.project_id) === selectedProjectId;
       const matchSearch = (a.message || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -279,9 +306,8 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                 className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold text-slate-700 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%20%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5.293%207.293a1%201%200%20011.414%200L10%2010.586l3.293-3.293a1%201%200%20111.414%201.414l-4%204a1%201%200%2001-1.414%200l-4-4a1%201%200%20010-1.414z%22%20fill%3D%22%2394a3b8%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-no-repeat bg-[position:right_10px_center] pr-10 cursor-pointer hover:bg-slate-100"
               >
                 <option value="all">All Projects</option>
-                {Object.entries(projectMap).map(([id, name]) => (
-                  <option key={id} value={id}>{name}</option>
-                ))}
+                {/* Project filter removed - bulk fetch causes 422 */}
+
               </select>
             </div>
           </div>
@@ -341,12 +367,15 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                           <div className="relative">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${alert.source === "project" ? "bg-rose-50 text-rose-600" :
                               alert.source === "task" ? "bg-emerald-50 text-emerald-600" :
-                                "bg-blue-50 text-blue-600"
+                                alert.source === "system" ? "bg-amber-50 text-amber-600" :
+                                  "bg-blue-50 text-blue-600"
                               }`}>
                               {alert.source === "project" ? (
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                               ) : alert.source === "task" ? (
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                              ) : alert.source === "system" ? (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                               ) : (
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                               )}
@@ -357,7 +386,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                           </div>
                           <div className="flex flex-col">
                             <span className={`font-bold text-xs transition-colors group-hover:text-primary ${!alert.is_read ? "text-slate-900" : "text-slate-500"}`}>
-                              {alert.alert_type || alert.type || "System"}
+                              {alert.title || alert.alert_type || alert.type || "System"}
                             </span>
                             <span className="text-[10px] text-slate-400 font-medium capitalize">{alert.source || "general"}</span>
                           </div>
@@ -368,7 +397,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                       <td className="px-4 py-4 text-xs font-bold text-slate-500">
                         {alert.project_id ? (
                           <span className="px-2 py-1 bg-slate-100 rounded-lg text-slate-600">
-                            {projectMap[alert.project_id] || `#${alert.project_id}`}
+                            {projectMap[alert.project_id] || alert.project_name || `#${alert.project_id}`}
                           </span>
                         ) : (
                           <span className="text-slate-300">—</span>
