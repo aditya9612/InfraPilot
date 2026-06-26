@@ -9,6 +9,7 @@ import { notificationService, type Notification } from "../../services/notificat
 import { alertService } from "../../services/alertService";
 import { projectService } from "../../services/projectService";
 import { getFullImageUrl } from "../../utils/imageUtils";
+import ProjectSelector from "./ProjectSelector";
 interface BreadcrumbItem {
   label: string;
   path?: string;
@@ -188,6 +189,8 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
               />
             </svg>
           </button>
+
+          <ProjectSelector />
 
 
           <div className="flex flex-col min-w-0">

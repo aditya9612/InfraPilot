@@ -15,7 +15,7 @@ import type { LabourItem } from "../../../types/labour";
 type TabType = "Registry" | "Attendance" | "Performance" | "Payroll" | "Alerts";
 
 const LabourRegistryPage = () => {
-    const { selectedProjectId } = useProject();
+    const { selectedProjectId, isLoading: isProjectLoading } = useProject();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<TabType>("Registry");
     const [laborers, setLaborers] = useState<LabourItem[]>([]);
@@ -23,8 +23,10 @@ const LabourRegistryPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter] = useState("All");
+    const [currentPage, setCurrentPage] = useState(0);
+    const PAGE_SIZE = 10;
 
-    const projectId = selectedProjectId || (user as any)?.project_id || 0;
+    const projectId = selectedProjectId || (user as any)?.project_id;
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isDeleting] = useState(false);
@@ -47,8 +49,17 @@ const LabourRegistryPage = () => {
     }, [projectId, statusFilter, activeTab]);
 
     useEffect(() => {
+        if (isProjectLoading) return;
         fetchLaborers();
-    }, [fetchLaborers]);
+    }, [fetchLaborers, selectedProjectId, isProjectLoading]);
+
+    // Global reset and derived states
+    useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm]);
+
+    const filteredLaborers = (laborers || []).filter(l => (l.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase()));
+    const pagedLaborers = filteredLaborers.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+    const filteredAttendance = (attendanceRecords || []).filter(a => (a.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase()));
 
     const handleExport = async (type: 'pdf' | 'excel') => {
         try {
@@ -89,11 +100,11 @@ const LabourRegistryPage = () => {
             <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                     <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading registry...</td></tr>
-                ) : laborers.filter(l => l.labour_name.toLowerCase().includes(searchTerm.toLowerCase())).map((labor) => (
+                ) : pagedLaborers.length > 0 ? pagedLaborers.map((labor) => (
                     <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">{labor.labour_name.charAt(0)}</div>
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">{(labor.labour_name || "U").charAt(0)}</div>
                                 <div className="flex flex-col">
                                     <span className="text-sm font-bold text-slate-800">{labor.labour_name}</span>
                                     <span className="text-[10px] font-mono text-slate-400">{labor.worker_code}</span>
@@ -115,7 +126,9 @@ const LabourRegistryPage = () => {
                             </div>
                         </td>
                     </tr>
-                ))}
+                )) : (
+                    <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No workforce records found</td></tr>
+                )}
             </tbody>
         </table>
     );
@@ -135,7 +148,7 @@ const LabourRegistryPage = () => {
             <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                     <tr><td colSpan={6} className="p-10 text-center text-slate-400">Syncing attendance logs...</td></tr>
-                ) : attendanceRecords.filter(a => a.labour_name.toLowerCase().includes(searchTerm.toLowerCase())).map((att, idx) => (
+                ) : filteredAttendance.length > 0 ? filteredAttendance.map((att, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 font-bold text-slate-800 text-sm">{att.labour_name}</td>
                         <td className="px-6 py-4">
@@ -158,7 +171,9 @@ const LabourRegistryPage = () => {
                             </span>
                         </td>
                     </tr>
-                ))}
+                )) : (
+                    <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No attendance records found</td></tr>
+                )}
             </tbody>
         </table>
     );
@@ -226,6 +241,28 @@ const LabourRegistryPage = () => {
                             </div>
                         )}
                     </div>
+                    {activeTab === "Registry" && (
+                        (() => {
+                            if (filteredLaborers.length <= PAGE_SIZE) return null;
+                            const totalPages = Math.max(1, Math.ceil(filteredLaborers.length / PAGE_SIZE));
+                            return (
+                                <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                        Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredLaborers.length)} of {filteredLaborers.length} Workers
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                                        </button>
+                                        <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">{currentPage + 1}</div>
+                                        <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })()
+                    )}
                 </div>
             </PageTransition>
 

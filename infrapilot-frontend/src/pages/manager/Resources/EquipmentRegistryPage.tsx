@@ -3,7 +3,6 @@ import type {
     Equipment, UsageReport, MaintenanceAlert, EquipmentAlert, CostReport
 } from "../../../services/equipmentService";
 import { equipmentService } from "../../../services/equipmentService";
-import { projectService } from "../../../services/projectService";
 import { useAuth } from "../../../context/AuthContext";
 import toast from "react-hot-toast";
 import Navbar from "../../../components/common/Navbar";
@@ -26,11 +25,11 @@ import { useProject } from "../../../context/ProjectContext";
 const TABS = ["Registry", "Usage", "Maintenance", "Rental", "Alerts"];
 
 const EquipmentRegistryPage = () => {
-    const { selectedProjectId: globalProjectId } = useProject();
+    const { selectedProjectId: globalProjectId, isLoading: isProjectLoading } = useProject();
     const { user } = useAuth();
 
     // Effective project ID for data fetching
-    const effectiveProjectId = globalProjectId || (user as any)?.project_id || 0;
+    const effectiveProjectId = globalProjectId || (user as any)?.project_id;
 
     const [activeTab, setActiveTab] = useState(TABS[0]);
     const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +37,8 @@ const EquipmentRegistryPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
     const [formData, setFormData] = useState<any>({});
+    const [currentPage, setCurrentPage] = useState(0);
+    const PAGE_SIZE = 10;
 
     // Data States for Other Tabs
     const [usageReport, setUsageReport] = useState<UsageReport[]>([]);
@@ -75,13 +76,19 @@ const EquipmentRegistryPage = () => {
     };
 
     useEffect(() => {
+        if (isProjectLoading) return;
         fetchData();
-    }, [activeTab, effectiveProjectId]);
+    }, [activeTab, globalProjectId, isProjectLoading]);
 
-    const filteredEquipment = equipmentList.filter(item => {
+    const filteredEquipment = (equipmentList || []).filter(item => {
         const term = searchTerm.toLowerCase();
-        return item.equipment_name.toLowerCase().includes(term) || item.equipment_code.toLowerCase().includes(term);
+        return (item.equipment_name || "").toLowerCase().includes(term) || (item.equipment_code || "").toLowerCase().includes(term);
     });
+    const totalPages = Math.max(1, Math.ceil(filteredEquipment.length / PAGE_SIZE));
+    const pagedEquipment = filteredEquipment.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+    // Reset page on tab or search change
+    useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm]);
 
     const renderRegistry = () => (
         <table className="w-full text-left whitespace-nowrap">
@@ -97,24 +104,28 @@ const EquipmentRegistryPage = () => {
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
                     <tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading registry...</td></tr>
-                ) : filteredEquipment.map(item => (
-                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-800">{item.equipment_name}</td>
-                        <td className="px-6 py-4 font-mono text-slate-500">{item.equipment_code}</td>
-                        <td className="px-6 py-4">
-                            <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${conditionColors[item.condition] || 'bg-slate-100 text-slate-600'}`}>
-                                {item.condition}
-                            </span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-600">{item.operator_name || "—"}</td>
-                        <td className="px-6 py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                                <button className="p-2 text-slate-400 hover:text-primary"><Eye className="w-4 h-4" /></button>
-                                <button onClick={() => { setFormData(item); setIsEquipmentModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary"><Edit2 className="w-4 h-4" /></button>
-                            </div>
-                        </td>
-                    </tr>
-                ))}
+                ) : pagedEquipment.length > 0 ? (
+                    pagedEquipment.map(item => (
+                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-800">{item.equipment_name}</td>
+                            <td className="px-6 py-4 font-mono text-slate-500">{item.equipment_code}</td>
+                            <td className="px-6 py-4">
+                                <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${conditionColors[item.condition] || 'bg-slate-100 text-slate-600'}`}>
+                                    {item.condition}
+                                </span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-600">{item.operator_name || "—"}</td>
+                            <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                    <button className="p-2 text-slate-400 hover:text-primary"><Eye className="w-4 h-4" /></button>
+                                    <button onClick={() => { setFormData(item); setIsEquipmentModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary"><Edit2 className="w-4 h-4" /></button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))
+                ) : (
+                    <tr><td colSpan={5} className="p-10 text-center text-slate-400 font-medium">No machinery records found</td></tr>
+                )}
             </tbody>
         </table>
     );
@@ -133,15 +144,19 @@ const EquipmentRegistryPage = () => {
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
                     <tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading usage report...</td></tr>
-                ) : usageReport.map(report => (
-                    <tr key={report.equipment_id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-primary">{report.equipment_code}</td>
-                        <td className="px-6 py-4 font-medium text-slate-700">{report.total_hours}</td>
-                        <td className="px-6 py-4 text-slate-600">{report.avg_hours.toFixed(1)}</td>
-                        <td className="px-6 py-4 text-orange-600 font-bold">{report.total_fuel}</td>
-                        <td className="px-6 py-4 text-slate-500">{report.usage_count}</td>
-                    </tr>
-                ))}
+                ) : (usageReport || []).length > 0 ? (
+                    usageReport.map(report => (
+                        <tr key={report.equipment_id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-primary">{report.equipment_code}</td>
+                            <td className="px-6 py-4 font-medium text-slate-700">{report.total_hours}</td>
+                            <td className="px-6 py-4 text-slate-600">{report.avg_hours?.toFixed(1) || "0.0"}</td>
+                            <td className="px-6 py-4 text-orange-600 font-bold">{report.total_fuel}</td>
+                            <td className="px-6 py-4 text-slate-500">{report.usage_count}</td>
+                        </tr>
+                    ))
+                ) : (
+                    <tr><td colSpan={5} className="p-10 text-center text-slate-400 font-medium">No usage reports found</td></tr>
+                )}
             </tbody>
         </table>
     );
@@ -159,18 +174,22 @@ const EquipmentRegistryPage = () => {
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
                     <tr><td colSpan={4} className="p-10 text-center text-slate-400">Loading maintenance alerts...</td></tr>
-                ) : maintenanceAlerts.map((alert, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-bold text-slate-800">{alert.equipment_code}</td>
-                        <td className="px-6 py-4 text-slate-600 font-medium">{alert.maintenance_date}</td>
-                        <td className="px-6 py-4 text-slate-500">{alert.days_until} days</td>
-                        <td className="px-6 py-4">
-                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${alert.status === 'OVERDUE' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                                {alert.status}
-                            </span>
-                        </td>
-                    </tr>
-                ))}
+                ) : (maintenanceAlerts || []).length > 0 ? (
+                    maintenanceAlerts.map((alert, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-800">{alert.equipment_code}</td>
+                            <td className="px-6 py-4 text-slate-600 font-medium">{alert.maintenance_date}</td>
+                            <td className="px-6 py-4 text-slate-500">{alert.days_until} days</td>
+                            <td className="px-6 py-4">
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${alert.status === 'OVERDUE' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                                    {alert.status}
+                                </span>
+                            </td>
+                        </tr>
+                    ))
+                ) : (
+                    <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-medium">No maintenance alerts</td></tr>
+                )}
             </tbody>
         </table>
     );
@@ -277,6 +296,23 @@ const EquipmentRegistryPage = () => {
                         {activeTab === "Rental" && renderRental()}
                         {activeTab === "Alerts" && renderAlerts()}
                     </div>
+                    {/* Pagination for Registry tab */}
+                    {activeTab === "Registry" && filteredEquipment.length > PAGE_SIZE && (
+                        <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredEquipment.length)} of {filteredEquipment.length} Assets
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                                </button>
+                                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">{currentPage + 1}</div>
+                                <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
 

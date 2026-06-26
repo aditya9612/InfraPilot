@@ -65,8 +65,8 @@ export const labourService = {
         try {
             const { profile_image, ...queryParams } = data;
             console.log("POST /api/v1/labour Request Query Params:", queryParams);
-            const response = await api.post<any>("/labour", 
-                profile_image ? { profile_image } : {}, 
+            const response = await api.post<any>("/labour",
+                profile_image ? { profile_image } : {},
                 { params: queryParams }
             );
             console.log("POST /api/v1/labour - SUCCESS", response.data);
@@ -120,7 +120,9 @@ export const labourService = {
             limit: params?.limit || 50,
             offset: params?.offset || 0
         };
-        if (projectId) queryParams.project_id = Number(projectId);
+        if (projectId !== undefined && projectId !== null && projectId !== "") {
+            queryParams.project_id = Number(projectId);
+        }
         if (params?.search) queryParams.search = params.search;
         if (params?.status && params.status !== "All") queryParams.status = params.status;
 
@@ -481,7 +483,7 @@ export const labourService = {
         } catch (error: any) {
             console.warn("selfCheckOut API error, using virtual success fallback:", error.message);
             const timeStr = new Date().toISOString();
-            
+
             try {
                 const stored = localStorage.getItem("mock_self_attendance_global");
                 const list = stored ? JSON.parse(stored) : [];
@@ -521,14 +523,14 @@ export const labourService = {
             else if (data && typeof data === 'object') {
                 items = data.data || data.items || [];
             }
-            
+
             // Normalize image URLs
             items = items.map((item: any) => ({
                 ...item,
                 check_in_image: this.resolveUrl(item.check_in_image),
                 check_out_image: this.resolveUrl(item.check_out_image)
             }));
-            
+
             return { items, total_count: data.total_count || items.length };
         } catch (error: any) {
             console.warn("getSelfAttendances API error, using virtual success fallback:", error.message);
@@ -710,7 +712,7 @@ export const labourService = {
             console.log("GET /api/v1/attendance/today", params);
             const response = await api.get<any>("/attendance/today", { params });
             const data = response.data;
-            
+
             // Resolve relative URLs from backend
             if (data && data.attendance) {
                 if (data.attendance.check_in_image) {
