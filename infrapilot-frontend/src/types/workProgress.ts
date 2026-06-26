@@ -9,7 +9,7 @@ export interface ActivityItem {
   boq_code: number | null;
   project_id: number;
   planned_quantity: number;
-  engineer_id: number;
+  engineer_id: number | null;
   remaining_quantity: number;
   status: string;
   end_date: string;
@@ -47,7 +47,7 @@ export interface CreateActivityRequest {
   start_date: string;
   end_date: string;
   status: string;
-  engineer_id: number;
+  engineer_id: number | null;
   work_order_id?: number | null;
 }
 
@@ -58,7 +58,7 @@ export interface UpdateActivityRequest {
   start_date: string;
   end_date: string;
   status: string;
-  engineer_id?: number;
+  engineer_id?: number | null;
 }
 
 export interface DailyProgressRequest {
