@@ -60,7 +60,7 @@ const ActivityListPage = () => {
   const [filterStatus, setFilterStatus] = useState("All Status");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "N/A";
@@ -89,7 +89,7 @@ const ActivityListPage = () => {
     try {
       setLoading(true);
       // Pass project_id from Settings page to API — backend returns only that project's activities
-      const data = await workProgressService.listActivities(projectId ?? undefined);
+      const data = await workProgressService.listActivities(projectId ?? undefined, undefined, 100, 0);
       // Keep raw API status values — no normalization needed
       const normalizedData = data.map((a: any) => ({
         ...a,

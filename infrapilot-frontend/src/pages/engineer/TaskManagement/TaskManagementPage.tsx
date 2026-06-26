@@ -303,7 +303,8 @@ const TaskManagementPage = () => {
                     },
                     hasHistory: false,
                     projectName: taskProjectName,
-                    audio_data: t.audio_data,
+                    audio_data: getFullUrl(t.audio_data || (t as any).audio_instruction_url || (t as any).audio_url),
+                    instruction_image_url: getFullUrl((t as any).instruction_image_url || (t as any).image_url),
                     milestoneName,
                     boqName,
                     creatorName,
@@ -437,62 +438,68 @@ const TaskManagementPage = () => {
         const formData = new FormData(formElement);
 
         const targetProjectId = Number(formData.get('project_id')) || projectId || 0;
-        const assignedUserIds = formData.get('assigned_user_ids') || "";
-        const assignedUserIdNum = assignedUserIds ? Number(assignedUserIds.toString().split(',')[0]) : null;
+        const assignedUserIds = formData.get('assigned_user_ids') as string;
+        const assignedUserIdNum = assignedUserIds && assignedUserIds !== "" && assignedUserIds !== "None" ? Number(assignedUserIds.toString().split(',')[0]) : null;
 
-        const fd = new FormData();
-        const titleStr = formData.get('title') as string || '';
-        fd.append('title', titleStr);
-        fd.append('activity_name', titleStr);
+        const instructionImage = formData.get('instruction_image') as File;
+
+        let payload: any;
+        payload = new FormData();
+        const titleStr = (formData.get('title') as string) || selectedEditTask.title || 'Updated Task';
+        payload.append('title', titleStr);
+        payload.append('activity_name', titleStr);
         
         const descStr = formData.get('description') as string;
-        if (descStr) fd.append('description', descStr);
+        if (descStr) payload.append('description', descStr);
         
-        fd.append('priority', String(parseInt(formData.get('priority') as string) || 1));
+        payload.append('priority', String(parseInt(formData.get('priority') as string) || 1));
         
         const startDateStr = formData.get('start_date') as string;
-        if (startDateStr) fd.append('start_date', startDateStr);
+        if (startDateStr) payload.append('start_date', startDateStr);
         
         const endDateStr = formData.get('end_date') as string;
-        if (endDateStr) fd.append('end_date', endDateStr);
+        if (endDateStr) payload.append('end_date', endDateStr);
         
         const statusStr = formData.get('status') as string;
-        if (statusStr) fd.append('status', statusStr);
+        if (statusStr) payload.append('status', statusStr);
         
-        if (assignedUserIds) fd.append('assigned_user_ids', assignedUserIds.toString());
+        if (assignedUserIds) payload.append('assigned_user_ids', assignedUserIds.toString());
         if (assignedUserIdNum) {
-            fd.append('assigned_user_id', String(assignedUserIdNum));
-            fd.append('engineer_id', String(assignedUserIdNum));
-            fd.append('assigned_to', String(assignedUserIdNum));
-            fd.append('user_id', String(assignedUserIdNum));
-            fd.append('lead_id', String(assignedUserIdNum));
-            fd.append('assigned_to_id', String(assignedUserIdNum));
+            payload.append('assigned_user_id', String(assignedUserIdNum));
+            payload.append('engineer_id', String(assignedUserIdNum));
+            payload.append('assigned_to', String(assignedUserIdNum));
+            payload.append('user_id', String(assignedUserIdNum));
+            payload.append('lead_id', String(assignedUserIdNum));
+            payload.append('assigned_to_id', String(assignedUserIdNum));
         }
 
         const activityTypeId = formData.get('activity_type_id');
-        if (activityTypeId) fd.append('activity_type_id', String(activityTypeId));
+        if (activityTypeId) payload.append('activity_type_id', String(activityTypeId));
         
         const milestoneId = formData.get('milestone_id');
-        if (milestoneId) fd.append('milestone_id', String(milestoneId));
+        if (milestoneId) payload.append('milestone_id', String(milestoneId));
         
         const boqId = formData.get('boq_id');
-        if (boqId) fd.append('boq_id', String(boqId));
+        if (boqId) payload.append('boq_id', String(boqId));
         
-        fd.append('remove_audio', String(formData.get('remove_audio') === 'true'));
-        fd.append('remove_image', String(formData.get('remove_image') === 'true'));
+        if (formData.get('remove_audio') === 'true') {
+            payload.append('remove_audio', 'true');
+        }
+        if (formData.get('remove_image') === 'true') {
+            payload.append('remove_image', 'true');
+        }
 
         if (editAudioBlob) {
             const audioFile = new File([editAudioBlob], 'audio_instruction.webm', { type: 'audio/webm' });
-            fd.append('audio_instruction', audioFile);
+            payload.append('audio_file', audioFile);
         }
 
-        const instructionImage = formData.get('instruction_image') as File;
         if (instructionImage && instructionImage.size > 0) {
-            fd.append('instruction_image', instructionImage);
+            payload.append('instruction_image', instructionImage);
         }
 
         try {
-            await projectService.updateTask(targetProjectId as number, selectedEditTask.id, fd);
+            await projectService.updateTask(targetProjectId as number, selectedEditTask.id, payload);
 
             toast.success("Task updated successfully");
             setIsEditModalOpen(false);
@@ -1122,7 +1129,7 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {(task as any).instruction_image_url ? (
-                                                                <img src={getFullUrl(String((task as any).instruction_image_url)) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
+                                                                <img src={String((task as any).instruction_image_url) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
                                                             ) : 'null'}
                                                         </td>
 
@@ -2006,6 +2013,14 @@ const TaskManagementPage = () => {
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                     Instruction Image
                                 </label>
+                                {selectedEditTask && (selectedEditTask as any).instruction_image_url && (
+                                    <div className="mb-3 flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <img src={String((selectedEditTask as any).instruction_image_url)} alt="Existing Instruction" className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200" />
+                                        <div className="flex-1">
+                                            <span className="text-sm text-slate-600 font-medium">Existing Image</span>
+                                        </div>
+                                    </div>
+                                )}
                                 <input
                                     type="file"
                                     name="instruction_image"
@@ -2101,10 +2116,10 @@ const TaskManagementPage = () => {
                                     </label>
                                     <select
                                         name="assigned_user_ids"
-                                        defaultValue={selectedEditTask?.assigned_user_id || "2"}
+                                        defaultValue={selectedEditTask?.assigned_user_id || ""}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     >
-                                        <option value={selectedEditTask?.assigned_user_id?.toString() || "2"}>{selectedEditTask?.assignedTo?.name || "Select User"}</option>
+                                        <option value="">Select User</option>
                                         <option value="1">Suresh Chaudhari (1)</option>
                                         <option value="2">Vishal Sathe (2)</option>
                                         <option value="3">Amit Khare (3)</option>

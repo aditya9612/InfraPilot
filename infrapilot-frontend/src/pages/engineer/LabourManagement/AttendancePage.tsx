@@ -36,6 +36,7 @@ const AttendancePage: React.FC = () => {
     const [attendanceState, setAttendanceState] = useState<AttendanceState>("NOT_CHECKED_IN");
     const [checkInTime, setCheckInTime] = useState<Date | null>(null);
     const [checkOutTime, setCheckOutTime] = useState<Date | null>(null);
+    const [currentAttendanceId, setCurrentAttendanceId] = useState<number | null>(null);
 
     // Modals State
     const [isCheckInModalOpen] = useState(false);
@@ -105,6 +106,7 @@ const AttendancePage: React.FC = () => {
             };
 
             if (att && att.in_time && att.in_time !== "--:--") {
+                if (att.id) setCurrentAttendanceId(att.id);
                 const parsedIn = parseTimeStr(att.in_time);
                 const parsedOut = parseTimeStr(att.out_time);
                 if (parsedOut) {
@@ -117,6 +119,7 @@ const AttendancePage: React.FC = () => {
                 }
             } else {
                 setAttendanceState("NOT_CHECKED_IN");
+                setCurrentAttendanceId(null);
             }
         } catch (err) {
             console.warn("getTodayStatus failed, falling back to NOT_CHECKED_IN:", err);
@@ -161,16 +164,16 @@ const AttendancePage: React.FC = () => {
             }
 
             const data = await labourService.getAttendanceList(activeProjectId, fromDate || undefined, toDate || undefined);
-            
+
             // Filter only this engineer's own records
             const allItems = data.items || [];
             const userIdNum = user?.id ? Number(user.id) : null;
-            const filteredItems = allItems.filter((item: any) => 
-                Number(item.user_id) === userIdNum || 
+            const filteredItems = allItems.filter((item: any) =>
+                Number(item.user_id) === userIdNum ||
                 Number(item.labour_id) === userIdNum ||
                 (item.worker_code && item.worker_code === `LAB-${userIdNum}`)
             );
-            
+
             setSelfAttendances(filteredItems);
         } catch (error) {
             console.error("Failed to fetch self attendances", error);
@@ -573,11 +576,25 @@ const AttendancePage: React.FC = () => {
                                                                 const detailedLabour = attendanceData && attendanceData.attendance
                                                                     ? attendanceData.attendance
                                                                     : {};
-                                                                    
+
+                                                                let fetchedLabourName = rec.user_name || "Worker";
+                                                                try {
+                                                                    const lId = rec.labour_id || detailedLabour.labour_id || rec.user_id;
+                                                                    if (lId) {
+                                                                        const labourInfo = await labourService.getLabourById(lId);
+                                                                        if (labourInfo && labourInfo.labour_name) {
+                                                                            fetchedLabourName = labourInfo.labour_name;
+                                                                        }
+                                                                    }
+                                                                } catch (err) {
+                                                                    console.warn("Could not fetch labour info", err);
+                                                                }
+
                                                                 const mappedData = {
                                                                     ...rec,
                                                                     id: rec.user_id || detailedLabour.user_id || 'U',
                                                                     name: rec.user_name || 'Worker',
+                                                                    labourName: fetchedLabourName,
                                                                     imgInUrl: detailedLabour.check_in_image || rec.check_in_image,
                                                                     imgOutUrl: detailedLabour.check_out_image || rec.check_out_image,
                                                                     status: detailedLabour.in_time && !detailedLabour.out_time ? 'Online' : 'Offline',
@@ -596,7 +613,7 @@ const AttendancePage: React.FC = () => {
                                                                     earlyMinutes: detailedLabour.early_minutes || rec.early_minutes || '-',
                                                                     projectName: rec.project_name || '-'
                                                                 };
-                                                                
+
                                                                 setSelectedLabour(mappedData);
                                                                 toast.dismiss("fetchDetails");
                                                                 setIsViewModalOpen(true);
@@ -710,56 +727,35 @@ const AttendancePage: React.FC = () => {
                 </div>
             </PageTransition>
 
-            {isSelfCheckInFormOpen && selectedLabour && (
+            {isSelfCheckInFormOpen && (
                 <SelfCheckInModal
                     isOpen={isSelfCheckInFormOpen}
                     onClose={() => {
                         setIsSelfCheckInFormOpen(false);
-                        setSelectedLabour(null);
                     }}
-                    onSuccess={() => {
+                    onSuccess={async () => {
                         setIsSelfCheckInFormOpen(false);
-                        setSelectedLabour(null);
+                        await restoreTodayAttendanceState();
                     }}
-                    labourId={selectedLabour.id}
-                    title={`Check-In: ${selectedLabour.name || 'Labour'}`}
+                    labourId={user?.id}
                 />
             )}
 
-            {isCheckOutModalOpen && selectedLabour && (
+            {isCheckOutModalOpen && (
                 <SelfCheckOutModal
                     isOpen={isCheckOutModalOpen}
                     onClose={() => {
                         setIsCheckOutModalOpen(false);
-                        setSelectedLabour(null);
                     }}
-                    onSuccess={() => {
+                    onSuccess={async () => {
                         setIsCheckOutModalOpen(false);
-                        setSelectedLabour(null);
+                        await restoreTodayAttendanceState();
                     }}
-                    attendanceId={selectedLabour.id}
-                    labourId={selectedLabour.labour_id || selectedLabour.id}
-                    title={`Check-Out: ${selectedLabour.name || 'Labour'}`}
+                    attendanceId={currentAttendanceId || undefined}
+                    labourId={user?.id}
                 />
             )}
 
-            <SelfCheckInModal
-                isOpen={isSelfCheckInFormOpen}
-                onClose={() => setIsSelfCheckInFormOpen(false)}
-                onSuccess={(time) => {
-                    setCheckInTime(time);
-                    setAttendanceState("CHECKED_IN");
-                }}
-            />
-
-            <SelfCheckOutModal
-                isOpen={isCheckOutModalOpen}
-                onClose={() => setIsCheckOutModalOpen(false)}
-                onSuccess={(time) => {
-                    setCheckOutTime(time);
-                    setAttendanceState("CHECKED_OUT");
-                }}
-            />
 
             {/* Labour Detail View Modal */}
             <Modal
@@ -830,8 +826,8 @@ const AttendancePage: React.FC = () => {
                                 <p className="text-xs font-bold text-slate-800">{selectedLabour.projectName}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">LABOUR ID</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.id}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">LABOUR NAME</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.labourName || selectedLabour.name}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR</p>

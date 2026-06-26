@@ -239,14 +239,6 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
 
 
-    const fileToBase64 = (file: Blob | File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = error => reject(error);
-        });
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -260,44 +252,42 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         try {
             const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1 };
 
-            let audioBase64 = null;
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('activity_name', title);
+            
+            if (description) formData.append('description', description);
+            formData.append('priority', String(priorityMap[priority]));
+            formData.append('status', status);
+            
+            if (selectedEmployees.length > 0) {
+                const assignedIdsStr = selectedEmployees.join(",");
+                formData.append('assigned_user_ids', assignedIdsStr);
+                const assignedUserIdNum = String(selectedEmployees[0]);
+                formData.append('assigned_user_id', assignedUserIdNum);
+                formData.append('engineer_id', assignedUserIdNum);
+                formData.append('assigned_to', assignedUserIdNum);
+                formData.append('user_id', assignedUserIdNum);
+                formData.append('lead_id', assignedUserIdNum);
+                formData.append('assigned_to_id', assignedUserIdNum);
+            }
+            
+            if (startDate) formData.append('start_date', startDate);
+            if (deadline) formData.append('end_date', deadline);
+            
+            if (activityTypeId && activityTypeId !== 'None') formData.append('activity_type_id', String(activityTypeId));
+            if (milestoneId && milestoneId !== 'None') formData.append('milestone_id', String(milestoneId));
+            if (boqId && boqId !== 'None') formData.append('boq_id', String(boqId));
+
             if (audioBlob) {
-                audioBase64 = await fileToBase64(audioBlob);
+                const audioFile = new File([audioBlob], 'audio_instruction.webm', { type: 'audio/webm' });
+                formData.append('audio_file', audioFile);
             }
-            
-            let imageBase64 = null;
-            if (instructionImage) {
-                imageBase64 = await fileToBase64(instructionImage);
+            if (instructionImage && instructionImage.size > 0) {
+                formData.append('instruction_image', instructionImage);
             }
 
-            const assignedUserIdNum = selectedEmployees.length > 0 ? selectedEmployees[0] : null;
-
-            const payload: any = {
-                title,
-                activity_name: title,
-                description,
-                priority: priorityMap[priority],
-                status,
-                assigned_user_ids: selectedEmployees.length > 0 ? selectedEmployees.join(",") : "",
-                assigned_user_id: assignedUserIdNum,
-                engineer_id: assignedUserIdNum,
-                assigned_to: assignedUserIdNum,
-                user_id: assignedUserIdNum,
-                lead_id: assignedUserIdNum,
-                assigned_to_id: assignedUserIdNum,
-            };
-
-            if (startDate) payload.start_date = startDate;
-            if (deadline) payload.end_date = deadline;
-            
-            if (activityTypeId && activityTypeId !== 'None') payload.activity_type_id = Number(activityTypeId);
-            if (milestoneId && milestoneId !== 'None') payload.milestone_id = Number(milestoneId);
-            if (boqId && boqId !== 'None') payload.boq_id = Number(boqId);
-
-            if (audioBase64) payload.audio_data = audioBase64;
-            if (imageBase64) payload.instruction_image_url = imageBase64; // API might expect the base64 in url or a separate _data field. Using url as fallback.
-
-            await projectService.createTask(targetProjectIdVal, payload);
+            await projectService.createTask(targetProjectIdVal, formData);
 
             toast.success("Task created successfully");
             onSuccess();

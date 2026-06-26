@@ -578,9 +578,9 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         engineer_name: projectDetails.engineer || "Er. Tejas Dhande",
         work_order_no: projectDetails.workOrderNo,
 
-        labour_items: labourItems,
-        material_items: materialItems,
-        extra_charge_items: extraChargeItems,
+        labour_items: labourItems.map((li: any) => ({ ...li, amount: li.amount || (li.labour_count * li.daily_wage * li.labour_days) })),
+        material_items: materialItems.map((mi: any) => ({ ...mi, estimated_amount: mi.estimated_amount || (mi.estimated_quantity * mi.estimated_rate) })),
+        extra_charge_items: extraChargeItems.map((ei: any) => ({ ...ei, amount: ei.amount || (ei.quantity * ei.rate) })),
 
         items: id ? items.filter(i => !String(i.id).startsWith("new_")).map(item => {
           let measurements: any[] = [];
@@ -605,7 +605,9 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
             title: item.description.split('\n')[0],
             description: item.description,
             unit: item.unit,
+            quantity: item.quantity,
             rate: item.rate,
+            amount: item.amount,
             measurements
           };
         }) : items.map(item => {
@@ -631,7 +633,9 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
             title: item.description.split('\n')[0],
             description: item.description,
             unit: item.unit,
+            quantity: item.quantity,
             rate: item.rate,
+            amount: item.amount,
             measurements
           };
         }),
@@ -2279,7 +2283,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 ) : (
                   <Eye className="w-5 h-5 group-hover:animate-pulse" />
                 )}
-                {isPreviewLoading ? 'GENERATING PREVIEW...' : 'PREVIEW INVOICE'}
+                {isPreviewLoading ? 'GENERATING PREVIEW...' : 'PREVIEW QUOTATION'}
               </button>
               <button
                 onClick={handleSaveQuotation}

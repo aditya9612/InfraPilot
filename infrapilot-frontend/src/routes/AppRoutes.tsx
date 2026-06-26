@@ -482,7 +482,7 @@ function AppRoutes() {
               <Route path="/accountant" element={<AccountantDashboard />} />
               <Route
                 path="/accountant/chart-of-accounts"
-                element={<ChartOfAccountsPage />}
+                element={<Navigate to="/accountant/chart-of-accounts/assets" replace />}
               />
               <Route
                 path="/accountant/chart-of-accounts/:category"

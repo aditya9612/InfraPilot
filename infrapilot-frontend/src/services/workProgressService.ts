@@ -40,10 +40,12 @@ export const workProgressService = {
    * List all activities from API
    * GET /api/v1/work-progress/activities
    */
-  async listActivities(project_id?: number, engineer_id?: number): Promise<ActivityItem[]> {
+  async listActivities(project_id?: number, engineer_id?: number, limit?: number, offset?: number): Promise<ActivityItem[]> {
     const params: Record<string, any> = {};
     if (project_id) params.project_id = project_id;
     if (engineer_id) params.engineer_id = engineer_id;
+    if (limit !== undefined) params.limit = limit;
+    if (offset !== undefined) params.offset = offset;
     const response = await api.get("/work-progress/activities", { params });
     const data = response.data;
     return Array.isArray(data) ? data : (data.items || data.data || []);

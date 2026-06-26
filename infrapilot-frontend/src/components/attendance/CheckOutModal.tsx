@@ -17,10 +17,10 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
     const [checkOutLatitude, setCheckOutLatitude] = useState<number | null>(null);
     const [checkOutLongitude, setCheckOutLongitude] = useState<number | null>(null);
     const [checkOutAddress, setCheckOutAddress] = useState('Fetching location...');
-    
+
     const [workSummary, setWorkSummary] = useState('');
     const [taskDeadlineReason, setTaskDeadlineReason] = useState('');
-    
+
     const [workReportPdf, setWorkReportPdf] = useState<File | null>(null);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
@@ -97,21 +97,21 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
         setIsSubmitting(true);
         try {
             const fd = new FormData();
-            
+
             fd.append("out_time", new Date(outTime).toISOString());
-            
+
             if (checkOutLatitude !== null) fd.append("check_out_latitude", checkOutLatitude.toString());
             if (checkOutLongitude !== null) fd.append("check_out_longitude", checkOutLongitude.toString());
             if (checkOutAddress && !["Fetching location...", "Locating...", "Location not available"].includes(checkOutAddress))
                 fd.append("check_out_address", checkOutAddress);
-                
+
             fd.append("work_summary", workSummary);
             if (taskDeadlineReason) fd.append("task_deadline_reason", taskDeadlineReason);
-            
+
             if (workReportPdf) {
                 fd.append("work_report_pdf", workReportPdf);
             }
-            
+
             if (capturedImage) {
                 const blob = await (await fetch(capturedImage)).blob();
                 fd.append("check_out_image", blob, "checkout.jpg");
@@ -120,7 +120,7 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
             // In LabourAttendancePage, attendance ID is sometimes stored in id or we have labour_id
             // Depending on the data structure passed down, we need the attendance ID.
             const attendanceIdToUse = attendance.attendance_id || attendance.id;
-            
+
             await labourService.checkOut(attendanceIdToUse, fd);
             toast.success("Successfully Checked Out!");
             onSuccess(new Date());
@@ -175,7 +175,7 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
                             <label className={labelCls}>Out Time</label>
                             <input type="datetime-local" value={outTime} onChange={(e) => setOutTime(e.target.value)} className={inputCls} />
                         </div>
-                        
+
                         {/* check_out_address */}
                         <div className="md:col-span-2">
                             <label className={labelCls}>Check Out Address</label>
@@ -193,22 +193,22 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
                             <label className={labelCls}>Work Summary <span className="text-rose-500">*</span></label>
                             <textarea value={workSummary} onChange={(e) => setWorkSummary(e.target.value)} placeholder="Describe the work completed..." rows={3} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all resize-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 font-inter" required />
                         </div>
-                        
+
                         {/* task_deadline_reason */}
                         <div className="md:col-span-2">
                             <label className={labelCls}>Task Deadline Reason</label>
                             <input type="text" value={taskDeadlineReason} onChange={(e) => setTaskDeadlineReason(e.target.value)} placeholder="If applicable, reason for task status..." className={inputCls} />
                         </div>
-                        
+
                         {/* work_report_pdf */}
                         <div className="md:col-span-2">
                             <label className={labelCls}>Work Report PDF</label>
                             <div className="relative">
-                                <input 
-                                    type="file" 
-                                    accept=".pdf" 
-                                    onChange={(e) => setWorkReportPdf(e.target.files?.[0] || null)} 
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                                <input
+                                    type="file"
+                                    accept=".pdf"
+                                    onChange={(e) => setWorkReportPdf(e.target.files?.[0] || null)}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 />
                                 <div className="w-full px-4 py-3 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex items-center justify-center gap-2 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
                                     <Upload className="w-4 h-4 text-slate-400" />
