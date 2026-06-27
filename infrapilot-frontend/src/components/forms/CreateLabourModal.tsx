@@ -140,7 +140,6 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                                 <option value="Unskilled">Unskilled</option>
                                 <option value="Semi-Skilled">Semi-Skilled</option>
                                 <option value="Skilled">Skilled</option>
-                                <option value="Highly-Skilled">Highly-Skilled</option>
                             </select>
                         </div>
                         <div className="space-y-1">

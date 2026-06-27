@@ -29,20 +29,35 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsLoading(true);
         try {
             if (user.role === 'ProjectManager') {
-                const projects = await projectService.getAssignedProjects(Number(user.id), force);
-                setAssignedProjects(projects);
+                let localProjects: Project[] = [];
+                const userStr = localStorage.getItem('infrapilot_user');
+                if (userStr) {
+                    try {
+                        const parsedUser = JSON.parse(userStr);
+                        localProjects = parsedUser?.assigned_projects || parsedUser?.user?.assigned_projects || [];
+                    } catch (e) { }
+                }
 
-                // Auto-select first project if none selected
-                if (projects.length > 0 && !selectedProjectId) {
-                    const savedId = localStorage.getItem('infrapilot_selected_project_id');
-                    const idToSelect = savedId ? Number(savedId) : projects[0].id;
+                try {
+                    const projects = await projectService.getAssignedProjects(Number(user.id), force);
+                    const finalProjects = projects.length > 0 ? projects : localProjects;
+                    setAssignedProjects(finalProjects);
 
-                    // Verify savedId is still in assigned projects
-                    if (projects.some(p => p.id === idToSelect)) {
-                        setSelectedProjectIdState(idToSelect);
-                    } else {
-                        setSelectedProjectIdState(projects[0].id);
+                    // Auto-select first project if none selected
+                    if (finalProjects.length > 0 && !selectedProjectId) {
+                        const savedId = localStorage.getItem('infrapilot_selected_project_id');
+                        const idToSelect = savedId ? Number(savedId) : finalProjects[0].id;
+
+                        // Verify savedId is still in assigned projects
+                        if (finalProjects.some(p => p.id === idToSelect)) {
+                            setSelectedProjectIdState(idToSelect);
+                        } else {
+                            setSelectedProjectIdState(finalProjects[0].id);
+                        }
                     }
+                } catch (error) {
+                    console.error('Failed to fetch assigned projects:', error);
+                    setAssignedProjects(localProjects);
                 }
             } else if (user.role === 'SiteEngineer') {
                 // Site Engineer project is fixed in their user object
@@ -53,6 +68,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 } as Project;
                 setAssignedProjects([engineerProject]);
                 setSelectedProjectIdState(engineerProject.id);
+            } else if (user.role === 'Admin') {
+                const res = await projectService.getProjects(100);
+                const projects = (res as any)?.items || (Array.isArray(res) ? res : []);
+                setAssignedProjects(projects);
             }
         } catch (error) {
             console.error('Failed to fetch assigned projects:', error);

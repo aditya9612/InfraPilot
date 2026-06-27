@@ -1,7 +1,7 @@
 import api from "./api";
 
 export interface Notification {
-    id: number;
+    id: number | string;
     title: string;
     description: string;
     details: string;
@@ -9,7 +9,7 @@ export interface Notification {
     timestamp: string;
     read: boolean;
     role_target: "SiteEngineer" | "Admin" | "All";
-    source?: "general" | "project" | "task" | "direct";
+    source?: "general" | "project" | "task" | "direct" | "system";
     created_at: string;
 }
 
@@ -149,6 +149,120 @@ export const notificationService = {
 
     getNotifications: async function () { return this.getAllNotifications(); },
 
+    /**
+     * Fetch ONLY alert-type notifications (general, project, task alerts).
+     * Used by the Alerts sub-page. Does NOT include system notifications.
+     */
+    async getAlertsOnly(): Promise<Notification[]> {
+        try {
+            const [genRes, pRes, tRes] = await Promise.all([
+                api.get('/alerts').catch(() => ({ data: [] })),
+                api.get('/projects/alerts/projects').catch(() => ({ data: [] })),
+                api.get('/projects/alerts/tasks').catch(() => ({ data: [] })),
+            ]);
+
+            const extractData = (res: any) => {
+                const data = res.data;
+                if (Array.isArray(data)) return data;
+                return data?.items || data?.data || data?.alerts || [];
+            };
+
+            const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
+            const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
+            const deletedIdsStr = localStorage.getItem('infrapilot_alerts_deleted_ids');
+            const deletedIds = deletedIdsStr ? JSON.parse(deletedIdsStr) : [];
+
+            const normalizeTs = (ts: string) => {
+                if (!ts) return new Date().toISOString();
+                if (!ts.endsWith('Z') && !ts.includes('+') && !ts.match(/\d{2}-\d{2}:\d{2}$/))
+                    return ts.replace(' ', 'T') + 'Z';
+                return ts;
+            };
+
+            const genAlerts = extractData(genRes).map((a: any) => ({
+                ...a,
+                id: a.id || `gen-${Math.random()}`,
+                title: "System Alert",
+                description: a.message || a.description || "",
+                details: a.message || "",
+                type: "Alert" as const,
+                timestamp: normalizeTs(a.created_at || a.timestamp),
+                created_at: normalizeTs(a.created_at || a.timestamp),
+                read: !!(a.is_read || a.read),
+                source: "general" as const,
+                role_target: "All" as const,
+                status: (a.alert_type && typeof a.alert_type === 'string' && a.alert_type.includes('||')) ? a.alert_type.split('||')[0] : a.status,
+            }));
+
+            const projAlerts = extractData(pRes).map((a: any, i: number) => {
+                const id = a.id ? `proj-${a.id}` : `proj-virtual-${i}`;
+                return {
+                    ...a, id,
+                    title: "Project Alert",
+                    description: `${a.project_name || 'Project'}: ${a.status || 'Updated'}`,
+                    details: `Project "${a.project_name}" status changed to ${a.status}. Due: ${a.end_date || 'N/A'}.`,
+                    type: "Alert" as const,
+                    timestamp: normalizeTs(a.created_at || a.timestamp),
+                    created_at: normalizeTs(a.created_at || a.timestamp),
+                    read: readIds.includes(String(id)) || !!(a.is_read || a.read),
+                    source: "project" as const,
+                    role_target: "All" as const,
+                };
+            });
+
+            const taskAlerts = extractData(tRes).map((a: any, i: number) => {
+                const id = a.id ? `task-${a.id}` : `task-virtual-${i}`;
+                return {
+                    ...a, id,
+                    title: "Task Update",
+                    description: `${a.title || 'Task'}: ${a.status || 'Updated'}`,
+                    details: `Task "${a.title}" is ${a.status}. Deadline: ${a.end_date || 'N/A'}.`,
+                    type: "Info" as const,
+                    timestamp: normalizeTs(a.created_at || a.timestamp),
+                    created_at: normalizeTs(a.created_at || a.timestamp),
+                    read: readIds.includes(String(id)) || !!(a.is_read || a.read),
+                    source: "task" as const,
+                    role_target: "All" as const,
+                };
+            });
+
+            return [...genAlerts, ...projAlerts, ...taskAlerts]
+                .filter(a => !deletedIds.includes(String(a.id)))
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        } catch (error) {
+            console.warn("getAlertsOnly failed:", error);
+            return [];
+        }
+    },
+
+    /**
+     * Fetch ONLY system notifications from /api/v1/notifications.
+     * Used by the System Notifications sub-page. Does NOT include alerts.
+     */
+    async getSystemNotificationsOnly(): Promise<Notification[]> {
+        try {
+            const response = await api.get('/notifications');
+            const rawItems = response.data?.items || response.data?.data || response.data || [];
+            if (!Array.isArray(rawItems)) return [];
+
+            return rawItems.map((item: any) => ({
+                id: item.id ? `sys-${item.id}` : `sys-${Math.random()}`,
+                title: item.title || item.alert_type || "System Notification",
+                description: item.message || item.description || "",
+                details: item.message || item.details || item.content || "",
+                type: (item.type === 'alert' ? 'Alert' : item.type === 'success' ? 'Info' : 'System') as any,
+                timestamp: item.created_at || item.timestamp || new Date().toISOString(),
+                created_at: item.created_at || item.timestamp || new Date().toISOString(),
+                read: !!(item.is_read || item.read),
+                source: "system" as const,
+                role_target: "All" as const,
+            })).sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        } catch (error) {
+            console.warn("getSystemNotificationsOnly failed:", error);
+            return [];
+        }
+    },
+
     markAsRead: async (id: number | string, source = "general"): Promise<void> => {
         try {
             if (source === "system") {
@@ -176,9 +290,31 @@ export const notificationService = {
     markAllAsRead: async (_role: string, notifications: Notification[]): Promise<void> => {
         try {
             const unread = notifications.filter(n => !n.read);
-            await Promise.all(unread.map(n =>
+
+            // Use bulk endpoint for system notifications
+            const hasSystemNotifs = unread.some(n => n.source === 'system' || n.source === 'direct');
+            if (hasSystemNotifs) {
+                await api.put('/notifications/read-all').catch(e =>
+                    console.warn('PUT /notifications/read-all failed, falling back to individual calls:', e)
+                );
+            }
+
+            // Mark alert-type notifications individually (general/project/task)
+            const alertUnread = unread.filter(n => n.source !== 'system' && n.source !== 'direct');
+            await Promise.all(alertUnread.map(n =>
                 notificationService.markAsRead(n.id, n.source)
             ));
+
+            // Store virtual read state for project/task virtual IDs
+            const virtualUnread = unread.filter(n => n.source === 'project' || n.source === 'task');
+            if (virtualUnread.length > 0) {
+                const readIdsStr = localStorage.getItem('infrapilot_alerts_read_ids');
+                const readIds = readIdsStr ? JSON.parse(readIdsStr) : [];
+                virtualUnread.forEach(n => {
+                    if (!readIds.includes(String(n.id))) readIds.push(String(n.id));
+                });
+                localStorage.setItem('infrapilot_alerts_read_ids', JSON.stringify(readIds));
+            }
         } catch (error) {
             console.error("Failed to mark all notifications as read:", error);
         }
@@ -206,17 +342,39 @@ export const notificationService = {
     },
 
     async deleteAlert(id: number | string): Promise<void> {
-        if (!String(id).includes('proj-') && !String(id).includes('task-') && !String(id).includes('.')) {
+        const idStr = String(id);
+        if (idStr.startsWith('sys-')) {
+            // System notification — use DELETE /api/v1/notifications/{id}
+            const numericId = idStr.replace('sys-', '');
+            if (!isNaN(Number(numericId))) {
+                await api.delete(`/notifications/${numericId}`);
+            }
+        } else if (!idStr.includes('proj-') && !idStr.includes('task-') && !idStr.includes('.')) {
+            // General alert — use DELETE /api/v1/alerts/{id}
             await api.delete(`/alerts/${id}`);
         } else {
-            // Virtual deletion for project/task alerts
+            // Virtual deletion for project/task alerts (no backend delete endpoint)
             const deletedIdsStr = localStorage.getItem('infrapilot_alerts_deleted_ids');
             const deletedIds = deletedIdsStr ? JSON.parse(deletedIdsStr) : [];
-            if (!deletedIds.includes(String(id))) {
-                deletedIds.push(String(id));
-                if (deletedIds.length > 500) deletedIds.shift(); // Keep bounded
+            if (!deletedIds.includes(idStr)) {
+                deletedIds.push(idStr);
+                if (deletedIds.length > 500) deletedIds.shift();
                 localStorage.setItem('infrapilot_alerts_deleted_ids', JSON.stringify(deletedIds));
             }
+        }
+    },
+
+    /**
+     * GET /api/v1/notifications/unread-count
+     * Returns the number of unread notifications for the current user.
+     */
+    async getUnreadCount(): Promise<number> {
+        try {
+            const response = await api.get('/notifications/unread-count');
+            return response.data?.count ?? response.data?.unread_count ?? response.data ?? 0;
+        } catch (error) {
+            console.warn('Failed to fetch unread notification count:', error);
+            return 0;
         }
     },
 
@@ -228,7 +386,7 @@ export const notificationService = {
         try {
             const response = await api.get(`/notifications?limit=${limit}&offset=${offset}`);
             const rawItems = response.data?.items || response.data?.data || response.data || [];
-            
+
             if (!Array.isArray(rawItems)) return [];
 
             return rawItems.map((item: any) => ({

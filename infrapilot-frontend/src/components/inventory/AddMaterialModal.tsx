@@ -309,17 +309,22 @@ export default function AddMaterialModal({
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Rate type <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 name="rate_type"
                 value={formData.rate_type}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none ${errors.rate_type
+                className={`w-full px-4 py-2 bg-gray-50 border rounded-xl text-sm focus:outline-none focus:ring-4 transition-all outline-none appearance-none ${errors.rate_type
                   ? "border-rose-300 focus:ring-rose-500/10 focus:border-rose-500"
                   : "border-gray-200 focus:ring-primary/10 focus:border-primary"
                   }`}
-                placeholder="e.g. per bag"
-              />
+              >
+                <option value="" disabled>-- Select rate type --</option>
+                <option value="FIXED">FIXED</option>
+                <option value="PER_UNIT">PER_UNIT</option>
+                <option value="PER_KG">PER_KG</option>
+                <option value="PER_TON">PER_TON</option>
+                <option value="PER_BAG">PER_BAG</option>
+              </select>
               {errors.rate_type && (
                 <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">
                   {errors.rate_type}
