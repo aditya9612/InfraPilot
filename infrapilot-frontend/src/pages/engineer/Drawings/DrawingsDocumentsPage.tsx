@@ -82,7 +82,7 @@ const DrawingsDocumentsPage = () => {
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(100);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [currentParentId, setCurrentParentId] = useState<number | null>(null);
     const [folderPath, setFolderPath] = useState<{ id: number, name: string }[]>([]);
     const fileInputRef = React.useRef<HTMLInputElement>(null);

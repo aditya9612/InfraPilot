@@ -15,6 +15,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
+import { useProject } from "../../../context/ProjectContext";
 import { workProgressService } from "../../../services/workProgressService";
 import type { ActivityItem } from "../../../types/workProgress";
 
@@ -23,6 +24,7 @@ import AddActivityModal from "../../../components/WorkProgress/AddActivityModal"
 import EditActivityModal from "../../../components/WorkProgress/EditActivityModal";
 import ActivityDetailModal from "../../../components/WorkProgress/ActivityDetailModal";
 import LogProgressModal from "../../../components/WorkProgress/LogProgressModal";
+import ProjectSelector from "../../../components/common/ProjectSelector";
 
 const statusBadge: Record<string, string> = {
   "ON_TRACK": "bg-emerald-100 text-emerald-600",
@@ -34,25 +36,7 @@ const statusBadge: Record<string, string> = {
 const ActivityListPage = () => {
   const { user } = useAuth();
   const engineer_id = Number(user?.id) || 1;
-  const [projectId, setProjectId] = useState<number | null>(null);
-
-  useEffect(() => {
-    const userStr = localStorage.getItem("infrapilot_user");
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        const pId = user?.project_id || user?.user?.project_id;
-        if (pId) {
-          setProjectId(Number(pId));
-        } else {
-          setProjectId(92);
-        }
-      } catch (e) {
-        console.error("Failed to resolve project ID", e);
-        setProjectId(92);
-      }
-    }
-  }, []);
+  const { selectedProjectId: projectId } = useProject();
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,7 +131,7 @@ const ActivityListPage = () => {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterStatus, activeStatFilter]);
+  }, [searchTerm, filterStatus, activeStatFilter, projectId]);
 
   const paginatedActivities = filteredActivities.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -218,7 +202,7 @@ const ActivityListPage = () => {
 
   return (
     <>
-      <Navbar title="Activity List" breadcrumb={["InfraPilot", "Engineer", "Work Progress"]} />
+      <Navbar title="Activity List" breadcrumb={["Manager", "Work Progress", "Activity List"]} />
       <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
         {/* ─── Header ──────────────────────────────────────────────────────── */}
@@ -232,6 +216,7 @@ const ActivityListPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <ProjectSelector variant="page" />
             <button
               onClick={loadActivities}
               className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
@@ -404,8 +389,8 @@ const ActivityListPage = () => {
                           onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }}
                           disabled={a.status === "ON_TRACK" || a.status === "COMPLETED"}
                           className={`p-2 rounded-xl transition-all font-inter ${a.status === "ON_TRACK" || a.status === "COMPLETED"
-                              ? "text-slate-300 opacity-50 cursor-not-allowed"
-                              : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            ? "text-slate-300 opacity-50 cursor-not-allowed"
+                            : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
                             }`}
                           title={a.status === "ON_TRACK" || a.status === "COMPLETED" ? "Cannot delete active or completed activities" : "Archive Entry"}
                         >

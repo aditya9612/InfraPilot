@@ -11,10 +11,12 @@ import {
 } from "recharts";
 import AccountantCreateInvoice from "./AccountantCreateInvoice";
 import { quotationService } from "../../services/quotationService";
-import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, Briefcase } from "lucide-react";
+import api from "../../services/api";
+import { projectService } from "../../services/projectService";
+import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import QuotationViewModal from "./QuotationViewModal";
-import SelectContractorModal from "../../components/forms/SelectContractorModal";
-import ConvertToProjectModal from "../../components/forms/ConvertToProjectModal";
+import InvoiceViewModal from "./InvoiceViewModal";
+import InvoiceEditModal from "./InvoiceEditModal";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock Data
@@ -69,18 +71,21 @@ const COLLECTION_TREND = [
 const fmt = (v: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v);
 
-const statusBadge = (s: string) => {
+const statusBadge = (s: any) => {
+  if (!s || typeof s !== 'string') return "bg-slate-100 text-slate-500";
   const map: Record<string, string> = {
-    Paid: "bg-emerald-100 text-emerald-700",
-    Partial: "bg-amber-100 text-amber-700",
-    Pending: "bg-slate-100 text-slate-600",
-    Overdue: "bg-rose-100 text-rose-700",
-    Received: "bg-emerald-100 text-emerald-700",
-    Certified: "bg-emerald-100 text-emerald-700",
-    Submitted: "bg-blue-100 text-blue-700",
-    "Pending Approval": "bg-amber-100 text-amber-700",
+    paid: "bg-emerald-100 text-emerald-700",
+    partial: "bg-amber-100 text-amber-700",
+    pending: "bg-slate-100 text-slate-600",
+    overdue: "bg-rose-100 text-rose-700",
+    received: "bg-emerald-100 text-emerald-700",
+    certified: "bg-emerald-100 text-emerald-700",
+    submitted: "bg-blue-100 text-blue-700",
+    "pending approval": "bg-amber-100 text-amber-700",
+    approved: "bg-emerald-100 text-emerald-700",
+    rejected: "bg-rose-100 text-rose-700",
   };
-  return map[s] || "bg-slate-100 text-slate-500";
+  return map[s.toLowerCase()] || "bg-slate-100 text-slate-500";
 };
 
 const CustomTip = ({ active, payload, label }: any) => {
@@ -205,33 +210,16 @@ const InvoicesSection = ({
   );
   const [invoices, setInvoices] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("All");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProject, setSelectedProject] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
   const [viewQuotationId, setViewQuotationId] = useState<number | null>(null);
 
-  const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
-  const [pendingConversionInvoice, setPendingConversionInvoice] = useState<any>(null);
-  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [pendingProjectInvoice, setPendingProjectInvoice] = useState<any>(null);
-
-  const handleOpenConvertToProject = (inv: any) => {
-    setPendingProjectInvoice(inv);
-    setIsProjectModalOpen(true);
-  };
-
-  const handleProjectSelect = async (data: any) => {
-    if (!pendingProjectInvoice) return;
-    try {
-      await quotationService.convertToProject(pendingProjectInvoice.id, data);
-      toast.success("Converted to project successfully!");
-      setInvoices(prev => prev.map(inv => inv.id === pendingProjectInvoice.id ? { ...inv, status: "converted_to_project" } : inv));
-    } catch (err: any) {
-      toast.error(err.message || "Failed to convert to project");
-    } finally {
-      setIsProjectModalOpen(false);
-      setPendingProjectInvoice(null);
-    }
-  };
+  const [deleteModalId, setDeleteModalId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchQuotations = async () => {
@@ -242,54 +230,79 @@ const InvoicesSection = ({
         console.error("Failed to fetch quotations:", err);
       }
     };
+    const fetchProjects = async () => {
+      try {
+        const data = await projectService.getProjects();
+        setProjects(Array.isArray(data) ? data : data.items || []);
+      } catch (err) {
+        console.error("Failed to fetch projects:", err);
+      }
+    };
     fetchQuotations();
+    fetchProjects();
   }, []);
 
   const handleApprove = async (id: number) => {
+    // Optimistic update to hide immediately
+    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, is_approved: true, status: "approved", payment_status: "Paid" } : inv));
     try {
       await quotationService.approveQuotation(id, "Quotation approved");
-      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, is_approved: true, status: "approved", payment_status: "Paid" } : inv));
       toast.success("Quotation approved!");
     } catch (error: any) {
       toast.error(error.message || "Failed to approve quotation");
+      // Revert on error
+      const data = await quotationService.getQuotations();
+      setInvoices(data);
     }
   };
 
   const handleReject = async (id: number) => {
+    // Optimistic update to hide immediately
+    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, is_approved: false, status: "rejected", payment_status: "Overdue" } : inv));
     try {
       await quotationService.rejectQuotation(id, "Rejected");
-      setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, is_approved: false, status: "rejected", payment_status: "Overdue" } : inv));
       toast.success("Quotation rejected!");
     } catch (error: any) {
       toast.error(error.message || "Failed to reject quotation");
+      // Revert on error
+      const data = await quotationService.getQuotations();
+      setInvoices(data);
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDeleteConfirm = async () => {
+    if (!deleteModalId) return;
     try {
-      await quotationService.deleteQuotation(id);
-      setInvoices(prev => prev.filter(inv => inv.id !== id));
+      setIsDeleting(true);
+      await quotationService.deleteQuotation(deleteModalId);
+      
+      // Refetch from server as requested
+      const data = await quotationService.getQuotations();
+      setInvoices(data);
+      
       toast.success("Quotation deleted successfully!");
     } catch (error: any) {
       toast.error(error.message || "Failed to delete quotation");
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalId(null);
     }
   };
 
-  const handleOpenConvertToInvoice = (inv: any) => {
-    setPendingConversionInvoice(inv);
-    setIsContractorModalOpen(true);
-  };
-
-  const handleContractorSelect = async (contractorId: number) => {
-    if (!pendingConversionInvoice) return;
+  const handleConvertToInvoice = async (inv: any) => {
     try {
-      await quotationService.convertToInvoice(pendingConversionInvoice.id, pendingConversionInvoice.project_id || 0, contractorId);
-      toast.success("Converted to invoice successfully");
+      toast.loading("Converting to invoice...", { id: "convert-invoice" });
+      const res = await api.post(`/invoices/from-quotation/${inv.id}`);
+      const newInvoice = res.data;
+      
+      setInvoices(prev => {
+        const updated = prev.map(p => p.id === inv.id ? { ...p, status: "converted" } : p);
+        return [newInvoice, ...updated];
+      });
+      
+      toast.success("Converted to invoice successfully!", { id: "convert-invoice" });
     } catch (err: any) {
-      toast.error(err.message || "Failed to convert to invoice");
-    } finally {
-      setIsContractorModalOpen(false);
-      setPendingConversionInvoice(null);
+      toast.error(err.response?.data?.message || err.message || "Failed to convert to invoice", { id: "convert-invoice" });
     }
   };
 
@@ -318,28 +331,69 @@ const InvoicesSection = ({
   const subTabs = [
     { key: "create", label: "Create Quotation" },
     { key: "quotation_list", label: "Quotation List" },
-    { key: "approval", label: "Quotation Approval" },
     { key: "invoice_list", label: "Invoice List" },
   ] as const;
 
   const isConverted = (inv: any) => inv.status?.toLowerCase() === "converted" || inv.status?.toLowerCase() === "invoice";
   const isApprovedOrRejected = (inv: any) => inv.is_approved || inv.status?.toLowerCase() === "approved" || inv.status?.toLowerCase() === "rejected";
 
-  const filtered = invoices.filter(inv => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedProject, selectedStatus, activeSubTab]);
+
+  const filtered = [...invoices].filter(inv => {
     const matchSearch = (inv.quotation_no || inv.invoice_number || "").toLowerCase().includes(search.toLowerCase()) ||
                         (inv.client_name || "").toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === "All" || inv.status === filter || inv.payment_status === filter;
+    const matchProject = selectedProject === "All" || inv.project_name === selectedProject;
+    const matchStatus = selectedStatus === "All" || (inv.status || inv.payment_status || "draft").toLowerCase() === selectedStatus.toLowerCase();
     
-    if (!matchSearch || !matchFilter) return false;
+    if (!matchSearch || !matchProject || !matchStatus) return false;
 
-    if (activeSubTab === "quotation_list") return !isConverted(inv) && !isApprovedOrRejected(inv);
-    if (activeSubTab === "approval") return !isConverted(inv) && isApprovedOrRejected(inv);
+    if (activeSubTab === "quotation_list") return !isConverted(inv);
     if (activeSubTab === "invoice_list") return isConverted(inv);
     return true; // For "create"
+  }).sort((a, b) => {
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    if (dateA !== dateB) return dateB - dateA;
+    return (b.id || 0) - (a.id || 0);
   });
+
+  const totalPages = Math.ceil(filtered.length / recordsPerPage);
+  const paginatedInvoices = filtered.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
+
+  // Stat calculations
+  const allQuotations = invoices.filter(inv => !isConverted(inv));
+  const activeQuotations = allQuotations.filter(inv => inv.status?.toLowerCase() !== "rejected" && inv.status?.toLowerCase() !== "declined");
+  const totalPipelineValue = activeQuotations.reduce((sum, inv) => sum + (Number(inv.grand_total) || Number(inv.total_with_gst) || 0), 0);
+  
+  const approvedQuotationsCount = allQuotations.filter(inv => inv.status?.toLowerCase() === "approved" || inv.is_approved).length;
+  const winRate = allQuotations.length > 0 ? Math.round((approvedQuotationsCount / allQuotations.length) * 100) : 0;
+  
+  const pendingDraftsCount = allQuotations.filter(inv => !inv.status || inv.status?.toLowerCase() === "draft").length;
 
   return (
     <div className="space-y-5">
+      {activeSubTab === "quotation_list" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Pipeline Value</p>
+            <p className="text-2xl font-bold text-blue-600">{fmt(totalPipelineValue)}</p>
+            <p className="text-xs text-slate-400 mt-2">{activeQuotations.length} Active Quotations</p>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Win / Approval Rate</p>
+            <p className="text-2xl font-bold text-emerald-500">{winRate}%</p>
+            <p className="text-xs text-slate-400 mt-2">Based on all time</p>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Drafts</p>
+            <p className="text-2xl font-bold text-orange-500">{pendingDraftsCount}</p>
+            <p className="text-xs text-slate-400 mt-2">Requires admin review</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 flex-wrap">
           {subTabs.map(t => (
@@ -353,81 +407,78 @@ const InvoicesSection = ({
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search…"
             className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" />
-          <select value={filter} onChange={e => setFilter(e.target.value)}
+          {activeSubTab === "quotation_list" && (
+            <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
+              <option value="All">ALL STATUS</option>
+              <option value="Draft">DRAFT</option>
+              <option value="Approved">APPROVED</option>
+              <option value="Rejected">REJECTED</option>
+            </select>
+          )}
+          <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}
             className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
-            {["All", "Paid", "Partial", "Pending", "Overdue"].map(s => <option key={s}>{s}</option>)}
+            <option value="All">All Projects</option>
+            {projects.map(p => <option key={p.id} value={p.project_name || p.name}>{p.project_name || p.name}</option>)}
           </select>
         </div>
       </div>
 
-      {(activeSubTab === "quotation_list" || activeSubTab === "approval" || activeSubTab === "invoice_list") && (
+      {(activeSubTab === "quotation_list" || activeSubTab === "invoice_list") && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="overflow-x-auto pb-3 scrollbar-thin">
             <table className="w-full text-left min-w-max">
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
-                  {["Quotation No", "Client Name", "Company Name", "Mobile Number", "Email", "Billing Address", "Site Address", "Project Name", "Project Type", "Subtotal", "GST %", "GST Amt", "CGST %", "SGST %", "TDS %", "CGST Amt", "SGST Amt", "TDS Amt", "Discount", "Grand Total", "Advance Paid", "Balance Due", "Payment Mode", "UPI ID", "Bank Name", "Acc Holder", "Acc No", "IFSC", "Due Date", "Is Approved", "Status", "Created At", "Actions"].map(h => (
+                  {["Quotation No", "Project ID", "Client Name", "Company Name", "Mobile Number", "Site Address", "Project Name", "Project Type", "Subtotal", "GST Amt", "TDS Amt", "Discount", "Grand Total", "Advance Paid", "Balance Due", "Payment Mode", "Status", "Created At", "Due Date", "Actions"].map(h => (
                     <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filtered.map(inv => (
+                {paginatedInvoices.map(inv => (
                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
                     <td className="px-4 py-3 text-xs font-bold text-primary">{inv.quotation_no || inv.invoice_number}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.project_id || '-'}</td>
                     <td className="px-4 py-3 text-xs font-semibold text-slate-700">{inv.client_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.company_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.mobile_number}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.email}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px] truncate">{inv.billing_address}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px] truncate">{inv.site_address}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.project_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.project_type}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.subtotal || inv.amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{inv.gst_percent}%</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.gst_amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{inv.cgst_percent}%</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{inv.sgst_percent}%</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{inv.tds_percent}%</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.cgst_amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.sgst_amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.tds_amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(inv.discount_amount)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(inv.grand_total || inv.total_with_gst)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700 text-right">{fmt(inv.advance_paid || inv.received_amount)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-rose-600 text-right">{fmt(inv.balance_due || inv.pending_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.subtotal || inv.amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.gst_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.tds_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.discount_amount)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(inv.grand_total || inv.total_with_gst)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700">{fmt(inv.advance_paid || inv.received_amount)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-rose-600">{fmt(inv.balance_due || inv.pending_amount)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.payment_mode}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.upi_id}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[120px] truncate">{inv.bank_name}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 max-w-[120px] truncate">{inv.account_holder_name}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.account_number}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.ifsc_code}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.due_date}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.is_approved ? 'Yes' : 'No'}</td>
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status || inv.payment_status)}`}>{inv.status || inv.payment_status}</span></td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.created_at?.substring(0,10)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{inv.due_date}</td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-3 items-center justify-center">
+                      <div className="flex flex-row gap-3 items-center justify-start flex-nowrap">
                         {activeSubTab === "quotation_list" && (
                           <>
-                            <button onClick={() => handleApprove(inv.id)} className="text-emerald-500 hover:text-emerald-600 transition-colors" title="Approve">
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => handleReject(inv.id)} className="text-rose-500 hover:text-rose-600 transition-colors" title="Reject">
-                              <XCircle className="w-4 h-4" />
-                            </button>
+                            {!isApprovedOrRejected(inv) && (
+                              <>
+                                <button onClick={() => handleApprove(inv.id)} className="text-emerald-500 hover:text-emerald-600 transition-colors" title="Approve">
+                                  <CheckCircle className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => handleReject(inv.id)} className="text-rose-500 hover:text-rose-600 transition-colors" title="Reject">
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                            {inv.status?.toLowerCase() !== "rejected" && (
+                              <button onClick={() => handleConvertToInvoice(inv)} className="text-indigo-500 hover:text-indigo-600 transition-colors" title="Convert to Invoice">
+                                <Zap className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
-                        {activeSubTab === "approval" && inv.status?.toLowerCase() !== "rejected" && (
-                          <button onClick={() => handleOpenConvertToProject(inv)} className="text-blue-500 hover:text-blue-600 transition-colors" title="Convert to Project">
-                            <Briefcase className="w-4 h-4" />
-                          </button>
-                        )}
-                        {(activeSubTab === "quotation_list" || (activeSubTab === "approval" && inv.status?.toLowerCase() !== "rejected")) && (
-                          <button onClick={() => handleOpenConvertToInvoice(inv)} className="text-indigo-500 hover:text-indigo-600 transition-colors" title="Convert to Invoice">
-                            <Zap className="w-4 h-4" />
-                          </button>
-                        )}
+
                         <button onClick={() => setViewQuotationId(inv.id)} className="text-slate-400 hover:text-primary transition-colors" title="View">
                           <Eye className="w-4 h-4" />
                         </button>
@@ -439,7 +490,7 @@ const InvoicesSection = ({
                         <button onClick={() => handleDownloadPDF(inv)} className="text-slate-400 hover:text-slate-700 transition-colors" title="Download">
                           <Download className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(inv.id)} className="text-slate-400 hover:text-rose-600 transition-colors" title="Delete">
+                        <button onClick={() => setDeleteModalId(inv.id)} className="text-slate-400 hover:text-rose-600 transition-colors" title="Delete">
                           <Trash className="w-4 h-4" />
                         </button>
                       </div>
@@ -448,6 +499,40 @@ const InvoicesSection = ({
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select 
+                value={recordsPerPage} 
+                onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
+              >
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {filtered.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filtered.length)} of {filtered.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
+                {currentPage}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -463,15 +548,7 @@ const InvoicesSection = ({
                 setInvoices(prev => prev.map(inv => inv.id === editingInvoice.id ? { ...inv, ...res, amount: res.subtotal || data.subtotal, total_with_gst: res.grand_total || data.grand_total, pending_amount: res.balance_due || data.balance_due } : inv));
                 toast.success("Invoice updated successfully!");
               } else {
-                const { items, labour_items, material_items, extra_charge_items, ...basicData } = data;
-                const res = await quotationService.createQuotation(basicData);
-                const quotationId = res.id;
-
-                // Post all items
-                if (items?.length) await Promise.all(items.map((it: any) => quotationService.addQuotationItem(quotationId!, it)));
-                if (labour_items?.length) await Promise.all(labour_items.map((it: any) => quotationService.addLabourItem(quotationId!, it)));
-                if (material_items?.length) await Promise.all(material_items.map((it: any) => quotationService.addMaterialItem(quotationId!, it)));
-                if (extra_charge_items?.length) await Promise.all(extra_charge_items.map((it: any) => quotationService.addExtraCharge(quotationId!, it)));
+                const res = await quotationService.createQuotation(data);
 
                 const newInv = { ...res, amount: res.subtotal || data.subtotal, total_with_gst: res.grand_total || data.grand_total, pending_amount: res.balance_due || data.balance_due };
                 setInvoices(prev => [newInv, ...prev]);
@@ -493,22 +570,434 @@ const InvoicesSection = ({
         />
       )}
 
-      {isContractorModalOpen && (
-        <SelectContractorModal
-          isOpen={isContractorModalOpen}
-          onClose={() => { setIsContractorModalOpen(false); setPendingConversionInvoice(null); }}
-          onSelect={handleContractorSelect}
-        />
+
+      <ConfirmModal
+        isOpen={!!deleteModalId}
+        onClose={() => setDeleteModalId(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Remove Quotation / Invoice"
+        message="Are you sure you want to delete this record?"
+        confirmText="Confirm Deletion"
+        type="danger"
+        isLoading={isDeleting}
+      />
+    </div>
+  );
+};
+
+// 2.5 Client Invoices Section
+const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
+  const [activeSubTab, setActiveSubTab] = useState<"create_labour" | "labour_list" | "create_material" | "material_list">(
+    (initialSubTab as any) || "labour_list"
+  );
+  const [search, setSearch] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("All");
+
+  const [projects, setProjects] = useState<any[]>([]);
+  const [labourInvoices, setLabourInvoices] = useState<any[]>([]);
+  const [materialInvoices, setMaterialInvoices] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedProjectFilter, setSelectedProjectFilter] = useState<string>("All");
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("ALL INVOICE");
+
+  const [viewInvoiceId, setViewInvoiceId] = useState<number | null>(null);
+  const [editInvoiceId, setEditInvoiceId] = useState<number | null>(null);
+  const [deleteInvoiceId, setDeleteInvoiceId] = useState<number | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedProjectFilter, selectedStatus, selectedTypeFilter, activeSubTab]);
+
+  useEffect(() => {
+    if (activeSubTab === "labour_list") setSelectedTypeFilter("LABOUR");
+    else if (activeSubTab === "material_list") setSelectedTypeFilter("MATERIAL");
+  }, [activeSubTab]);
+
+  // Fetch logic for list endpoints
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const projPromise = projectService.getProjects();
+        let pRes: any = [];
+        try { pRes = await projPromise; } catch (e) { console.error(e); }
+
+        const projList = Array.isArray(pRes) ? pRes : (pRes.items || []);
+        setProjects(projList);
+
+        let invRes: any = { data: [] };
+        try { invRes = await api.get('/invoices'); } catch (e) { console.error(e); }
+
+        const allInvoices = Array.isArray(invRes.data) ? invRes.data : (invRes.data?.items || []);
+        const sortedInvoices = [...allInvoices].sort((a: any, b: any) => b.id - a.id);
+        setLabourInvoices(sortedInvoices);
+        setMaterialInvoices(sortedInvoices);
+      } catch (err: any) {
+        console.error("Failed to fetch invoices data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [activeSubTab]);
+
+  const refreshInvoices = async () => {
+    try {
+      const invRes = await api.get('/invoices');
+      const allInvoices = Array.isArray(invRes.data) ? invRes.data : (invRes.data?.items || []);
+      const sortedInvoices = [...allInvoices].sort((a: any, b: any) => b.id - a.id);
+      setLabourInvoices(sortedInvoices);
+      setMaterialInvoices(sortedInvoices);
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteInvoice = async () => {
+    if (!deleteInvoiceId) return;
+    try {
+      await api.delete(`/invoices/${deleteInvoiceId}`);
+      toast.success("Invoice deleted successfully!");
+      setDeleteInvoiceId(null);
+      refreshInvoices();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to delete invoice");
+    }
+  };
+
+  const handleDownloadPdf = async (id: number) => {
+    try {
+      toast.loading("Generating PDF...", { id: "pdf-toast" });
+      const response = await api.get(`/invoices/${id}/pdf`, { responseType: 'blob' });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      
+      // Create a temporary link element to trigger the download
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Invoice_${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF downloaded successfully!", { id: "pdf-toast" });
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to download PDF", { id: "pdf-toast" });
+    }
+  };
+
+  const subTabs = [
+    { key: "create_labour", label: "Create Labour Invoice" },
+    { key: "labour_list", label: "Labour Invoice List" },
+    { key: "create_material", label: "Create Material Invoice" },
+    { key: "material_list", label: "Material Invoice List" }
+  ];
+
+  const activeInvoices = activeSubTab.includes("labour") ? labourInvoices : materialInvoices;
+
+  const filtered = activeInvoices.filter(inv => {
+    const pName = projects.find(p => p.id === inv.project_id)?.project_name || "";
+    const cName = projects.find(p => p.id === inv.project_id)?.client_name || "";
+    
+    const matchType = selectedTypeFilter === "ALL INVOICE" || 
+                      inv.type?.toUpperCase() === selectedTypeFilter || 
+                      (selectedTypeFilter === "INVOICE" && (inv.type?.toUpperCase() === "INVOICE" || inv.type?.toUpperCase() === "OWNER"));
+    const matchProject = selectedProjectFilter === "All" || String(inv.project_id) === selectedProjectFilter;
+    const matchSearch = `INV-${inv.id}`.toLowerCase().includes(search.toLowerCase()) ||
+                        pName.toLowerCase().includes(search.toLowerCase()) ||
+                        cName.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = selectedStatus === "All" || inv.status?.toLowerCase() === selectedStatus.toLowerCase();
+    return matchType && matchProject && matchSearch && matchStatus;
+  });
+
+  const totalPages = Math.ceil(filtered.length / recordsPerPage);
+  const paginatedInvoices = filtered.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
+
+  const portfolioValue = filtered.reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+  const pendingValue = filtered.reduce((s, i) => s + (Number(i.pending_amount) || 0), 0);
+  const paidValue = filtered.reduce((s, i) => s + (Number(i.paid_amount) || 0), 0);
+
+  // Form states
+  const [formData, setFormData] = useState({
+    project_id: "",
+    start_date: "",
+    end_date: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.project_id) {
+      toast.error("Please select a project.");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      if (activeSubTab === "create_labour") {
+        await api.post('/invoices/labour', {
+          project_id: Number(formData.project_id),
+          start_date: formData.start_date,
+          end_date: formData.end_date
+        });
+        toast.success("Labour Invoice created successfully!");
+        setActiveSubTab("labour_list");
+      } else {
+        await api.post(`/invoices/material?project_id=${Number(formData.project_id)}`);
+        toast.success("Material Invoice created successfully!");
+        setActiveSubTab("material_list");
+      }
+      setFormData({ project_id: "", start_date: "", end_date: "" });
+    } catch (err: any) {
+      let errorMsg = "Failed to create invoice";
+      if (err.response?.data?.detail) {
+        if (typeof err.response.data.detail === 'string') {
+          errorMsg = err.response.data.detail;
+        } else if (Array.isArray(err.response.data.detail)) {
+          errorMsg = err.response.data.detail.map((d: any) => `${d.loc?.[1] || d.loc?.[0] || 'Field'}: ${d.msg}`).join(", ");
+        }
+      }
+      toast.error(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5 animate-fade-in">
+      {(activeSubTab === "labour_list" || activeSubTab === "material_list") && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Portfolio Value</p>
+            <p className="text-2xl font-bold text-blue-600">{fmt(portfolioValue)}</p>
+            <p className="text-xs text-slate-400 mt-2">{filtered.length} records</p>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending</p>
+            <p className="text-2xl font-bold text-orange-500">{fmt(pendingValue)}</p>
+            <p className="text-xs text-slate-400 mt-2">Requires action</p>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Paid</p>
+            <p className="text-2xl font-bold text-emerald-500">{fmt(paidValue)}</p>
+            <p className="text-xs text-slate-400 mt-2">Completed</p>
+          </div>
+        </div>
       )}
 
-      {isProjectModalOpen && (
-        <ConvertToProjectModal
-          isOpen={isProjectModalOpen}
-          onClose={() => { setIsProjectModalOpen(false); setPendingProjectInvoice(null); }}
-          onSelect={handleProjectSelect}
-          title="Convert to Project"
-        />
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 flex-wrap">
+          {subTabs.map(t => (
+            <button key={t.key} onClick={() => { setActiveSubTab(t.key as any); }}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {(activeSubTab === "labour_list" || activeSubTab === "material_list") && (
+          <div className="flex items-center gap-3">
+            <select value={selectedTypeFilter} onChange={e => setSelectedTypeFilter(e.target.value)}
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
+              <option value="ALL INVOICE">ALL INVOICE</option>
+              <option value="INVOICE">INVOICE</option>
+              <option value="LABOUR">LABOUR</option>
+              <option value="MATERIAL">MATERIAL</option>
+            </select>
+            <select value={selectedProjectFilter} onChange={e => setSelectedProjectFilter(e.target.value)}
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
+              <option value="All">All Projects</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.project_name}</option>
+              ))}
+            </select>
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search…"
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" />
+            <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)}
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
+              <option value="All">ALL STATUS</option>
+              <option value="Pending">PENDING</option>
+              <option value="Paid">PAID</option>
+              <option value="Partial">PARTIAL</option>
+            </select>
+          </div>
+        )}
+      </div>
+
+      {(activeSubTab === "labour_list" || activeSubTab === "material_list") && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto pb-3 scrollbar-thin">
+            <table className="w-full text-left min-w-max">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["project_name", "type", "amount", "gst_percent", "gst_amount", "tax_percent", "tax_amount", "total_amount", "paid_amount", "pending_amount", "status", "description", "created_at", "Actions"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={14} className="px-4 py-8 text-center text-slate-400 text-sm">Loading invoices...</td>
+                  </tr>
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={14} className="px-4 py-8 text-center text-slate-400 text-sm">No invoices found.</td>
+                  </tr>
+                ) : paginatedInvoices.map(inv => {
+                  const p = projects.find(proj => proj.id === inv.project_id);
+                  const projName = p ? (p.project_name || p.name) : inv.project_id;
+                  return (
+                  <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs text-slate-600">{projName}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.type}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.amount}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.gst_percent}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.gst_amount}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.tax_percent}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.tax_amount}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.total_amount}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.paid_amount}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.pending_amount}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status)}`}>{inv.status || "PENDING"}</span></td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.description}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{inv.created_at ? new Date(inv.created_at).toLocaleString() : ''}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-row gap-3 items-center justify-start">
+                        <button onClick={() => setViewInvoiceId(inv.id)} title="View" className="text-slate-400 hover:text-primary transition-colors"><Eye className="w-4 h-4" /></button>
+                        <button onClick={() => handleDownloadPdf(inv.id)} title="Download PDF" className="text-slate-400 hover:text-emerald-500 transition-colors"><Download className="w-4 h-4" /></button>
+                        <button onClick={() => setEditInvoiceId(inv.id)} title="Edit" className="text-slate-400 hover:text-blue-500 transition-colors"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => setDeleteInvoiceId(inv.id)} title="Delete" className="text-slate-400 hover:text-red-500 transition-colors"><Trash className="w-4 h-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )})}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select 
+                value={recordsPerPage} 
+                onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
+              >
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {filtered.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filtered.length)} of {filtered.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
+                {currentPage}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
+
+      {(activeSubTab === "create_labour" || activeSubTab === "create_material") && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 max-w-2xl mx-auto">
+          <h2 className="text-lg font-bold text-slate-800 mb-6 border-b border-slate-100 pb-4">
+            {activeSubTab === "create_labour" ? "Create Labour Invoice" : "Create Material Invoice"}
+          </h2>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Select Project</label>
+              <select 
+                required
+                value={formData.project_id} 
+                onChange={e => setFormData({...formData, project_id: e.target.value})}
+                className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-slate-700"
+              >
+                <option value="">-- Choose Project --</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.project_name} {p.client_name ? `(${p.client_name})` : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            {activeSubTab === "create_labour" && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Start Date</label>
+                  <input 
+                    type="date"
+                    required
+                    value={formData.start_date}
+                    onChange={e => setFormData({...formData, start_date: e.target.value})}
+                    className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-slate-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">End Date</label>
+                  <input 
+                    type="date"
+                    required
+                    value={formData.end_date}
+                    onChange={e => setFormData({...formData, end_date: e.target.value})}
+                    className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 bg-white font-semibold text-slate-700"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4 flex justify-end gap-3">
+              <button 
+                type="button" 
+                onClick={() => setActiveSubTab(activeSubTab === "create_labour" ? "labour_list" : "material_list")}
+                className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
+              >
+                {isSubmitting ? "Creating..." : "Create Invoice"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {viewInvoiceId && (
+        <InvoiceViewModal invoiceId={viewInvoiceId} projects={projects} onClose={() => setViewInvoiceId(null)} />
+      )}
+      
+      {editInvoiceId && (
+        <InvoiceEditModal invoiceId={editInvoiceId} onClose={() => setEditInvoiceId(null)} onSuccess={() => { setEditInvoiceId(null); refreshInvoices(); }} />
+      )}
+
+      <ConfirmModal
+        isOpen={!!deleteInvoiceId}
+        onClose={() => setDeleteInvoiceId(null)}
+        onConfirm={handleDeleteInvoice}
+        title="Delete Invoice"
+        message="Are you sure you want to delete this invoice? This action cannot be undone."
+      />
     </div>
   );
 };
@@ -1215,11 +1704,12 @@ const ReportsSection = () => {
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabKey = "dashboard" | "invoices" | "ra-bills" | "credit-notes" | "collections" | "client-ledger" | "reports";
+type TabKey = "dashboard" | "quotations" | "invoices" | "ra-bills" | "credit-notes" | "collections" | "client-ledger" | "reports";
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: "dashboard", label: "Dashboard", icon: "📊" },
-  { key: "invoices", label: "Invoices", icon: "🧾" },
+  { key: "quotations", label: "Quotation", icon: "🧾" },
+  { key: "invoices", label: "Invoice", icon: "🧾" },
   { key: "ra-bills", label: "Running Bills (RA Bills)", icon: "📋" },
   { key: "credit-notes", label: "Credit Notes", icon: "📝" },
   { key: "collections", label: "Collections", icon: "💰" },
@@ -1240,6 +1730,7 @@ const ReceivablesPage = () => {
 
     const map: Record<string, TabKey> = {
       invoices: "invoices",
+      quotations: "quotations",
       "ra-bills": "ra-bills",
       "credit-notes": "credit-notes",
       collections: "collections",
@@ -1309,7 +1800,8 @@ const ReceivablesPage = () => {
 
         {/* Tab Content — key={subTab} forces remount when sidebar sub-item changes */}
         {activeTab === "dashboard" && <DashboardSection />}
-        {activeTab === "invoices" && <InvoicesSection key={subTab || "list"} initialSubTab={subTab} />}
+        {activeTab === "quotations" && <InvoicesSection key={subTab || "list"} initialSubTab={subTab} />}
+        {activeTab === "invoices" && <ClientInvoicesSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "ra-bills" && <RABillsSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "credit-notes" && <CreditNotesSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "collections" && <CollectionsSection />}

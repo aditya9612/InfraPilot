@@ -146,8 +146,11 @@ export const equipmentService = {
     // 1. CRUD Equipment
     // ==========================================
     async listEquipment(params?: { limit?: number; project_id?: number }): Promise<EquipmentResponse> {
-        const response = await api.get<EquipmentResponse>('/equipment', { params });
-        return response.data;
+        const response = await api.get<any>('/equipment', { params });
+        const data = response.data;
+        const items = Array.isArray(data) ? data : (data.items || data.data || []);
+        const meta = data.meta || { total: items.length, limit: params?.limit || 50, offset: 0 };
+        return { items, meta };
     },
 
     async getEquipment(id: number): Promise<EquipmentItem> {
@@ -211,8 +214,9 @@ export const equipmentService = {
     },
 
     async getUsageReport(params?: { project_id?: number }): Promise<UsageReport[]> {
-        const response = await api.get<UsageReport[]>('/equipment/usage/report', { params });
-        return response.data;
+        const response = await api.get<any>('/equipment/usage/report', { params });
+        const data = response.data;
+        return Array.isArray(data) ? data : (data.items || data.data || []);
     },
 
     // ==========================================
@@ -255,8 +259,9 @@ export const equipmentService = {
     },
 
     async getCostReport(params?: { project_id?: number }): Promise<CostReport[]> {
-        const response = await api.get<CostReport[]>('/equipment/cost/report', { params });
-        return response.data;
+        const response = await api.get<any>('/equipment/cost/report', { params });
+        const data = response.data;
+        return Array.isArray(data) ? data : (data.items || data.data || []);
     },
 
     // ==========================================

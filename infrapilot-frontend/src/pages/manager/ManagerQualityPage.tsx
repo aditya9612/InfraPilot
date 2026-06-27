@@ -8,9 +8,10 @@ import toast from "react-hot-toast";
 import { useProject } from "../../context/ProjectContext";
 import {
     Plus, Search, Eye, Edit2, Trash2, Activity, User,
-    ShieldCheck, AlertOctagon, CheckCircle2, RotateCcw,
-    ChevronLeft, ChevronRight, Download, FileText
+    ShieldCheck, RotateCcw,
+    ChevronLeft, ChevronRight, Download
 } from "lucide-react";
+import ProjectSelector from "../../components/common/ProjectSelector";
 import { qcService } from "../../services/qcService";
 import type { QcItem } from "../../services/qcService";
 
@@ -21,7 +22,7 @@ const ManagerQualityPage = () => {
     const navigate = useNavigate();
     const { tab } = useParams();
     const activeTab = tab || "inspections";
-    const { selectedProjectId } = useProject();
+    const { selectedProjectId, assignedProjects } = useProject();
 
     // ── Data States ───────────────────────────────────────────────
     const [qcList, setQcList] = useState<QcItem[]>([]);
@@ -226,15 +227,15 @@ const ManagerQualityPage = () => {
     const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
 
     const tabs = [
-        { id: "inspections", label: "QC Inspections" },
+        { id: "inspections", label: "Inspection" },
         { id: "reports", label: "Test Reports" },
     ];
 
     return (
         <>
             <Navbar
-                title="Quality Assurance Hub"
-                breadcrumb={["Manager", "Quality", tabs.find(t => t.id === activeTab)?.label || "QC Inspections"]}
+                title="Quality Control (QC)"
+                breadcrumb={["Manager", "Quality Control", activeTab === "inspections" ? "Inspection" : "Test Reports"]}
             />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
@@ -245,20 +246,23 @@ const ManagerQualityPage = () => {
                             <ShieldCheck className="w-7 h-7" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Quality Control Ledger</h1>
+                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">QC Inspection Ledger</h1>
                             <p className="text-slate-500 text-sm">Historical record of site inspections and material quality audits.</p>
                         </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-                            <Download className="w-4 h-4 text-primary" /> Export
-                        </button>
-                        <button
-                            onClick={() => { resetForm(); setIsNewModalOpen(true); }}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-                        >
-                            <Plus className="w-4 h-4" /> Log QC Entry
-                        </button>
+                    <div className="flex flex-col md:flex-row items-end gap-4">
+                        <ProjectSelector variant="page" />
+                        <div className="flex flex-wrap gap-2">
+                            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
+                                <Download className="w-4 h-4 text-primary" /> Export
+                            </button>
+                            <button
+                                onClick={() => { resetForm(); setIsNewModalOpen(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
+                            >
+                                <Plus className="w-4 h-4" /> Log QC Entry
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -266,9 +270,9 @@ const ManagerQualityPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     {[
                         { title: "Total Audits", value: stats.total.toString(), sub: "Verified Logs", accent: "text-slate-800", status: "All" },
-                        { title: "Pass Tests", value: stats.passed.toString(), sub: "Compliant", accent: "text-emerald-500", status: "Compliance" },
+                        { title: "Pass Tests", value: stats.passed.toString(), sub: "Compliance", accent: "text-emerald-500", status: "Compliance" },
                         { title: "Failed Tests", value: stats.failed.toString(), sub: "Non-Compliant", accent: "text-rose-500", status: "Failed" },
-                        { title: "Pass Rate", value: `${stats.compliance}%`, sub: "Overall Compliance", accent: "text-blue-500", status: "Momentum" },
+                        { title: "Audit Momentum", value: `${stats.compliance}%`, sub: "Overall Pass Percentage", accent: "text-blue-500", status: "Momentum" },
                     ].map(s => (
                         <div key={s.title} onClick={() => setActiveStatFilter(s.status as any)}
                             className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md cursor-pointer active:scale-95 hover:border-primary/20 transition-all group">
@@ -504,6 +508,19 @@ const ManagerQualityPage = () => {
             >
                 <form className="space-y-6 p-2" onSubmit={isEditModalOpen ? handleUpdateSubmit : handleCreateSubmit}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                            <label className={labelCls}>Target Project <span className="text-rose-500">*</span></label>
+                            <select
+                                value={formData.project_id}
+                                onChange={e => setFormData(p => ({ ...p, project_id: Number(e.target.value) }))}
+                                className={inputCls}
+                            >
+                                <option value="">Select Project</option>
+                                {assignedProjects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.project_name}</option>
+                                ))}
+                            </select>
+                        </div>
                         <div>
                             <label className={labelCls}>Inspection Type <span className="text-rose-500">*</span></label>
                             <select value={formData.inspection_type} onChange={e => setFormData(p => ({ ...p, inspection_type: e.target.value }))} className={inputCls}>

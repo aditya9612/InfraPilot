@@ -56,7 +56,7 @@ const SafetyManagementPage = () => {
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Compliance" | "HighRisk" | "Critical" | "Month">("All");
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
     // Modal States

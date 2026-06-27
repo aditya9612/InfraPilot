@@ -19,6 +19,7 @@ export interface BoqItem {
   approval_status?: string;
   created_at?: string;
   updated_at?: string;
+  activity_type_id?: number;
 }
 
 export interface BoqSummary {

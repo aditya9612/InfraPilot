@@ -41,6 +41,62 @@ const LOCAL_CONTRACTOR_MAP: Record<number, string> = {
 };
 
 // Removed AttendanceState
+export const calculateRunningHours = (inTimeStr: string) => {
+    if (!inTimeStr || inTimeStr === "--:--") return null;
+    try {
+        let inDate: Date;
+        if (inTimeStr.includes('T') || inTimeStr.includes('-')) {
+            inDate = new Date(inTimeStr);
+        } else {
+            const match = inTimeStr.match(/(\d+):(\d+)(?::(\d+))?\s*(AM|PM)?/i);
+            if (match) {
+                let [ , h, m, s, ampm ] = match;
+                let hours = parseInt(h);
+                if (ampm) {
+                    if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+                    if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+                }
+                const now = new Date();
+                inDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, parseInt(m), s ? parseInt(s) : 0);
+            } else {
+                return null;
+            }
+        }
+        if (isNaN(inDate.getTime())) return null;
+        const diffMs = Date.now() - inDate.getTime();
+        if (diffMs < 0) return "0.0";
+        return (diffMs / (1000 * 60 * 60)).toFixed(1);
+    } catch {
+        return null;
+    }
+};
+
+export const calculateTotalHours = (inTime: string | null | undefined, outTime: string | null | undefined) => {
+    if (!inTime || inTime === "--:--" || !outTime || outTime === "--:--") return null;
+    try {
+        const parseTime = (timeStr: string) => {
+            if (timeStr.includes('T')) {
+                const d = new Date(timeStr);
+                return d.getHours() + d.getMinutes() / 60;
+            }
+            const parts = timeStr.split(' ');
+            const time = parts[0];
+            const modifier = parts.length > 1 ? parts[1] : '';
+            let [hours, minutes] = time.split(':').map(Number);
+            if (modifier === 'PM' && hours < 12) hours += 12;
+            if (modifier === 'AM' && hours === 12) hours = 0;
+            return hours + (minutes || 0) / 60;
+        };
+        const inHrs = parseTime(inTime);
+        const outHrs = parseTime(outTime);
+        let diff = outHrs - inHrs;
+        if (diff < 0) diff += 24;
+        return diff.toFixed(1).replace(/\.0$/, '');
+    } catch {
+        return null;
+    }
+};
+
 const LabourAttendancePage: React.FC = () => {
     const { selectedProject, selectedProjectId: contextProjectId } = useProject();
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
@@ -621,7 +677,29 @@ const LabourAttendancePage: React.FC = () => {
                                                     <span className={`text-[10px] font-bold ${lab.out_time ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1 justify-center`}><LogOut className="w-3 h-3" /> {lab.out_time || "-"}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center"><span className="text-xs font-bold text-slate-800">{lab.working_hours || "-"}</span></td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    {lab.in_time && lab.in_time !== "--:--" ? (
+                                                        <>
+                                                            <span className="text-xs font-bold text-slate-800" title="Assigned / Total Time">
+                                                                {(() => {
+                                                                    const calc = calculateTotalHours(lab.in_time, lab.out_time);
+                                                                    if (calc) return `${calc}/8 hr`;
+                                                                    if (lab.working_hours) return `${lab.working_hours}/8 hr`;
+                                                                    return '0/8 hr';
+                                                                })()}
+                                                            </span>
+                                                            {(!lab.out_time || lab.out_time === "--:--") && calculateRunningHours(lab.in_time) && (
+                                                                <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded-sm" title="Running Time">
+                                                                    {calculateRunningHours(lab.in_time)} hr
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-slate-800">-</span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <span
                                                     className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer hover:underline"

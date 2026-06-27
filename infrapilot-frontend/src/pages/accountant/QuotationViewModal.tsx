@@ -59,10 +59,15 @@ export default function QuotationViewModal({ quotationId, onClose }: { quotation
           {/* All fields */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
             {([
+              { label: 'Quotation No', value: data.quotation_no || data.invoice_number || '—' },
+              { label: 'Client Name', value: data.client_name || '—' },
               { label: 'Company', value: data.company_name || '—' },
               { label: 'Mobile', value: data.mobile_number || '—' },
               { label: 'Email', value: data.email || '—' },
+              { label: 'Project Name', value: data.project_name || '—' },
               { label: 'Project Type', value: data.project_type || '—' },
+              { label: 'Status', value: data.status || '—' },
+              { label: 'Created At', value: data.created_at ? data.created_at.substring(0, 10) : '—' },
               { label: 'Subtotal (₹)', value: data.subtotal != null ? `₹${data.subtotal.toLocaleString("en-IN")}` : '—' },
               { label: `GST (${data.gst_percent || 0}%)`, value: data.gst_amount != null ? `₹${data.gst_amount.toLocaleString("en-IN")}` : '—' },
               { label: 'Discount (₹)', value: data.discount_amount != null ? `-₹${data.discount_amount.toLocaleString("en-IN")}` : '—' },

@@ -44,7 +44,7 @@ export const workProgressService = {
     const params: Record<string, any> = {};
     if (project_id) params.project_id = project_id;
     if (engineer_id) params.engineer_id = engineer_id;
-    if (limit) params.limit = limit;
+    if (limit !== undefined) params.limit = limit;
     if (offset !== undefined) params.offset = offset;
     const response = await api.get("/work-progress/activities", { params });
     const data = response.data;
@@ -160,12 +160,13 @@ export const workProgressService = {
   /**
    * List daily progress entries
    */
-  async listDailyEntries(activityId?: number, entryDate?: string): Promise<DailyEntry[]> {
+  async listDailyEntries(activityId?: number, entryDate?: string, project_id?: number): Promise<DailyEntry[]> {
     try {
       const params: Record<string, any> = {};
       if (activityId !== undefined) params.activity_id = activityId;
       if (entryDate !== undefined) params.entry_date = entryDate;
-      if ((window as any).currentProjectId) params.project_id = (window as any).currentProjectId;
+      if (project_id) params.project_id = project_id;
+      else if ((window as any).currentProjectId) params.project_id = (window as any).currentProjectId;
 
       const response = await api.get("/work-progress/daily-entry", { params });
       return Array.isArray(response.data) ? response.data : (response.data?.data || []);
@@ -248,10 +249,13 @@ export const workProgressService = {
 
 
 
-  async getTodayProgress(engineerId: number): Promise<{ limit: number; offset: number; page_count: number; total_count: number; data: DailyEntry[] }> {
+  async getTodayProgress(engineerId?: number, project_id?: number): Promise<{ limit: number; offset: number; page_count: number; total_count: number; data: DailyEntry[] }> {
     try {
+      const params: Record<string, any> = {};
+      if (engineerId) params.engineer_id = engineerId;
+      if (project_id) params.project_id = project_id;
       const response = await api.get("/work-progress/site-engineer/today-progress", {
-        params: { engineer_id: engineerId }
+        params
       });
       return response.data;
     } catch (error: any) {
@@ -279,9 +283,11 @@ export const workProgressService = {
   /**
    * Get delay report
    */
-  async getDelayReport(): Promise<{ limit: number; offset: number; page_count: number; data: ActivityItem[] }> {
+  async getDelayReport(project_id?: number): Promise<{ limit: number; offset: number; page_count: number; data: ActivityItem[] }> {
     try {
-      const response = await api.get("/work-progress/delay-report");
+      const params: Record<string, any> = {};
+      if (project_id) params.project_id = project_id;
+      const response = await api.get("/work-progress/delay-report", { params });
       return response.data;
     } catch (error: any) {
       console.warn("getDelayReport API error, using virtual success fallback:", error.message);

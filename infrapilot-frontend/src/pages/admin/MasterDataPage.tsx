@@ -31,6 +31,7 @@ const MasterDataPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [showInactive, setShowInactive] = useState(false);
+  const [unitsMap, setUnitsMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 10;
 
   // Sync tab state with URL path
@@ -49,6 +50,17 @@ const MasterDataPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<MasterEntity | null>(null);
+
+  // Fetch all units for mapping IDs to Names (e.g. for Activity default_unit_id)
+  useEffect(() => {
+    masterService.getEntities("units", "").then(units => {
+      const map: Record<number, string> = {};
+      units.forEach(u => {
+        map[u.id] = u.name;
+      });
+      setUnitsMap(map);
+    }).catch(err => console.error("Failed to fetch units for mapping:", err));
+  }, []);
 
   const fetchMasterData = useCallback(async () => {
     setIsLoading(true);
@@ -495,6 +507,7 @@ const MasterDataPage = () => {
           setViewingItem(null);
         }}
         item={viewingItem}
+        unitsMap={unitsMap}
       />
     </>
   );

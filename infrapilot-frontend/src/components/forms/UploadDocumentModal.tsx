@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Upload, FileText, CheckCircle2 } from "lucide-react";
+import { X, Upload, FileText, CheckCircle2, Layers } from "lucide-react";
 import toast from "react-hot-toast";
 import { projectService } from "../../services/projectService";
 
@@ -8,6 +8,7 @@ interface UploadDocumentModalProps {
     onClose: () => void;
     onSubmit: (formData: FormData) => Promise<void>;
     parentId?: number | null;
+    preSelectedType?: string;
 }
 
 const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
@@ -15,6 +16,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
     onClose,
     onSubmit,
     parentId = null,
+    preSelectedType = "General"
 }) => {
     const [projects, setProjects] = useState<any[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,12 +24,20 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
     const [formData, setFormData] = useState({
         project_id: "",
         title: "",
-        document_type: "General",
+        document_type: preSelectedType,
         remarks: "",
+        // Drawing specific fields
+        version: "v1.0",
+        date: new Date().toISOString().split('T')[0],
+        approved_by: "Site Engineer"
     });
 
     useEffect(() => {
         if (isOpen) {
+            setFormData(prev => ({
+                ...prev,
+                document_type: preSelectedType,
+            }));
             const fetchProjects = async () => {
                 try {
                     const response = await projectService.getProjects(100);
@@ -74,6 +84,12 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             if (parentId) data.append("parent_id", parentId.toString());
             if (formData.remarks) data.append("remarks", formData.remarks);
 
+            if (formData.document_type === "Drawing") {
+                data.append("version", formData.version);
+                data.append("date", formData.date);
+                data.append("approved_by", formData.approved_by);
+            }
+
             await onSubmit(data);
             onClose();
             setSelectedFile(null);
@@ -82,6 +98,9 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                 title: "",
                 document_type: "General",
                 remarks: "",
+                version: "v1.0",
+                date: new Date().toISOString().split('T')[0],
+                approved_by: "Site Engineer"
             });
         } catch (error) {
             console.error("Upload Error:", error);
@@ -100,7 +119,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                         </div>
                         <div>
                             <h2 className="text-2xl font-black text-slate-800 tracking-tight">
-                                Upload Document
+                                Upload {formData.document_type === "Drawing" ? "Drawing" : "Document"}
                             </h2>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1">
                                 <CheckCircle2 size={12} className="text-emerald-500" />
@@ -154,6 +173,54 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                             </select>
                         </div>
                     </div>
+
+                    {formData.document_type === "Drawing" && (
+                        <div className="p-5 bg-amber-50/50 rounded-[1.5rem] border border-amber-100 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Layers className="w-4 h-4 text-amber-500" />
+                                <h3 className="text-xs font-black text-amber-700 uppercase tracking-widest">Engineering Metadata</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-amber-600/70 uppercase tracking-widest ml-1">
+                                        Version <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="e.g. v1.0"
+                                        className="w-full px-4 py-2.5 bg-white border border-amber-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
+                                        value={formData.version}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-amber-600/70 uppercase tracking-widest ml-1">
+                                        Release Date <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
+                                        className="w-full px-4 py-2.5 bg-white border border-amber-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
+                                        value={formData.date}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-amber-600/70 uppercase tracking-widest ml-1">
+                                        Approved By
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Chief Engineer"
+                                        className="w-full px-4 py-2.5 bg-white border border-amber-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
+                                        value={formData.approved_by}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, approved_by: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="space-y-1.5">
                         <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">

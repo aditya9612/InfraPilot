@@ -22,6 +22,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         remarks: "",
         status: "PENDING",
         version: "1.0",
+        date: new Date().toISOString().split('T')[0],
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -33,6 +34,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                 remarks: document.remarks || "",
                 status: document.status || "PENDING",
                 version: document.version || "1.0",
+                date: (document as any).date || (document.uploaded_at ? document.uploaded_at.split('T')[0] : new Date().toISOString().split('T')[0]),
             });
             setSelectedFile(null);
         }
@@ -46,10 +48,6 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
         setIsSubmitting(true);
         try {
-            // If there's a file, we might need to send it differently (FormData)
-            // But the DocumentUpdateParams interface doesn't have 'file'.
-            // Swagger shows 'file' in multipart/form-data.
-
             const data: any = { ...formData };
             if (selectedFile) {
                 data.file = selectedFile;
@@ -177,12 +175,27 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                         <span className="text-slate-500 font-bold truncate max-w-[120px]">
                                             {selectedFile ? selectedFile.name : "Choose file..."}
                                         </span>
-                                        <div className="bg-amber-500 text-white p-1 rounded-lg">
+                                        <div className="bg-amber-500 text-white p-1 rounded-lg transition-transform active:scale-95">
                                             <Save size={14} strokeWidth={3} />
                                         </div>
                                     </label>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {formData.document_type === "Drawing" && (
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Engineering Release Date <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                required
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
+                                value={formData.date || ""}
+                                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                            />
                         </div>
                     )}
 
@@ -192,7 +205,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                         </label>
                         <textarea
                             rows={3}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-medium resize-none"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-medium resize-none text-slate-800"
                             value={formData.remarks || ""}
                             onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
                         />

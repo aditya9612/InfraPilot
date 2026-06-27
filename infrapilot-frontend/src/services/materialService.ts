@@ -146,8 +146,10 @@ export const materialService = {
     limit?: number;
   }): Promise<InventoryLog[]> {
     const finalParams = { limit: 500, ...params };
-    const response = await api.get<InventoryLog[]>("/materials/logs", { params: finalParams });
-    return response.data;
+    const response = await api.get<any>("/materials/logs", { params: finalParams });
+    const data = response.data;
+    const items = Array.isArray(data) ? data : (data.items || data.data || []);
+    return items;
   },
 
   /**
@@ -374,8 +376,10 @@ export const materialService = {
   },
 
   async getProjectInventory(project_id: number): Promise<Material[]> {
-    const response = await api.get<Material[]>(`/materials/inventory/${project_id}`);
-    return response.data.map(mapMaterial);
+    const response = await api.get<any>(`/materials/inventory/${project_id}`);
+    const data = response.data;
+    const items = Array.isArray(data) ? data : (data.items || data.data || []);
+    return items.map(mapMaterial);
   },
 
   async getPriceHistory(material_id: number): Promise<PriceHistory[]> {

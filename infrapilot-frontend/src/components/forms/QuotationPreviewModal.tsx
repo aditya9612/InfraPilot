@@ -263,10 +263,49 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
         }
     };
 
+    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+    const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) {
+            setPdfUrl(null);
+            return;
+        }
+
+        const loadPdf = async () => {
+            setIsLoadingPdf(true);
+            try {
+                const qId = data.id || (typeof data.invoiceNo === 'string' ? data.invoiceNo.replace('QTN-', '') : null);
+                if (qId && !isNaN(Number(qId))) {
+                    const blob = await quotationService.downloadQuotationPDF(Number(qId));
+                    const url = window.URL.createObjectURL(blob);
+                    setPdfUrl(url);
+                    setIsLoadingPdf(false);
+                    return;
+                }
+            } catch (err) {
+                console.error("Failed to load PDF from backend", err);
+            }
+            
+            // Fallback
+            const doc = buildQuotationPDF();
+            const pdfBlob = doc.output('blob');
+            setPdfUrl(URL.createObjectURL(pdfBlob));
+            setIsLoadingPdf(false);
+        };
+        
+        // Slight delay to let companyInfo load if needed
+        const timer = setTimeout(() => {
+            loadPdf();
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [isOpen, data, companyInfo]);
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Quotation Preview" maxWidth="max-w-5xl">
-            <div className="bg-slate-800 p-8 h-[90vh] overflow-y-auto no-print">
-                <div className="flex justify-end gap-3 mb-6">
+            <div className="bg-slate-800 p-4 h-[90vh] flex flex-col no-print">
+                <div className="flex justify-end gap-3 mb-4 shrink-0">
                     <button onClick={handleDownloadPDF} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg">
                         <Download size={18} /> Download PDF
                     </button>
@@ -275,89 +314,23 @@ const QuotationPreviewModal: React.FC<QuotationPreviewModalProps> = ({
                     </button>
                 </div>
 
-                <div className="bg-white max-w-[210mm] mx-auto p-12 mb-8 shadow-2xl min-h-[297mm]">
-                    <div className="flex justify-between items-center mb-8">
-                        <img src={currentLogo || logo} alt="Logo" className="w-24 h-24 object-contain" />
-                        <h1 className="text-3xl font-bold text-[#1F4E79] tracking-tight">PROJECT QUOTATION</h1>
+                {isLoadingPdf ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-white/50 space-y-4">
+                        <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="font-bold tracking-widest text-sm">GENERATING PDF PREVIEW...</p>
                     </div>
-
-                    <div className="mb-8">
-                        <h2 className="text-lg font-bold text-slate-900">{companyInfo?.company_name || "Infra Pilot"}</h2>
-                        <p className="text-xs text-slate-600">GST: {companyInfo?.gst_number || "27ABCDE1234F1Z5"}</p>
-                        <p className="text-xs text-slate-600">Mobile: {companyInfo?.mobile_number || "9876543210"}</p>
-                        <p className="text-xs text-slate-600">Email: {companyInfo?.email || "info@infrapilot.com"}</p>
+                ) : pdfUrl ? (
+                    <iframe src={pdfUrl} className="w-full h-full rounded-xl bg-white flex-1" title="Quotation PDF" />
+                ) : (
+                    <div className="flex-1 flex items-center justify-center text-rose-400 font-bold text-lg">
+                        Failed to load PDF preview
                     </div>
-
-                    <div className="mb-6">
-                        <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
-                            <div className="w-1/2">Field</div>
-                            <div className="w-1/2 text-left">Value</div>
-                        </div>
-                        <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
-                            <div className="flex p-2"><div className="w-1/2 font-bold">Quotation No</div><div className="w-1/2">{data.invoiceNo}</div></div>
-                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Date</div><div className="w-1/2">{data.date}</div></div>
-                            <div className="flex p-2"><div className="w-1/2 font-bold">Project</div><div className="w-1/2">{data.projectName || "N/A"}</div></div>
-                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Project Type</div><div className="w-1/2">Residential</div></div>
-                            <div className="flex p-2"><div className="w-1/2 font-bold">Engineer</div><div className="w-1/2">Er. Tejas Dhande</div></div>
-                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Work Order</div><div className="w-1/2">N/A</div></div>
-                        </div>
-                    </div>
-
-                    <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Client Details</h3>
-                    <div className="mb-6">
-                        <div className="bg-[#1F4E79] text-white flex p-2 rounded-t-sm font-bold text-sm">
-                            <div className="w-1/2">Field</div>
-                            <div className="w-1/2 text-left">Value</div>
-                        </div>
-                        <div className="border border-slate-300 divide-y divide-slate-300 text-xs text-slate-700">
-                            <div className="flex p-2"><div className="w-1/2 font-bold">Client Name</div><div className="w-1/2 uppercase text-slate-900 font-black">{data.clientName || "N/A"}</div></div>
-                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Billing Address</div><div className="w-1/2">{data.clientAddress || "N/A"}</div></div>
-                            <div className="flex p-2"><div className="w-1/2 font-bold">Site Address</div><div className="w-1/2">N/A</div></div>
-                            <div className="flex p-2 bg-slate-50"><div className="w-1/2 font-bold">Mobile</div><div className="w-1/2">{data.clientMobile || "N/A"}</div></div>
-                            <div className="flex p-2"><div className="w-1/2 font-bold">GST Number</div><div className="w-1/2">{data.clientGst || "N/A"}</div></div>
-                        </div>
-                    </div>
-
-                    <h3 className="text-sm font-black text-slate-900 mb-2 uppercase">Item Details</h3>
-                    <table className="w-full border-collapse border border-slate-300 text-xs mb-8">
-                        <thead>
-                            <tr className="bg-[#1F4E79] text-white font-bold">
-                                <th className="border border-slate-300 p-2 text-left">Item</th>
-                                <th className="border border-slate-300 p-2 text-center w-16">Qty</th>
-                                <th className="border border-slate-300 p-2 text-center w-20">Unit</th>
-                                <th className="border border-slate-300 p-2 text-right w-24">Rate</th>
-                                <th className="border border-slate-300 p-2 text-right w-28">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-300 text-slate-700">
-                            {data.items?.map((item: any, idx: number) => (
-                                <tr key={idx} className={idx % 2 === 1 ? "bg-slate-50" : ""}>
-                                    <td className="border border-slate-300 p-2 font-bold">{item.description || item.title}</td>
-                                    <td className="border border-slate-300 p-2 text-center">{item.quantity}</td>
-                                    <td className="border border-slate-300 p-2 text-center">{item.unit}</td>
-                                    <td className="border border-slate-300 p-2 text-right">{item.rate?.toFixed(2)}</td>
-                                    <td className="border border-slate-300 p-2 text-right font-black text-slate-900">{item.amount?.toFixed(2)}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-
-                    <div className="flex justify-end mb-8">
-                        <div className="w-1/2 space-y-1 text-sm border border-slate-300 p-4">
-                            <div className="flex justify-between"><span className="text-slate-500">Subtotal:</span><span className="font-bold">INR {data.subTotal?.toLocaleString()}</span></div>
-                            <div className="flex justify-between"><span className="text-slate-500">Grand Total:</span><span className="font-black text-slate-900 text-lg">INR {data.grandTotal?.toLocaleString()}</span></div>
-                            <div className="pt-2 border-t border-slate-200">
-                                <p className="text-[10px] font-bold text-slate-400 italic leading-tight">Amount in Words: {numberToWords(data.grandTotal)}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                )}
             </div>
             <style>{`
                 @media print {
                     .no-print { display: none !important; }
                     body { background: white !important; padding: 0 !important; }
-                    .shadow-2xl { box-shadow: none !important; border: none !important; }
                 }
             `}</style>
         </Modal>

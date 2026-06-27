@@ -120,7 +120,9 @@ export const labourService = {
             limit: params?.limit || 50,
             offset: params?.offset || 0
         };
-        if (projectId) queryParams.project_id = Number(projectId);
+        if (projectId !== undefined && projectId !== null && projectId !== "") {
+            queryParams.project_id = Number(projectId);
+        }
         if (params?.search) queryParams.search = params.search;
         if (params?.status && params.status !== "All") queryParams.status = params.status;
 

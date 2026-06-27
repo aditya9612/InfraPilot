@@ -89,7 +89,7 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess, pro
             startCamera();
             setAttendanceDate(new Date().toISOString().split('T')[0]);
             setInTime(new Date().toISOString().slice(0, 16));
-            
+
             projectService.getProjects(100, 0).then((data: any) => {
                 setProjects(Array.isArray(data) ? data : (data.items || data.data || []));
             }).catch(() => { });
@@ -110,7 +110,7 @@ const CheckInModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess, pro
         setIsSubmitting(true);
         try {
             const fd = new FormData();
-            
+
             fd.append("attendance_date", attendanceDate);
             if (projectId) fd.append("project_id", projectId);
             fd.append("status", status);
