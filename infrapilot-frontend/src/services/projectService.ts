@@ -287,10 +287,17 @@ export const projectService = {
       const items = Array.isArray(data) ? data : (data.items || data.data || []);
 
       // Map assigned_users to assigned_user_id for frontend compatibility
-      return items.map((item: any) => ({
+      const mappedItems = items.map((item: any) => ({
         ...item,
         assigned_user_id: item.assigned_user_id || (item.assigned_users && item.assigned_users.length > 0 ? (item.assigned_users[0].id || item.assigned_users[0]) : null)
       }));
+
+      if (Array.isArray(data)) return mappedItems;
+      
+      return {
+        ...data,
+        items: mappedItems
+      };
     } catch (error: any) {
       console.error(`Get Tasks API Error:`, error.response?.data || error.message);
       // Fallback mock tasks

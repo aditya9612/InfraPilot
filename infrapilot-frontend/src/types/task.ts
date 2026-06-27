@@ -3,12 +3,14 @@ export interface Task {
     name: string;
     project: string;
     contractorId?: string;
-    assignedFrom?: 'Self' | 'Site Engineer';
+    assignedFrom?: string;
     assignedTo: string;
     description: string;
     priority: 'Low' | 'Medium' | 'High';
     startDate: string;
     endDate: string;
-    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold';
+    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold' | 'Planned';
     progress: number;
+    audioUrl?: string;
+    imageUrl?: string;
 }

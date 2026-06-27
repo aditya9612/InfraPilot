@@ -26,6 +26,8 @@ export interface AttendanceRecord {
     out_time?: string;
     working_hours?: number;
     check_in_address?: string;
+    check_in_image?: string;
+    check_out_image?: string;
 }
 
 export interface TodayStatusResponse {
@@ -112,10 +114,24 @@ export const attendanceService = {
             return response.data;
         } catch (error: any) {
             console.error("checkIn API error:", error.response?.data || error.message);
-            // Provide a mock response so the UI can update state even if backend is unreachable
+            
+            // Helper to convert File to Base64 for mock persistence
+            const fileToBase64 = (file: any): Promise<string> => new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+            });
+
             const todayStr = new Date().toISOString().split('T')[0];
             const timeStr = new Date().toISOString();
             const mockId = Math.floor(Math.random() * 9000) + 1000;
+            
+            const imageFile = formData.get('check_in_image');
+            let imgBase64 = null;
+            if (imageFile instanceof File) {
+                imgBase64 = await fileToBase64(imageFile);
+            }
+
             const mockResponse = {
                 id: mockId,
                 user_id: null,
@@ -127,6 +143,7 @@ export const attendanceService = {
                 working_hours: 0,
                 project_id: Number(formData.get('project_id')) || null,
                 check_in_address: (formData.get('check_in_address') as string) || null,
+                check_in_image: imgBase64,
                 check_out_address: null,
                 task_id: (formData.get('task_id') as string) || null,
                 task_description: (formData.get('task_description') as string) || null,
@@ -137,13 +154,13 @@ export const attendanceService = {
                 is_late: false,
                 late_minutes: 0,
             };
+            
             try {
                 const stored = localStorage.getItem('mock_self_attendance_global');
                 const list = stored ? JSON.parse(stored) : [];
                 list.unshift(mockResponse);
                 localStorage.setItem('mock_self_attendance_global', JSON.stringify(list));
             } catch (e) { /* ignore */ }
-            // Re-throw so caller can decide whether to toast an error or treat as success
             throw error;
         }
     },
@@ -153,11 +170,54 @@ export const attendanceService = {
      * PUT /api/v1/attendance/check-out/{id}
      */
     async checkOut(id: number, data: any) {
-        const isFormData = data instanceof FormData;
-        const response = await api.put(`attendance/${id}/check-out`, data, {
-            headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
-        });
-        return response.data;
+        try {
+            const isFormData = data instanceof FormData;
+            const response = await api.put(`attendance/${id}/check-out`, data, {
+                headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
+            });
+            return response.data;
+        } catch (error: any) {
+            console.warn("checkOut API error, updating mock storage:", error.response?.data || error.message);
+            
+            // Helper to convert File to Base64 for mock persistence
+            const fileToBase64 = (file: any): Promise<string> => new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+            });
+
+            // Update local storage so TodayStatus reflects the checkout
+            try {
+                const stored = localStorage.getItem('mock_self_attendance_global');
+                if (stored) {
+                    const list = JSON.parse(stored);
+                    const index = list.findIndex((r: any) => r.id === id);
+                    if (index !== -1) {
+                        const outTime = new Date().toISOString();
+                        const isFormData = data instanceof FormData;
+                        
+                        let imgBase64 = null;
+                        if (isFormData) {
+                            const imageFile = data.get('check_out_image');
+                            if (imageFile instanceof File) {
+                                imgBase64 = await fileToBase64(imageFile);
+                            }
+                        }
+
+                        list[index] = {
+                            ...list[index],
+                            out_time: isFormData ? (data.get('out_time') as string) || outTime : outTime,
+                            check_out_time: outTime,
+                            check_out_image: imgBase64,
+                            work_summary: isFormData ? (data.get('work_summary') as string) : list[index].work_summary,
+                        };
+                        localStorage.setItem('mock_self_attendance_global', JSON.stringify(list));
+                    }
+                }
+            } catch (e) { /* ignore */ }
+            // Re-throw so caller can handle UI feedback
+            throw error;
+        }
     },
 
     /**

@@ -5,7 +5,10 @@ import {
     Filter, Search, Calendar,
     CheckCircle, Clock, XCircle, List, Grid,
     Eye,
-    Play
+    Play,
+    Volume2,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 import { projectService } from '../../services/projectService';
 import { useAuth } from '../../context/AuthContext';
@@ -25,55 +28,79 @@ const MyTasksPage: React.FC = () => {
     const [activeTab, setActiveTab] = useState('All Tasks');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All Status');
-    const [departmentFilter, setDepartmentFilter] = useState('All Departments');
+    const [historyFilter, setHistoryFilter] = useState('All');
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [filterType, setFilterType] = useState('ALL TASKS');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize] = useState(10);
+    const [totalTasks, setTotalTasks] = useState(0);
 
     const fetchTasks = async () => {
         setIsLoading(true);
         try {
             const params: any = {
-                limit: 100,
-                offset: 0
+                limit: pageSize,
+                offset: (currentPage - 1) * pageSize
             };
 
-            // Backend filtering based on active tab
-            if (activeTab === 'All Tasks') {
-                // Fetch all tasks for All Tasks tab
+            // Backend filtering based on filterType and active tab
+            if (filterType === 'MY TASKS') {
+                params.assigned_user_id = user?.id ? Number(user.id) : 181;
             } else if (activeTab === 'My Tasks') {
                 params.assigned_user_id = user?.id ? Number(user.id) : 181;
-            } else if (activeTab === 'Project Tasks') {
-                // No specific status or user filter for project tasks
             }
 
             const projectId = 92; // Using the project ID 92 from the user's reference
+            
+            let currentProjectName = 'New sara city';
+            
+            // Fetch project details to get the correct name (e.g., New sara city)
+            try {
+                const projectDetails = await projectService.getProjectById(projectId);
+                if (projectDetails?.name) {
+                    currentProjectName = projectDetails.name;
+                }
+            } catch (err) {
+                console.warn('Could not fetch project details, using fallback.');
+            }
+
             const response = await projectService.getTasks(projectId, params);
 
             const taskItems = Array.isArray(response) ? response : (response.items || []);
+            const total = response.meta?.total || (Array.isArray(response) ? response.length : (response.total || response.items?.length || 0));
+            setTotalTasks(total);
 
             const mappedTasks: Task[] = taskItems.map((t: any) => {
                 // Determine assignee from assigned_users array
                 const assignee = t.assigned_users && t.assigned_users.length > 0
-                    ? (t.assigned_users[0].full_name || t.assigned_users[0].name || t.assigned_users[0].username || 'Assigned')
-                    : (user?.name || 'Labour');
+                    ? t.assigned_users.map((u: any) => u.full_name || u.name || u.username).join(', ')
+                    : 'Unassigned';
 
                 // Check local storage for status updates
                 const localStatus = localStorage.getItem(`task_status_${t.id}`);
 
+                // Construct media URLs if present
+                const apiHost = (import.meta.env.VITE_API_URL || "").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
+                const audioUrl = t.audio_instruction_url ? `${apiHost}/${t.audio_instruction_url}` : undefined;
+                const imageUrl = t.instruction_image_url ? `${apiHost}/${t.instruction_image_url}` : undefined;
+
                 return {
                     id: t.id,
                     name: t.title || 'Untitled Task',
-                    project: t.project_name || t.project?.name || t.project?.title || 'InfraPilot Project',
+                    project: t.project_name || t.project?.name || t.project?.title || currentProjectName,
                     assignedFrom: (t.assigned_by_name || 'Site Engineer') as any,
                     assignedTo: assignee,
                     description: t.description === 'ffghj' ? 'NA' : (t.description || 'NA'),
                     priority: (t.priority === 'Low' || t.priority === 'Medium' || t.priority === 'High') ? t.priority : 'Medium',
                     startDate: t.start_date || '2026-06-25',
                     endDate: t.end_date || '2026-06-30',
-                    status: (localStatus === 'Completed' ? 'Completed' : (localStatus === 'In Progress' ? 'In Progress' : (t.status === 'Hold' ? 'Hold' : 'Pending'))) as any,
-                    progress: (localStatus === 'Completed' ? 100 : (localStatus === 'In Progress' ? 50 : (t.completion_percentage > 0 ? t.completion_percentage : 25)))
+                    status: (localStatus === 'Completed' ? 'Completed' : (localStatus === 'In Progress' ? 'In Progress' : (t.status === 'Hold' ? 'Hold' : (t.status === 'In Progress' ? 'In Progress' : 'Pending')))) as any,
+                    progress: (localStatus === 'Completed' ? 100 : (t.completion_percentage || 0)),
+                    audioUrl,
+                    imageUrl
                 };
             });
 
@@ -88,7 +115,7 @@ const MyTasksPage: React.FC = () => {
 
     useEffect(() => {
         fetchTasks();
-    }, [activeTab]);
+    }, [activeTab, filterType, currentPage]);
 
 const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
@@ -142,11 +169,9 @@ return (
         <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen font-inter pb-32">
 
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">Task Management</h1>
-                    <p className="text-slate-500 text-sm font-medium mt-1">Efficiently organize, track, and manage all your tasks in one place.</p>
-                </div>
+            <div className="mb-10">
+                <h1 className="text-3xl font-black text-slate-800 tracking-tight">Task Management</h1>
+                <p className="text-slate-500 text-sm font-medium mt-1">Efficiently organize, track, and manage <span className="text-blue-500 font-semibold">all</span> your tasks in one place.</p>
             </div>
 
             {/* Tabs */}
@@ -154,7 +179,10 @@ return (
                 {['All Tasks', 'Project Tasks'].map(tab => (
                     <button
                         key={tab}
-                        onClick={() => setActiveTab(tab)}
+                        onClick={() => {
+                            setActiveTab(tab);
+                            setCurrentPage(1);
+                        }}
                         className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === tab ? 'bg-slate-100 text-slate-800 shadow-inner' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                     >
                         {tab}
@@ -163,27 +191,35 @@ return (
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-10">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
                 {[
-                    { label: 'TOTAL TASKS', count: tasks.length, icon: List, color: 'indigo', status: 'All Status' },
-                    { label: 'PENDING', count: tasks.filter(t => t.status === 'Pending').length, icon: Calendar, color: 'slate', status: 'Pending' },
-                    { label: 'IN PROGRESS', count: tasks.filter(t => t.status === 'In Progress').length, icon: Clock, color: 'blue', status: 'In Progress' },
-                    { label: 'COMPLETED', count: tasks.filter(t => t.status === 'Completed').length, icon: CheckCircle, color: 'emerald', status: 'Completed' },
-                    { label: 'ON HOLD', count: tasks.filter(t => t.status === 'Hold').length, icon: XCircle, color: 'amber', status: 'Hold' },
+                    { label: 'TOTAL TASKS', count: totalTasks, icon: List, filterStatus: 'All Status' },
+                    { label: 'PLANNED', count: tasks.filter(t => t.status === 'Pending').length, icon: Calendar, filterStatus: 'Pending' },
+                    { label: 'IN PROGRESS', count: tasks.filter(t => t.status === 'In Progress').length, icon: Clock, filterStatus: 'In Progress' },
+                    { label: 'COMPLETED', count: tasks.filter(t => t.status === 'Completed').length, icon: CheckCircle, filterStatus: 'Completed' },
+                    { label: 'CANCELLED', count: tasks.filter(t => t.status === 'Hold').length, icon: XCircle, filterStatus: 'Hold' },
                 ].map(stat => (
                     <div
                         key={stat.label}
-                        onClick={() => setStatusFilter(stat.status)}
-                        className={`bg-white p-6 rounded-[32px] border-2 transition-all cursor-pointer group hover:-translate-y-1 ${statusFilter === stat.status ? `border-${stat.color}-500 shadow-xl shadow-${stat.color}-50` : 'border-transparent shadow-sm hover:border-slate-100'}`}
+                        onClick={() => setStatusFilter(stat.filterStatus)}
+                        className={`bg-white p-5 rounded-2xl border-2 transition-all cursor-pointer hover:shadow-md ${
+                            statusFilter === stat.filterStatus
+                                ? 'border-blue-500 shadow-lg shadow-blue-50'
+                                : 'border-slate-100 shadow-sm hover:border-slate-200'
+                        }`}
                     >
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${statusFilter === stat.status ? `text-${stat.color}-600` : 'text-slate-400'}`}>{stat.label}</p>
-                                <h3 className="text-3xl font-black text-slate-800">{stat.count}</h3>
+                        <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">{stat.label}</p>
+                                <h3 className={`text-3xl font-black ${ statusFilter === stat.filterStatus ? 'text-blue-600' : 'text-slate-800'}`}>{stat.count}</h3>
                             </div>
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${statusFilter === stat.status ? `bg-${stat.color}-50 text-${stat.color}-500` : 'bg-slate-50 text-slate-400 group-hover:bg-slate-100'}`}>
-                                <stat.icon className="w-6 h-6" />
-                            </div>
+                            <stat.icon className={`w-5 h-5 flex-shrink-0 mt-1 ${
+                                statusFilter === stat.filterStatus ? 'text-blue-500' :
+                                stat.label === 'IN PROGRESS' ? 'text-blue-400' :
+                                stat.label === 'COMPLETED' ? 'text-emerald-500' :
+                                stat.label === 'CANCELLED' ? 'text-rose-400' :
+                                'text-slate-300'
+                            }`} />
                         </div>
                     </div>
                 ))}
@@ -233,23 +269,15 @@ return (
                         <div className="flex flex-col gap-1.5">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Filter</span>
                             <select
+                                value={filterType}
+                                onChange={(e) => {
+                                    setFilterType(e.target.value);
+                                    setCurrentPage(1);
+                                }}
                                 className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-all min-w-[140px]"
                             >
                                 <option>ALL TASKS</option>
                                 <option>MY TASKS</option>
-                            </select>
-                        </div>
-
-                        <div className="flex flex-col gap-1.5">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Department</span>
-                            <select
-                                value={departmentFilter}
-                                onChange={(e) => setDepartmentFilter(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-all min-w-[160px]"
-                            >
-                                <option>ALL DEPARTMENTS</option>
-                                <option>CONSTRUCTION</option>
-                                <option>FINISHING</option>
                             </select>
                         </div>
 
@@ -277,8 +305,8 @@ return (
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50/50">
-                                        {['TASK', 'PROJECT', 'ASSIGNED BY', 'ASSIGNED TO', 'DESCRIPTION', 'PRIORITY', 'START DATE', 'END DATE', 'VOICE MSG', 'STATUS', 'ACTION'].map(header => (
-                                            <th key={header} className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 whitespace-nowrap">
+                                        {['PROJECT', 'TITLE', 'DESCRIPTION', 'PRIORITY', 'STATUS', 'START / END DATE', 'ACTUAL START / END', 'CREATED BY', 'ASSIGNED USERS', 'COMPLETION %', 'DELAY DAYS', 'AUDIO INSTRUCTION', 'INSTRUCTION IMAGE', 'ACTION'].map(header => (
+                                            <th key={header} className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 whitespace-nowrap">
                                                 {header}
                                             </th>
                                         ))}
@@ -291,78 +319,145 @@ return (
                                             className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50 cursor-pointer"
                                             onClick={() => navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.description.split('|')[0] || '')}`)}
                                         >
-                                            <td className="px-8 py-6">
-                                                <div>
-                                                    <p className="text-sm font-black text-slate-800 tracking-tight">{task.name}</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-6">
+                                            {/* PROJECT */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
                                                 <span className="text-xs font-bold text-slate-600">{task.project}</span>
                                             </td>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
-                                                        {task.assignedFrom?.charAt(0) || 'S'}
-                                                    </div>
-                                                    <span className="text-xs font-bold text-slate-700">{task.assignedFrom}</span>
-                                                </div>
+
+                                            {/* TITLE */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                <p className="text-sm font-black text-slate-800 tracking-tight">{task.name}</p>
                                             </td>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-[10px] font-black text-indigo-500">
-                                                        {task.assignedTo.charAt(0)}
-                                                    </div>
-                                                    <span className="text-xs font-bold text-slate-700">{task.assignedTo}</span>
-                                                </div>
+
+                                            {/* DESCRIPTION */}
+                                            <td className="px-6 py-5 max-w-[180px]">
+                                                <p className="text-[11px] font-medium text-slate-500 truncate" title={task.description}>
+                                                    {task.description && task.description !== 'NA' ? task.description : <span className="text-slate-300 italic">—</span>}
+                                                </p>
                                             </td>
-                                            <td className="px-8 py-6">
-                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{task.description}</span>
-                                            </td>
-                                            <td className="px-8 py-6">
+
+                                            {/* PRIORITY */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
                                                 <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${priorityBadge(task.priority)}`}>
                                                     {task.priority}
                                                 </span>
                                             </td>
-                                            <td className="px-8 py-6">
+
+                                            {/* STATUS */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                    <span className="text-[10px] font-bold text-slate-600">
-                                                        {task.startDate || '2026-06-01'}
+                                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${task.status === 'Completed' ? 'bg-emerald-500' : task.status === 'In Progress' ? 'bg-blue-500' : task.status === 'Hold' ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                                                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
+                                                        {task.status === 'Pending' ? 'Planned' : task.status}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                                    <span className="text-[10px] font-bold text-slate-600">
-                                                        {task.endDate || '2026-06-30'}
-                                                    </span>
+
+                                            {/* START / END DATE */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="text-[10px] font-bold text-slate-500">Start: <span className="font-black text-slate-700">{task.startDate || 'NA'}</span></span>
+                                                    <span className="text-[10px] font-bold text-slate-500">End: <span className="font-black text-slate-700">{task.endDate || 'NA'}</span></span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-6">
+
+                                            {/* ACTUAL START / END */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="text-[10px] font-bold text-slate-400">Start: <span className="font-black text-rose-400">NA</span></span>
+                                                    <span className="text-[10px] font-bold text-slate-400">End: <span className="font-black text-rose-400">NA</span></span>
+                                                </div>
+                                            </td>
+
+                                            {/* CREATED BY */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                <span className="text-xs font-bold text-slate-600">{task.assignedFrom || 'Unknown'}</span>
+                                            </td>
+
+                                            {/* ASSIGNED USERS */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[9px] font-black text-indigo-500 flex-shrink-0">
+                                                        {task.assignedTo?.charAt(0) || '?'}
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-600 whitespace-nowrap">{task.assignedTo || 'Unassigned'}</span>
+                                                </div>
+                                            </td>
+
+                                            {/* COMPLETION % */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                <div className="flex flex-col gap-1.5 min-w-[70px]">
+                                                    <span className="text-xs font-black text-slate-700">{task.progress ?? 0}</span>
+                                                    <div className="h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-indigo-500 rounded-full transition-all"
+                                                            style={{ width: `${task.progress ?? 0}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* DELAY DAYS */}
+                                            <td className="px-6 py-5 whitespace-nowrap text-center">
+                                                <span className="text-xs font-black text-slate-400">0</span>
+                                            </td>
+
+                                            {/* AUDIO INSTRUCTION */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                {!task.audioUrl && (!task.description || task.description === 'NA') ? (
+                                                    <span className="text-xs font-bold text-slate-300 italic uppercase">null</span>
+                                                ) : (
+                                                    <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-2 w-fit relative">
+                                                        {/* Play triangle */}
+                                                        <button
+                                                            onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                if (task.audioUrl) {
+                                                                    const audio = new Audio(task.audioUrl);
+                                                                    audio.play();
+                                                                } else {
+                                                                    speak(task.description || ''); 
+                                                                }
+                                                            }}
+                                                            className="flex items-center justify-center text-slate-800 hover:text-slate-600 flex-shrink-0"
+                                                        >
+                                                            <Play className="w-3 h-3 fill-current" />
+                                                        </button>
+                                                        {/* Dash / progress line */}
+                                                        <div className="w-8 h-0.5 bg-slate-400 rounded-full flex-shrink-0" />
+                                                        {/* Icon indicator */}
+                                                        <Volume2 className="w-3 h-3 text-slate-400" />
+                                                    </div>
+                                                )}
+                                            </td>
+                                            
+                                            {/* INSTRUCTION IMAGE */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
+                                                {task.imageUrl ? (
+                                                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 shadow-sm bg-slate-50 group-hover:scale-110 transition-transform cursor-pointer">
+                                                        <img 
+                                                            src={task.imageUrl} 
+                                                            alt="Instruction" 
+                                                            className="w-full h-full object-cover"
+                                                            onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-slate-300 italic uppercase">null</span>
+                                                )}
+                                            </td>
+
+                                            {/* ACTION — View only */}
+                                            <td className="px-6 py-5 whitespace-nowrap">
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); speak(task.description || 'No voice message available for this task'); }}
-                                                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-xl transition-all"
-                                                    title="Play Voice Message"
+                                                    onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
+                                                                                                         className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+
+                                                    title="View Task Details"
                                                 >
-                                                    <Play className="w-4 h-4 fill-current" />
+                                                                                                         <Eye className="w-5 h-5" />
+
                                                 </button>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <span className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${statusBadge(task.status)}`}>
-                                                    {task.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
-                                                        className="p-2 text-indigo-500 hover:text-indigo-700 transition-colors"
-                                                        title="View"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -389,12 +484,14 @@ return (
                                                 >
                                                     <Play className="w-3 h-3 fill-current" />
                                                 </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
-                                                    className="p-2 bg-slate-50 group-hover:bg-indigo-50 text-slate-300 group-hover:text-indigo-500 rounded-lg transition-colors"
-                                                >
-                                                    <Eye className="w-3 h-3" />
-                                                </button>
+                                                                                                 <button
+                                                     onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
+                                                     className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                     title="View Task Details"
+                                                 >
+                                                     <Eye className="w-4 h-4" />
+                                                 </button>
+
                                             </div>
                                         </div>
 
@@ -439,6 +536,57 @@ return (
                             <p className="text-slate-400 text-sm mt-2 font-medium">Try adjusting your filters or search terms.</p>
                         </div>
                     )}
+                </div>
+
+                {/* Pagination Bar */}
+                <div className="p-6 border-t border-slate-50 bg-slate-50/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        SHOWING <span className="text-slate-900">{Math.min((currentPage - 1) * pageSize + 1, totalTasks)}</span> TO{' '}
+                        <span className="text-slate-900">{Math.min(currentPage * pageSize, totalTasks)}</span> OF{' '}
+                        <span className="text-slate-900">{totalTasks}</span> TASKS
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                            className={`p-2 rounded-xl border transition-all ${currentPage === 1 ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-400 hover:text-indigo-600 shadow-sm'}`}
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        
+                        <div className="flex items-center gap-1 mx-2">
+                            {Array.from({ length: Math.ceil(totalTasks / pageSize) }, (_, i) => {
+                                const pageNum = i + 1;
+                                // Only show 5 pages around the current page if there are many pages
+                                const totalPages = Math.ceil(totalTasks / pageSize);
+                                if (totalPages > 7) {
+                                    if (pageNum !== 1 && pageNum !== totalPages && Math.abs(pageNum - currentPage) > 1) {
+                                        if (pageNum === 2 || pageNum === totalPages - 1) return <span key={pageNum} className="text-slate-300 px-1">.</span>;
+                                        return null;
+                                    }
+                                }
+                                
+                                return (
+                                    <button
+                                        key={pageNum}
+                                        onClick={() => setCurrentPage(pageNum)}
+                                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-black transition-all ${currentPage === pageNum ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white text-slate-400 border border-slate-100 hover:border-slate-300 hover:text-slate-600'}`}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalTasks / pageSize), prev + 1))}
+                            disabled={currentPage >= Math.ceil(totalTasks / pageSize)}
+                            className={`p-2 rounded-xl border transition-all ${currentPage >= Math.ceil(totalTasks / pageSize) ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-400 hover:text-indigo-600 shadow-sm'}`}
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </PageTransition>
