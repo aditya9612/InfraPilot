@@ -29,6 +29,35 @@ const ApprovalsPage = () => {
     try {
       const data = await approvalService.getApprovals();
       setApprovals(data);
+
+      // Second pass: resolve any user IDs not yet in usersMap
+      if (Array.isArray(data) && data.length > 0) {
+        const ids = new Set<number>();
+        data.forEach((a: any) => {
+          if (a.requested_by != null) ids.add(Number(a.requested_by));
+          if (a.approved_by != null) ids.add(Number(a.approved_by));
+        });
+
+        setUsersMap(prev => {
+          const missing = [...ids].filter(id => !prev[id]);
+          if (missing.length > 0) {
+            Promise.all(
+              missing.map(id =>
+                userService.getUserById(id)
+                  .then(u => ({ id, name: u?.full_name || u?.name || u?.username || u?.email || `User ${id}` }))
+                  .catch(() => ({ id, name: `User ${id}` }))
+              )
+            ).then(results => {
+              setUsersMap(current => {
+                const updated = { ...current };
+                results.forEach(r => { updated[r.id] = r.name; });
+                return updated;
+              });
+            });
+          }
+          return prev;
+        });
+      }
     } catch (error) {
       toast.error("Failed to fetch approvals");
     } finally {
@@ -38,12 +67,12 @@ const ApprovalsPage = () => {
 
   useEffect(() => {
     // Fetch users once to build an id→name lookup map
-    userService.getAllUsers(100, 0).then((data) => {
+    userService.getAllUsers(500, 0).then((data) => {
       const list = Array.isArray(data) ? data : data?.items || data?.users || [];
       const map: Record<number, string> = {};
       list.forEach((u: any) => {
         const uid = u.user_id ?? u.id;
-        if (uid) map[uid] = u.full_name || u.name || u.username || u.email || `User ${uid}`;
+        if (uid != null) map[Number(uid)] = u.full_name || u.name || u.username || u.email || `User ${uid}`;
       });
       setUsersMap(map);
     }).catch(() => {/* silently ignore */ });
@@ -296,7 +325,7 @@ const ApprovalsPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-xs font-semibold text-slate-600">
-                      {usersMap[item.requested_by] || `User ID: ${item.requested_by}`}
+                      {usersMap[Number(item.requested_by)] || item.requested_by || "-"}
                     </td>
                     <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-xs truncate">{item.remarks || "No remarks provided"}</td>
                     <td className="px-6 py-4">
@@ -308,7 +337,7 @@ const ApprovalsPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                      {item.approved_by ? (usersMap[item.approved_by] || item.approved_by) : "-"}
+                      {item.approved_by ? (usersMap[Number(item.approved_by)] || item.approved_by) : "-"}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-1 items-center">

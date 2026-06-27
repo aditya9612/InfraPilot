@@ -5,14 +5,16 @@ import StatCard from "../../components/common/StatCard";
 import {
   Eye, Download, Trash2, Folder, FileText,
   ChevronRight, Search, Filter, FileImage,
-  FileSpreadsheet, Loader2, FolderPlus, Upload, X,
-  RefreshCcw
+  FileSpreadsheet, FolderPlus, RefreshCcw, History, CheckCircle
 } from "lucide-react";
 import CreateFolderModal from "../../components/forms/CreateFolderModal";
 import DocumentPreviewModal from "../../components/dashboard/DocumentPreviewModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import Modal from "../../components/common/Modal";
 import { documentService } from "../../services/documentService";
+import { drawingService } from "../../services/drawingService";
+import { projectService } from "../../services/projectService";
 import UploadDocumentModal from "../../components/forms/UploadDocumentModal";
 import EditDocumentModal from "../../components/forms/EditDocumentModal";
 import type { Document, DocumentStats } from "../../types/document";
@@ -61,9 +63,15 @@ const DocumentsPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<Document | null>(null);
   const [editingDoc, setEditingDoc] = useState<Document | null>(null);
+  const [uploadType, setUploadType] = useState<string>("General");
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [approvalHistory, setApprovalHistory] = useState<any[]>([]);
   const [docToDelete, setDocToDelete] = useState<number | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [projects, setProjects] = useState<any[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [folderPath, setFolderPath] = useState<{ id: number; name: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
@@ -71,33 +79,127 @@ const DocumentsPage = () => {
 
   const PAGE_SIZE = 10;
 
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await projectService.getProjects(100, 0);
+        const list = Array.isArray(data) ? data : (data.items || data.data || []);
+        setProjects(list);
+        // Auto-select first project so drawings are visible on initial load
+        if (list.length > 0) {
+          setSelectedProjectId((prev) => prev ?? (list[0]?.id || list[0]?.project_id));
+        }
+      } catch (err) {
+        console.error("Failed to fetch projects", err);
+      }
+    };
+    fetchProjects();
+  }, []);
+
   const fetchDocs = useCallback(async (query = "", folderId = currentFolderId) => {
     setIsLoading(true);
     try {
-      const [res, statsData] = await Promise.all([
+      const promises: Promise<any>[] = [
         documentService.listDocuments({
           search: query,
           parent_id: folderId
         }),
         documentService.getStats()
-      ]);
-      // Explicitly filter to only show items at this folder level
-      // This prevents sub-folder documents from showing at the root
-      const items = (res.items || []).filter(item => item.parent_id === folderId);
-      setDocuments(items);
-      setStats(statsData);
+      ];
+
+      // At root level, fetch specialized drawings for selected project (or all projects if none selected)
+      if (folderId === null && (typeFilter === "All" || typeFilter === "Drawings")) {
+        if (selectedProjectId) {
+          promises.push(drawingService.getVersions(selectedProjectId));
+        } else if (projects.length > 0) {
+          // Fetch drawings for all projects and flatten
+          promises.push(
+            Promise.all(projects.map((p: any) => drawingService.getVersions(p.id || p.project_id).catch(() => [])))
+              .then((results) => results.flat())
+          );
+        }
+      }
+
+      const results = await Promise.allSettled(promises);
+
+      const docRes = results[0].status === 'fulfilled' ? results[0].value : { items: [] };
+      const statsData = results[1].status === 'fulfilled' ? results[1].value : null;
+      let apiDrawings: any[] = [];
+
+      if (results[2] && results[2].status === 'fulfilled') {
+        apiDrawings = results[2].value;
+      }
+
+      // Map Documents (standard)
+      const mappedDocs = (docRes.items || [])
+        .filter((item: any) => item.parent_id === folderId)
+        .map((d: any) => ({
+          ...d,
+          type: d.is_folder ? "Folder" : "Document",
+          display_name: d.title
+        }));
+
+      // Map specialized Drawings
+      const mappedDrawings = apiDrawings.map((d: any) => ({
+        ...d,
+        id: d.id,
+        title: d.drawing_name,
+        display_name: d.drawing_name,
+        document_type: "Drawing",
+        type: "Drawing",
+        uploaded_at: d.created_at || d.date,
+        file_url: d.file_url,
+        project_name: projects.find(p => p.id === d.project_id)?.name || "Project #" + d.project_id
+      }));
+
+      const combined = [...mappedDrawings, ...mappedDocs];
+
+      // Filter by type if needed (Standard documents already filtered by API search, but drawings might need manual search filter)
+      const filtered = combined.filter(item => {
+        if (query && !item.display_name.toLowerCase().includes(query.toLowerCase())) return false;
+        if (typeFilter === "Drawings" && item.document_type !== "Drawing") return false;
+        if (typeFilter === "Contracts" && item.document_type !== "Contract") return false;
+        // ... add other filters as needed
+        return true;
+      });
+
+      setDocuments(filtered);
+      if (statsData) setStats(statsData);
     } catch (err) {
       console.error("Failed to fetch documents", err);
       toast.error("Failed to sync repository");
     } finally {
       setIsLoading(false);
     }
-  }, [currentFolderId]);
+  }, [currentFolderId, selectedProjectId, typeFilter, projects]);
 
   useEffect(() => {
     fetchDocs(searchTerm);
     setCurrentPage(0);
-  }, [fetchDocs, searchTerm, currentFolderId]);
+  }, [fetchDocs, searchTerm, currentFolderId, selectedProjectId, typeFilter]);
+
+  useEffect(() => {
+    if (!viewingDoc) {
+      setPreviewUrl("");
+      return;
+    }
+    // <img> and <iframe> tags load cross-origin URLs without CORS restrictions.
+    // No need to fetch/blob — just build the direct URL.
+    setPreviewUrl(buildFileUrl(viewingDoc.file_url || ""));
+  }, [viewingDoc]);
+
+  const handleViewHistory = async (doc: Document) => {
+    const toastId = toast.loading("Fetching approval history...");
+    try {
+      const history = await drawingService.getApprovalHistory(doc.id);
+      setApprovalHistory(history);
+      setViewingDoc(doc);
+      setIsHistoryModalOpen(true);
+      toast.dismiss(toastId);
+    } catch (err) {
+      toast.error("Failed to fetch history", { id: toastId });
+    }
+  };
 
   const handleNewFolder = async (folderData: { title: string; project_id: number; remarks?: string }) => {
     const toastId = toast.loading("Creating folder...");
@@ -122,18 +224,36 @@ const DocumentsPage = () => {
     }
     const toastId = toast.loading("Uploading document...");
     try {
-      await documentService.uploadDocument({
-        project_id: parseInt(uploadFormData.get("project_id") as string),
-        title: uploadFormData.get("title") as string,
-        document_type: uploadFormData.get("document_type") as string,
-        parent_id: currentFolderId,
-        remarks: uploadFormData.get("remarks") as string,
-        file: uploadFormData.get("file") as File
-      });
-      toast.success("Document uploaded successfully", { id: toastId });
+      if (uploadFormData.get("document_type") === "Drawing") {
+        const drawingProjectId = parseInt(uploadFormData.get("project_id") as string);
+        await drawingService.uploadDrawing({
+          project_id: drawingProjectId,
+          drawing_name: uploadFormData.get("title") as string,
+          version: (uploadFormData.get("version") as string) || "v1.0",
+          approved_by: (uploadFormData.get("approved_by") as string) || "Site Engineer",
+          date: (uploadFormData.get("date") as string) || new Date().toISOString().split('T')[0],
+          remarks: uploadFormData.get("remarks") as string,
+          file: uploadFormData.get("file") as File
+        });
+        // Switch project filter to match the uploaded drawing's project
+        // so it appears in the list immediately
+        if (drawingProjectId) {
+          setSelectedProjectId(drawingProjectId);
+        }
+      } else {
+        await documentService.uploadDocument({
+          project_id: parseInt(uploadFormData.get("project_id") as string),
+          title: uploadFormData.get("title") as string,
+          document_type: uploadFormData.get("document_type") as string,
+          parent_id: currentFolderId,
+          remarks: uploadFormData.get("remarks") as string,
+          file: uploadFormData.get("file") as File
+        });
+      }
+      toast.success("Successful", { id: toastId });
       fetchDocs();
     } catch (err) {
-      toast.error("Failed to upload document", { id: toastId });
+      toast.error("Process failed", { id: toastId });
       throw err;
     }
   };
@@ -141,20 +261,34 @@ const DocumentsPage = () => {
   const handleUpdateSubmit = async (id: number, data: any) => {
     const toastId = toast.loading("Updating details...");
     try {
-      await documentService.updateDocument(id, data);
-      toast.success("Document updated successfully", { id: toastId });
+      if (editingDoc?.document_type === "Drawing") {
+        await drawingService.updateDrawing(id, {
+          drawing_name: data.title,
+          version: data.version,
+          date: data.date,
+          remarks: data.remarks
+        });
+      } else {
+        await documentService.updateDocument(id, data);
+      }
+      toast.success("Details updated successfully", { id: toastId });
       fetchDocs();
     } catch (err) {
-      toast.error("Failed to update document", { id: toastId });
+      toast.error("Update failed", { id: toastId });
       throw err;
     }
   };
 
   const handleDelete = async () => {
     if (docToDelete) {
+      const doc = documents.find(d => d.id === docToDelete);
       const toastId = toast.loading("Deleting document...");
       try {
-        await documentService.deleteDocument(docToDelete);
+        if (doc?.document_type === "Drawing") {
+          await drawingService.deleteDrawing(docToDelete);
+        } else {
+          await documentService.deleteDocument(docToDelete);
+        }
         toast.success("Document removed", { id: toastId });
         fetchDocs();
         setIsDeleteModalOpen(false);
@@ -190,6 +324,12 @@ const DocumentsPage = () => {
   const handleDownload = async (doc: Document) => {
     const toastId = toast.loading(`Preparing ${doc.title}...`);
     try {
+      if (doc.document_type === "Drawing" || /\.(dwg|dxf|sketch)$/i.test(doc.file_url || "")) {
+        await drawingService.downloadDocument(doc.id, doc.title, doc.file_url || "");
+        toast.success("Download started", { id: toastId });
+        return;
+      }
+
       // Prioritize the file_url already in the document (the one that works in previews)
       let file_url = doc.file_url;
 
@@ -305,11 +445,24 @@ const DocumentsPage = () => {
               New Folder
             </button>
             <button
-              onClick={() => setIsUploadModalOpen(true)}
+              onClick={() => {
+                setUploadType("General");
+                setIsUploadModalOpen(true);
+              }}
               className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
             >
-              <Upload className="w-4 h-4" />
-              Upload File
+              <FileText className="w-4 h-4" />
+              Upload Document
+            </button>
+            <button
+              onClick={() => {
+                setUploadType("Drawing");
+                setIsUploadModalOpen(true);
+              }}
+              className="px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2"
+            >
+              <FileImage className="w-4 h-4" />
+              Upload Drawing
             </button>
           </div>
         </div>
@@ -342,15 +495,32 @@ const DocumentsPage = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px] relative">
           {/* Toolbar */}
           <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
-            <div className="relative flex-1 max-w-md w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search documents..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
+            <div className="flex flex-1 items-center gap-4">
+              <div className="relative flex-1 max-w-md w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search documents..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
+              </div>
+
+              {/* Project Filter */}
+              <div className="relative min-w-[200px]">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <select
+                  value={selectedProjectId || ""}
+                  onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer font-bold text-slate-700"
+                >
+                  <option value="">All Projects</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
               <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
@@ -483,6 +653,15 @@ const DocumentsPage = () => {
                                 <Download className="w-4 h-4" />
                               </button>
                             )}
+                            {doc.document_type === "Drawing" && (
+                              <button
+                                onClick={() => handleViewHistory(doc)}
+                                className="p-1.5 text-slate-400 hover:text-amber-500 transition-all rounded-lg hover:bg-amber-50"
+                                title="View History"
+                              >
+                                <History className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 setDocToDelete(doc.id);
@@ -591,6 +770,7 @@ const DocumentsPage = () => {
         onClose={() => setIsUploadModalOpen(false)}
         onSubmit={handleUploadSubmit}
         parentId={currentFolderId}
+        preSelectedType={uploadType}
       />
 
       <EditDocumentModal
@@ -616,7 +796,7 @@ const DocumentsPage = () => {
           project: viewingDoc.project_name || "General",
           date: new Date(viewingDoc.uploaded_at).toLocaleDateString(),
           isFolder: viewingDoc.is_folder,
-          file_url: buildFileUrl(viewingDoc.file_url || "")
+          file_url: previewUrl
         } : null}
         onDownload={handleDownload}
       />
@@ -633,6 +813,55 @@ const DocumentsPage = () => {
         confirmText="Delete Document"
         type="danger"
       />
+
+      <Modal
+        isOpen={isHistoryModalOpen}
+        onClose={() => { setIsHistoryModalOpen(false); setViewingDoc(null); }}
+        title="Approval History"
+        maxWidth="max-w-2xl"
+      >
+        <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden font-inter">
+          <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between font-inter">
+            <div>
+              <h4 className="text-sm font-bold text-slate-800 font-inter">{(viewingDoc as any)?.display_name || viewingDoc?.title}</h4>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-inter">Version: {viewingDoc?.version}</p>
+            </div>
+          </div>
+          <div className="p-4 max-h-[60vh] overflow-y-auto font-inter text-slate-800">
+            {approvalHistory.length > 0 ? (
+              <div className="space-y-4 font-inter relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                {approvalHistory.map((historyItem: any, index: number) => (
+                  <div key={index} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active font-inter">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 group-[.is-active]:bg-primary text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 font-inter z-10">
+                      <CheckCircle className="w-4 h-4" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-white shadow-sm font-inter">
+                      <div className="flex items-center justify-between mb-1 font-inter">
+                        <div className="font-bold text-slate-800 text-sm font-inter">{historyItem.status || "Status Updated"}</div>
+                        <div className="text-[10px] font-bold text-slate-400 font-inter">
+                          {new Date(historyItem.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-600 font-inter">
+                        {historyItem.remarks || "No remarks provided."}
+                      </div>
+                      {(historyItem.requested_by || historyItem.approved_by) && (
+                        <div className="mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
+                          By: User ID {historyItem.approved_by || historyItem.requested_by}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 font-inter">
+                <p className="text-sm font-bold text-slate-500 font-inter">No approval history found for this document.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

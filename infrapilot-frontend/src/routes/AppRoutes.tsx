@@ -27,7 +27,7 @@ import ApprovalsPage from "../pages/admin/ApprovalsPage";
 import NotificationsPage from "../pages/admin/NotificationsPage";
 import DocumentsPage from "../pages/admin/DocumentsPage";
 import MasterDataPage from "../pages/admin/MasterDataPage";
-import IntegrationsPage from "../pages/admin/IntegrationsPage";
+// import IntegrationsPage from "../pages/admin/IntegrationsPage"; // Temporarily hidden
 import SettingsPage from "../pages/admin/SettingsPage";
 import ReportsPage from "../pages/admin/ReportsPage";
 import RolesPage from "../pages/admin/RolesPage";
@@ -43,7 +43,8 @@ import QCGovernancePage from "../pages/manager/QCGovernancePage";
 import DSRApprovalPage from "../pages/manager/DSRApprovalPage";
 import ResourceOrchestratorPage from "../pages/manager/ResourceOrchestratorPage";
 import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
-import WorkProgressPage from "../pages/manager/WorkProgressPage";
+import ManagerActivityListPage from "../pages/manager/WorkProgress/ActivityListPage";
+import ManagerDailyProgressEntryPage from "../pages/manager/WorkProgress/DailyProgressEntryPage";
 import ManagerTasksPage from "../pages/manager/TaskManagement/TaskManagementPage";
 import ManagerProcurementPage from "../pages/manager/ManagerProcurementPage";
 import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
@@ -272,10 +273,12 @@ function AppRoutes() {
                   path="/admin/master-data/units"
                   element={<MasterDataPage />}
                 />
+                {/* Integrations route temporarily hidden
                 <Route
                   path="/admin/integrations"
                   element={<IntegrationsPage />}
                 />
+                */}
                 <Route path="/admin/settings" element={<SettingsPage />} />
               </Route>
 
@@ -288,8 +291,10 @@ function AppRoutes() {
                 <Route path="projects" element={<ProjectsPage />} />
                 <Route path="projects/list" element={<ProjectsPage />} />
                 <Route path="projects/:id" element={<ProjectDetailsPage />} />
-                <Route path="work-progress" element={<WorkProgressPage />} />
-                <Route path="work-progress/:tab" element={<WorkProgressPage />} />
+                <Route path="work-progress/activities" element={<ManagerActivityListPage />} />
+                <Route path="work-progress/entry" element={<ManagerDailyProgressEntryPage />} />
+                {/* Fallback for old work-progress path */}
+                <Route path="work-progress" element={<Navigate to="work-progress/activities" replace />} />
                 <Route path="tasks" element={<ManagerTasksPage />} />
                 <Route path="tasks/:tab" element={<ManagerTasksPage />} />
                 <Route path="approvals" element={<ManagerApprovalsPage />} />

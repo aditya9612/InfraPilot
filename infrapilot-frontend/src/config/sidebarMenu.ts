@@ -186,7 +186,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         { label: "Units", path: "/admin/master-data/units", icon: "tool" },
       ],
     },
-    { label: "Integrations", path: "/admin/integrations", icon: "link" },
+    // { label: "Integrations", path: "/admin/integrations", icon: "link" }, // Temporarily hidden
     { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Settings", path: "/admin/settings", icon: "settings" },
   ],
@@ -205,24 +205,14 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/manager/work-progress",
       icon: "bar-chart",
       subNav: [
-        { label: "Activity Registry", path: "/manager/work-progress/activities", icon: "activity" },
-        { label: "Daily Progress", path: "/manager/work-progress/daily", icon: "clipboard" },
-        { label: "Weekly Tracking", path: "/manager/work-progress/weekly", icon: "calendar" },
-        { label: "Activity History", path: "/manager/work-progress/history", icon: "list" },
-        { label: "Delay Report", path: "/manager/work-progress/delay", icon: "alert-circle" },
-        { label: "Reports & Exports", path: "/manager/work-progress/reports", icon: "file-text" },
+        { label: "Activity List", path: "/manager/work-progress/activities", icon: "list" },
+        { label: "Daily Progress Entry", path: "/manager/work-progress/entry", icon: "clipboard" },
       ]
     },
     {
-      label: "Tasks",
+      label: "Task Management",
       path: "/manager/tasks",
       icon: "check-square",
-      subNav: [
-        { label: "My Tasks", path: "/manager/tasks/mine", icon: "user-check" },
-        { label: "Team Tasks", path: "/manager/tasks/team", icon: "users" },
-        { label: "Assign Task", path: "/manager/tasks/assign", icon: "plus" },
-        { label: "Task Calendar", path: "/manager/tasks/calendar", icon: "calendar" },
-      ]
     },
     {
       label: "Resources",

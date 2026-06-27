@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Calendar, UserCircle, Briefcase, FileText, Check, Mic, Square, Play, Pause, Trash2, Search, ChevronDown } from 'lucide-react';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
+import { labourService } from '../../../services/labourService';
 import { boqService } from '../../../services/boqService';
 import { masterService } from '../../../services/masterService';
 import toast from 'react-hot-toast';
@@ -81,17 +82,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         }
 
         if (isOpen) {
-            const userStr = localStorage.getItem('infrapilot_user');
-            let currentUserId = 0;
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    currentUserId = user?.id || user?.user?.id || 0;
-                } catch (e) { }
-            }
-
-            // Only reset if NO project is selected yet, or if we want a fresh start
-            // But we avoid resetting when targetProjectId changes if it was explicitly selected
+            // Reset form state
             setTitle('');
             setDescription('');
             setPriority('Medium');
@@ -106,9 +97,9 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
             setSelectedEmployees([]);
             deleteRecording();
 
-            projectService.getAssignedProjects(currentUserId)
+            projectService.getProjects(100, 0)
                 .then(data => {
-                    const apiProjects = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+                    const apiProjects = Array.isArray(data) ? data : (data.items || []);
                     setAssignedProjects(apiProjects.length > 0 ? apiProjects : localProjects);
                 })
                 .catch(err => {
@@ -125,17 +116,17 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     }, [isOpen, projectId]);
 
     const fetchMembers = async () => {
-        if (!targetProjectId) return;
+        if (!projectId) return;
         try {
-            const data = await projectService.getProjectMembers(Number(targetProjectId));
-            setEmployees(Array.isArray(data) ? data : (data.items || data.data || []));
+            const data = await labourService.getLabours(projectId, { limit: 100 });
+            setEmployees(data.items || []);
         } catch (error) {
-            console.error("Failed to load members", error);
+            console.error("Failed to load labours", error);
         }
     };
 
     const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
-
+    
     // Custom Dropdown State
     const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
     const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -153,8 +144,9 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
     const filteredEmployees = employees.filter((emp: any) => {
         const s = userSearchQuery.toLowerCase();
-        return (emp.full_name || emp.name || '').toLowerCase().includes(s) ||
-            (emp.role || '').toLowerCase().includes(s);
+        return (emp.labour_name || emp.name || '').toLowerCase().includes(s) ||
+               (emp.worker_code || '').toLowerCase().includes(s) ||
+               (emp.skill_type || '').toLowerCase().includes(s);
     });
 
     const isAllVisibleSelected = filteredEmployees.length > 0 && filteredEmployees.every((emp: any) => selectedEmployees.includes(emp.id));
@@ -247,14 +239,6 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
 
 
-    const fileToBase64 = (file: Blob | File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = error => reject(error);
-        });
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -268,44 +252,42 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         try {
             const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1 };
 
-            let audioBase64 = null;
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('activity_name', title);
+            
+            if (description) formData.append('description', description);
+            formData.append('priority', String(priorityMap[priority]));
+            formData.append('status', status);
+            
+            if (selectedEmployees.length > 0) {
+                const assignedIdsStr = selectedEmployees.join(",");
+                formData.append('assigned_user_ids', assignedIdsStr);
+                const assignedUserIdNum = String(selectedEmployees[0]);
+                formData.append('assigned_user_id', assignedUserIdNum);
+                formData.append('engineer_id', assignedUserIdNum);
+                formData.append('assigned_to', assignedUserIdNum);
+                formData.append('user_id', assignedUserIdNum);
+                formData.append('lead_id', assignedUserIdNum);
+                formData.append('assigned_to_id', assignedUserIdNum);
+            }
+            
+            if (startDate) formData.append('start_date', startDate);
+            if (deadline) formData.append('end_date', deadline);
+            
+            if (activityTypeId && activityTypeId !== 'None') formData.append('activity_type_id', String(activityTypeId));
+            if (milestoneId && milestoneId !== 'None') formData.append('milestone_id', String(milestoneId));
+            if (boqId && boqId !== 'None') formData.append('boq_id', String(boqId));
+
             if (audioBlob) {
-                audioBase64 = await fileToBase64(audioBlob);
+                const audioFile = new File([audioBlob], 'audio_instruction.webm', { type: 'audio/webm' });
+                formData.append('audio_file', audioFile);
+            }
+            if (instructionImage && instructionImage.size > 0) {
+                formData.append('instruction_image', instructionImage);
             }
 
-            let imageBase64 = null;
-            if (instructionImage) {
-                imageBase64 = await fileToBase64(instructionImage);
-            }
-
-            const assignedUserIdNum = selectedEmployees.length > 0 ? selectedEmployees[0] : null;
-
-            const payload: any = {
-                title,
-                activity_name: title,
-                description,
-                priority: priorityMap[priority],
-                status,
-                assigned_user_ids: selectedEmployees.length > 0 ? selectedEmployees.join(",") : "",
-                assigned_user_id: assignedUserIdNum,
-                engineer_id: assignedUserIdNum,
-                assigned_to: assignedUserIdNum,
-                user_id: assignedUserIdNum,
-                lead_id: assignedUserIdNum,
-                assigned_to_id: assignedUserIdNum,
-            };
-
-            if (startDate) payload.start_date = startDate;
-            if (deadline) payload.end_date = deadline;
-
-            if (activityTypeId && activityTypeId !== 'None') payload.activity_type_id = Number(activityTypeId);
-            if (milestoneId && milestoneId !== 'None') payload.milestone_id = Number(milestoneId);
-            if (boqId && boqId !== 'None') payload.boq_id = Number(boqId);
-
-            if (audioBase64) payload.audio_data = audioBase64;
-            if (imageBase64) payload.instruction_image_url = imageBase64; // API might expect the base64 in url or a separate _data field. Using url as fallback.
-
-            await projectService.createTask(targetProjectIdVal, payload);
+            await projectService.createTask(targetProjectIdVal, formData);
 
             toast.success("Task created successfully");
             onSuccess();
@@ -561,14 +543,14 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 <UserCircle className="w-3 h-3 text-primary" />
                                 Assigned User
                             </label>
-
-                            <div
+                            
+                            <div 
                                 className={`${inputClasses} flex items-center justify-between cursor-pointer ${isUserDropdownOpen ? 'ring-2 ring-primary/20 border-primary' : ''}`}
                                 onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
                             >
                                 <span className="text-slate-600 truncate flex-1">
-                                    {selectedEmployees.length === 0
-                                        ? "Select users..."
+                                    {selectedEmployees.length === 0 
+                                        ? "Select users..." 
                                         : `${selectedEmployees.length} user${selectedEmployees.length > 1 ? 's' : ''} selected`}
                                 </span>
                                 <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
@@ -579,8 +561,8 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                     <div className="p-2 border-b border-slate-100">
                                         <div className="relative">
                                             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                            <input
-                                                type="text"
+                                            <input 
+                                                type="text" 
                                                 placeholder="Search employees by name, ID or email..."
                                                 className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
                                                 value={userSearchQuery}
@@ -588,7 +570,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                             />
                                         </div>
                                     </div>
-
+                                    
                                     <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
                                         <label className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors border-b border-slate-100 mb-2">
                                             <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isAllVisibleSelected ? 'bg-primary border-primary' : 'border-slate-300'}`}>
@@ -614,7 +596,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                                 <input type="checkbox" className="hidden" checked={selectedEmployees.includes(emp.id)} onChange={() => toggleEmployee(emp.id)} />
                                             </label>
                                         ))}
-
+                                        
                                         {filteredEmployees.length === 0 && (
                                             <div className="p-4 text-center text-sm text-slate-500">No employees found</div>
                                         )}

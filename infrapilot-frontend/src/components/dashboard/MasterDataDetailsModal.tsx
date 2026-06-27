@@ -5,14 +5,30 @@ interface MasterDataDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   item: any | null;
+  unitsMap?: Record<number, string>;
 }
 
 const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
   isOpen,
   onClose,
   item,
+  unitsMap = {}
 }) => {
   if (!item) return null;
+
+  // Resolve unit name from ID if necessary
+  const getUnitDisplay = (unitValue: any) => {
+    if (!unitValue && item.default_unit_id) unitValue = item.default_unit_id;
+    if (typeof unitValue === 'number') {
+      return unitsMap[unitValue] || `Unit #${unitValue}`;
+    }
+    // If it's already a string, check if it's a numeric string
+    if (typeof unitValue === 'string' && /^\d+$/.test(unitValue)) {
+      const id = parseInt(unitValue, 10);
+      return unitsMap[id] || `Unit #${id}`;
+    }
+    return unitValue || "—";
+  };
 
   const footer = (
     <div className="flex justify-end">
@@ -59,13 +75,13 @@ const MasterDataDetailsModal: React.FC<MasterDataDetailsModalProps> = ({
             <InfoItem label="Category group" value={item.category} />
             {item.system_tag === "MATERIAL" && (
               <>
-                <InfoItem label="Unit" value={item.unit} />
+                <InfoItem label="Unit" value={getUnitDisplay(item.unit)} />
                 <InfoItem label="Brand" value={item.brand} />
                 <InfoItem label="HSN Code" value={item.hsn_code} />
               </>
             )}
             {item.system_tag === "ACTIVITY" && (
-              <InfoItem label="Default Unit" value={item.unit} />
+              <InfoItem label="Default Unit" value={getUnitDisplay(item.unit)} />
             )}
           </div>
         </div>

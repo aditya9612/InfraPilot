@@ -1,286 +1,223 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useState, useEffect, useRef } from "react";
+import { toast } from "react-hot-toast";
+import { User, Settings as SettingsIcon, Bell, Globe, Upload, Trash2, ShieldAlert } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
-import PageTransition from "../../components/common/PageTransition";
-import { Upload, Trash2, User, Globe, Bell, Layout, ShieldAlert } from "lucide-react";
-import toast from "react-hot-toast";
 import { settingsService } from "../../services/settingsService";
-import { useProject } from "../../context/ProjectContext";
+import type { UserSettings } from "../../types/settings";
+import PageTransition from "../../components/common/PageTransition";
+import Toggle from "../../components/common/Toggle";
 import { useAuth } from "../../context/AuthContext";
-import type {
-    UserSettings,
-    UserProfile,
-    UpdateSettingsRequest,
-    UpdateProfileRequest
-} from "../../types/settings";
+import { useProject } from "../../context/ProjectContext";
 
-// ─── Toggle Switch ──────────────────────────────────────────────────────────────
 
-const Toggle = ({
-    enabled,
-    onChange,
-}: {
-    enabled: boolean;
-    onChange: () => void;
-}) => (
-    <button
-        type="button"
-        onClick={onChange}
-        className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none ${enabled ? "bg-blue-600" : "bg-slate-200"}`}
-    >
-        <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${enabled ? "translate-x-6" : "translate-x-0"}`}
-        />
-    </button>
-);
-
-// ─── Section Header ─────────────────────────────────────────────────────────────
-
-const SectionHeader = ({
-    icon,
-    title,
-}: {
-    icon: React.ReactNode;
-    title: string;
-}) => (
-    <div className="flex items-center gap-2.5 mb-6">
-        <span className="text-slate-500">{icon}</span>
-        <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.18em]">
-            {title}
-        </span>
+const SectionHeader = ({ title, icon }: { title: string; icon: React.ReactNode }) => (
+    <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-primary shadow-sm border border-slate-100">
+            {icon}
+        </div>
+        <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">{title}</h2>
     </div>
 );
 
-// ─── Main Component ─────────────────────────────────────────────────────────────
-
-const ManagerSettingsPage = () => {
-    const { assignedProjects } = useProject();
+const ManagerSettingsPage: React.FC = () => {
     const { refreshUser } = useAuth();
+    const { assignedProjects } = useProject();
     const [activeTab, setActiveTab] = useState<"general" | "personal">("general");
-    const [isSaving, setIsSaving] = useState(false);
+    const [settings, setSettings] = useState<UserSettings | null>(null);
+    const [profile, setProfile] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
-
-    // ── Profile State ───────────────────────────────────────────────────
-    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     const [profileImage, setProfileImage] = useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // ── Settings State ──────────────────────────────────────────────────
-    const [settings, setSettings] = useState<UserSettings | null>(null);
-    const [selectedProject, setSelectedProject] = useState<number | null>(null);
-    const [massUnit, setMassUnit] = useState("Kg");
-    const [lengthUnit, setLengthUnit] = useState("Meter");
-    const [notifications, setNotifications] = useState({
-        emailAlerts: true,
-        smsAlerts: false,
-        pushNotifications: true,
-        dsrReminders: true,
-        issueAlerts: true,
-        materialAlerts: true,
-    });
-    const [preferences, setPreferences] = useState({
-        autoSave: true,
-        compactView: false,
-        showWeather: true,
-        showGPS: true,
-    });
-
+    // Form states
     const [language, setLanguage] = useState("English");
-    const timezone = "IST (UTC+5:30)";
-    const dateFormat = "DD/MM/YYYY";
+    const [timezone, setTimezone] = useState("IST (UTC+5:30)");
+    const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
+    const [unitSystem, setUnitSystem] = useState("Metric");
+    const [massUnit, setMassUnit] = useState("kg");
+    const [lengthUnit, setLengthUnit] = useState("m");
+    const [notifications, setNotifications] = useState<Record<string, boolean>>({});
+    const [preferences, setPreferences] = useState<Record<string, boolean>>({});
+    const [selectedProject, setSelectedProject] = useState<number | null>(null);
 
-    // Financial & Unit Settings
-    const [financialYear, setFinancialYear] = useState("2025-26");
-    const [currency, setCurrency] = useState("INR");
+    useEffect(() => { fetchData(); }, []);
 
-    // ─── DATA FETCHING ──────────────────────────────────────────────────
-
-    const fetchData = useCallback(async () => {
+    const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [settingsRes, profileRes] = await Promise.all([
+            const [settingsData, profileData] = await Promise.all([
                 settingsService.getSettings(),
                 settingsService.getProfile()
             ]);
 
-            setSettings(settingsRes);
+            setSettings(settingsData);
+            // Normalize profile fields
             const normalizedProfile = {
-                ...profileRes,
-                mobile_number: profileRes.mobile_number || (profileRes as any).mobile || "",
-                email: profileRes.email || (profileRes as any).email_address || "",
+                ...profileData,
+                mobile_number: profileData.mobile_number || (profileData as any).mobile || "",
+                email: profileData.email || (profileData as any).email_address || "",
             };
-            setProfile(normalizedProfile as UserProfile);
+            setProfile(normalizedProfile);
 
-            // Map Settings
-            setSelectedProject(settingsRes.default_project_id);
-            setLengthUnit(settingsRes.unit || "Meter");
-            setFinancialYear(settingsRes.financial_year || "2025-26");
-            setCurrency(settingsRes.currency || "INR");
+            if (profileData.profile_image) {
+                setProfileImage(settingsService.resolveUrl(profileData.profile_image));
+            }
 
-            // Map Profile
-            setProfileImage(profileRes.profile_image);
+            setLanguage(settingsData.preferences?.language || "English");
+            setTimezone(settingsData.preferences?.timezone || "IST (UTC+5:30)");
+            setDateFormat(settingsData.preferences?.date_format || "DD/MM/YYYY");
 
+            const savedPrefs = settingsData.preferences || {};
+            setUnitSystem(savedPrefs.unitSystem || "Metric");
+            setMassUnit(savedPrefs.massUnit || "kg");
+            const backendUnit = typeof settingsData.unit === 'string' ? settingsData.unit : "";
+            setLengthUnit(savedPrefs.lengthUnit || (backendUnit === "Feet" ? "ft" : "m"));
+
+            const savedNotifs = savedPrefs.notifications;
+            setNotifications(savedNotifs || { email: true, push: true, sms: false, dsr: true, issues: true, materials: false });
+            setPreferences(savedPrefs.ui || { autoSave: true, compactView: false, showWeather: true });
+            setSelectedProject(settingsData.default_project_id || null);
         } catch (error) {
-            console.error("Failed to fetch settings/profile", error);
-            toast.error("Failed to sync account settings");
+            console.error("Fetch Settings Error:", error);
+            toast.error("Failed to load settings");
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    };
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setProfile((prev: any) => ({ ...prev, [name]: value }));
+    };
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const imageUrl = URL.createObjectURL(file);
-            setProfileImage(imageUrl);
-            toast.success("Profile photo updated temporarily.");
+            setSelectedFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => { setProfileImage(reader.result as string); };
+            reader.readAsDataURL(file);
         }
     };
 
     const handleRemoveImage = () => {
         setProfileImage(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        toast.success("Profile photo removed.");
+        setSelectedFile(null);
+        if (profile) setProfile({ ...profile, profile_image: null });
     };
 
-    const toggleNotif = (key: keyof typeof notifications) => {
-        setNotifications((prev: any) => ({ ...prev, [key]: !prev[key] }));
+    const toggleNotif = (key: string) => {
+        setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const notifItems = [
-        { key: "emailAlerts" as const, label: "Email Alerts", desc: "Receive summary reports via email", icon: "📧" },
-        { key: "smsAlerts" as const, label: "SMS Alerts", desc: "Critical site alerts via SMS", icon: "📱" },
-        { key: "pushNotifications" as const, label: "Push Notifications", desc: "Real-time app notifications", icon: "🔔" },
-        { key: "issueAlerts" as const, label: "High-Priority Issues", desc: "Notify on critical site delays", icon: "⚠️" },
-        { key: "materialAlerts" as const, label: "Procurement Alerts", desc: "Notify on material approval requests", icon: "🏗️" },
-    ];
-
-    const togglePref = (key: keyof typeof preferences) => {
-        setPreferences((prev: any) => ({ ...prev, [key]: !prev[key] }));
-    };
-
-    const prefItems = [
-        { key: "autoSave" as const, label: "Auto Save", desc: "Auto-save approval drafts" },
-        { key: "compactView" as const, label: "Compact Dashboards", desc: "High-density data visualization" },
-        { key: "showWeather" as const, label: "Weather Forecast", desc: "Show site weather conditions" },
-    ];
-
-    const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        if (!profile) return;
-        setProfile({ ...profile, [name]: value } as UserProfile);
-    };
-
-    // ── Save ─────────────────────────────────────────────────────────────
     const handleSave = async () => {
-        if (!profile || !settings) return;
-
+        if (!settings || !profile) return;
         setIsSaving(true);
-        const toastId = toast.loading("Syncing Manager Preferences…");
+        const toastId = toast.loading("Saving settings...");
         try {
-            const settingsData: UpdateSettingsRequest = {
+            const getBackendUnit = (): string => {
+                const feetValues = ["ft", "in", "feet", "Feet"];
+                const meterValues = ["m", "cm", "mm", "km", "Meter", "meter"];
+                if (feetValues.includes(lengthUnit)) return "Feet";
+                if (meterValues.includes(lengthUnit)) return "Meter";
+                return "Kg";
+            };
+
+            const settingsData = {
+                ...settings,
                 default_project_id: selectedProject,
-                unit: lengthUnit,
-                notifications_enabled: notifications.emailAlerts || notifications.pushNotifications,
-                preferences: { ...preferences, language, timezone, dateFormat },
-                financial_year: financialYear,
-                currency: currency,
-                tax_settings: settings.tax_settings || {},
-                invoice_format: settings.invoice_format || "standard",
-                payment_terms: settings.payment_terms || "30 days"
+                unit: getBackendUnit(),
+                notifications_enabled: Object.values(notifications).some(Boolean),
+                preferences: {
+                    ...settings.preferences,
+                    language, timezone, date_format: dateFormat,
+                    unitSystem, massUnit, lengthUnit,
+                    notifications, ui: preferences
+                }
             };
-
-            const profileData: UpdateProfileRequest = {
-                user_id: profile.user_id,
-                full_name: profile.full_name || "",
-                role: profile.role || "Manager",
-                mobile_number: (profile.mobile_number || "").replace(/\D/g, ""),
-                email: profile.email || "",
-                address: profile.address || "",
-                pan_number: (profile.pan_number || "").toUpperCase(),
-                aadhaar_number: (profile.aadhaar_number || "").replace(/\D/g, ""),
-                designation: profile.designation || "",
-                joining_date: profile.joining_date || "",
-                is_active: !!profile.is_active
-            };
-
-            const [, updatedProfile] = await Promise.all([
+            const profileData = { ...profile, profile_image: selectedFile || profile.profile_image };
+            await Promise.all([
                 settingsService.updateSettings(settingsData),
                 settingsService.updateProfile(profileData)
             ]);
 
-            // ── Sync Navbar & Sidebar in real-time ──────────────────────────
-            refreshUser({
-                name: updatedProfile.full_name || profile.full_name,
-                profile_image: updatedProfile.profile_image ?? profileImage,
-            });
+            if (profileData.full_name) {
+                refreshUser({
+                    name: profileData.full_name,
+                    profile_image: profileImage || profileData.profile_image
+                });
+            }
 
-            toast.success("Manager settings updated!", { id: toastId });
+            toast.success("Settings saved successfully!", { id: toastId });
             fetchData();
-        } catch (error) {
-            console.error("Save Manager Settings Error:", error);
-            toast.error("Failed to save changes", { id: toastId });
+        } catch (error: any) {
+            toast.error(error.message || "Failed to save settings", { id: toastId });
         } finally {
             setIsSaving(false);
         }
     };
+
+    const unitOptions = {
+        system: ["Metric", "Imperial"],
+        mass: ["kg", "g", "lb", "oz", "ton"],
+        length: ["m", "cm", "mm", "in", "ft", "km"]
+    };
+
+    const notifItems = [
+        { key: "email", label: "Email Alerts", icon: "📧", desc: "Receive daily summary via email" },
+        { key: "sms", label: "SMS Alerts", icon: "📱", desc: "Critical site alerts via SMS" },
+        { key: "push", label: "Push Notifications", icon: "🔔", desc: "Real-time app notifications" },
+        { key: "dsr", label: "DSR Reminders", icon: "📋", desc: "Daily reminder to submit DSR" },
+        { key: "issues", label: "Issue Alerts", icon: "⚠️", desc: "Notify on new high-priority issues" },
+        { key: "materials", label: "Material Alerts", icon: "🏗️", desc: "Low stock threshold notifications" },
+    ];
+
+    const prefItems = [
+        { key: "autoSave", label: "Auto Save", desc: "Auto-save form drafts every 60s" },
+        { key: "compactView", label: "Compact View", desc: "Reduce padding for denser layout" },
+        { key: "showWeather", label: "Show Weather Widget", desc: "Display weather on dashboard" },
+    ];
 
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Syncing Profile...</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading Configuration...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <>
-            <Navbar
-                title="Manager Configuration"
-                breadcrumb={["InfraPilot", "Manager", "Settings"]}
-            />
+        <div className="min-h-screen bg-slate-50">
+            <Navbar title="Settings" breadcrumb={["InfraPilot", "Manager", "Settings"]} />
 
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter pb-16">
-
-                {/* ── Header ──────────────────────────────────────────────── */}
+            <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
+                {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">
-                            Governance & Control
-                        </p>
-                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                            {activeTab === "general" ? "General Settings" : "My Account"}
-                        </h1>
-                        <p className="text-slate-500 text-sm font-medium">
-                            {activeTab === "general"
-                                ? "Configure your site oversight parameters and app preferences."
-                                : "Manage your personal profile and digital identity."}
-                        </p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Preferences</p>
+                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Settings</h1>
+                        <p className="text-slate-500 text-sm font-medium">Manage your personal preferences and oversight configuration.</p>
                     </div>
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl text-sm font-bold shadow-xl shadow-slate-900/10 hover:bg-black transition-all font-inter uppercase tracking-widest active:scale-95"
+                        className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
                     >
                         {isSaving ? (
                             <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-                            </svg>
+                            <SettingsIcon className="w-4 h-4" />
                         )}
-                        {activeTab === "general" ? "Save Settings" : "Save Profile"}
+                        {activeTab === "personal" ? "Save Profile" : "Save Settings"}
                     </button>
                 </div>
 
-                {/* Tabs Switcher */}
+                {/* Tabs */}
                 <div className="flex items-center gap-1 bg-white/80 backdrop-blur-md p-1.5 rounded-2xl w-fit mb-10 border border-slate-200 shadow-sm transition-all">
                     <button
                         onClick={() => setActiveTab("general")}
@@ -296,241 +233,137 @@ const ManagerSettingsPage = () => {
                     </button>
                 </div>
 
-                {/* ── Tabs Content ───────────────────────────────────── */}
-                <AnimatePresence mode="wait">
-                    {activeTab === "personal" ? (
-                        <motion.div
-                            key="personal"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100"
-                        >
-                            <SectionHeader
-                                title="Manager Profile"
-                                icon={<User className="w-4 h-4" />}
-                            />
-                            <div className="flex flex-col md:flex-row items-center md:items-start gap-12">
-                                <div className="flex flex-col items-center gap-4 shrink-0">
-                                    <div className="relative group">
-                                        <div className="w-32 h-32 rounded-3xl border-4 border-slate-50 bg-slate-100 overflow-hidden flex items-center justify-center text-4xl font-bold text-slate-400 shadow-inner">
-                                            {profileImage ? (
-                                                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
-                                            ) : (
-                                                profile?.full_name?.charAt(0) || "P"
-                                            )}
-                                        </div>
-                                        <button
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-xl hover:scale-110 transition-transform border-4 border-white"
-                                            title="Upload Photo"
-                                        >
-                                            <Upload className="w-4 h-4" strokeWidth={3} />
-                                        </button>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            ref={fileInputRef}
-                                            onChange={handleImageUpload}
-                                        />
+                {/* ── General Settings Tab ── */}
+                {activeTab === "general" && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Project Selection */}
+                        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+                            <SectionHeader title="Project Selection" icon={<SettingsIcon className="w-4 h-4" />} />
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active Project</label>
+                                <div className="relative">
+                                    <select
+                                        value={selectedProject || ""}
+                                        onChange={(e) => setSelectedProject(e.target.value ? Number(e.target.value) : null)}
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option value="">Consolidated Portfolio</option>
+                                        {assignedProjects.map(p => (
+                                            <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                        <SettingsIcon className="w-3 h-3" />
                                     </div>
-                                    {profileImage && (
-                                        <button
-                                            onClick={handleRemoveImage}
-                                            className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1.5 transition-colors"
-                                        >
-                                            <Trash2 className="w-3 h-3" /> Remove Photo
-                                        </button>
-                                    )}
                                 </div>
+                                <p className="text-[10px] text-slate-400 font-medium mt-1">Select a project to set it as your default for all reporting and dashboard views.</p>
+                            </div>
+                        </div>
 
-                                <div className="flex-1 w-full">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                                            <input
-                                                type="text"
-                                                name="full_name"
-                                                value={profile?.full_name || ""}
-                                                onChange={handleProfileChange}
-                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Designation</label>
-                                            <input
-                                                type="text"
-                                                name="designation"
-                                                value={profile?.designation || ""}
-                                                onChange={handleProfileChange}
-                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all opacity-70 cursor-not-allowed"
-                                                disabled
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Official Email</label>
-                                            <input
-                                                type="email"
-                                                name="email"
-                                                value={profile?.email || ""}
-                                                disabled
-                                                className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-sm font-bold text-slate-500 opacity-70 cursor-not-allowed focus:outline-none transition-all"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Registered Mobile</label>
-                                            <input
-                                                type="tel"
-                                                name="mobile_number"
-                                                value={profile?.mobile_number || ""}
-                                                disabled
-                                                className="w-full px-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl text-sm font-bold text-slate-500 opacity-70 cursor-not-allowed focus:outline-none transition-all"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PAN Number</label>
-                                            <input
-                                                name="pan_number"
-                                                value={profile?.pan_number || ""}
-                                                onChange={handleProfileChange}
-                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Aadhaar Number</label>
-                                            <input
-                                                name="aadhaar_number"
-                                                value={profile?.aadhaar_number || ""}
-                                                onChange={handleProfileChange}
-                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-2 sm:col-span-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Address</label>
-                                            <textarea
-                                                name="address"
-                                                value={profile?.address || ""}
-                                                onChange={handleProfileChange}
-                                                rows={3}
-                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all resize-none"
-                                            />
-                                        </div>
+                        {/* Units & Measurement */}
+                        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+                            <SectionHeader title="Units & Measurement" icon={<Globe className="w-4 h-4" />} />
+                            <div className="space-y-5">
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Unit System</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {unitOptions.system.map(u => (
+                                            <button key={u} onClick={() => setUnitSystem(u)} className={`py-3 rounded-xl text-xs font-bold border transition-all ${unitSystem === u ? "bg-slate-900 text-white border-slate-900" : "bg-slate-50 text-slate-500 border-slate-200"}`}>{u}</button>
+                                        ))}
                                     </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Mass / Weight</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {unitOptions.mass.map(u => (
+                                            <button key={u} onClick={() => setMassUnit(u)} className={`py-2.5 rounded-xl text-[10px] font-black border transition-all ${massUnit === u ? "bg-primary text-white border-primary" : "bg-slate-50 text-slate-500 border-slate-200"}`}>{u.toUpperCase()}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Length / Distance</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {unitOptions.length.map(u => (
+                                            <button key={u} onClick={() => setLengthUnit(u)} className={`py-2.5 rounded-xl text-[10px] font-black border transition-all ${lengthUnit === u ? "bg-primary text-white border-primary" : "bg-slate-50 text-slate-500 border-slate-200"}`}>{u.toUpperCase()}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Units</p>
+                                    <p className="text-sm font-black text-slate-800">{unitSystem} · {massUnit} · {lengthUnit}</p>
                                 </div>
                             </div>
-                        </motion.div>
-                    ) : (
-                        <motion.div
-                            key="general"
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 20 }}
-                            className="grid grid-cols-1 lg:grid-cols-2 gap-8"
-                        >
-                            {/* App Context */}
-                            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-                                <SectionHeader
-                                    title="App Context"
-                                    icon={<Globe className="w-4 h-4" />}
-                                />
-                                <div className="space-y-6">
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Default Project Selection</label>
-                                        <select
-                                            value={selectedProject || ""}
-                                            onChange={e => setSelectedProject(Number(e.target.value))}
-                                            className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all appearance-none cursor-pointer"
-                                        >
-                                            <option value="">Consolidated Portfolio</option>
-                                            {assignedProjects.map(p => (
-                                                <option key={p.id} value={p.id}>{p.project_name}</option>
-                                            ))}
+                        </div>
+
+                        {/* Notification Settings */}
+                        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+                            <SectionHeader title="Notification Settings" icon={<Bell className="w-4 h-4" />} />
+                            <div className="space-y-4">
+                                {notifItems.map(item => (
+                                    <div key={item.key} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xl">{item.icon}</span>
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-700">{item.label}</p>
+                                                <p className="text-[10px] text-slate-400 font-medium">{item.desc}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-[9px] font-bold uppercase tracking-widest ${notifications[item.key] ? "text-emerald-600" : "text-slate-400"}`}>
+                                                {notifications[item.key] ? "On" : "Off"}
+                                            </span>
+                                            <Toggle enabled={!!notifications[item.key]} onChange={() => toggleNotif(item.key)} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* User Preferences */}
+                        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
+                            <SectionHeader title="User Preferences" icon={<User className="w-4 h-4" />} />
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Language</label>
+                                        <select value={language} onChange={e => setLanguage(e.target.value)} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all appearance-none">
+                                            {["English", "Hindi", "Marathi", "Tamil", "Telugu"].map(l => <option key={l}>{l}</option>)}
                                         </select>
                                     </div>
-
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Language</label>
-                                            <select
-                                                value={language}
-                                                onChange={e => setLanguage(e.target.value)}
-                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all appearance-none cursor-pointer"
-                                            >
-                                                <option>English</option>
-                                                <option>Hindi</option>
-                                                <option>Marathi</option>
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Timezone</label>
+                                            <select value={timezone} onChange={e => setTimezone(e.target.value)} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all appearance-none">
+                                                {["IST (UTC+5:30)", "UTC", "EST (UTC-5)", "GST (UTC+4)"].map(t => <option key={t}>{t}</option>)}
                                             </select>
                                         </div>
-                                        <div className="flex flex-col gap-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mass Unit</label>
-                                            <select
-                                                value={massUnit}
-                                                onChange={e => setMassUnit(e.target.value)}
-                                                className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500/30 transition-all appearance-none cursor-pointer"
-                                            >
-                                                <option>Kg</option>
-                                                <option>Ton</option>
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Date Format</label>
+                                            <select value={dateFormat} onChange={e => setDateFormat(e.target.value)} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all appearance-none">
+                                                {["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"].map(d => <option key={d}>{d}</option>)}
                                             </select>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Oversight Alerts */}
-                            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100">
-                                <SectionHeader
-                                    title="Oversight Alerts"
-                                    icon={<Bell className="w-4 h-4" />}
-                                />
-                                <div className="space-y-4">
-                                    {notifItems.map(item => (
-                                        <div
-                                            key={item.key}
-                                            className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100/50 hover:bg-slate-100/50 transition-all group"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-xl">{item.icon}</span>
-                                                <div>
-                                                    <p className="text-sm font-bold text-slate-800">{item.label}</p>
-                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{item.desc}</p>
-                                                </div>
-                                            </div>
-                                            <Toggle
-                                                enabled={notifications[item.key]}
-                                                onChange={() => toggleNotif(item.key)}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* UI Preferences */}
-                            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 flex flex-col gap-6">
-                                <SectionHeader
-                                    title="UI Preferences"
-                                    icon={<Layout className="w-4 h-4" />}
-                                />
-                                <div className="space-y-4">
+                                <div className="space-y-3">
                                     {prefItems.map(item => (
-                                        <div
-                                            key={item.key}
-                                            className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100/50"
-                                        >
+                                        <div key={item.key} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all">
                                             <div>
                                                 <p className="text-sm font-bold text-slate-800">{item.label}</p>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{item.desc}</p>
+                                                <p className="text-[10px] text-slate-400 font-medium">{item.desc}</p>
                                             </div>
-                                            <Toggle
-                                                enabled={preferences[item.key]}
-                                                onChange={() => togglePref(item.key)}
-                                            />
+                                            <div className="flex items-center gap-3">
+                                                <span className={`text-[9px] font-bold uppercase tracking-widest ${preferences[item.key] ? "text-emerald-600" : "text-slate-400"}`}>
+                                                    {preferences[item.key] ? "On" : "Off"}
+                                                </span>
+                                                <Toggle enabled={!!preferences[item.key]} onChange={() => setPreferences(prev => ({ ...prev, [item.key]: !prev[item.key] }))} />
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
 
                                 {/* Restricted Notice */}
-                                <div className="flex items-start gap-4 p-5 bg-blue-50/50 rounded-3xl border border-blue-100 mt-auto">
+                                <div className="flex items-start gap-4 p-5 bg-blue-50/50 rounded-3xl border border-blue-100">
                                     <ShieldAlert className="w-6 h-6 text-blue-500 shrink-0" />
                                     <div>
                                         <p className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-1">Corporate Policy</p>
@@ -540,12 +373,77 @@ const ManagerSettingsPage = () => {
                                     </div>
                                 </div>
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                        </div>
+                    </div>
+                )}
 
+                {/* ── My Account Tab ── */}
+                {activeTab === "personal" && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Profile Section */}
+                        <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 lg:col-span-2">
+                            <SectionHeader title="Profile & Account" icon={<User className="w-4 h-4" />} />
+                            <div className="flex flex-col md:flex-row items-start gap-10">
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="relative group">
+                                        <div className="w-28 h-28 rounded-full border-4 border-slate-50 bg-slate-100 overflow-hidden flex items-center justify-center text-3xl font-bold text-slate-400 shadow-inner">
+                                            {profileImage ? (
+                                                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                                            ) : (
+                                                profile?.full_name?.charAt(0) || "U"
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="absolute bottom-0 right-0 w-9 h-9 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform border-2 border-white"
+                                        >
+                                            <Upload className="w-4 h-4" />
+                                        </button>
+                                        <input type="file" hidden ref={fileInputRef} onChange={handleImageUpload} accept="image/*" />
+                                    </div>
+                                    {profileImage && (
+                                        <button onClick={handleRemoveImage} className="text-[10px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Trash2 className="w-3 h-3" /> Remove
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Full Name</label>
+                                        <input type="text" name="full_name" value={profile?.full_name || ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Designation</label>
+                                        <input type="text" name="designation" value={profile?.designation || ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Email ID</label>
+                                        <input type="email" name="email" value={profile?.email || ""} disabled className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 cursor-not-allowed transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Phone Number</label>
+                                        <input type="tel" name="mobile_number" value={profile?.mobile_number || ""} disabled className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 cursor-not-allowed transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PAN Number</label>
+                                        <input type="text" name="pan_number" value={profile?.pan_number || ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Aadhaar Number</label>
+                                        <input type="text" name="aadhaar_number" value={profile?.aadhaar_number || ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5 sm:col-span-2">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Address</label>
+                                        <input type="text" name="address" value={profile?.address || ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </PageTransition>
-        </>
+        </div>
     );
 };
 

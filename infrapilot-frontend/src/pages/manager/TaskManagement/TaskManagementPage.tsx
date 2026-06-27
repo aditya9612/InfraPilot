@@ -8,7 +8,7 @@ import {
     Filter, Search, Plus, Eye, Calendar, User,
     CheckCircle, Clock, XCircle, List, Grid,
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
-    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square, AlertCircle
+    Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square, AlertCircle, Loader2
 } from 'lucide-react';
 // import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
@@ -91,6 +91,7 @@ const TaskManagementPage = () => {
     const { selectedProjectId } = useProject();
     const [projectId, setProjectId] = useState<number | null>(selectedProjectId);
     const [tasks, setTasks] = useState<FrontendTask[]>([]);
+    const [loading, setLoading] = useState(true);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -235,6 +236,7 @@ const TaskManagementPage = () => {
 
     const fetchData = useCallback(async () => {
         if (!projectId) return;
+        setLoading(true);
         try {
             const [fetchedTasks, fetchedMembers, fetchedMilestones, fetchedBoqs, fetchedActivities, fetchedProjects] = await Promise.all([
                 projectService.getTasks(projectId),
@@ -302,11 +304,12 @@ const TaskManagementPage = () => {
                     assignedBy: assigner,
                     assignedTo: {
                         name: assignee?.full_name || "Unassigned",
-                        role: assignee?.role || "Member"
+                        role: assignee?.role || "Engineer"
                     },
                     hasHistory: false,
                     projectName: taskProjectName,
-                    audio_data: t.audio_data,
+                    audio_data: getFullUrl(t.audio_data || (t as any).audio_instruction_url || (t as any).audio_url),
+                    instruction_image_url: getFullUrl((t as any).instruction_image_url || (t as any).image_url),
                     milestoneName,
                     boqName,
                     creatorName,
@@ -317,6 +320,8 @@ const TaskManagementPage = () => {
         } catch (error) {
             console.error("Failed to fetch task data:", error);
             toast.error("Failed to load tasks");
+        } finally {
+            setLoading(false);
         }
     }, [projectId]);
 
@@ -329,37 +334,25 @@ const TaskManagementPage = () => {
     useEffect(() => {
         const userStr = localStorage.getItem("infrapilot_user");
         let localProjects: any[] = [];
-        if (userStr && !projectId) {
+        if (userStr) {
             try {
                 const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    setProjectId(Number(pId));
-                }
                 localProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
             }
         }
 
-        let currentUserId = 0;
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                currentUserId = user?.id || user?.user?.id || 0;
-            } catch (e) { }
-        }
-
-        projectService.getAssignedProjects(currentUserId)
+        projectService.getProjects(100, 0)
             .then(data => {
-                const apiProjects = Array.isArray(data) ? data : ((data as any).items || (data as any).data || []);
+                const apiProjects = Array.isArray(data) ? data : (data.items || []);
                 setAssignedProjects(apiProjects.length > 0 ? apiProjects : localProjects);
             })
             .catch(err => {
                 console.error("Failed to load projects", err);
                 setAssignedProjects(localProjects);
             });
-    }, [projectId]);
+    }, []);
 
     useEffect(() => {
         if (projectId) {
@@ -451,47 +444,64 @@ const TaskManagementPage = () => {
         const formData = new FormData(formElement);
 
         const targetProjectId = Number(formData.get('project_id')) || projectId || 0;
+        const assignedUserIds = formData.get('assigned_user_ids') as string;
+        const assignedUserIdNum = assignedUserIds && assignedUserIds !== "" && assignedUserIds !== "None" ? Number(assignedUserIds.toString().split(',')[0]) : null;
 
-        const fileToBase64 = (file: Blob | File): Promise<string> => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = error => reject(error);
-            });
-        };
+        const instructionImage = formData.get('instruction_image') as File;
 
-        const assignedUserIds = formData.get('assigned_user_ids') || "";
-        const assignedUserIdNum = assignedUserIds ? Number(assignedUserIds.toString().split(',')[0]) : null;
+        let payload: any;
+        payload = new FormData();
+        const titleStr = (formData.get('title') as string) || selectedEditTask.title || 'Updated Task';
+        payload.append('title', titleStr);
+        payload.append('activity_name', titleStr);
 
-        const payload: any = {
-            title: formData.get('title'),
-            activity_name: formData.get('title'),
-            description: formData.get('description'),
-            priority: parseInt(formData.get('priority') as string) || 1,
-            start_date: formData.get('start_date') || undefined,
-            end_date: formData.get('end_date') || undefined,
-            status: formData.get('status'),
-            assigned_user_ids: assignedUserIds,
-            assigned_user_id: assignedUserIdNum,
-            engineer_id: assignedUserIdNum,
-            assigned_to: assignedUserIdNum,
-            user_id: assignedUserIdNum,
-            lead_id: assignedUserIdNum,
-            assigned_to_id: assignedUserIdNum,
-            activity_type_id: formData.get('activity_type_id') ? Number(formData.get('activity_type_id')) : undefined,
-            milestone_id: formData.get('milestone_id') ? Number(formData.get('milestone_id')) : undefined,
-            boq_id: formData.get('boq_id') ? Number(formData.get('boq_id')) : undefined,
-            remove_audio: formData.get('remove_audio') === 'true',
-            remove_image: formData.get('remove_image') === 'true',
-        };
+        const descStr = formData.get('description') as string;
+        if (descStr) payload.append('description', descStr);
+
+        payload.append('priority', String(parseInt(formData.get('priority') as string) || 1));
+
+        const startDateStr = formData.get('start_date') as string;
+        if (startDateStr) payload.append('start_date', startDateStr);
+
+        const endDateStr = formData.get('end_date') as string;
+        if (endDateStr) payload.append('end_date', endDateStr);
+
+        const statusStr = formData.get('status') as string;
+        if (statusStr) payload.append('status', statusStr);
+
+        if (assignedUserIds) payload.append('assigned_user_ids', assignedUserIds.toString());
+        if (assignedUserIdNum) {
+            payload.append('assigned_user_id', String(assignedUserIdNum));
+            payload.append('engineer_id', String(assignedUserIdNum));
+            payload.append('assigned_to', String(assignedUserIdNum));
+            payload.append('user_id', String(assignedUserIdNum));
+            payload.append('lead_id', String(assignedUserIdNum));
+            payload.append('assigned_to_id', String(assignedUserIdNum));
+        }
+
+        const activityTypeId = formData.get('activity_type_id');
+        if (activityTypeId) payload.append('activity_type_id', String(activityTypeId));
+
+        const milestoneId = formData.get('milestone_id');
+        if (milestoneId) payload.append('milestone_id', String(milestoneId));
+
+        const boqId = formData.get('boq_id');
+        if (boqId) payload.append('boq_id', String(boqId));
+
+        if (formData.get('remove_audio') === 'true') {
+            payload.append('remove_audio', 'true');
+        }
+        if (formData.get('remove_image') === 'true') {
+            payload.append('remove_image', 'true');
+        }
 
         if (editAudioBlob) {
-            payload.audio_data = await fileToBase64(editAudioBlob);
+            const audioFile = new File([editAudioBlob], 'audio_instruction.webm', { type: 'audio/webm' });
+            payload.append('audio_file', audioFile);
         }
-        const instructionImage = formData.get('instruction_image') as File;
+
         if (instructionImage && instructionImage.size > 0) {
-            payload.instruction_image_url = await fileToBase64(instructionImage);
+            payload.append('instruction_image', instructionImage);
         }
 
         try {
@@ -606,25 +616,33 @@ const TaskManagementPage = () => {
         if (!projectId || !recordingTaskId) return;
 
         try {
-            // Find task to get other fields, as updateTask usually requires full body. 
-            // If the API supports partial updates, we could just send audio_data. 
-            // We'll send it as a partial update, assuming the backend can handle it, or we fetch the full task.
             const task = tasks.find(t => t.id === recordingTaskId);
             if (!task) return;
 
-            const updatedTaskData = {
-                title: task.title,
-                description: task.description,
-                priority: task.priority,
-                status: task.status,
-                start_date: task.start_date,
-                end_date: task.end_date,
-                assigned_user_ids: [task.assigned_user_id],
-                project_id: task.project_id || projectId,
-                audio_data: audioBase64
-            };
+            // Convert base64 audio to Blob for FormData upload
+            const base64Data = audioBase64.split(',')[1] || audioBase64;
+            const byteChars = atob(base64Data);
+            const byteArr = new Uint8Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+                byteArr[i] = byteChars.charCodeAt(i);
+            }
+            const audioBlob = new Blob([byteArr], { type: 'audio/webm' });
+            const audioFile = new File([audioBlob], 'audio_instruction.webm', { type: 'audio/webm' });
 
-            await projectService.updateTask(task.project_id || projectId, recordingTaskId, updatedTaskData);
+            // Build FormData with all required task fields
+            const fd = new FormData();
+            fd.append('title', task.title || '');
+            fd.append('description', task.description || '');
+            fd.append('priority', String(task.priority ?? 1));
+            fd.append('status', task.status || 'todo');
+            if (task.start_date) fd.append('start_date', task.start_date);
+            if (task.end_date) fd.append('end_date', task.end_date);
+            if (task.assigned_user_id) fd.append('assigned_user_ids', String(task.assigned_user_id));
+            fd.append('project_id', String(task.project_id || projectId));
+            // Append audio as file — backend field name: audio_instruction
+            fd.append('audio_instruction', audioFile);
+
+            await projectService.updateTask(task.project_id || projectId, recordingTaskId, fd);
             toast.success("Audio added successfully!");
             fetchData();
         } catch (error) {
@@ -675,11 +693,7 @@ const TaskManagementPage = () => {
 
     return (
         <>
-            <Navbar
-                title="Task Management"
-                breadcrumb={["Manager", "Task Management"]}
-                rightElement={<ProjectSelector variant="page" />}
-            />
+            <Navbar title="Task Management" breadcrumb={["Manager", "Task Management"]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
 
@@ -693,7 +707,8 @@ const TaskManagementPage = () => {
                             Efficiently organize, track, and manage all your tasks in one place.
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <ProjectSelector variant="page" />
                         {activeTab !== "Project Tasks" && (
                             <>
                                 <button
@@ -837,7 +852,13 @@ const TaskManagementPage = () => {
                 )}
 
                 {/* ─── Filters Section ──────────────────────────────────────────────────────── */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col relative min-h-[400px]">
+                    {loading && (
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-[100] flex flex-col items-center justify-center">
+                            <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+                            <p className="text-slate-600 font-bold animate-pulse">Syncing Task Registry...</p>
+                        </div>
+                    )}
 
                     {activeTab === "All Tasks" ? (
                         <>
@@ -1097,17 +1118,17 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap block md:table-cell">
                                                             <div className="flex flex-col gap-1">
-                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{task.start_date || 'null'}</span></span>
-                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{task.end_date || 'null'}</span></span>
+                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{task.start_date || 'NA'}</span></span>
+                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{task.end_date || 'NA'}</span></span>
                                                             </div>
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap block md:table-cell">
                                                             <div className="flex flex-col gap-1">
-                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{(task as any).actual_start_date || 'null'}</span></span>
-                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date || 'null'}</span></span>
+                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{(task as any).actual_start_date || 'NA'}</span></span>
+                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date || 'NA'}</span></span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName || 'null'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName || 'NA'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length ? task.assignedNames.join(', ') : 'Unassigned'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
 
@@ -1121,7 +1142,7 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {(task as any).instruction_image_url ? (
-                                                                <img src={getFullUrl(String((task as any).instruction_image_url)) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
+                                                                <img src={String((task as any).instruction_image_url) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
                                                             ) : 'null'}
                                                         </td>
 
@@ -1345,7 +1366,7 @@ const TaskManagementPage = () => {
                                                             </thead>
                                                             <tbody className="block md:table-row-group">
                                                                 {project.tasks.length > 0 ? (
-                                                                    project.tasks.map((task) => (
+                                                                    project.tasks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((task) => (
                                                                         <tr key={task.id} className="block md:table-row border-b border-slate-100 hover:bg-slate-50/50 transition-colors p-4 md:p-0">
                                                                             <td className="p-4 block md:table-cell">
                                                                                 <p className="text-sm font-bold text-slate-800">{task.title}</p>
@@ -1379,15 +1400,15 @@ const TaskManagementPage = () => {
                                                                                         <User className="w-3 h-3" />
                                                                                     </div>
                                                                                     <div>
-                                                                                        <p className="text-xs font-bold text-slate-800">{task.assignedTo.name}</p>
-                                                                                        <p className="text-[10px] text-slate-500">{task.assignedTo.role}</p>
+                                                                                        <p className="text-xs font-bold text-slate-800">{task.assignedTo?.name || 'Unassigned'}</p>
+                                                                                        <p className="text-[10px] text-slate-500">{task.assignedTo?.role || 'Engineer'}</p>
                                                                                     </div>
                                                                                 </div>
                                                                             </td>
                                                                             <td className="p-4 block md:table-cell">
                                                                                 <div className="flex items-center gap-2 text-sm text-slate-800 font-medium">
                                                                                     <Calendar className="w-4 h-4 text-slate-400" />
-                                                                                    {new Date(task.end_date).toLocaleDateString()}
+                                                                                    {task.end_date ? new Date(task.end_date).toLocaleDateString() : 'NA'}
                                                                                 </div>
                                                                             </td>
                                                                             <td className="p-4 block md:table-cell">
@@ -1438,6 +1459,54 @@ const TaskManagementPage = () => {
                                                             </tbody>
                                                         </table>
                                                     </div>
+
+                                                    {/* Pagination Controls */}
+                                                    {project.tasks.length > 0 && (
+                                                        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-white font-inter">
+                                                            <span className="text-xs font-bold text-slate-500">
+                                                                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, project.tasks.length)} of {project.tasks.length} tasks
+                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                                    disabled={currentPage === 1}
+                                                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                                                >
+                                                                    <ChevronLeft className="w-4 h-4" />
+                                                                </button>
+                                                                {(() => {
+                                                                    const totalPages = Math.ceil(project.tasks.length / itemsPerPage);
+                                                                    return Array.from({ length: totalPages }).map((_, idx) => {
+                                                                        const page = idx + 1;
+                                                                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                                                                            return (
+                                                                                <button
+                                                                                    key={page}
+                                                                                    onClick={() => setCurrentPage(page)}
+                                                                                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all shadow-sm ${currentPage === page
+                                                                                        ? 'bg-primary text-white border-primary'
+                                                                                        : 'border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-primary bg-white'
+                                                                                        }`}
+                                                                                >
+                                                                                    {page}
+                                                                                </button>
+                                                                            );
+                                                                        } else if (page === currentPage - 2 || page === currentPage + 2) {
+                                                                            return <span key={page} className="text-slate-400 text-xs px-1">...</span>;
+                                                                        }
+                                                                        return null;
+                                                                    });
+                                                                })()}
+                                                                <button
+                                                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(project.tasks.length / itemsPerPage), prev + 1))}
+                                                                    disabled={currentPage === Math.max(1, Math.ceil(project.tasks.length / itemsPerPage))}
+                                                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                                                >
+                                                                    <ChevronRight className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -1957,6 +2026,14 @@ const TaskManagementPage = () => {
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
                                     Instruction Image
                                 </label>
+                                {selectedEditTask && (selectedEditTask as any).instruction_image_url && (
+                                    <div className="mb-3 flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <img src={String((selectedEditTask as any).instruction_image_url)} alt="Existing Instruction" className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200" />
+                                        <div className="flex-1">
+                                            <span className="text-sm text-slate-600 font-medium">Existing Image</span>
+                                        </div>
+                                    </div>
+                                )}
                                 <input
                                     type="file"
                                     name="instruction_image"
@@ -2052,10 +2129,10 @@ const TaskManagementPage = () => {
                                     </label>
                                     <select
                                         name="assigned_user_ids"
-                                        defaultValue={selectedEditTask?.assigned_user_id || "2"}
+                                        defaultValue={selectedEditTask?.assigned_user_id || ""}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     >
-                                        <option value={selectedEditTask?.assigned_user_id?.toString() || "2"}>{selectedEditTask?.assignedTo?.name || "Select User"}</option>
+                                        <option value="">Select User</option>
                                         <option value="1">Suresh Chaudhari (1)</option>
                                         <option value="2">Vishal Sathe (2)</option>
                                         <option value="3">Amit Khare (3)</option>
