@@ -203,11 +203,14 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     {
       label: "Work Progress",
       path: "/manager/work-progress",
-      icon: "trending-up",
+      icon: "bar-chart",
       subNav: [
+        { label: "Activity Registry", path: "/manager/work-progress/activities", icon: "activity" },
         { label: "Daily Progress", path: "/manager/work-progress/daily", icon: "clipboard" },
-        { label: "Weekly Progress", path: "/manager/work-progress/weekly", icon: "calendar" },
-        { label: "Progress Reports", path: "/manager/work-progress/reports", icon: "file-text" },
+        { label: "Weekly Tracking", path: "/manager/work-progress/weekly", icon: "calendar" },
+        { label: "Activity History", path: "/manager/work-progress/history", icon: "list" },
+        { label: "Delay Report", path: "/manager/work-progress/delay", icon: "alert-circle" },
+        { label: "Reports & Exports", path: "/manager/work-progress/reports", icon: "file-text" },
       ]
     },
     {
@@ -253,13 +256,12 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ]
     },
     {
-      label: "Quality",
+      label: "Quality Control (QC)",
       path: "/manager/quality",
       icon: "check-circle",
       subNav: [
-        { label: "Inspections", path: "/manager/quality/inspections", icon: "search" },
-        { label: "Quality Checklists", path: "/manager/quality/checklists", icon: "list" },
-        { label: "NCR", path: "/manager/quality/ncr", icon: "alert-triangle" },
+        { label: "Inspection", path: "/manager/quality/inspections", icon: "search" },
+        { label: "Test Reports", path: "/manager/quality/reports", icon: "file-text" },
       ]
     },
     {

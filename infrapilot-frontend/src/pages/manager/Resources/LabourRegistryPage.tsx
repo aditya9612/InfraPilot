@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import ConfirmModal from "../../../components/common/ConfirmModal";
+import Pagination from "../../../components/common/Pagination";
+import ProjectSelector from "../../../components/common/ProjectSelector";
 import toast from "react-hot-toast";
 import {
     Search, Edit2, Trash2, RotateCcw, FileDown, Activity, CreditCard, AlertCircle, LogIn, LogOut
@@ -49,17 +51,20 @@ const LabourRegistryPage = () => {
     }, [projectId, statusFilter, activeTab]);
 
     useEffect(() => {
-        if (isProjectLoading) return;
+        if (isProjectLoading || !projectId) return;
         fetchLaborers();
-    }, [fetchLaborers, selectedProjectId, isProjectLoading]);
+    }, [fetchLaborers, isProjectLoading, projectId]);
 
     // Global reset and derived states
     useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm]);
 
     const filteredLaborers = (laborers || []).filter(l => (l.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase()));
-    const pagedLaborers = filteredLaborers.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
-
     const filteredAttendance = (attendanceRecords || []).filter(a => (a.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const currentListData = activeTab === "Registry" ? filteredLaborers :
+        activeTab === "Attendance" ? filteredAttendance : [];
+
+    const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     const handleExport = async (type: 'pdf' | 'excel') => {
         try {
@@ -100,7 +105,7 @@ const LabourRegistryPage = () => {
             <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                     <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading registry...</td></tr>
-                ) : pagedLaborers.length > 0 ? pagedLaborers.map((labor) => (
+                ) : pagedData.length > 0 ? pagedData.map((labor: any) => (
                     <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
@@ -148,7 +153,7 @@ const LabourRegistryPage = () => {
             <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                     <tr><td colSpan={6} className="p-10 text-center text-slate-400">Syncing attendance logs...</td></tr>
-                ) : filteredAttendance.length > 0 ? filteredAttendance.map((att, idx) => (
+                ) : pagedData.length > 0 ? pagedData.map((att: any, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 font-bold text-slate-800 text-sm">{att.labour_name}</td>
                         <td className="px-6 py-4">
@@ -204,6 +209,7 @@ const LabourRegistryPage = () => {
                         <p className="text-slate-500 text-sm">Deployment oversight, attendance metrics, and payroll compliance auditing.</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <ProjectSelector variant="page" />
                         <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
                             <button onClick={() => handleExport('pdf')} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 border-r border-slate-100 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-rose-500" /> PDF</button>
                             <button onClick={() => handleExport('excel')} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-emerald-500" /> Excel</button>
@@ -241,28 +247,13 @@ const LabourRegistryPage = () => {
                             </div>
                         )}
                     </div>
-                    {activeTab === "Registry" && (
-                        (() => {
-                            if (filteredLaborers.length <= PAGE_SIZE) return null;
-                            const totalPages = Math.max(1, Math.ceil(filteredLaborers.length / PAGE_SIZE));
-                            return (
-                                <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                        Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredLaborers.length)} of {filteredLaborers.length} Workers
-                                    </p>
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-                                        </button>
-                                        <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">{currentPage + 1}</div>
-                                        <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })()
-                    )}
+                    <Pagination
+                        currentPage={currentPage}
+                        totalItems={currentListData.length}
+                        pageSize={PAGE_SIZE}
+                        onPageChange={setCurrentPage}
+                        label={activeTab === "Registry" ? "Workers" : "Records"}
+                    />
                 </div>
             </PageTransition>
 

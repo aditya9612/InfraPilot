@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Modal from '../common/Modal';
-import { projectService } from '../../services/projectService';
 import { ArrowRightLeft, Users, Truck, Package, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useProject } from '../../context/ProjectContext';
 
 interface ResourceTransferModalProps {
     isOpen: boolean;
@@ -12,17 +12,9 @@ interface ResourceTransferModalProps {
 }
 
 const ResourceTransferModal: React.FC<ResourceTransferModalProps> = ({ isOpen, onClose, resourceType, resourceData }) => {
-    const [projects, setProjects] = useState<any[]>([]);
+    const { assignedProjects } = useProject();
     const [targetProjectId, setTargetProjectId] = useState<number | ''>('');
     const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        if (isOpen) {
-            projectService.getProjects().then(res => {
-                setProjects(Array.isArray(res) ? res : res.items || []);
-            });
-        }
-    }, [isOpen]);
 
     const handleTransfer = async () => {
         if (!targetProjectId) {
@@ -36,7 +28,7 @@ const ResourceTransferModal: React.FC<ResourceTransferModalProps> = ({ isOpen, o
             // In a real scenario, this would call specialized transfer APIs
             await new Promise(resolve => setTimeout(resolve, 1000));
 
-            const destProject = projects.find(p => p.id === Number(targetProjectId));
+            const destProject = assignedProjects.find((p: any) => p.id === Number(targetProjectId));
             toast.success(`Mobilization Successful: ${resourceData.name || resourceData.equipment_name || 'Resource'} transferred to ${destProject?.project_name}`);
             onClose();
         } catch (err) {
@@ -86,9 +78,11 @@ const ResourceTransferModal: React.FC<ResourceTransferModalProps> = ({ isOpen, o
                             className="w-full pl-12 pr-6 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none"
                         >
                             <option value="">Choose a project...</option>
-                            {projects.map(p => (
-                                <option key={p.id} value={p.id}>{p.project_name.toUpperCase()}</option>
-                            ))}
+                            {assignedProjects
+                                .filter((p: any) => p.id !== resourceData?.project_id && p.project_name !== resourceData?.project_name)
+                                .map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.project_name.toUpperCase()}</option>
+                                ))}
                         </select>
                     </div>
                 </div>

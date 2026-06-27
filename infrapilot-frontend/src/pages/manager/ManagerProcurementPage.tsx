@@ -1,20 +1,20 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import PageTransition from "../../components/common/PageTransition";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { useProject } from "../../context/ProjectContext";
 import {
-    ShoppingCart, ClipboardList, Package, Plus, Search,
-    Filter, Clock, CheckCircle2, AlertCircle, MoreVertical,
-    Download, FileText, Eye, Check, X, Box, ChevronLeft, ChevronRight, RotateCcw
+    ShoppingCart, Package, Plus, Search,
+    Clock, CheckCircle2,
+    Download, FileText, Eye, Check, X, ChevronLeft, ChevronRight, RotateCcw
 } from "lucide-react";
 import { siteRequestService } from "../../services/siteRequestService";
 import type { SiteRequestResponse } from "../../services/siteRequestService";
 import { materialService } from "../../services/materialService";
 import type { PurchaseOrder } from "../../services/materialService";
+import ProjectSelector from "../../components/common/ProjectSelector";
 
 const ManagerProcurementPage = () => {
     const navigate = useNavigate();
@@ -33,33 +33,38 @@ const ManagerProcurementPage = () => {
     const [filterStatus, setFilterStatus] = useState("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
     const [activeStatFilter, setActiveStatFilter] = useState("All");
 
     // ── Modal States ──────────────────────────────────────────────
     const [selectedRequest, setSelectedRequest] = useState<SiteRequestResponse | null>(null);
     const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
-    const [isNewPOModalOpen, setIsNewPOModalOpen] = useState(false);
 
     // ── DATA FETCH ────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
         if (!selectedProjectId) return;
         setIsLoading(true);
         try {
-            const [requests, pos] = await Promise.all([
+            const skip = (currentPage - 1) * itemsPerPage;
+            const [requests, posResponse] = await Promise.all([
                 siteRequestService.getRequests(selectedProjectId),
-                materialService.listPurchaseOrders(0, 1000)
+                materialService.listPurchaseOrders(selectedProjectId, skip, itemsPerPage)
             ]);
 
             setMaterialRequests(Array.isArray(requests) ? requests : []);
-            // Filter POs by project_id since the service listPurchaseOrders doesn't take project_id in signature
-            setPurchaseOrders((pos || []).filter(po => po.project_id === selectedProjectId));
+
+            const pos = Array.isArray(posResponse) ? posResponse : ((posResponse as any).items || []);
+            const total = Array.isArray(posResponse) ? posResponse.length : ((posResponse as any).total || (posResponse as any).length || 0);
+
+            setPurchaseOrders(pos);
+            setTotalItems(total);
         } catch (err) {
             console.error("Failed to fetch procurement data", err);
             toast.error("Failed to sync supply chain data");
         } finally {
             setIsLoading(false);
         }
-    }, [selectedProjectId]);
+    }, [selectedProjectId, currentPage, itemsPerPage]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, activeTab, activeStatFilter]);
@@ -134,9 +139,10 @@ const ManagerProcurementPage = () => {
     }, [activeTab, materialRequests, purchaseOrders, searchTerm, filterStatus, activeStatFilter]);
 
     const paginatedData = useMemo(() => {
+        if (activeTab === "purchase-order") return purchaseOrders; // Already paginated server-side
         const start = (currentPage - 1) * itemsPerPage;
         return activeTabData.slice(start, start + itemsPerPage);
-    }, [activeTabData, currentPage, itemsPerPage]);
+    }, [activeTab, activeTabData, purchaseOrders, currentPage, itemsPerPage]);
 
     const getStatusBadge = (status: string) => {
         const s = status.toUpperCase();
@@ -145,8 +151,6 @@ const ManagerProcurementPage = () => {
         if (s === "REJECTED" || s === "CANCELLED") return "bg-rose-100 text-rose-600";
         return "bg-slate-100 text-slate-500";
     };
-
-    const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
 
     return (
         <div className="min-h-screen bg-slate-50 font-inter">
@@ -163,11 +167,12 @@ const ManagerProcurementPage = () => {
                         <p className="text-slate-500 mt-1">Directing site requisitions and procurement pipelines.</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <ProjectSelector variant="page" />
                         <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
                             <Download className="w-4 h-4 text-primary" /> Export
                         </button>
                         {activeTab === "purchase-order" && (
-                            <button onClick={() => setIsNewPOModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 opacity-50 cursor-not-allowed">
                                 <Plus className="w-4 h-4" /> New Order
                             </button>
                         )}
@@ -339,23 +344,23 @@ const ManagerProcurementPage = () => {
                                 </select>
                             </div>
                             <p className="text-[11px] text-slate-500 font-bold tabular-nums">
-                                {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, activeTabData.length)} of {activeTabData.length}
+                                {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, activeTab === "purchase-order" ? totalItems : activeTabData.length)} of {activeTab === "purchase-order" ? totalItems : activeTabData.length}
                             </p>
                             <div className="flex gap-1.5">
                                 <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
                                     className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-primary disabled:opacity-50 bg-white shadow-sm active:scale-95 transition-all">
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                {Array.from({ length: Math.ceil(activeTabData.length / itemsPerPage) }, (_, i) => i + 1).slice(
-                                    Math.max(0, currentPage - 3), Math.min(Math.ceil(activeTabData.length / itemsPerPage), currentPage + 2)
+                                {Array.from({ length: Math.ceil((activeTab === "purchase-order" ? totalItems : activeTabData.length) / itemsPerPage) }, (_, i) => i + 1).slice(
+                                    Math.max(0, currentPage - 3), Math.min(Math.ceil((activeTab === "purchase-order" ? totalItems : activeTabData.length) / itemsPerPage), currentPage + 2)
                                 ).map(p => (
                                     <button key={p} onClick={() => setCurrentPage(p)}
                                         className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-all ${currentPage === p ? "bg-primary text-white border border-primary shadow-md shadow-primary/20 scale-110" : "bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm hover:border-primary/50"}`}>
                                         {p}
                                     </button>
                                 ))}
-                                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(activeTabData.length / itemsPerPage), p + 1))}
-                                    disabled={currentPage === Math.ceil(activeTabData.length / itemsPerPage)}
+                                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil((activeTab === "purchase-order" ? totalItems : activeTabData.length) / itemsPerPage), p + 1))}
+                                    disabled={currentPage === Math.ceil((activeTab === "purchase-order" ? totalItems : activeTabData.length) / itemsPerPage)}
                                     className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-primary disabled:opacity-50 bg-white shadow-sm active:scale-95 transition-all">
                                     <ChevronRight className="w-4 h-4" />
                                 </button>

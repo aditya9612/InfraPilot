@@ -9,7 +9,6 @@ import { notificationService, type Notification } from "../../services/notificat
 import { alertService } from "../../services/alertService";
 import { projectService } from "../../services/projectService";
 import { getFullImageUrl } from "../../utils/imageUtils";
-import ProjectSelector from "./ProjectSelector";
 interface BreadcrumbItem {
   label: string;
   path?: string;
@@ -19,6 +18,7 @@ interface Props {
   title: string;
   breadcrumb?: (string | BreadcrumbItem)[];
   action?: { label: string; onClick?: () => void };
+  rightElement?: React.ReactNode;
 }
 
 const routeMap: Record<string, string> = {
@@ -45,7 +45,7 @@ const routeMap: Record<string, string> = {
 
 
 
-const Navbar = ({ title, breadcrumb, action }: Props) => {
+const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
   const { user, logout } = useAuth();
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
@@ -190,7 +190,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
             </svg>
           </button>
 
-          <ProjectSelector />
+
 
 
           <div className="flex flex-col min-w-0">
@@ -253,6 +253,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
               {action.label}
             </button>
           )}
+          {rightElement}
           {/* Notification Dropdown */}
           <div className="relative" ref={notifRef}>
             <button

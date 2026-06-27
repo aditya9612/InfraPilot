@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type {
     Equipment, UsageReport, MaintenanceAlert, EquipmentAlert, CostReport
 } from "../../../services/equipmentService";
 import { equipmentService } from "../../../services/equipmentService";
 import { useAuth } from "../../../context/AuthContext";
 import toast from "react-hot-toast";
-import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
+import Pagination from "../../../components/common/Pagination";
+import Navbar from "../../../components/common/Navbar";
+import ProjectSelector from "../../../components/common/ProjectSelector";
 
 import {
     Search, Plus, Edit2, Eye, AlertTriangle, Activity
@@ -46,7 +48,7 @@ const EquipmentRegistryPage = () => {
     const [rentalCostReport, setRentalCostReport] = useState<CostReport[]>([]);
     const [equipmentAlerts, setEquipmentAlerts] = useState<EquipmentAlert[]>([]);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
             const params = { limit: 100, project_id: effectiveProjectId };
@@ -73,19 +75,30 @@ const EquipmentRegistryPage = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [activeTab, effectiveProjectId]);
 
     useEffect(() => {
-        if (isProjectLoading) return;
+        if (isProjectLoading || !effectiveProjectId) return;
         fetchData();
-    }, [activeTab, globalProjectId, isProjectLoading]);
+    }, [fetchData, isProjectLoading, effectiveProjectId]);
 
     const filteredEquipment = (equipmentList || []).filter(item => {
         const term = searchTerm.toLowerCase();
         return (item.equipment_name || "").toLowerCase().includes(term) || (item.equipment_code || "").toLowerCase().includes(term);
     });
-    const totalPages = Math.max(1, Math.ceil(filteredEquipment.length / PAGE_SIZE));
-    const pagedEquipment = filteredEquipment.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+    const filteredUsage = (usageReport || []).filter(u => (u.equipment_code || "").toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredMaintenance = (maintenanceAlerts || []).filter(m => (m.equipment_code || "").toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredRental = (rentalCostReport || []).filter(r => (r.equipment_code || "").toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredAlerts = (equipmentAlerts || []).filter(a => (a.equipment_code || "").toLowerCase().includes(searchTerm.toLowerCase()) || (a.equipment_name || "").toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const currentListData = activeTab === "Registry" ? filteredEquipment :
+        activeTab === "Usage" ? filteredUsage :
+            activeTab === "Maintenance" ? filteredMaintenance :
+                activeTab === "Rental" ? filteredRental :
+                    activeTab === "Alerts" ? filteredAlerts : [];
+
+    const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     // Reset page on tab or search change
     useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm]);
@@ -103,28 +116,26 @@ const EquipmentRegistryPage = () => {
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
-                    <tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading registry...</td></tr>
-                ) : pagedEquipment.length > 0 ? (
-                    pagedEquipment.map(item => (
-                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-6 py-4 font-bold text-slate-800">{item.equipment_name}</td>
-                            <td className="px-6 py-4 font-mono text-slate-500">{item.equipment_code}</td>
-                            <td className="px-6 py-4">
-                                <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${conditionColors[item.condition] || 'bg-slate-100 text-slate-600'}`}>
-                                    {item.condition}
-                                </span>
-                            </td>
-                            <td className="px-6 py-4 text-slate-600">{item.operator_name || "—"}</td>
-                            <td className="px-6 py-4 text-right">
-                                <div className="flex justify-end gap-2">
-                                    <button className="p-2 text-slate-400 hover:text-primary"><Eye className="w-4 h-4" /></button>
-                                    <button onClick={() => { setFormData(item); setIsEquipmentModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary"><Edit2 className="w-4 h-4" /></button>
-                                </div>
-                            </td>
-                        </tr>
-                    ))
-                ) : (
-                    <tr><td colSpan={5} className="p-10 text-center text-slate-400 font-medium">No machinery records found</td></tr>
+                    <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading equipment registry...</td></tr>
+                ) : pagedData.length > 0 ? pagedData.map((item: any) => (
+                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-slate-800">{item.equipment_name}</td>
+                        <td className="px-6 py-4 font-mono text-slate-500">{item.equipment_code}</td>
+                        <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${conditionColors[item.condition] || 'bg-slate-100 text-slate-600'}`}>
+                                {item.condition}
+                            </span>
+                        </td>
+                        <td className="px-6 py-4 text-slate-600">{item.operator_name || "—"}</td>
+                        <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                                <button className="p-2 text-slate-400 hover:text-primary"><Eye className="w-4 h-4" /></button>
+                                <button onClick={() => { setFormData(item); setIsEquipmentModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary"><Edit2 className="w-4 h-4" /></button>
+                            </div>
+                        </td>
+                    </tr>
+                )) : (
+                    <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No machinery records found</td></tr>
                 )}
             </tbody>
         </table>
@@ -143,18 +154,16 @@ const EquipmentRegistryPage = () => {
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
-                    <tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading usage report...</td></tr>
-                ) : (usageReport || []).length > 0 ? (
-                    usageReport.map(report => (
-                        <tr key={report.equipment_id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-6 py-4 font-bold text-primary">{report.equipment_code}</td>
-                            <td className="px-6 py-4 font-medium text-slate-700">{report.total_hours}</td>
-                            <td className="px-6 py-4 text-slate-600">{report.avg_hours?.toFixed(1) || "0.0"}</td>
-                            <td className="px-6 py-4 text-orange-600 font-bold">{report.total_fuel}</td>
-                            <td className="px-6 py-4 text-slate-500">{report.usage_count}</td>
-                        </tr>
-                    ))
-                ) : (
+                    <tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading usage logs...</td></tr>
+                ) : pagedData.length > 0 ? pagedData.map((report: any) => (
+                    <tr key={report.equipment_id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-primary">{report.equipment_code}</td>
+                        <td className="px-6 py-4 font-medium text-slate-700">{report.total_hours}</td>
+                        <td className="px-6 py-4 text-slate-600">{report.avg_hours?.toFixed(1) || "0.0"}</td>
+                        <td className="px-6 py-4 text-orange-600 font-bold">{report.total_fuel}</td>
+                        <td className="px-6 py-4 text-slate-500">{report.usage_count}</td>
+                    </tr>
+                )) : (
                     <tr><td colSpan={5} className="p-10 text-center text-slate-400 font-medium">No usage reports found</td></tr>
                 )}
             </tbody>
@@ -173,21 +182,19 @@ const EquipmentRegistryPage = () => {
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
-                    <tr><td colSpan={4} className="p-10 text-center text-slate-400">Loading maintenance alerts...</td></tr>
-                ) : (maintenanceAlerts || []).length > 0 ? (
-                    maintenanceAlerts.map((alert, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-6 py-4 font-bold text-slate-800">{alert.equipment_code}</td>
-                            <td className="px-6 py-4 text-slate-600 font-medium">{alert.maintenance_date}</td>
-                            <td className="px-6 py-4 text-slate-500">{alert.days_until} days</td>
-                            <td className="px-6 py-4">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${alert.status === 'OVERDUE' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
-                                    {alert.status}
-                                </span>
-                            </td>
-                        </tr>
-                    ))
-                ) : (
+                    <tr><td colSpan={4} className="p-10 text-center text-slate-400">Loading maintenance schedule...</td></tr>
+                ) : pagedData.length > 0 ? pagedData.map((alert: any, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 font-bold text-slate-800">{alert.equipment_code}</td>
+                        <td className="px-6 py-4 text-slate-600 font-medium">{alert.maintenance_date}</td>
+                        <td className="px-6 py-4 text-slate-500">{alert.days_until} days</td>
+                        <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${alert.status === 'OVERDUE' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'}`}>
+                                {alert.status}
+                            </span>
+                        </td>
+                    </tr>
+                )) : (
                     <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-medium">No maintenance alerts</td></tr>
                 )}
             </tbody>
@@ -207,14 +214,16 @@ const EquipmentRegistryPage = () => {
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
                     <tr><td colSpan={4} className="p-10 text-center text-slate-400">Loading cost reports...</td></tr>
-                ) : rentalCostReport.map(report => (report.total_cost > 0 &&
+                ) : pagedData.length > 0 ? pagedData.map((report: any) => (
                     <tr key={report.equipment_id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 font-bold text-slate-800">{report.equipment_code}</td>
                         <td className="px-6 py-4 text-emerald-600 font-bold">₹{report.total_cost.toLocaleString()}</td>
                         <td className="px-6 py-4 text-slate-500">{report.total_days} days</td>
                         <td className="px-6 py-4 text-slate-600 italic">Rental Asset</td>
                     </tr>
-                ))}
+                )) : (
+                    <tr><td colSpan={4} className="p-10 text-center text-slate-400 font-medium">No rental costs found</td></tr>
+                )}
             </tbody>
         </table>
     );
@@ -223,7 +232,7 @@ const EquipmentRegistryPage = () => {
         <div className="p-6 space-y-4">
             {isLoading ? (
                 <p className="text-center text-slate-400 py-10">Syncing telemetry alerts...</p>
-            ) : equipmentAlerts.length > 0 ? equipmentAlerts.map((alert, idx) => (
+            ) : pagedData.length > 0 ? pagedData.map((alert: any, idx: number) => (
                 <div key={idx} className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-4">
                     <div className="p-2 bg-rose-100 text-rose-600 rounded-xl">
                         <AlertTriangle className="w-5 h-5" />
@@ -231,7 +240,7 @@ const EquipmentRegistryPage = () => {
                     <div>
                         <h4 className="font-bold text-rose-900">{alert.equipment_name} ({alert.equipment_code})</h4>
                         <ul className="mt-2 space-y-1">
-                            {alert.issues.map((issue, i) => (
+                            {alert.issues.map((issue: any, i: number) => (
                                 <li key={i} className="text-sm text-rose-700 flex items-center gap-2">
                                     <div className="w-1.5 h-1.5 bg-rose-400 rounded-full" />
                                     {issue.type}: {issue.current_hours}hrs (Threshold: {issue.limit})
@@ -262,6 +271,7 @@ const EquipmentRegistryPage = () => {
                         <p className="text-slate-500 text-sm">Comprehensive registry and maintenance tracking for heavy machinery.</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <ProjectSelector variant="page" />
                         <button onClick={() => { setFormData({}); setIsEquipmentModalOpen(true); }} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 h-10 transition-all active:scale-95">
                             <Plus className="w-4 h-4" /> Add Asset
                         </button>
@@ -297,22 +307,13 @@ const EquipmentRegistryPage = () => {
                         {activeTab === "Alerts" && renderAlerts()}
                     </div>
                     {/* Pagination for Registry tab */}
-                    {activeTab === "Registry" && filteredEquipment.length > PAGE_SIZE && (
-                        <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                                Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredEquipment.length)} of {filteredEquipment.length} Assets
-                            </p>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-                                </button>
-                                <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">{currentPage + 1}</div>
-                                <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                    <Pagination
+                        currentPage={currentPage}
+                        totalItems={currentListData.length}
+                        pageSize={PAGE_SIZE}
+                        onPageChange={setCurrentPage}
+                        label={activeTab === "Registry" ? "Assets" : "Records"}
+                    />
                 </div>
             </PageTransition>
 

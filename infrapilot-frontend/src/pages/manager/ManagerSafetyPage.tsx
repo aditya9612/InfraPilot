@@ -11,6 +11,7 @@ import {
   AlertOctagon, ShieldCheck, Download
 } from "lucide-react";
 import { safetyService } from "../../services/safetyService";
+import { projectService } from "../../services/projectService";
 import type { IncidentItem as SafetyItem, CreateIncidentRequest } from "../../services/safetyService";
 
 const violationTypeColors: Record<string, string> = {
@@ -53,11 +54,23 @@ const ManagerSafetyPage = () => {
 
   useEffect(() => {
     const fetchProjects = async () => {
+      const userStr = localStorage.getItem('infrapilot_user');
+      let currentUserId = 0;
+      let localProjects: any[] = [];
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          currentUserId = user?.id || user?.user?.id || 0;
+          localProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
+        } catch (e) { }
+      }
       try {
-        const res = await projectService.getProjects(100, 0);
-        setProjects(Array.isArray(res) ? res : (res.items || []));
+        const res = await projectService.getAssignedProjects(currentUserId);
+        const apiProjects = Array.isArray(res) ? res : ((res as any).items || (res as any).data || []);
+        setProjects(apiProjects.length > 0 ? apiProjects : localProjects);
       } catch (err) {
         console.error("Failed to fetch projects", err);
+        setProjects(localProjects);
       }
     };
     fetchProjects();

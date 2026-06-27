@@ -44,7 +44,7 @@ import DSRApprovalPage from "../pages/manager/DSRApprovalPage";
 import ResourceOrchestratorPage from "../pages/manager/ResourceOrchestratorPage";
 import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
 import WorkProgressPage from "../pages/manager/WorkProgressPage";
-import ManagerTasksPage from "../pages/manager/ManagerTasksPage";
+import ManagerTasksPage from "../pages/manager/TaskManagement/TaskManagementPage";
 import ManagerProcurementPage from "../pages/manager/ManagerProcurementPage";
 import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
 import ManagerQualityPage from "../pages/manager/ManagerQualityPage";

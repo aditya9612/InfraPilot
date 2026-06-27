@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Navbar from "../../../components/common/Navbar";
 import PageTransition from "../../../components/common/PageTransition";
+import Pagination from "../../../components/common/Pagination";
+import ProjectSelector from "../../../components/common/ProjectSelector";
 import toast from "react-hot-toast";
 import {
     Search, RotateCcw,
@@ -32,7 +34,7 @@ const MaterialInventoryPage = () => {
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(Number(amount));
     };
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
             if (activeTab === "Stock Overview") {
@@ -53,23 +55,32 @@ const MaterialInventoryPage = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [activeTab, projectId]);
 
     useEffect(() => {
-        if (isProjectLoading) return;
+        if (isProjectLoading || !projectId) return;
         fetchData();
-    }, [activeTab, globalProjectId, isProjectLoading]);
+    }, [fetchData, isProjectLoading, projectId]);
 
     // Reset page when tab or search changes
     useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm]);
 
     const filteredInventory = (inventory || []).filter(i => (i.material_name || "").toLowerCase().includes(searchTerm.toLowerCase()));
-    const pagedInventory = filteredInventory.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+    const filteredGlobalInventory = (globalInventory || [])
+        .filter(i => assignedProjects.some(p => p.id === i.project_id))
+        .filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const filteredReports = (reports || []).filter(r => (r.material_name || "").toLowerCase().includes(searchTerm.toLowerCase()));
-    // We can add pagination to reports later if needed, for now just use the filtered list to keep it simple and fix the blank issue
 
     const filteredAdjustments = (adjustments || []).filter(a => ((a as any).material_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (a.type || "").toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const currentListData = activeTab === "Stock Overview" ? filteredInventory :
+        activeTab === "Consolidated Stock" ? filteredGlobalInventory :
+            activeTab === "Reports" ? filteredReports :
+                activeTab === "Inventory Adjustment" ? filteredAdjustments : [];
+
+    const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     useEffect(() => {
         console.log(`MaterialInventoryPage State - Tab: ${activeTab}, Inventory Count: ${inventory?.length}, Reports Count: ${reports?.length}, CurrentPage: ${currentPage}`);
@@ -88,7 +99,7 @@ const MaterialInventoryPage = () => {
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
                     <tr><td colSpan={4} className="p-10 text-center text-slate-400">Syncing ledger...</td></tr>
-                ) : pagedInventory.length > 0 ? pagedInventory.map((item, idx) => (
+                ) : pagedData.length > 0 ? pagedData.map((item: any, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 font-bold text-slate-800">{item.material_name}</td>
                         <td className="px-6 py-4 text-center">
@@ -106,26 +117,6 @@ const MaterialInventoryPage = () => {
         </table>
     );
 
-    const renderStockPagination = () => {
-        if (filteredInventory.length <= PAGE_SIZE) return null;
-        const totalPages = Math.max(1, Math.ceil(filteredInventory.length / PAGE_SIZE));
-        return (
-            <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredInventory.length)} of {filteredInventory.length} Materials
-                </p>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">{currentPage + 1}</div>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))} disabled={currentPage >= totalPages - 1} className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                </div>
-            </div>
-        );
-    };
 
     const renderGlobalInventory = () => (
         <table className="w-full text-left whitespace-nowrap">
@@ -141,23 +132,22 @@ const MaterialInventoryPage = () => {
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
                     <tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading global stock...</td></tr>
-                ) : (globalInventory || [])
-                    .filter(i => assignedProjects.some(p => p.id === i.project_id))
-                    .filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase()))
-                    .map((i, idx) => {
-                        const project = assignedProjects.find(p => p.id === i.project_id);
-                        return (
-                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-6 py-4 font-bold text-slate-800">{i.material_name}</td>
-                                <td className="px-6 py-4 text-xs font-bold text-primary">
-                                    {project?.project_name || `PRJ-${i.project_id}`}
-                                </td>
-                                <td className="px-6 py-4 text-center font-bold text-slate-700">{i.remaining_stock} <span className="text-[10px] text-slate-400 uppercase">{i.unit}</span></td>
-                                <td className="px-6 py-4 text-right text-slate-600">{formatINR(i.avg_rate)}</td>
-                                <td className="px-6 py-4 text-right font-bold text-emerald-600">{formatINR(i.total_value)}</td>
-                            </tr>
-                        );
-                    })}
+                ) : pagedData.length > 0 ? pagedData.map((i: any, idx) => {
+                    const project = assignedProjects.find(p => p.id === i.project_id);
+                    return (
+                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-800">{i.material_name}</td>
+                            <td className="px-6 py-4 text-xs font-bold text-primary">
+                                {project?.project_name || `PRJ-${i.project_id}`}
+                            </td>
+                            <td className="px-6 py-4 text-center font-bold text-slate-700">{i.remaining_stock} <span className="text-[10px] text-slate-400 uppercase">{i.unit}</span></td>
+                            <td className="px-6 py-4 text-right text-slate-600">{formatINR(i.avg_rate)}</td>
+                            <td className="px-6 py-4 text-right font-bold text-emerald-600">{formatINR(i.total_value)}</td>
+                        </tr>
+                    );
+                }) : (
+                    <tr><td colSpan={5} className="p-10 text-center text-slate-400 font-medium">No global stock data available</td></tr>
+                )}
             </tbody>
         </table>
     );
@@ -176,7 +166,7 @@ const MaterialInventoryPage = () => {
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
                     <tr><td colSpan={5} className="p-10 text-center text-slate-400">Generating reports...</td></tr>
-                ) : filteredReports.length > 0 ? filteredReports.map((r, idx) => (
+                ) : pagedData.length > 0 ? pagedData.map((r: any, idx: number) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 font-bold text-slate-800">{r.material_name}</td>
                         <td className="px-6 py-4 text-center text-blue-600 font-medium">{r.total_purchased}</td>
@@ -204,7 +194,7 @@ const MaterialInventoryPage = () => {
             <tbody className="divide-y divide-slate-50 text-sm">
                 {isLoading ? (
                     <tr><td colSpan={4} className="p-10 text-center text-slate-400">Fetching audit logs...</td></tr>
-                ) : filteredAdjustments.length > 0 ? filteredAdjustments.map((a, idx) => (
+                ) : pagedData.length > 0 ? pagedData.map((a: any, idx: number) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 text-slate-500 font-mono text-xs">{new Date(a.created_at).toLocaleString()}</td>
                         <td className="px-6 py-4"><span className="px-2 py-1 rounded-lg bg-amber-50 text-amber-600 text-[10px] font-bold uppercase tracking-tight">{a.type} / {a.issue_type}</span></td>
@@ -228,6 +218,7 @@ const MaterialInventoryPage = () => {
                         <p className="text-slate-500 text-sm">Strategic oversight of material procurement, consumption, and site-specific stock levels.</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <ProjectSelector variant="page" />
                         <button className="flex items-center gap-2 px-5 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold border border-rose-100 shadow-sm h-10 transition-all active:scale-95">
                             <FileDown className="w-4 h-4" /> Export Ledger
                         </button>
@@ -257,7 +248,13 @@ const MaterialInventoryPage = () => {
                         {activeTab === "Reports" && renderReports()}
                         {activeTab === "Inventory Adjustment" && renderAdjustments()}
                     </div>
-                    {activeTab === "Stock Overview" && renderStockPagination()}
+                    <Pagination
+                        currentPage={currentPage}
+                        totalItems={currentListData.length}
+                        pageSize={PAGE_SIZE}
+                        onPageChange={setCurrentPage}
+                        label="Records"
+                    />
                 </div>
             </PageTransition>
         </>
