@@ -18,7 +18,7 @@ import { workProgressService } from '../../../services/workProgressService';
 import type { Task, ProjectMember, ProjectStatus } from '../../../types/project';
 
 interface FrontendTask extends Omit<Task, 'priority'> {
-    priority: "LOW" | "MEDIUM" | "HIGH";
+    priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
     assignedBy: { name: string; role: string };
     assignedTo: { name: string; role: string };
     hasHistory: boolean;
@@ -36,9 +36,11 @@ const priorityBadges: Record<string, string> = {
     LOW: "bg-emerald-500 text-white",
     MEDIUM: "bg-blue-500 text-white",
     HIGH: "bg-rose-500 text-white",
+    CRITICAL: "bg-purple-600 text-white font-bold",
 };
 
-const mapPriority = (priority: number | string): "LOW" | "MEDIUM" | "HIGH" => {
+const mapPriority = (priority: number | string): "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" => {
+    if (priority === 4 || priority === "Critical" || priority === "CRITICAL") return "CRITICAL";
     if (priority === 1 || priority === "High" || priority === "HIGH") return "HIGH";
     if (priority === 2 || priority === "Medium" || priority === "MEDIUM") return "MEDIUM";
     return "LOW";
@@ -90,7 +92,7 @@ const TaskManagementPage = () => {
     const [tasks, setTasks] = useState<FrontendTask[]>([]);
 
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Delete Modal State (Commented out as delete button is hidden)
     // const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -1059,8 +1061,7 @@ const TaskManagementPage = () => {
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Completion %</th>
 
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Delay Days</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Actual Cost</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Planned Cost</th>
+                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Cost (A/P)</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Audio Instruction</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Instruction Image</th>
 
@@ -1120,8 +1121,7 @@ const TaskManagementPage = () => {
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
 
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).delay_days || 0}</td>
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).actual_cost || 0}</td>
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).planned_cost || 0}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">₹{(task as any).actual_cost || 0} / ₹{(task as any).planned_cost || 0}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {task.audio_data || (task as any).audio_instruction_url ? (
                                                                 <audio controls src={task.audio_data ? getFullUrl(task.audio_data) || '' : getFullUrl(String((task as any).audio_instruction_url)) || ''} className="h-8 w-32" />
@@ -1617,7 +1617,7 @@ const TaskManagementPage = () => {
                                                 <p className="text-sm font-bold text-slate-800">Priority</p>
                                             </div>
                                             <div className="pl-9">
-                                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold ${selectedTask.priority === 'HIGH' ? 'bg-rose-500 text-white' : selectedTask.priority === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white'}`}>
+                                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold ${selectedTask.priority === 'CRITICAL' ? 'bg-purple-600 text-white' : selectedTask.priority === 'HIGH' ? 'bg-rose-500 text-white' : selectedTask.priority === 'MEDIUM' ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white'}`}>
                                                     {selectedTask.priority}
                                                 </span>
                                             </div>
@@ -2061,9 +2061,10 @@ const TaskManagementPage = () => {
                                     </label>
                                     <select
                                         name="priority"
-                                        defaultValue={selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
+                                        defaultValue={selectedEditTask?.priority === "CRITICAL" ? 4 : selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     >
+                                        <option value={4}>Critical</option>
                                         <option value={1}>High</option>
                                         <option value={2}>Medium</option>
                                         <option value={3}>Low</option>

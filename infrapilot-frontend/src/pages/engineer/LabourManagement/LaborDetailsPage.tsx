@@ -88,7 +88,7 @@ const LaborDetailsPage = () => {
     const [projects, setProjects] = useState<any[]>([]);
     const [assignProjectId, setAssignProjectId] = useState<string>("");
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
     const [labourTypes, setLabourTypes] = useState<any[]>([]);
 

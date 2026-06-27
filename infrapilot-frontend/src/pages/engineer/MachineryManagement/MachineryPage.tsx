@@ -77,7 +77,7 @@ const MachineryPage = () => {
     const [costReport, setCostReport] = useState<CostReport[]>([]);
     const [allRentals, setAllRentals] = useState<RentalItem[]>([]);
     const [rentalCurrentPage, setRentalCurrentPage] = useState(1);
-    const [rentalItemsPerPage, setRentalItemsPerPage] = useState(20);
+    const [rentalItemsPerPage, setRentalItemsPerPage] = useState(10);
 
     // Tab 6: Reports
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);

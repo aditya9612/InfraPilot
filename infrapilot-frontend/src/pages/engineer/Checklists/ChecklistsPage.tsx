@@ -45,7 +45,7 @@ const ChecklistsPage = () => {
     // Interactive StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pending" | "Done">("All");
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Modal Visibility States
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);

@@ -71,8 +71,8 @@ const COLLECTION_TREND = [
 const fmt = (v: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v);
 
-const statusBadge = (s: string) => {
-  if (!s) return "bg-slate-100 text-slate-500";
+const statusBadge = (s: any) => {
+  if (!s || typeof s !== 'string') return "bg-slate-100 text-slate-500";
   const map: Record<string, string> = {
     paid: "bg-emerald-100 text-emerald-700",
     partial: "bg-amber-100 text-amber-700",
@@ -604,6 +604,13 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
   const [editInvoiceId, setEditInvoiceId] = useState<number | null>(null);
   const [deleteInvoiceId, setDeleteInvoiceId] = useState<number | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedProjectFilter, selectedStatus, selectedTypeFilter, activeSubTab]);
+
   useEffect(() => {
     if (activeSubTab === "labour_list") setSelectedTypeFilter("LABOUR");
     else if (activeSubTab === "material_list") setSelectedTypeFilter("MATERIAL");
@@ -625,8 +632,9 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
         try { invRes = await api.get('/invoices'); } catch (e) { console.error(e); }
 
         const allInvoices = Array.isArray(invRes.data) ? invRes.data : (invRes.data?.items || []);
-        setLabourInvoices(allInvoices);
-        setMaterialInvoices(allInvoices);
+        const sortedInvoices = [...allInvoices].sort((a: any, b: any) => b.id - a.id);
+        setLabourInvoices(sortedInvoices);
+        setMaterialInvoices(sortedInvoices);
       } catch (err: any) {
         console.error("Failed to fetch invoices data:", err);
       } finally {
@@ -640,8 +648,9 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
     try {
       const invRes = await api.get('/invoices');
       const allInvoices = Array.isArray(invRes.data) ? invRes.data : (invRes.data?.items || []);
-      setLabourInvoices(allInvoices);
-      setMaterialInvoices(allInvoices);
+      const sortedInvoices = [...allInvoices].sort((a: any, b: any) => b.id - a.id);
+      setLabourInvoices(sortedInvoices);
+      setMaterialInvoices(sortedInvoices);
     } catch (e) { console.error(e); }
   };
 
@@ -706,9 +715,12 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
     return matchType && matchProject && matchSearch && matchStatus;
   });
 
-  const portfolioValue = filtered.reduce((s, i) => s + (i.total_amount || 0), 0);
-  const pendingValue = filtered.reduce((s, i) => s + (i.pending_amount || 0), 0);
-  const paidValue = filtered.reduce((s, i) => s + (i.paid_amount || 0), 0);
+  const totalPages = Math.ceil(filtered.length / recordsPerPage);
+  const paginatedInvoices = filtered.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
+
+  const portfolioValue = filtered.reduce((s, i) => s + (Number(i.total_amount) || 0), 0);
+  const pendingValue = filtered.reduce((s, i) => s + (Number(i.pending_amount) || 0), 0);
+  const paidValue = filtered.reduce((s, i) => s + (Number(i.paid_amount) || 0), 0);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -736,15 +748,21 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
         toast.success("Labour Invoice created successfully!");
         setActiveSubTab("labour_list");
       } else {
-        await api.post('/invoices/material', {
-          project_id: Number(formData.project_id)
-        });
+        await api.post(`/invoices/material?project_id=${Number(formData.project_id)}`);
         toast.success("Material Invoice created successfully!");
         setActiveSubTab("material_list");
       }
       setFormData({ project_id: "", start_date: "", end_date: "" });
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to create invoice");
+      let errorMsg = "Failed to create invoice";
+      if (err.response?.data?.detail) {
+        if (typeof err.response.data.detail === 'string') {
+          errorMsg = err.response.data.detail;
+        } else if (Array.isArray(err.response.data.detail)) {
+          errorMsg = err.response.data.detail.map((d: any) => `${d.loc?.[1] || d.loc?.[0] || 'Field'}: ${d.msg}`).join(", ");
+        }
+      }
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -831,7 +849,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                   <tr>
                     <td colSpan={14} className="px-4 py-8 text-center text-slate-400 text-sm">No invoices found.</td>
                   </tr>
-                ) : filtered.map(inv => {
+                ) : paginatedInvoices.map(inv => {
                   const p = projects.find(proj => proj.id === inv.project_id);
                   const projName = p ? (p.project_name || p.name) : inv.project_id;
                   return (
@@ -861,6 +879,40 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                 )})}
               </tbody>
             </table>
+          </div>
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select 
+                value={recordsPerPage} 
+                onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
+              >
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {filtered.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filtered.length)} of {filtered.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
+                {currentPage}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

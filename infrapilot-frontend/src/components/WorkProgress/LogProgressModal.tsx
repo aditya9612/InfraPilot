@@ -169,7 +169,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
               >
                 <option value="">Select from project registry</option>
                 {activitiesList.map(a => (
-                  <option key={a.id} value={a.id}>{a.activity_name} ({a.boq_code || "No BOQ"})</option>
+                  <option key={a.id} value={a.id}>{a.activity_name}</option>
                 ))}
               </select>
               {errors.activity_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.activity_id}</p>}
@@ -192,13 +192,19 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
               {errors.entry_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entry_date}</p>}
             </div>
             <div>
-              <label className={labelClasses}>Today Progress {selectedActivity ? `(${selectedActivity.unit})` : ""} <span className="text-rose-500">*</span></label>
+              <label className={labelClasses}>
+                Today Progress {selectedActivity ? `(${selectedActivity.unit}) (Planned: ${selectedActivity.planned_quantity || 0}, Remaining: ${selectedActivity.remaining_quantity || 0})` : ""} <span className="text-rose-500">*</span>
+              </label>
               <input
                 required type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
-                className={inputClasses(errors.today_progress)}
+                className={`${inputClasses(errors.today_progress)} ${selectedActivity && selectedActivity.remaining_quantity <= 0 ? 'bg-slate-50 cursor-not-allowed opacity-60' : ''}`}
                 value={formData.today_progress} onChange={handleChange}
+                disabled={selectedActivity ? selectedActivity.remaining_quantity <= 0 : false}
               />
               {errors.today_progress && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.today_progress}</p>}
+              {selectedActivity && selectedActivity.remaining_quantity <= 0 && (
+                  <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">Quantity fully utilized.</p>
+              )}
             </div>
           </div>
         </div>

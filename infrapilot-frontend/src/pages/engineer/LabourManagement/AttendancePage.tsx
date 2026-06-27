@@ -14,7 +14,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Briefcase,
-    Eye
+    Eye,
+    X
 } from "lucide-react";
 import toast from 'react-hot-toast';
 import labourService from '../../../services/labourService';
@@ -77,6 +78,35 @@ const AttendancePage: React.FC = () => {
     const [historyDateInput, setHistoryDateInput] = useState("");
 
     const [selfAttendances, setSelfAttendances] = useState<any[]>([]);
+
+    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+    const [selectedLocationLabour, setSelectedLocationLabour] = useState<any | null>(null);
+
+    const calculateTotalHours = (inTime: string | null | undefined, outTime: string | null | undefined) => {
+        if (!inTime || inTime === "--:--" || !outTime || outTime === "--:--") return null;
+        try {
+            const parseTime = (timeStr: string) => {
+                if (timeStr.includes('T')) {
+                    const d = new Date(timeStr);
+                    return d.getHours() + d.getMinutes() / 60;
+                }
+                const parts = timeStr.split(' ');
+                const time = parts[0];
+                const modifier = parts.length > 1 ? parts[1] : '';
+                let [hours, minutes] = time.split(':').map(Number);
+                if (modifier === 'PM' && hours < 12) hours += 12;
+                if (modifier === 'AM' && hours === 12) hours = 0;
+                return hours + (minutes || 0) / 60;
+            };
+            const inHrs = parseTime(inTime);
+            const outHrs = parseTime(outTime);
+            let diff = outHrs - inHrs;
+            if (diff < 0) diff += 24;
+            return diff.toFixed(1).replace(/\.0$/, '');
+        } catch {
+            return null;
+        }
+    };
 
     // ─── Restore today's check-in state on page load / refresh ───────────────
     const restoreTodayAttendanceState = async () => {
@@ -514,8 +544,7 @@ const AttendancePage: React.FC = () => {
                                         <th className="px-6 py-4">overtime_rate</th>
                                         <th className="px-6 py-4">check_in_image</th>
                                         <th className="px-6 py-4">check_out_image</th>
-                                        <th className="px-6 py-4">check_in_address</th>
-                                        <th className="px-6 py-4">check_out_address</th>
+                                        <th className="px-6 py-4">Location</th>
                                         <th className="px-6 py-4">task_description</th>
                                         <th className="px-6 py-4">remarks</th>
                                         <th className="px-6 py-4">is_approved</th>
@@ -539,7 +568,16 @@ const AttendancePage: React.FC = () => {
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.status ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.in_time ? formatTime(new Date(rec.in_time)) : '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.out_time ? formatTime(new Date(rec.out_time)) : '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.working_hours ?? '-'}</span></td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-[10px] font-bold text-slate-600">
+                                                        {(() => {
+                                                            const calc = calculateTotalHours(rec.in_time, rec.out_time);
+                                                            if (calc) return `${calc}/8hr`;
+                                                            if (rec.working_hours) return `${rec.working_hours}/8hr`;
+                                                            return '0/8hr';
+                                                        })()}
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_hours ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.overtime_rate ?? '-'}</span></td>
                                                 <td className="px-6 py-4">
@@ -556,8 +594,17 @@ const AttendancePage: React.FC = () => {
                                                         </div>
                                                     ) : <span className="text-[10px] text-slate-400">-</span>}
                                                 </td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_in_address ?? '-'}</span></td>
-                                                <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.check_out_address ?? '-'}</span></td>
+                                                <td className="px-6 py-4">
+                                                    <span
+                                                        className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer hover:underline"
+                                                        onClick={() => {
+                                                            setSelectedLocationLabour(rec);
+                                                            setIsLocationModalOpen(true);
+                                                        }}
+                                                    >
+                                                        <MapPin className="w-3 h-3" /> View
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.task_description ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.remarks ?? '-'}</span></td>
                                                 <td className="px-6 py-4"><span className="text-[10px] font-bold text-slate-600">{rec.is_approved !== undefined ? String(rec.is_approved) : '-'}</span></td>
@@ -593,7 +640,7 @@ const AttendancePage: React.FC = () => {
                                                                 const mappedData = {
                                                                     ...rec,
                                                                     id: rec.user_id || detailedLabour.user_id || 'U',
-                                                                    name: rec.user_name || 'Worker',
+                                                                    name: rec.user_name || (user ? user.name || 'Worker' : 'Worker'),
                                                                     labourName: fetchedLabourName,
                                                                     imgInUrl: detailedLabour.check_in_image || rec.check_in_image,
                                                                     imgOutUrl: detailedLabour.check_out_image || rec.check_out_image,
@@ -611,7 +658,7 @@ const AttendancePage: React.FC = () => {
                                                                     isOutsideGeofence: detailedLabour.is_outside_geofence !== undefined ? String(detailedLabour.is_outside_geofence) : (rec.is_outside_geofence !== undefined ? String(rec.is_outside_geofence) : '-'),
                                                                     lateMinutes: detailedLabour.late_minutes || rec.late_minutes || '-',
                                                                     earlyMinutes: detailedLabour.early_minutes || rec.early_minutes || '-',
-                                                                    projectName: rec.project_name || '-'
+                                                                    projectName: rec.project_name || detailedLabour.project_name || (user ? user.project_name : null) || '-'
                                                                 };
 
                                                                 setSelectedLabour(mappedData);
@@ -725,7 +772,76 @@ const AttendancePage: React.FC = () => {
                         )}
                     </div>
                 </div>
-            </PageTransition>
+                {/* Location Details Modal */}
+            <Modal
+                isOpen={isLocationModalOpen}
+                onClose={() => setIsLocationModalOpen(false)}
+                title=""
+                hideHeader={true}
+                maxWidth="max-w-[420px]"
+            >
+                {selectedLocationLabour && (
+                    <div className="flex flex-col h-full bg-[#f9f9fa] -m-6 pb-6 rounded-b-3xl">
+                        {/* Header */}
+                        <div className="bg-[#c8edf9] p-5 pb-6 rounded-t-3xl relative">
+                            <button
+                                onClick={() => setIsLocationModalOpen(false)}
+                                className="absolute top-5 right-5 text-[#3b4754] hover:text-black transition-colors"
+                            >
+                                <X className="w-5 h-5 stroke-[2]" />
+                            </button>
+                            <div className="flex items-center gap-2 mb-2">
+                                <MapPin className="w-5 h-5 text-[#1456ff] stroke-[2]" />
+                                <h2 className="text-[17px] font-bold text-[#0f172a] font-inter tracking-tight">Location Details</h2>
+                            </div>
+                            <p className="text-[13px] font-medium text-[#475569]">Check-in and check-out location information</p>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 flex flex-col gap-6">
+                            {/* Check-in */}
+                            <div>
+                                <div className="flex items-center gap-2.5 mb-2.5">
+                                    <div className="w-[10px] h-[10px] rounded-full bg-[#10b981]"></div>
+                                    <span className="text-[15px] font-bold text-[#334155]">Check-in Location</span>
+                                </div>
+                                <div className="bg-[#f0fdf4] border border-[#dcfce7] rounded-xl p-4 flex gap-3 shadow-sm">
+                                    <MapPin className="w-[18px] h-[18px] text-[#059669] flex-shrink-0 mt-[1px] stroke-[2]" />
+                                    <p className="text-[14px] font-semibold text-[#047857] leading-[1.6]">
+                                        {selectedLocationLabour?.check_in_address || '-'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Check-out */}
+                            <div>
+                                <div className="flex items-center gap-2.5 mb-2.5">
+                                    <div className="w-[10px] h-[10px] rounded-full bg-[#f43f5e]"></div>
+                                    <span className="text-[15px] font-bold text-[#334155]">Check-out Location</span>
+                                </div>
+                                <div className="bg-[#fff1f2] border border-[#ffe4e6] rounded-xl p-4 flex gap-3 shadow-sm">
+                                    <MapPin className="w-[18px] h-[18px] text-[#e11d48] flex-shrink-0 mt-[1px] stroke-[2]" />
+                                    <p className="text-[14px] font-semibold text-[#be123c] leading-[1.6]">
+                                        {selectedLocationLabour?.check_out_address || '-'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 flex justify-end mt-2">
+                            <button
+                                onClick={() => setIsLocationModalOpen(false)}
+                                className="px-7 py-2.5 bg-white border border-[#e2e8f0] text-[#1e293b] rounded-xl text-[14px] font-bold shadow-[0_2px_4px_rgba(0,0,0,0.02)] hover:bg-[#f8fafc] hover:shadow-[0_4px_6px_rgba(0,0,0,0.04)] transition-all active:scale-95"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+        </PageTransition>
 
             {isSelfCheckInFormOpen && (
                 <SelfCheckInModal
@@ -778,7 +894,6 @@ const AttendancePage: React.FC = () => {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-1">
                                         <h3 className="text-xl font-black tracking-tight truncate">{selectedLabour.name}</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest">{selectedLabour.id}</span>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-3 text-white/70 text-xs font-medium">
                                         <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-white/80" /> {selectedLabour.workLocation}</span>
@@ -827,7 +942,7 @@ const AttendancePage: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">LABOUR NAME</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.labourName || selectedLabour.name}</p>
+                                <p className="text-xs font-bold text-slate-800">{selectedLabour.name}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR</p>

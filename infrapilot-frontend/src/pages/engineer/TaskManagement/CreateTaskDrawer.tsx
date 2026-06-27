@@ -250,7 +250,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
         }
 
         try {
-            const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1 };
+            const priorityMap: Record<string, number> = { 'Low': 3, 'Medium': 2, 'High': 1, 'Critical': 4 };
 
             const formData = new FormData();
             formData.append('title', title);
@@ -449,6 +449,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 <option value="Low">Low</option>
                                 <option value="Medium">Medium</option>
                                 <option value="High">High</option>
+                                <option value="Critical">Critical</option>
                             </select>
                         </div>
 
