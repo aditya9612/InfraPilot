@@ -72,15 +72,24 @@ const SafetyManagementPage = () => {
 
     const [projectId, setProjectId] = useState<number | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [pageTasks, setPageTasks] = useState<any[]>([]);
 
     const getProjectName = (projId: number) => {
         const project = projects.find(p => Number(p.id || p.project_id) === Number(projId));
         return project ? (project.name || project.project_name) : `Project #${projId}`;
     };
 
+    const getTaskName = (taskId: number) => {
+        if (!taskId) return "-";
+        const task = pageTasks.find(t => Number(t.id) === Number(taskId));
+        return task ? (task.title || `Task #${taskId}`) : `Task #${taskId}`;
+    };
+
     // Form State
-    const [formData, setFormData] = useState<CreateSafetyRequest>({
+    const [formData, setFormData] = useState<CreateSafetyRequest | any>({
         project_id: 0,
+        task_id: 0,
         date: new Date().toISOString().split("T")[0],
         violation_type: "No Helmet",
         description: "",
@@ -141,6 +150,24 @@ const SafetyManagementPage = () => {
         }
     }, [isNewModalOpen, isEditModalOpen]);
 
+    useEffect(() => {
+        const fetchProjectTasks = async () => {
+            if (!formData.project_id) {
+                setTasks([]);
+                return;
+            }
+            try {
+                const res = await projectService.getTasks(formData.project_id);
+                const tasksList = Array.isArray(res) ? res : (res.items || res.data || []);
+                setTasks(tasksList);
+            } catch (error) {
+                console.error("Failed to fetch project tasks", error);
+                setTasks([]);
+            }
+        };
+        fetchProjectTasks();
+    }, [formData.project_id]);
+
     // ─── DATA FETCHING ──────────────────────────────────────────────────
 
     const fetchData = useCallback(async () => {
@@ -162,6 +189,20 @@ const SafetyManagementPage = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    useEffect(() => {
+        const fetchPageTasks = async () => {
+            if (!projectId) return;
+            try {
+                const res = await projectService.getTasks(projectId);
+                const tasksList = Array.isArray(res) ? res : (res.items || res.data || []);
+                setPageTasks(tasksList);
+            } catch (err) {
+                console.error("Failed to fetch page tasks", err);
+            }
+        };
+        fetchPageTasks();
+    }, [projectId]);
 
     const baseFilteredList = useMemo(() => {
         return incidentList.filter(item => {
@@ -532,6 +573,7 @@ const SafetyManagementPage = () => {
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
                                         <th className="px-6 py-4 font-inter">Incident Details</th>
                                         <th className="px-6 py-4 font-inter">Project Name</th>
+                                        <th className="px-6 py-4 font-inter">Task</th>
                                         <th className="px-6 py-4 font-inter">Incident Summary</th>
                                         <th className="px-6 py-4 font-inter">Violation Type</th>
                                         <th className="px-6 py-4 font-inter">Resources</th>
@@ -550,6 +592,11 @@ const SafetyManagementPage = () => {
                                                 <td className="px-6 py-4">
                                                     <span className="text-xs font-semibold text-slate-600 font-inter">
                                                         {getProjectName(item.project_id)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-semibold text-slate-600 font-inter bg-slate-100 px-2.5 py-1 rounded-lg truncate block max-w-[150px]" title={getTaskName((item as any).task_id)}>
+                                                        {getTaskName((item as any).task_id)}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -775,13 +822,29 @@ const SafetyManagementPage = () => {
                                 <select
                                     name="project_id"
                                     value={formData.project_id}
-                                    onChange={(e) => setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: Number(e.target.value) }))}
+                                    onChange={(e) => setFormData((prev: any) => ({ ...prev, project_id: Number(e.target.value), task_id: 0 }))}
                                     className={inputClasses}
                                 >
                                     <option value="">-- Select Project --</option>
                                     {projects.map((p: any) => (
                                         <option key={p.id || p.project_id} value={p.id || p.project_id}>
                                             {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="md:col-span-2 font-inter">
+                                <label className={labelClasses}>Task (Optional)</label>
+                                <select
+                                    name="task_id"
+                                    value={formData.task_id || ""}
+                                    onChange={(e) => setFormData((prev: any) => ({ ...prev, task_id: Number(e.target.value) }))}
+                                    className={inputClasses}
+                                >
+                                    <option value="">-- Select Task --</option>
+                                    {tasks.map((t: any) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.title || `Task #${t.id}`}
                                         </option>
                                     ))}
                                 </select>
