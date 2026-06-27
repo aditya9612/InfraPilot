@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { ProjectProvider } from "../context/ProjectContext";
 import ProtectedRoute from "./ProtectedRoute";
 import DashboardLayout from "../components/common/DashboardLayout";
 import Login from "../pages/auth/Login";
@@ -43,7 +44,7 @@ import DSRApprovalPage from "../pages/manager/DSRApprovalPage";
 import ResourceOrchestratorPage from "../pages/manager/ResourceOrchestratorPage";
 import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
 import WorkProgressPage from "../pages/manager/WorkProgressPage";
-import ManagerTasksPage from "../pages/manager/ManagerTasksPage";
+import ManagerTasksPage from "../pages/manager/TaskManagement/TaskManagementPage";
 import ManagerProcurementPage from "../pages/manager/ManagerProcurementPage";
 import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
 import ManagerQualityPage from "../pages/manager/ManagerQualityPage";
@@ -155,454 +156,455 @@ const RootRedirect = () => {
 function AppRoutes() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="/unauthorized" element={<Unauthorized />} />
-        <Route path="/login" element={<Login />} />
-        {/* Persistent Dashboard Layout Group */}
-        <Route element={<ProtectedRoute />}>
-          {" "}
-          {/* No role restriction here, inner routes will handle */}
-          <Route element={<DashboardLayout />}>
-            {/* Admin Specific Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/projects" element={<ProjectsPage />} />
-              <Route
-                path="/admin/projects/:id"
-                element={<ProjectDetailsPage />}
-              />
-              <Route path="/admin/boq/:id" element={<BOQDetailPage />} />
-              <Route path="/admin/users" element={<UsersPage />} />
-              <Route path="/admin/users/roles" element={<RolesPage />} />
-              <Route
-                path="/admin/users/permissions"
-                element={<PermissionsPage />}
-              />
-              <Route path="/admin/clients" element={<ClientsPage />} />
-              <Route path="/admin/clients/:id" element={<ClientDetailPage />} />
-              <Route
-                path="/admin/owners"
-                element={<Navigate to="/admin/owners/list" replace />}
-              />
-              <Route path="/admin/owners/list" element={<OwnersListPage />} />
-              <Route
-                path="/admin/owners/agreements"
-                element={<AgreementUploadPage />}
-              />
-              <Route
-                path="/admin/owners/payments"
-                element={<PaymentTrackerPage />}
-              />
-              <Route
-                path="/admin/owners/ledger"
-                element={<OwnerLedgerPage />}
-              />
-              <Route path="/admin/autocad" element={<AutoCADPage />} />
-              <Route path="/admin/engineers" element={<EngineersPage />} />
-              <Route path="/admin/engineers/:id" element={<EngineerProfilePage />} />
-              <Route path="/admin/boq" element={<BOQPage />} />
-              <Route path="/admin/boq/setup" element={<BOQPage />} />
-              <Route path="/admin/boq/activities" element={<BOQPage />} />
-              <Route path="/admin/inventory" element={<InventoryPage />} />
-              <Route
-                path="/admin/inventory/master"
-                element={<InventoryPage />}
-              />
-              <Route
-                path="/admin/inventory/stock"
-                element={<InventoryPage />}
-              />
-              <Route path="/admin/finance" element={<FinancePage />} />
-              <Route path="/admin/finance/invoices" element={<FinancePage />} />
-              <Route path="/admin/finance/payments" element={<FinancePage />} />
-              <Route path="/admin/finance/expenses" element={<FinancePage />} />
-              <Route path="/admin/finance/profit" element={<FinancePage />} />
-              <Route path="/admin/approvals" element={<ApprovalsPage />} />
-              <Route path="compliance/qc" element={<QCGovernancePage />} />
-              <Route path="/admin/reports" element={<ReportsPage />} />
-              <Route path="/admin/reports/progress" element={<ReportsPage />} />
-              <Route
-                path="/admin/reports/financial"
-                element={<ReportsPage />}
-              />
-              <Route path="/admin/reports/labour" element={<ReportsPage />} />
-              <Route
-                path="/admin/reports/consumption"
-                element={<ReportsPage />}
-              />
-              <Route
-                path="/admin/reports/performance"
-                element={<ReportsPage />}
-              />
-              <Route
-                path="/admin/notifications"
-                element={<NotificationsPage />}
-              />
-              <Route
-                path="/admin/notifications/alerts"
-                element={<NotificationsPage filter="alerts" />}
-              />
-              <Route
-                path="/admin/notifications/system"
-                element={<NotificationsPage filter="system" />}
-              />
-              <Route path="/admin/documents" element={<DocumentsPage />} />
-              <Route path="/admin/measurements" element={<MeasurementPage />} />
-              <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
-              <Route path="/admin/quotations" element={<QuotationsPage />} />
-              <Route path="/admin/quotations/view/:id" element={<CreateInvoicePage />} />
-              <Route path="/admin/invoices/create" element={<CreateInvoicePage />} />
-              <Route path="/admin/master-data" element={<MasterDataPage />} />
-              <Route
-                path="/admin/master-data/materials"
-                element={<MasterDataPage />}
-              />
-              <Route
-                path="/admin/master-data/labour"
-                element={<MasterDataPage />}
-              />
-              <Route
-                path="/admin/master-data/activities"
-                element={<MasterDataPage />}
-              />
-              <Route
-                path="/admin/master-data/units"
-                element={<MasterDataPage />}
-              />
-              <Route
-                path="/admin/integrations"
-                element={<IntegrationsPage />}
-              />
-              <Route path="/admin/settings" element={<SettingsPage />} />
-            </Route>
+      <ProjectProvider>
+        <Routes>
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
+          <Route path="/login" element={<Login />} />
+          {/* Persistent Dashboard Layout Group */}
+          <Route element={<ProtectedRoute />}>
+            {" "}
+            {/* No role restriction here, inner routes will handle */}
+            <Route element={<DashboardLayout />}>
+              {/* Admin Specific Routes */}
+              <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/projects" element={<ProjectsPage />} />
+                <Route
+                  path="/admin/projects/:id"
+                  element={<ProjectDetailsPage />}
+                />
+                <Route path="/admin/boq/:id" element={<BOQDetailPage />} />
+                <Route path="/admin/users" element={<UsersPage />} />
+                <Route path="/admin/users/roles" element={<RolesPage />} />
+                <Route
+                  path="/admin/users/permissions"
+                  element={<PermissionsPage />}
+                />
+                <Route path="/admin/clients" element={<ClientsPage />} />
+                <Route path="/admin/clients/:id" element={<ClientDetailPage />} />
+                <Route
+                  path="/admin/owners"
+                  element={<Navigate to="/admin/owners/list" replace />}
+                />
+                <Route path="/admin/owners/list" element={<OwnersListPage />} />
+                <Route
+                  path="/admin/owners/agreements"
+                  element={<AgreementUploadPage />}
+                />
+                <Route
+                  path="/admin/owners/payments"
+                  element={<PaymentTrackerPage />}
+                />
+                <Route
+                  path="/admin/owners/ledger"
+                  element={<OwnerLedgerPage />}
+                />
+                <Route path="/admin/autocad" element={<AutoCADPage />} />
+                <Route path="/admin/engineers" element={<EngineersPage />} />
+                <Route path="/admin/engineers/:id" element={<EngineerProfilePage />} />
+                <Route path="/admin/boq" element={<BOQPage />} />
+                <Route path="/admin/boq/setup" element={<BOQPage />} />
+                <Route path="/admin/boq/activities" element={<BOQPage />} />
+                <Route path="/admin/inventory" element={<InventoryPage />} />
+                <Route
+                  path="/admin/inventory/master"
+                  element={<InventoryPage />}
+                />
+                <Route
+                  path="/admin/inventory/stock"
+                  element={<InventoryPage />}
+                />
+                <Route path="/admin/finance" element={<FinancePage />} />
+                <Route path="/admin/finance/invoices" element={<FinancePage />} />
+                <Route path="/admin/finance/payments" element={<FinancePage />} />
+                <Route path="/admin/finance/expenses" element={<FinancePage />} />
+                <Route path="/admin/finance/profit" element={<FinancePage />} />
+                <Route path="/admin/approvals" element={<ApprovalsPage />} />
+                <Route path="compliance/qc" element={<QCGovernancePage />} />
+                <Route path="/admin/reports" element={<ReportsPage />} />
+                <Route path="/admin/reports/progress" element={<ReportsPage />} />
+                <Route
+                  path="/admin/reports/financial"
+                  element={<ReportsPage />}
+                />
+                <Route path="/admin/reports/labour" element={<ReportsPage />} />
+                <Route
+                  path="/admin/reports/consumption"
+                  element={<ReportsPage />}
+                />
+                <Route
+                  path="/admin/reports/performance"
+                  element={<ReportsPage />}
+                />
+                <Route
+                  path="/admin/notifications"
+                  element={<NotificationsPage />}
+                />
+                <Route
+                  path="/admin/notifications/alerts"
+                  element={<NotificationsPage filter="alerts" />}
+                />
+                <Route
+                  path="/admin/notifications/system"
+                  element={<NotificationsPage filter="system" />}
+                />
+                <Route path="/admin/documents" element={<DocumentsPage />} />
+                <Route path="/admin/measurements" element={<MeasurementPage />} />
+                <Route path="/admin/invoices/all" element={<AllInvoicesPage />} />
+                <Route path="/admin/quotations" element={<QuotationsPage />} />
+                <Route path="/admin/quotations/view/:id" element={<CreateInvoicePage />} />
+                <Route path="/admin/invoices/create" element={<CreateInvoicePage />} />
+                <Route path="/admin/master-data" element={<MasterDataPage />} />
+                <Route
+                  path="/admin/master-data/materials"
+                  element={<MasterDataPage />}
+                />
+                <Route
+                  path="/admin/master-data/labour"
+                  element={<MasterDataPage />}
+                />
+                <Route
+                  path="/admin/master-data/activities"
+                  element={<MasterDataPage />}
+                />
+                <Route
+                  path="/admin/master-data/units"
+                  element={<MasterDataPage />}
+                />
+                <Route
+                  path="/admin/integrations"
+                  element={<IntegrationsPage />}
+                />
+                <Route path="/admin/settings" element={<SettingsPage />} />
+              </Route>
 
-            {/* Shared Collaboration Routes */}
-            <Route path="/chat" element={<ChatDashboard />} />
+              {/* Shared Collaboration Routes */}
+              <Route path="/chat" element={<ChatDashboard />} />
 
-            {/* Manager Specific Routes */}
-            <Route path="/manager" element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}>
-              <Route index element={<ManagerDashboard />} />
-              <Route path="projects" element={<ProjectsPage />} />
-              <Route path="projects/list" element={<ProjectsPage />} />
-              <Route path="projects/:id" element={<ProjectDetailsPage />} />
-              <Route path="work-progress" element={<WorkProgressPage />} />
-              <Route path="work-progress/:tab" element={<WorkProgressPage />} />
-              <Route path="tasks" element={<ManagerTasksPage />} />
-              <Route path="tasks/:tab" element={<ManagerTasksPage />} />
-              <Route path="approvals" element={<ManagerApprovalsPage />} />
-              <Route path="approvals/:tab" element={<ManagerApprovalsPage />} />
-              <Route path="approvals/dsr" element={<DSRApprovalPage />} />
-              <Route path="approvals/material" element={<ManagerApprovalsPage />} />
-              <Route path="approvals/expense" element={<ManagerApprovalsPage />} />
-              <Route path="boq" element={<ManagerBOQPage />} />
-              <Route path="boq/:tab" element={<ManagerBOQPage />} />
-              <Route path="procurement" element={<ManagerProcurementPage />} />
-              <Route path="procurement/:tab" element={<ManagerProcurementPage />} />
-              <Route path="quality" element={<ManagerQualityPage />} />
-              <Route path="quality/:tab" element={<ManagerQualityPage />} />
-              <Route path="safety" element={<ManagerSafetyPage />} />
-              <Route path="safety/:tab" element={<ManagerSafetyPage />} />
-              <Route path="labour" element={<LabourRegistryPage />} />
-              <Route path="labour/:id" element={<LabourTaskDetailPage />} />
-              <Route path="resources/labour" element={<LabourRegistryPage />} />
-              <Route path="resources/equipment" element={<EquipmentRegistryPage />} />
-              <Route path="resources/materials" element={<MaterialInventoryPage />} />
-              <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
-              <Route path="compliance/qc" element={<QCGovernancePage />} />
-              <Route path="compliance/safety" element={<SafetyManagementPage />} />
-              <Route path="documents" element={<ManagerDocumentsPage />} />
-              <Route path="documents/:tab" element={<ManagerDocumentsPage />} />
-              <Route path="settings" element={<ManagerSettingsPage />} />
-              <Route path="reports" element={<ManagerReportsPage />} />
-              <Route path="reports/:tab" element={<ManagerReportsPage />} />
-            </Route>
+              {/* Manager Specific Routes */}
+              <Route path="/manager" element={<ProtectedRoute allowedRoles={["ProjectManager"]} />}>
+                <Route index element={<ManagerDashboard />} />
+                <Route path="projects" element={<ProjectsPage />} />
+                <Route path="projects/list" element={<ProjectsPage />} />
+                <Route path="projects/:id" element={<ProjectDetailsPage />} />
+                <Route path="work-progress" element={<WorkProgressPage />} />
+                <Route path="work-progress/:tab" element={<WorkProgressPage />} />
+                <Route path="tasks" element={<ManagerTasksPage />} />
+                <Route path="tasks/:tab" element={<ManagerTasksPage />} />
+                <Route path="approvals" element={<ManagerApprovalsPage />} />
+                <Route path="approvals/:tab" element={<ManagerApprovalsPage />} />
+                <Route path="approvals/dsr" element={<DSRApprovalPage />} />
+                <Route path="approvals/material" element={<ManagerApprovalsPage />} />
+                <Route path="approvals/expense" element={<ManagerApprovalsPage />} />
+                <Route path="boq" element={<ManagerBOQPage />} />
+                <Route path="boq/:tab" element={<ManagerBOQPage />} />
+                <Route path="procurement" element={<ManagerProcurementPage />} />
+                <Route path="procurement/:tab" element={<ManagerProcurementPage />} />
+                <Route path="quality" element={<ManagerQualityPage />} />
+                <Route path="quality/:tab" element={<ManagerQualityPage />} />
+                <Route path="safety" element={<ManagerSafetyPage />} />
+                <Route path="safety/:tab" element={<ManagerSafetyPage />} />
+                <Route path="labour" element={<LabourRegistryPage />} />
+                <Route path="labour/:id" element={<LabourTaskDetailPage />} />
+                <Route path="resources/labour" element={<LabourRegistryPage />} />
+                <Route path="resources/equipment" element={<EquipmentRegistryPage />} />
+                <Route path="resources/materials" element={<MaterialInventoryPage />} />
+                <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
+                <Route path="compliance/qc" element={<QCGovernancePage />} />
+                <Route path="compliance/safety" element={<SafetyManagementPage />} />
+                <Route path="documents" element={<ManagerDocumentsPage />} />
+                <Route path="documents/:tab" element={<ManagerDocumentsPage />} />
+                <Route path="settings" element={<ManagerSettingsPage />} />
+                <Route path="reports" element={<ManagerReportsPage />} />
+                <Route path="reports/:tab" element={<ManagerReportsPage />} />
+              </Route>
 
-            {/* Client Specific Routes */}
-            <Route
-              element={<ProtectedRoute allowedRoles={["Client"]} />}
-            >
-              {/* Dashboard */}
-              <Route path="/client" element={<ClientDashboard />} />
-
-              {/* Projects */}
-              <Route path="/client/projects" element={<ProjectsPage />} />
-              <Route path="/client/projects/:id" element={<ProjectDetailsPage />} />
-
-              {/* Overview */}
-              <Route path="/client/overview" element={<ClientOverviewPage />} />
-              <Route path="/client/project-overview" element={<ClientProjectOverviewPage />} />
-
-              {/* Progress */}
-              <Route path="/client/progress" element={<ClientProgressPage />} />
-
-              {/* Site Updates */}
+              {/* Client Specific Routes */}
               <Route
-                path="/client/site-updates/photos"
-                element={<ClientPhotosPage />}
-              />
-              <Route
-                path="/client/site-updates/dsr"
-                element={<ClientDSRSummaryPage />}
-              />
-              {/* Legacy paths for backward compatibility */}
-              <Route
-                path="/client/photos"
-                element={<ClientPhotosPage />}
-              />
-              <Route
-                path="/client/dsr-summary"
-                element={<ClientDSRSummaryPage />}
-              />
+                element={<ProtectedRoute allowedRoles={["Client"]} />}
+              >
+                {/* Dashboard */}
+                <Route path="/client" element={<ClientDashboard />} />
 
-              {/* Issues */}
-              <Route
-                path="/client/issues"
-                element={<ClientIssuesPage />}
-              />
+                {/* Projects */}
+                <Route path="/client/projects" element={<ProjectsPage />} />
+                <Route path="/client/projects/:id" element={<ProjectDetailsPage />} />
 
-              {/* Documents */}
-              <Route
-                path="/client/documents"
-                element={<ClientDocumentsPage />}
-              />
+                {/* Overview */}
+                <Route path="/client/overview" element={<ClientOverviewPage />} />
+                <Route path="/client/project-overview" element={<ClientProjectOverviewPage />} />
 
-              {/* Approvals */}
-              <Route
-                path="/client/approvals"
-                element={<ClientApprovalsPage />}
-              />
-              <Route
-                path="/client/pending-approvals"
-                element={<ClientApprovalsPage />}
-              />
-              <Route
-                path="/client/approved-items"
-                element={<ClientApprovalsPage />}
-              />
+                {/* Progress */}
+                <Route path="/client/progress" element={<ClientProgressPage />} />
 
-              {/* Payment */}
-              <Route path="/client/payment" element={<Navigate to="/client/payment/quotation" replace />} />
-              <Route path="/client/payment/:tab" element={<ClientPaymentPage />} />
+                {/* Site Updates */}
+                <Route
+                  path="/client/site-updates/photos"
+                  element={<ClientPhotosPage />}
+                />
+                <Route
+                  path="/client/site-updates/dsr"
+                  element={<ClientDSRSummaryPage />}
+                />
+                {/* Legacy paths for backward compatibility */}
+                <Route
+                  path="/client/photos"
+                  element={<ClientPhotosPage />}
+                />
+                <Route
+                  path="/client/dsr-summary"
+                  element={<ClientDSRSummaryPage />}
+                />
 
-              {/* Communication */}
-              <Route
-                path="/client/communication/messages"
-                element={<ClientMessagesPage />}
-              />
-              <Route
-                path="/client/communication/announcements"
-                element={<ClientAnnouncementsPage />}
-              />
-              {/* Legacy paths for backward compatibility */}
-              <Route
-                path="/client/messages"
-                element={<ClientMessagesPage />}
-              />
-              <Route
-                path="/client/announcements"
-                element={<ClientAnnouncementsPage />}
-              />
+                {/* Issues */}
+                <Route
+                  path="/client/issues"
+                  element={<ClientIssuesPage />}
+                />
 
-              {/* Reports Dashboard */}
-              <Route path="/client/reports" element={<ClientReportsPage />} />
-              <Route path="/client/reports/summary" element={<ClientReportsPage />} />
+                {/* Documents */}
+                <Route
+                  path="/client/documents"
+                  element={<ClientDocumentsPage />}
+                />
 
-              {/* Specific Report Pages */}
-              <Route path="/client/reports/labour" element={<ClientLabourReportPage />} />
-              <Route path="/client/reports/material" element={<ClientMaterialReportPage />} />
-              <Route path="/client/reports/issues" element={<ClientIssueReportPage />} />
-              <Route path="/client/reports/combined" element={<ClientCombinedReportPage />} />
-              <Route path="/client/reports/contractor" element={<ClientContractorPerformancePage />} />
-              <Route path="/client/reports/project" element={<ClientProjectReportPage />} />
-              <Route path="/client/reports/profit-loss" element={<ClientProfitLossPage />} />
-              <Route path="/client/reports/cashflow" element={<ClientCashflowPage />} />
-              <Route path="/client/reports/assets" element={<ClientAssetReportPage />} />
-              <Route path="/client/reports/client-report" element={<ClientIndividualReportPage />} />
-              <Route path="/client/reports/financial" element={<ClientFinancialDetailsPage />} />
-              <Route path="/client/reports/work" element={<ClientTaskStatusPage />} />
+                {/* Approvals */}
+                <Route
+                  path="/client/approvals"
+                  element={<ClientApprovalsPage />}
+                />
+                <Route
+                  path="/client/pending-approvals"
+                  element={<ClientApprovalsPage />}
+                />
+                <Route
+                  path="/client/approved-items"
+                  element={<ClientApprovalsPage />}
+                />
 
-              {/* High Level Report Pages */}
-              <Route path="/client/monthly-progress-report" element={<ClientMonthlyProgressPage />} />
-              <Route path="/client/financial-report" element={<ClientFinancialDetailsPage />} />
-              <Route path="/client/work-summary" element={<ClientTaskStatusPage />} />
+                {/* Payment */}
+                <Route path="/client/payment" element={<Navigate to="/client/payment/quotation" replace />} />
+                <Route path="/client/payment/:tab" element={<ClientPaymentPage />} />
 
-              {/* Settings */}
-              <Route
-                path="/client/settings"
-                element={<ClientSettingsPage />}
-              />
-            </Route>
+                {/* Communication */}
+                <Route
+                  path="/client/communication/messages"
+                  element={<ClientMessagesPage />}
+                />
+                <Route
+                  path="/client/communication/announcements"
+                  element={<ClientAnnouncementsPage />}
+                />
+                {/* Legacy paths for backward compatibility */}
+                <Route
+                  path="/client/messages"
+                  element={<ClientMessagesPage />}
+                />
+                <Route
+                  path="/client/announcements"
+                  element={<ClientAnnouncementsPage />}
+                />
 
-            {/* Engineer Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["SiteEngineer"]} />}>
-              <Route path="/engineer" element={<EngineerDashboard />} />
-              <Route path="/engineer/dsr" element={<DSRPage />} />
-              <Route path="/engineer/photos" element={<SitePhotosPage />} />
-              <Route path="/engineer/reports" element={<EngineerReportsPage />} />
-              <Route path="/engineer/notifications" element={<EngineerNotificationsPage />} />
-              <Route path="/engineer/settings" element={<EngineerSettingsPage />} />
-              <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
-              <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
-              <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
-              <Route path="/engineer/labor/:id" element={<LabourTaskDetailPage />} />
-              <Route path="/engineer/labor/attendance" element={<AttendancePage />} />
-              <Route path="/engineer/labor/labour-attendance" element={<LabourAttendancePage />} />
-              <Route path="/engineer/labor/payments" element={<PaymentPage />} />
-              <Route path="/engineer/labor/reports" element={<PayrollReportPage />} />
-              <Route path="/engineer/tasks" element={<TaskManagementPage />} />
-              <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
-              <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />
-              <Route path="/engineer/material/stock" element={<MaterialStockPage />} />
-              <Route path="/engineer/material/history" element={<MaterialHistoryPage />} />
-              <Route path="/engineer/qc/inspection" element={<QCInspectionPage />} />
-              <Route path="/engineer/qc/reports" element={<QCInspectionPage />} />
-              <Route path="/engineer/machinery" element={<MachineryPage />} />
-              <Route path="/engineer/safety/checklist" element={<SafetyManagementPage />} />
-              <Route path="/engineer/safety/incident" element={<SafetyManagementPage />} />
-              <Route path="/engineer/issues" element={<IssueTrackerPage />} />
-              <Route path="/engineer/drawings" element={<DrawingsDocumentsPage />} />
-              <Route path="/engineer/checklists" element={<ChecklistsPage />} />
-              <Route path="/engineer/approvals/material" element={<MaterialRequestPage />} />
-              <Route path="/engineer/approvals/work" element={<WorkApprovalPage />} />
-            </Route>
+                {/* Reports Dashboard */}
+                <Route path="/client/reports" element={<ClientReportsPage />} />
+                <Route path="/client/reports/summary" element={<ClientReportsPage />} />
 
-            {/* Labour Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Labour"]} />}>
-              <Route path="/labour" element={<LabourDashboard />} />
-              <Route path="/labour/attendance" element={<LabourAttendancePageSelf />} />
-              <Route path="/labour/tasks" element={<MyTasksPage />} />
-              {/* <Route path="/labour/work-updates" element={<WorkUpdatesPage />} /> */}
-              <Route path="/labour/task-requests" element={<TaskRequestsPage />} />
-              <Route path="/labour/notifications" element={<LabourNotificationsPage />} />
-              <Route path="/labour/payments" element={<PaymentsPage />} />
-              <Route path="/labour/settings" element={<LabourSettingsPage />} />
-            </Route>
 
-            {/* Contractor Routes - Temporarily commented out as Contractor is not in UserRole type */}
-            {/* <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
+                {/* Specific Report Pages */}
+                <Route path="/client/reports/labour" element={<ClientLabourReportPage />} />
+                <Route path="/client/reports/material" element={<ClientMaterialReportPage />} />
+                <Route path="/client/reports/issues" element={<ClientIssueReportPage />} />
+                <Route path="/client/reports/combined" element={<ClientCombinedReportPage />} />
+                <Route path="/client/reports/contractor" element={<ClientContractorPerformancePage />} />
+                <Route path="/client/reports/project" element={<ClientProjectReportPage />} />
+                <Route path="/client/reports/profit-loss" element={<ClientProfitLossPage />} />
+                <Route path="/client/reports/cashflow" element={<ClientCashflowPage />} />
+                <Route path="/client/reports/assets" element={<ClientAssetReportPage />} />
+                <Route path="/client/reports/client-report" element={<ClientIndividualReportPage />} />
+                <Route path="/client/reports/financial" element={<ClientFinancialDetailsPage />} />
+                <Route path="/client/reports/work" element={<ClientTaskStatusPage />} />
+
+                {/* High Level Report Pages */}
+                <Route path="/client/monthly-progress-report" element={<ClientMonthlyProgressPage />} />
+                <Route path="/client/financial-report" element={<ClientFinancialDetailsPage />} />
+                <Route path="/client/work-summary" element={<ClientTaskStatusPage />} />
+
+                {/* Settings */}
+                <Route
+                  path="/client/settings"
+                  element={<ClientSettingsPage />}
+                />
+              </Route>
+
+              {/* Engineer Routes */}
+              <Route element={<ProtectedRoute allowedRoles={["SiteEngineer"]} />}>
+                <Route path="/engineer" element={<EngineerDashboard />} />
+                <Route path="/engineer/dsr" element={<DSRPage />} />
+                <Route path="/engineer/photos" element={<SitePhotosPage />} />
+                <Route path="/engineer/reports" element={<EngineerReportsPage />} />
+                <Route path="/engineer/notifications" element={<EngineerNotificationsPage />} />
+                <Route path="/engineer/settings" element={<EngineerSettingsPage />} />
+                <Route path="/engineer/progress/activities" element={<ActivityListPage />} />
+                <Route path="/engineer/progress/entry" element={<DailyProgressEntryPage />} />
+                <Route path="/engineer/labor/list" element={<LaborDetailsPage />} />
+                <Route path="/engineer/labor/:id" element={<LabourTaskDetailPage />} />
+                <Route path="/engineer/labor/attendance" element={<AttendancePage />} />
+                <Route path="/engineer/labor/labour-attendance" element={<LabourAttendancePage />} />
+                <Route path="/engineer/labor/payments" element={<PaymentPage />} />
+                <Route path="/engineer/labor/reports" element={<PayrollReportPage />} />
+                <Route path="/engineer/tasks" element={<TaskManagementPage />} />
+                <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
+                <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />
+                <Route path="/engineer/material/stock" element={<MaterialStockPage />} />
+                <Route path="/engineer/material/history" element={<MaterialHistoryPage />} />
+                <Route path="/engineer/qc/inspection" element={<QCInspectionPage />} />
+                <Route path="/engineer/qc/reports" element={<QCInspectionPage />} />
+                <Route path="/engineer/machinery" element={<MachineryPage />} />
+                <Route path="/engineer/safety/checklist" element={<SafetyManagementPage />} />
+                <Route path="/engineer/safety/incident" element={<SafetyManagementPage />} />
+                <Route path="/engineer/issues" element={<IssueTrackerPage />} />
+                <Route path="/engineer/drawings" element={<DrawingsDocumentsPage />} />
+                <Route path="/engineer/checklists" element={<ChecklistsPage />} />
+                <Route path="/engineer/approvals/material" element={<MaterialRequestPage />} />
+                <Route path="/engineer/approvals/work" element={<WorkApprovalPage />} />
+              </Route>
+
+              {/* Labour Routes */}
+              <Route element={<ProtectedRoute allowedRoles={["Labour"]} />}>
+                <Route path="/labour" element={<LabourDashboard />} />
+                <Route path="/labour/attendance" element={<LabourAttendancePageSelf />} />
+                <Route path="/labour/tasks" element={<MyTasksPage />} />
+                <Route path="/labour/work-updates" element={<WorkUpdatesPage />} />
+                <Route path="/labour/task-requests" element={<TaskRequestsPage />} />
+                <Route path="/labour/notifications" element={<LabourNotificationsPage />} />
+                <Route path="/labour/payments" element={<PaymentsPage />} />
+                <Route path="/labour/settings" element={<LabourSettingsPage />} />
+              </Route>
+
+              {/* Contractor Routes - Temporarily commented out as Contractor is not in UserRole type */}
+              {/* <Route element={<ProtectedRoute allowedRoles={["Contractor"]} />}>
               <Route path="/contractor" element={<ContractorDashboard />} />
             </Route> */}
 
-            {/* Accountant Specific Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
-              <Route path="/accountant" element={<AccountantDashboard />} />
-              <Route
-                path="/accountant/chart-of-accounts"
-                element={<Navigate to="/accountant/chart-of-accounts/assets" replace />}
-              />
-              <Route
-                path="/accountant/chart-of-accounts/:category"
-                element={<ChartOfAccountsPage />}
-              />
-              <Route
-                path="/accountant/receivables"
-                element={<Navigate to="/accountant/receivables/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/receivables/:subpage"
-                element={<ReceivablesPage />}
-              />
-              {/* Legacy direct routes — kept for back-compat */}
-              <Route
-                path="/accountant/receivables/ra-bills"
-                element={<ReceivablesPage />}
-              />
-              <Route
-                path="/accountant/receivables/credit-notes"
-                element={<ReceivablesPage />}
-              />
-              <Route
-                path="/accountant/expenses"
-                element={<Navigate to="/accountant/expenses/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/expenses/:category"
-                element={<ExpensesPage />}
-              />
-              <Route
-                path="/accountant/payables"
-                element={<Navigate to="/accountant/payables/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/payables/:category"
-                element={<PayablesPage />}
-              />
-              <Route
-                path="/accountant/payments"
-                element={<Navigate to="/accountant/payments/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/payments/:category"
-                element={<PaymentsReceiptsPage />}
-              />
-              <Route
-                path="/accountant/taxation"
-                element={<Navigate to="/accountant/taxation/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/taxation/:category"
-                element={<TaxationPage />}
-              />
-              <Route
-                path="/accountant/payroll"
-                element={<Navigate to="/accountant/payroll/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/payroll/:category"
-                element={<PayrollPage />}
-              />
-              <Route
-                path="/accountant/banking"
-                element={<Navigate to="/accountant/banking/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/banking/:category"
-                element={<BankingPage />}
-              />
-              <Route
-                path="/accountant/journal"
-                element={<Navigate to="/accountant/journal/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/journal/:category"
-                element={<JournalEntriesPage />}
-              />
-              <Route
-                path="/accountant/assets"
-                element={<Navigate to="/accountant/assets/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/assets/:category"
-                element={<FixedAssetsPage />}
-              />
-              <Route
-                path="/accountant/reports"
-                element={<Navigate to="/accountant/reports/dashboard" replace />}
-              />
-              <Route
-                path="/accountant/reports/:category"
-                element={<AccountantReportsPage />}
-              />
-              <Route
-                path="/accountant/reports/:reportId"
-                element={<AccountantReportsPage />}
-              />
-              <Route
-                path="/accountant/settings"
-                element={<Navigate to="/accountant/settings/company" replace />}
-              />
-              <Route
-                path="/accountant/settings/:category"
-                element={<AccountantSettingsPage />}
-              />
+
+              {/* Accountant Specific Routes */}
+              <Route element={<ProtectedRoute allowedRoles={["Accountant"]} />}>
+                <Route path="/accountant" element={<AccountantDashboard />} />
+                <Route
+                  path="/accountant/chart-of-accounts"
+                  element={<ChartOfAccountsPage />}
+                />
+                <Route
+                  path="/accountant/chart-of-accounts/:category"
+                  element={<ChartOfAccountsPage />}
+                />
+                <Route
+                  path="/accountant/receivables"
+                  element={<Navigate to="/accountant/receivables/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/receivables/:subpage"
+                  element={<ReceivablesPage />}
+                />
+                <Route
+                  path="/accountant/receivables/ra-bills"
+                  element={<ReceivablesPage />}
+                />
+                <Route
+                  path="/accountant/receivables/credit-notes"
+                  element={<ReceivablesPage />}
+                />
+                <Route
+                  path="/accountant/expenses"
+                  element={<Navigate to="/accountant/expenses/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/expenses/:category"
+                  element={<ExpensesPage />}
+                />
+                <Route
+                  path="/accountant/payables"
+                  element={<Navigate to="/accountant/payables/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/payables/:category"
+                  element={<PayablesPage />}
+                />
+                <Route
+                  path="/accountant/payments"
+                  element={<Navigate to="/accountant/payments/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/payments/:category"
+                  element={<PaymentsReceiptsPage />}
+                />
+                <Route
+                  path="/accountant/taxation"
+                  element={<Navigate to="/accountant/taxation/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/taxation/:category"
+                  element={<TaxationPage />}
+                />
+                <Route
+                  path="/accountant/payroll"
+                  element={<Navigate to="/accountant/payroll/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/payroll/:category"
+                  element={<PayrollPage />}
+                />
+                <Route
+                  path="/accountant/banking"
+                  element={<Navigate to="/accountant/banking/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/banking/:category"
+                  element={<BankingPage />}
+                />
+                <Route
+                  path="/accountant/journal"
+                  element={<Navigate to="/accountant/journal/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/journal/:category"
+                  element={<JournalEntriesPage />}
+                />
+                <Route
+                  path="/accountant/assets"
+                  element={<Navigate to="/accountant/assets/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/assets/:category"
+                  element={<FixedAssetsPage />}
+                />
+                <Route
+                  path="/accountant/reports"
+                  element={<Navigate to="/accountant/reports/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/reports/:category"
+                  element={<AccountantReportsPage />}
+                />
+                <Route
+                  path="/accountant/reports/:reportId"
+                  element={<AccountantReportsPage />}
+                />
+                <Route
+                  path="/accountant/settings"
+                  element={<Navigate to="/accountant/settings/company" replace />}
+                />
+                <Route
+                  path="/accountant/settings/:category"
+                  element={<AccountantSettingsPage />}
+                />
+              </Route>
             </Route>
-
-
           </Route>
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ProjectProvider>
     </BrowserRouter>
   );
 }

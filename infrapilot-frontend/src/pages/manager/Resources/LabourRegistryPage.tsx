@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import ConfirmModal from "../../../components/common/ConfirmModal";
+import Pagination from "../../../components/common/Pagination";
+import ProjectSelector from "../../../components/common/ProjectSelector";
 import toast from "react-hot-toast";
 import {
     Search, Edit2, Trash2, RotateCcw, FileDown, Activity, CreditCard, AlertCircle, LogIn, LogOut
@@ -15,7 +17,7 @@ import type { LabourItem } from "../../../types/labour";
 type TabType = "Registry" | "Attendance" | "Performance" | "Payroll" | "Alerts";
 
 const LabourRegistryPage = () => {
-    const { selectedProjectId } = useProject();
+    const { selectedProjectId, isLoading: isProjectLoading } = useProject();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<TabType>("Registry");
     const [laborers, setLaborers] = useState<LabourItem[]>([]);
@@ -23,8 +25,10 @@ const LabourRegistryPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter] = useState("All");
+    const [currentPage, setCurrentPage] = useState(0);
+    const PAGE_SIZE = 10;
 
-    const projectId = selectedProjectId || (user as any)?.project_id || 0;
+    const projectId = selectedProjectId || (user as any)?.project_id;
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [isDeleting] = useState(false);
@@ -47,8 +51,20 @@ const LabourRegistryPage = () => {
     }, [projectId, statusFilter, activeTab]);
 
     useEffect(() => {
+        if (isProjectLoading || !projectId) return;
         fetchLaborers();
-    }, [fetchLaborers]);
+    }, [fetchLaborers, isProjectLoading, projectId]);
+
+    // Global reset and derived states
+    useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm]);
+
+    const filteredLaborers = (laborers || []).filter(l => (l.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredAttendance = (attendanceRecords || []).filter(a => (a.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const currentListData = activeTab === "Registry" ? filteredLaborers :
+        activeTab === "Attendance" ? filteredAttendance : [];
+
+    const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     const handleExport = async (type: 'pdf' | 'excel') => {
         try {
@@ -89,11 +105,11 @@ const LabourRegistryPage = () => {
             <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                     <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading registry...</td></tr>
-                ) : laborers.filter(l => l.labour_name.toLowerCase().includes(searchTerm.toLowerCase())).map((labor) => (
+                ) : pagedData.length > 0 ? pagedData.map((labor: any) => (
                     <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">{labor.labour_name.charAt(0)}</div>
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">{(labor.labour_name || "U").charAt(0)}</div>
                                 <div className="flex flex-col">
                                     <span className="text-sm font-bold text-slate-800">{labor.labour_name}</span>
                                     <span className="text-[10px] font-mono text-slate-400">{labor.worker_code}</span>
@@ -115,7 +131,9 @@ const LabourRegistryPage = () => {
                             </div>
                         </td>
                     </tr>
-                ))}
+                )) : (
+                    <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No workforce records found</td></tr>
+                )}
             </tbody>
         </table>
     );
@@ -135,7 +153,7 @@ const LabourRegistryPage = () => {
             <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                     <tr><td colSpan={6} className="p-10 text-center text-slate-400">Syncing attendance logs...</td></tr>
-                ) : attendanceRecords.filter(a => a.labour_name.toLowerCase().includes(searchTerm.toLowerCase())).map((att, idx) => (
+                ) : pagedData.length > 0 ? pagedData.map((att: any, idx) => (
                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 font-bold text-slate-800 text-sm">{att.labour_name}</td>
                         <td className="px-6 py-4">
@@ -158,7 +176,9 @@ const LabourRegistryPage = () => {
                             </span>
                         </td>
                     </tr>
-                ))}
+                )) : (
+                    <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No attendance records found</td></tr>
+                )}
             </tbody>
         </table>
     );
@@ -189,6 +209,7 @@ const LabourRegistryPage = () => {
                         <p className="text-slate-500 text-sm">Deployment oversight, attendance metrics, and payroll compliance auditing.</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <ProjectSelector variant="page" />
                         <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
                             <button onClick={() => handleExport('pdf')} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 border-r border-slate-100 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-rose-500" /> PDF</button>
                             <button onClick={() => handleExport('excel')} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-emerald-500" /> Excel</button>
@@ -226,6 +247,13 @@ const LabourRegistryPage = () => {
                             </div>
                         )}
                     </div>
+                    <Pagination
+                        currentPage={currentPage}
+                        totalItems={currentListData.length}
+                        pageSize={PAGE_SIZE}
+                        onPageChange={setCurrentPage}
+                        label={activeTab === "Registry" ? "Workers" : "Records"}
+                    />
                 </div>
             </PageTransition>
 

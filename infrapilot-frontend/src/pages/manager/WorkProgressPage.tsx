@@ -2,7 +2,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import StatCard from "../../components/common/StatCard";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import {
     Clipboard,
@@ -37,6 +36,7 @@ import LogProgressModal from "../../components/WorkProgress/LogProgressModal";
 import AddActivityModal from "../../components/WorkProgress/AddActivityModal";
 import EditActivityModal from "../../components/WorkProgress/EditActivityModal";
 import ActivityDetailModal from "../../components/WorkProgress/ActivityDetailModal";
+import ProjectSelector from "../../components/common/ProjectSelector";
 
 const WorkProgressPage = () => {
     const navigate = useNavigate();
@@ -179,56 +179,31 @@ const WorkProgressPage = () => {
             <Navbar
                 title="Work Progress"
                 breadcrumb={["Manager", "Work Progress", tabs.find(t => t.id === activeTab)?.label || "Daily"]}
+                rightElement={<ProjectSelector />}
             />
 
             <PageTransition className="p-6 lg:p-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                    <div className="flex flex-col md:flex-row md:items-center gap-6">
-                        <div>
-                            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Project Execution Hub</h1>
-                            <p className="text-slate-500 mt-1 text-sm">Monitor site velocity, milestones, and daily operational excellence.</p>
-                        </div>
-
-                        {/* Project Selection Dropdown */}
-                        <div className="relative min-w-[240px]">
-                            <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                                <BarChart2 className="w-4 h-4 text-primary" />
-                            </div>
-                            <select
-                                value={projectId || ""}
-                                onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    setSelectedProjectId(val);
-                                    (window as any).currentProjectId = val;
-                                }}
-                                disabled={isLoadingProjects}
-                                className="w-full pl-11 pr-10 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none cursor-pointer shadow-sm hover:border-slate-300"
-                            >
-                                {isLoadingProjects ? (
-                                    <option>Loading Projects...</option>
-                                ) : (
-                                    <>
-                                        {projects.map(p => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.project_name || p.name || `Project #${p.id}`}
-                                            </option>
-                                        ))}
-                                    </>
-                                )}
-                            </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                <ChevronRight className="w-4 h-4 rotate-90" />
-                            </div>
-                        </div>
+                    <div>
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+                            {activeTab === "activities" || activeTab === "history" || activeTab === "delay"
+                                ? "Project Work Progress"
+                                : "Daily Work Progress"}
+                        </h1>
+                        <p className="text-slate-500 mt-1 text-sm">
+                            {activeTab === "activities" || activeTab === "history" || activeTab === "delay"
+                                ? "Historical record of project activities and BOQ execution momentum."
+                                : "Log and track daily execution activities on site."}
+                        </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
                         <button
-                            onClick={() => setIsExportModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+                            onClick={fetchData}
+                            className="p-2.5 text-slate-400 hover:text-primary hover:bg-white rounded-xl transition-all border border-slate-100 bg-white/50 shadow-sm active:scale-95"
+                            title="Sync Ledger"
                         >
-                            <Download className="w-4 h-4 text-primary" />
-                            Export Report
+                            <RotateCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
                             onClick={() => setIsAddModalOpen(true)}
@@ -512,7 +487,7 @@ const ActivityListView = ({
             {/* Stat Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
-                    { title: "Total Activities", value: stats.total.toString(), sub: "Active Ledger", accent: "text-slate-800", status: "All" },
+                    { title: "Total Tasks", value: stats.total.toString(), sub: "Active Ledger", accent: "text-slate-800", status: "All" },
                     { title: "Compliance", value: stats.complianceRate, sub: "Completion Rate", accent: "text-blue-500", status: "Compliance" },
                     { title: "Behind Schedule", value: stats.delayed.toString(), sub: "Action Required", accent: "text-rose-500", status: "Delayed" },
                     { title: "Execution", value: stats.onTrack.toString(), sub: "On Track Items", accent: "text-emerald-500", status: "Execution" },
@@ -574,7 +549,6 @@ const ActivityListView = ({
                                 <th className="px-6 py-4">Activity Description</th>
                                 <th className="px-6 py-4">Logistics</th>
                                 <th className="px-6 py-4">Timeline</th>
-                                <th className="px-6 py-4">Progress</th>
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
@@ -595,8 +569,8 @@ const ActivityListView = ({
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
-                                            <span className="text-[11px] font-bold text-slate-800">{a.total_completed} / {a.planned_quantity} {a.unit}</span>
-                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{a.remaining_quantity} Remaining</span>
+                                            <span className="text-[10px] font-bold text-slate-800">{a.total_completed} / {a.planned_quantity} {a.unit}</span>
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{a.remaining_quantity || (a.planned_quantity - a.total_completed)} Remaining</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
@@ -606,18 +580,7 @@ const ActivityListView = ({
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="w-24">
-                                            <div className="flex justify-between text-[9px] font-bold text-slate-400 mb-1">
-                                                <span>Progress</span>
-                                                <span>{Number(a.completion_percentage || 0).toFixed(0)}%</span>
-                                            </div>
-                                            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div className="h-full bg-primary rounded-full" style={{ width: `${a.completion_percentage || 0}%` }} />
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest ${statusBadgeClass[a.status] || "bg-slate-100 text-slate-500"}`}>
+                                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest border ${statusBadgeClass[a.status] || "bg-slate-100 text-slate-500"}`}>
                                             {a.status}
                                         </span>
                                     </td>
@@ -656,13 +619,13 @@ const ActivityListView = ({
 
                 {/* Pagination */}
                 {!loading && filteredActivities.length > 0 && (
-                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                    <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                         <div className="flex items-center gap-2">
                             <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                             <select
                                 value={itemsPerPage}
                                 onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none bg-white shadow-sm"
+                                className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
                             >
                                 {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
                             </select>
@@ -671,15 +634,41 @@ const ActivityListView = ({
                             Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredActivities.length)} of {filteredActivities.length} records
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 bg-white shadow-sm">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                            >
                                 <ChevronRight className="w-4 h-4 rotate-180" />
                             </button>
-                            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map(p => (
-                                <button key={p} onClick={() => setCurrentPage(p)} className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${currentPage === p ? 'bg-primary text-white border border-primary' : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'}`}>
-                                    {p}
-                                </button>
-                            ))}
-                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 bg-white shadow-sm">
+                            {(() => {
+                                const pages = [];
+                                if (totalPages <= 5) {
+                                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                } else {
+                                    if (currentPage <= 3) pages.push(1, 2, 3, 4, '...', totalPages);
+                                    else if (currentPage >= totalPages - 2) pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                    else pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                }
+                                return pages.map((p, i) => (
+                                    p === '...' ? (
+                                        <span key={`ellipsis-${i}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>
+                                    ) : (
+                                        <button
+                                            key={`page-${p}`}
+                                            onClick={() => setCurrentPage(p as number)}
+                                            className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${currentPage === p ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'}`}
+                                        >
+                                            {p}
+                                        </button>
+                                    )
+                                ));
+                            })()}
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                            >
                                 <ChevronRight className="w-4 h-4" />
                             </button>
                         </div>
@@ -727,40 +716,29 @@ const DailyProgressView = ({
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div onClick={() => onStatFilterChange("All")} className="cursor-pointer">
-                    <StatCard
-                        title="Total Activities"
-                        value={summary?.total_activities.toString() || "0"}
-                        sub="Active Scope"
-                        accent={activeStatFilter === "All" ? "text-primary ring-2 ring-primary/20 rounded-2xl p-1" : "text-primary"}
-                        icon={<TrendingUp className="w-5 h-5 text-primary" />}
-                    />
-                </div>
-                <div onClick={() => onStatFilterChange("Completed")} className="cursor-pointer">
-                    <StatCard
-                        title="Completed"
-                        value={summary?.completed_activities.toString() || "0"}
-                        sub="Finished Activities"
-                        accent={activeStatFilter === "Completed" ? "text-emerald-500 ring-2 ring-emerald-500/20 rounded-2xl p-1" : "text-emerald-500"}
-                        icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-                    />
-                </div>
-                <div onClick={() => onStatFilterChange("Delayed")} className="cursor-pointer">
-                    <StatCard
-                        title="Delayed"
-                        value={summary?.delayed_activities.toString() || "0"}
-                        sub="Needs Attention"
-                        accent={activeStatFilter === "Delayed" ? "text-rose-500 ring-2 ring-rose-500/20 rounded-2xl p-1" : "text-rose-500"}
-                        icon={<AlertCircle className="w-5 h-5 text-rose-500" />}
-                    />
-                </div>
-                <StatCard
-                    title="Recent Updates"
-                    value={entries.length.toString()}
-                    sub="Logs synchronized"
-                    accent="text-amber-500"
-                    icon={<Clipboard className="w-5 h-5 text-amber-500" />}
-                />
+                {[
+                    { label: "All Logs", count: entries.length.toString(), colorClass: "text-slate-800", sub: "Total Entries", status: "All", icon: <TrendingUp className="w-5 h-5" /> },
+                    { label: "Completed", count: summary?.completed_activities.toString() || "0", colorClass: "text-emerald-500", sub: "Finished Activities", status: "Completed", icon: <CheckCircle2 className="w-5 h-5" /> },
+                    { label: "Delayed", count: summary?.delayed_activities.toString() || "0", colorClass: "text-rose-500", sub: "Needs Attention", status: "Delayed", icon: <AlertCircle className="w-5 h-5" /> },
+                    { label: "Updates", count: entries.length.toString(), colorClass: "text-amber-500", sub: "Logs synchronized", status: "Updates", icon: <Clipboard className="w-5 h-5" /> }
+                ].map((c) => (
+                    <div
+                        key={c.label}
+                        onClick={() => onStatFilterChange(c.status)}
+                        className={`bg-white rounded-xl p-5 shadow-sm border border-slate-100 transition-all cursor-pointer hover:shadow-md hover:border-primary/20 hover:scale-[1.02] active:scale-95 group ${activeStatFilter === c.status ? "ring-2 ring-primary/20" : ""}`}
+                    >
+                        <div className="flex justify-between items-start mb-2">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider group-hover:text-primary transition-colors font-inter">
+                                {c.label}
+                            </p>
+                            <div className={`${c.colorClass} opacity-20`}>{c.icon}</div>
+                        </div>
+                        <p className={`text-2xl font-bold font-inter ${c.colorClass}`}>{c.count}</p>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium font-inter">
+                            {c.sub}
+                        </p>
+                    </div>
+                ))}
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -794,15 +772,14 @@ const DailyProgressView = ({
                     <table className="w-full text-left font-inter">
                         <thead>
                             <tr className="bg-slate-50/50 text-slate-500 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                                <th className="px-6 py-4">Date</th>
-                                <th className="px-6 py-4">Activity / BOQ</th>
-                                <th className="px-6 py-4">Planned</th>
-                                <th className="px-6 py-4">Actual</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4">Logged By</th>
-                                <th className="px-6 py-4">Logged At</th>
-                                <th className="px-6 py-4">Remarks</th>
-                                <th className="px-6 py-4 text-right">Evidence</th>
+                                <th className="px-6 py-4">ACTIVITY / BOQ</th>
+                                <th className="px-6 py-4">DATE</th>
+                                <th className="px-6 py-4">PROGRESS ADDED</th>
+                                <th className="px-6 py-4">STATUS</th>
+                                <th className="px-6 py-4">LOGGED BY</th>
+                                <th className="px-6 py-4">LOGGED AT</th>
+                                <th className="px-6 py-4">REMARKS</th>
+                                <th className="px-6 py-4 text-right">EVIDENCE</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -816,15 +793,12 @@ const DailyProgressView = ({
                                 const activity = activities.find(a => a.id === e.activity_id);
                                 return (
                                     <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="px-6 py-4 text-xs font-medium text-slate-500 whitespace-nowrap">
-                                            {e.entry_date}
-                                        </td>
                                         <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-800 text-sm">{activity?.activity_name || "Unknown Activity"}</div>
+                                            <div className="font-bold text-slate-800 text-sm whitespace-nowrap">{activity?.activity_name || "Unknown Activity"}</div>
                                             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{activity?.boq_code || "N/A"}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-xs font-bold text-slate-400">
-                                            {activity?.planned_quantity || "0"} <span className="text-[10px]">{activity?.unit}</span>
+                                        <td className="px-6 py-4 text-xs font-medium text-slate-500 whitespace-nowrap">
+                                            {e.entry_date}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="text-sm font-black text-primary">{e.today_progress}</span>

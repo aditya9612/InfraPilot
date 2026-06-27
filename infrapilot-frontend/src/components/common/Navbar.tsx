@@ -18,6 +18,7 @@ interface Props {
   title: string;
   breadcrumb?: (string | BreadcrumbItem)[];
   action?: { label: string; onClick?: () => void };
+  rightElement?: React.ReactNode;
 }
 
 const routeMap: Record<string, string> = {
@@ -44,7 +45,7 @@ const routeMap: Record<string, string> = {
 
 
 
-const Navbar = ({ title, breadcrumb, action }: Props) => {
+const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
   const { user, logout } = useAuth();
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
@@ -208,6 +209,8 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
           </button>
 
 
+
+
           <div className="flex flex-col min-w-0">
             <h1 className="text-base sm:text-xl font-bold text-white leading-tight truncate">
               {title}
@@ -268,6 +271,7 @@ const Navbar = ({ title, breadcrumb, action }: Props) => {
               {action.label}
             </button>
           )}
+          {rightElement}
           {/* Notification Dropdown */}
           <div className="relative" ref={notifRef}>
             <button
