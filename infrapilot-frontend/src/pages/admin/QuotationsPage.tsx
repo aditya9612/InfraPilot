@@ -46,6 +46,8 @@ const QuotationsPage = () => {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [isFetchingPreview, setIsFetchingPreview] = useState(false);
     const [previewQuotationNo, setPreviewQuotationNo] = useState("");
+    const [previewQuotationId, setPreviewQuotationId] = useState<number | null>(null);
+    const [isDownloadingFromPreview, setIsDownloadingFromPreview] = useState(false);
 
     const fetchQuotations = async () => {
         try {
@@ -172,6 +174,7 @@ const QuotationsPage = () => {
 
             const q = quotations.find(item => item.id === id);
             setPreviewQuotationNo(q?.quotation_no || `QTN-${id}`);
+            setPreviewQuotationId(id);
 
             const blob = await quotationService.downloadQuotationPDF(id);
             const url = window.URL.createObjectURL(blob);
@@ -187,13 +190,25 @@ const QuotationsPage = () => {
     };
 
     const handleDownloadFromPreview = async () => {
-        if (!pdfUrl) return;
-        const link = document.createElement('a');
-        link.href = pdfUrl;
-        link.setAttribute('download', `Quotation_${previewQuotationNo}.pdf`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        if (!previewQuotationId) return;
+        setIsDownloadingFromPreview(true);
+        const toastId = toast.loading("Downloading PDF...");
+        try {
+            const blob = await quotationService.downloadQuotationPDF(previewQuotationId);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Quotation_${previewQuotationNo}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success("PDF Downloaded Successfully", { id: toastId });
+        } catch (error) {
+            toast.error("Failed to download PDF", { id: toastId });
+        } finally {
+            setIsDownloadingFromPreview(false);
+        }
     };
 
     return (
@@ -432,6 +447,7 @@ const QuotationsPage = () => {
                 pdfUrl={pdfUrl}
                 title={`Preview Quotation: ${previewQuotationNo}`}
                 onDownload={handleDownloadFromPreview}
+                isDownloading={isDownloadingFromPreview}
             />
         </>
     );

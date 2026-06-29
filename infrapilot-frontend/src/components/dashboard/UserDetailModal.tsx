@@ -35,7 +35,7 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ isOpen, onClose, us
           {/* Decorative background elements */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/10 rounded-full blur-2xl -ml-16 -mb-16" />
-          
+
           <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
             <div className="relative group">
               <div className="w-28 h-28 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center font-bold text-3xl shadow-2xl overflow-hidden shrink-0 transition-transform group-hover:scale-105 duration-500">
@@ -48,7 +48,7 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ isOpen, onClose, us
                 )}
               </div>
               <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-primary flex items-center justify-center ${user.is_active ? 'bg-emerald-500' : 'bg-slate-500 shadow-inner'}`}>
-                 <div className="w-2 h-2 rounded-full bg-white opacity-40 animate-pulse" />
+                <div className="w-2 h-2 rounded-full bg-white opacity-40 animate-pulse" />
               </div>
             </div>
 
@@ -75,12 +75,12 @@ const UserDetailsModal: React.FC<UserDetailsModalProps> = ({ isOpen, onClose, us
 
         {/* Content Sections */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-2">
-          
+
           {/* Professional Information */}
           <Section icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>} title="Professional Info">
             <InfoItem label="Designation" value={user.designation} />
             <InfoItem label="Access Level" value={user.role} />
-            <InfoItem label="Status" value={user.is_active ? 'Authorized' : 'Restricted'} valueClass={user.is_active ? 'text-emerald-600' : 'text-rose-500'} />
+            <InfoItem label="Status" value={user.is_active ? 'Active' : 'Inactive'} valueClass={user.is_active ? 'text-emerald-600' : 'text-rose-500'} />
           </Section>
 
           {/* Contact Details */}

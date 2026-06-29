@@ -6,7 +6,6 @@ import { projectService } from "../../services/projectService";
 import { sitePhotoService } from "../../services/sitePhotoService";
 import { expenseService } from "../../services/expenseService";
 import type { Project } from "../../types/project";
-import KanbanBoard from "../../components/projects/KanbanBoard";
 import MilestoneTimeline from "../../components/projects/MilestoneTimeline";
 import TeamMembersList from "../../components/projects/TeamMembersList";
 import ProfitLossCard from "../../components/projects/ProfitLossCard";
@@ -17,6 +16,10 @@ import { generateProjectReport } from "../../utils/reportGenerator";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ScheduleProjectModal from "../../components/projects/ScheduleProjectModal";
+import CreateTaskModal from "../../components/projects/CreateTaskModal";
+import TaskListView from "../../components/projects/TaskListView";
+import EditTaskModal from "../../components/projects/EditTaskModal";
+import TaskDetailsModal from "../../components/projects/TaskDetailsModal";
 
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -57,6 +60,13 @@ const ProjectDetailsPage = () => {
   );
   const [isDeleteMemberModalOpen, setIsDeleteMemberModalOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<number | null>(null);
+
+  // Task modal state
+  const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
+  const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
+  const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [taskSearchQuery, setTaskSearchQuery] = useState("");
 
   // Profit & Loss and Expenses (Still partially mock/local for and, but connected to stats)
   const [profitLoss, setProfitLoss] = useState<any>(null);
@@ -245,16 +255,6 @@ const ProjectDetailsPage = () => {
       fetchProjectData();
     } catch (error) {
       toast.error("Failed to update progress");
-    }
-  };
-
-  const handleTaskCommentAdd = async (taskId: number, content: string) => {
-    try {
-      await projectService.createTaskComment(projectId, taskId, { content });
-      toast.success("Comment added");
-      fetchProjectData();
-    } catch (error) {
-      toast.error("Failed to add comment");
     }
   };
 
@@ -643,16 +643,49 @@ const ProjectDetailsPage = () => {
                   <p className="text-2xl font-black text-slate-700">{tasks.length}</p>
                 </div>
               </div>
-              <KanbanBoard
-                tasks={tasks}
-                projectId={projectId}
-                members={members}
-                onCreateTask={handleCreateTask}
-                onUpdateTask={handleUpdateTask}
-                onDeleteTask={handleDeleteTask}
-                onUpdateProgress={handleTaskProgressUpdate}
-                onAddComment={handleTaskCommentAdd}
-              />
+
+              {/* Activity Management Section */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-bold text-slate-800">Activity Management</h3>
+                    <p className="text-xs text-slate-400">Track and manage site activities in a detailed list view.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" strokeWidth="2" />
+                        <path strokeLinecap="round" strokeWidth="2" d="M21 21l-4.35-4.35" />
+                      </svg>
+                      <input
+                        type="text"
+                        placeholder="Search activities..."
+                        value={taskSearchQuery}
+                        onChange={(e) => setTaskSearchQuery(e.target.value)}
+                        className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all w-48"
+                      />
+                    </div>
+                    <button
+                      onClick={() => setIsCreateTaskModalOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                    >
+                      + New Task
+                    </button>
+                  </div>
+                </div>
+                <TaskListView
+                  tasks={tasks.filter(t =>
+                    !taskSearchQuery ||
+                    t.title?.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
+                    t.description?.toLowerCase().includes(taskSearchQuery.toLowerCase())
+                  )}
+                  members={members}
+                  projectName={project?.project_name}
+                  onEdit={(task) => { setSelectedTask(task); setIsEditTaskModalOpen(true); }}
+                  onDelete={handleDeleteTask}
+                  onView={(task) => { setSelectedTask(task); setIsViewTaskModalOpen(true); }}
+                />
+              </div>
             </div>
           )}
 
@@ -833,6 +866,38 @@ const ProjectDetailsPage = () => {
         initialEndDate={schedule?.end_date || project?.end_date}
         onSuccess={fetchProjectData}
       />
+
+      {/* Task Modals */}
+      <CreateTaskModal
+        isOpen={isCreateTaskModalOpen}
+        onClose={() => setIsCreateTaskModalOpen(false)}
+        projectId={projectId}
+        members={members}
+        onSubmit={handleCreateTask}
+      />
+      {isEditTaskModalOpen && selectedTask && (
+        <EditTaskModal
+          isOpen={isEditTaskModalOpen}
+          onClose={() => {
+            setIsEditTaskModalOpen(false);
+            setSelectedTask(null);
+          }}
+          task={selectedTask}
+          members={members}
+          onSubmit={handleUpdateTask}
+        />
+      )}
+      {isViewTaskModalOpen && selectedTask && (
+        <TaskDetailsModal
+          task={selectedTask}
+          onClose={() => {
+            setIsViewTaskModalOpen(false);
+            setSelectedTask(null);
+          }}
+          onUpdateProgress={(percentage, remarks) => handleTaskProgressUpdate(selectedTask.id, percentage, remarks)}
+          onAddComment={() => fetchProjectData()}
+        />
+      )}
     </>
   );
 };

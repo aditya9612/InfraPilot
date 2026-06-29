@@ -1,19 +1,17 @@
 import React from "react";
-import { Edit2, Trash2, CheckCircle } from "lucide-react";
+import { Edit2, Trash2 } from "lucide-react";
 import type { PurchaseOrder } from "../../../types/material";
 
 interface PurchaseOrderTableProps {
   pos: PurchaseOrder[];
   onEdit: (po: PurchaseOrder) => void;
   onDelete: (id: number) => void;
-  onStatusUpdate?: (id: number, status: PurchaseOrder["status"]) => void;
 }
 
 const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
   pos,
   onEdit,
   onDelete,
-  onStatusUpdate,
 }) => {
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -56,15 +54,6 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-3">
-                  {po.status !== "COMPLETED" && po.status !== "CANCELLED" && onStatusUpdate && (
-                    <button
-                      onClick={() => onStatusUpdate(po.id, "COMPLETED")}
-                      className="p-1.5 text-slate-400 hover:text-emerald-500 transition-all duration-200"
-                      title="Mark as Completed"
-                    >
-                      <CheckCircle className="w-4 h-4" strokeWidth={1.5} />
-                    </button>
-                  )}
                   <button
                     onClick={() => onEdit(po)}
                     className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"

@@ -1,6 +1,6 @@
 import React from 'react';
 import Modal from './Modal';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 
 interface PDFPreviewModalProps {
     isOpen: boolean;
@@ -8,6 +8,7 @@ interface PDFPreviewModalProps {
     pdfUrl: string | null;
     title?: string;
     onDownload?: () => void;
+    isDownloading?: boolean;
 }
 
 const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
@@ -15,7 +16,8 @@ const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
     onClose,
     pdfUrl,
     title = "PDF Preview",
-    onDownload
+    onDownload,
+    isDownloading = false
 }) => {
     if (!pdfUrl) return null;
 
@@ -26,9 +28,15 @@ const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                     {onDownload && (
                         <button
                             onClick={onDownload}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-sm text-xs"
+                            disabled={isDownloading}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-sm text-xs disabled:opacity-60 disabled:cursor-wait"
                         >
-                            <Download size={14} /> Download
+                            {isDownloading ? (
+                                <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                                <Download size={14} />
+                            )}
+                            {isDownloading ? 'Downloading...' : 'Download'}
                         </button>
                     )}
                 </div>

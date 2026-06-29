@@ -132,7 +132,6 @@ const ApprovalDetailsModal: React.FC<ApprovalDetailsModalProps> = ({
         {/* Details Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
           <Section icon={<User size={16} />} title="Requester Info">
-            <InfoItem label="Requested By" value={approval.requested_by_name || approval.requested_by} />
             <InfoItem label="Project Site" value={approval.project_name || entityDetails?.project_name || "Enterprise Global"} />
           </Section>
 
