@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -23,10 +23,7 @@ import {
   FileText,
   History,
   TrendingUp,
-  Layers,
   Download,
-  Sparkles,
-  RefreshCcw,
   Upload,
   Eye,
   Trash2,
@@ -74,10 +71,6 @@ const BOQPage = () => {
 
   // Advanced Feature States
   const [summaryData, setSummaryData] = useState<BoqSummary | null>(null);
-  const [versionsList, setVersionsList] = useState<number[]>([]);
-  const [selectedVersion, setSelectedVersion] = useState<number | "latest">(
-    "latest",
-  );
   const [isActualsModalOpen, setIsActualsModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [activeItemForModal, setActiveItemForModal] = useState<BoqItem | null>(
@@ -92,6 +85,22 @@ const BOQPage = () => {
   const [isActivityDeleteModalOpen, setIsActivityDeleteModalOpen] =
     useState(false);
   const [activityToDelete, setActivityToDelete] = useState<number | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Click outside listener for Export Menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    if (isExportMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isExportMenuOpen]);
 
   // Fetch Projects and BOQs on mount
   useEffect(() => {
@@ -139,8 +148,7 @@ const BOQPage = () => {
         status: statusFilter === "all" ? null : statusFilter,
         category: categoryFilter === "all" ? null : categoryFilter,
         project_id: projectFilter === "all" ? null : Number(projectFilter),
-        version_no:
-          selectedVersion === "latest" ? null : Number(selectedVersion),
+        version_no: null,
         limit: itemsPerPage,
         offset: (currentPage - 1) * itemsPerPage,
       };
@@ -172,28 +180,7 @@ const BOQPage = () => {
     }
   };
 
-  // Fetch versions when boqData changes
-  useEffect(() => {
-    const fetchVersions = async () => {
-      const firstItem = boqData[0];
-      if (firstItem && firstItem.id) {
-        try {
-          const versions = await boqService.getBoqVersions(firstItem.id);
-          setVersionsList(versions);
-        } catch (error: any) {
-          if (error.response?.status === 404) {
-            setVersionsList([]);
-          } else {
-            console.error("Failed to fetch versions", error);
-          }
-        }
-      } else {
-        setVersionsList([]);
-        setSelectedVersion("latest");
-      }
-    };
-    fetchVersions();
-  }, [boqData]);
+
 
   // Re-fetch when filters or page change
   useEffect(() => {
@@ -205,14 +192,13 @@ const BOQPage = () => {
     statusFilter,
     categoryFilter,
     projectFilter,
-    selectedVersion,
     currentPage,
   ]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, categoryFilter, projectFilter, selectedVersion]);
+  }, [searchTerm, statusFilter, categoryFilter, projectFilter]);
 
   const handleCreateOrUpdateBOQ = async (data: any) => {
     try {
@@ -323,29 +309,7 @@ const BOQPage = () => {
     }
   };
 
-  const handleCreateVersion = async () => {
-    if (projectFilter === "all") {
-      toast.error("Please select a project first");
-      return;
-    }
 
-    const firstItem = boqData[0];
-    if (!firstItem) {
-      toast.error("No items found to version");
-      return;
-    }
-
-    try {
-      const res = await boqService.createBoqVersion(firstItem.id);
-      toast.success(res.message || "New version created!");
-      await refreshBoqs();
-      if (res.version) {
-        setSelectedVersion(res.version);
-      }
-    } catch (error) {
-      toast.error("Failed to create new version");
-    }
-  };
 
   const handleExport = async (format: "excel" | "pdf" | "json") => {
     if (isExporting) return;
@@ -715,41 +679,9 @@ const BOQPage = () => {
               </select>
 
 
-              {projectFilter !== "all" && versionsList.length > 0 && (
-                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-3.5 h-3.5 text-slate-400" />
-                    <select
-                      value={selectedVersion}
-                      onChange={(e) =>
-                        setSelectedVersion(
-                          e.target.value === "latest"
-                            ? "latest"
-                            : Number(e.target.value),
-                        )
-                      }
-                      className="bg-transparent text-xs font-bold text-slate-600 outline-none pr-1"
-                    >
-                      <option value="latest">Latest Ver.</option>
-                      {versionsList.map((v) => (
-                        <option key={v} value={v}>
-                          Ver. {v}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="w-px h-4 bg-slate-200 mx-1" />
-                  <button
-                    onClick={handleCreateVersion}
-                    title="Create New Version"
-                    className="p-1 hover:bg-slate-200 rounded text-slate-500 transition-colors"
-                  >
-                    <RefreshCcw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
 
-              <div className="relative">
+
+              <div className="relative" ref={exportMenuRef}>
                 <button
                   onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
                   className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"

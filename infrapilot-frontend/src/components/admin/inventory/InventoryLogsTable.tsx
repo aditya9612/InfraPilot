@@ -3,14 +3,17 @@ import type { InventoryLog } from "../../../types/material";
 
 interface InventoryLogsTableProps {
   logs: InventoryLog[];
+  projectMap: Record<number, string>;
 }
 
-const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs }) => {
+const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMap }) => {
   const getTypeStyle = (type: string) => {
     switch (type) {
       case "PURCHASE": return "text-emerald-600 bg-emerald-50";
       case "USAGE": return "text-primary bg-blue-50";
-      case "TRANSFER": return "text-amber-600 bg-amber-50";
+      case "TRANSFER_IN": return "text-amber-600 bg-amber-50";
+      case "TRANSFER_OUT": return "text-rose-600 bg-rose-50";
+      case "ADJUSTMENT": return "text-purple-600 bg-purple-50";
       default: return "text-slate-600 bg-slate-50";
     }
   };
@@ -22,6 +25,7 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs }) => {
           <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
             <th className="px-6 py-4">Transaction ID & Date</th>
             <th className="px-6 py-4">Action Type</th>
+            <th className="px-6 py-4">Project Site</th>
             <th className="px-6 py-4">Quantity & Rate</th>
             <th className="px-6 py-4">Total Amount</th>
             <th className="px-6 py-4">Issue Type</th>
@@ -41,6 +45,11 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs }) => {
                   {log.type}
                 </span>
               </td>
+              <td className="px-6 py-4">
+                <p className="text-sm font-bold text-slate-700">
+                  {projectMap[log.project_id] || `ID: ${log.project_id}`}
+                </p>
+              </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
                 {log.quantity} units @ ₹{log.rate.toLocaleString()}
               </td>
@@ -54,7 +63,7 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs }) => {
           ))}
           {logs.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-12 text-center text-slate-400">
+              <td colSpan={6} className="py-12 text-center text-slate-400">
                 No activity logs found.
               </td>
             </tr>

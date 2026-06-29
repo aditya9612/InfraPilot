@@ -71,6 +71,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     },
     { label: "AutoCAD Viewer", path: "/admin/autocad", icon: "layers" },
     { label: "Site Engineers", path: "/admin/engineers", icon: "tool" },
+    { label: "Project Managers", path: "/admin/managers", icon: "briefcase" },
     {
       label: "Work & BOQ",
       path: "/admin/boq",

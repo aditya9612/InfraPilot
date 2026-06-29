@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -80,6 +80,22 @@ const BOQDetailPage = () => {
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [activeItem, setActiveItem] = useState<BoqItem | null>(null);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+
+    // Click outside listener for Export Menu
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+                setIsExportMenuOpen(false);
+            }
+        };
+        if (isExportMenuOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        } else {
+            document.removeEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [isExportMenuOpen]);
 
     const fetchData = useCallback(async () => {
         if (!projectId) return;
@@ -396,7 +412,7 @@ const BOQDetailPage = () => {
                                     )}
                                     {isGeneratingTasks ? "Generating..." : "Generate Tasks"}
                                 </button>
-                                <div className="relative">
+                                <div className="relative" ref={exportMenuRef}>
                                     <button
                                         onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
                                         className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 rounded-xl text-sm font-bold transition-all"

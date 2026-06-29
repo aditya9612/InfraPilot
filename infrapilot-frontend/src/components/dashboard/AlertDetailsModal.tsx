@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Modal from "../common/Modal";
-import { BellRing, Calendar, Briefcase, User, Info, CheckCircle, Clock } from "lucide-react";
+import { BellRing, Calendar, Briefcase, Info, CheckCircle, Clock } from "lucide-react";
 import { projectService } from "../../services/projectService";
-import { userService } from "../../services/userService";
 
 interface AlertDetailsModalProps {
   isOpen: boolean;
@@ -20,13 +19,11 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
   usersMap = {},
 }) => {
   const [projectName, setProjectName] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
 
   // Fetch project and user names individually by ID when the modal opens
   useEffect(() => {
     if (!alert || !isOpen) {
       setProjectName(null);
-      setUserName(null);
       return;
     }
 
@@ -48,15 +45,6 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
         .catch(() => setProjectName(null));
     }
 
-    if (alert.user_name) {
-      setUserName(alert.user_name);
-    } else if (alert.user_id && usersMap[Number(alert.user_id)]) {
-      setUserName(usersMap[Number(alert.user_id)]);
-    } else if (alert.user_id) {
-      userService.getUserById(Number(alert.user_id))
-        .then((u: any) => setUserName(u?.full_name || u?.name || u?.username || u?.email || null))
-        .catch(() => setUserName(null));
-    }
   }, [alert, isOpen, projectMap, usersMap]);
 
   if (!alert) return null;
@@ -146,19 +134,6 @@ const AlertDetailsModal: React.FC<AlertDetailsModalProps> = ({
               </p>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-slate-400">
-                <User size={16} strokeWidth={2.5} />
-                <h4 className="text-[11px] font-black uppercase tracking-widest">Requested By</h4>
-              </div>
-              <p className="text-sm font-bold text-slate-700 pl-6">
-                {userName
-                  ? userName
-                  : alert.user_id
-                    ? <span className="text-slate-400 italic text-xs">Loading…</span>
-                    : "—"}
-              </p>
-            </div>
 
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-slate-400">

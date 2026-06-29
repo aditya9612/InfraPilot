@@ -8,6 +8,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import CreateAlertModal from "../../components/forms/CreateAlertModal";
 import toast from "react-hot-toast";
 import { notificationService, type Notification } from "../../services/notificationService";
+import { projectService } from "../../services/projectService";
 import { useAuth } from "../../context/AuthContext";
 
 interface NotificationsPageProps {
@@ -27,10 +28,13 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   const [selectedIds, setSelectedIds] = useState<(number | string)[]>([]);
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Unread" | "Read" | "Approval">("All");
   const [currentPage, setCurrentPage] = useState(0);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("All");
   const PAGE_SIZE = 10;
 
   useEffect(() => {
     fetchNotifications();
+    fetchProjects();
   }, [filter]);
 
   const fetchNotifications = async () => {
@@ -53,6 +57,16 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      const res = await projectService.getProjects(100, 0);
+      const items = Array.isArray(res) ? res : (res.items || []);
+      setProjects(items);
+    } catch (err) {
+      console.warn("Failed to fetch projects for filter", err);
+    }
+  };
+
   const filteredNotifs = notifications.filter(n => {
     // Stat card filter only — route-level data is already pre-filtered by API
     const matchesStatFilter =
@@ -66,14 +80,18 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
       n.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       n.description.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return matchesStatFilter && matchesSearch;
+    const matchesProject =
+      selectedProjectId === "All" ||
+      Number(n.project_id) === Number(selectedProjectId);
+
+    return matchesStatFilter && matchesSearch && matchesProject;
   });
 
   // Reset page on filter/search change
   useEffect(() => {
     setCurrentPage(0);
     setSelectedIds([]);
-  }, [searchTerm, activeStatFilter, filter]);
+  }, [searchTerm, activeStatFilter, filter, selectedProjectId]);
 
   const totalPages = Math.max(1, Math.ceil(filteredNotifs.length / PAGE_SIZE));
   const pagedNotifs = filteredNotifs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
@@ -238,19 +256,48 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
           <div className="p-4 border-b border-slate-50">
-            <div className="relative flex-1 max-w-md">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search notifications..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter"
-              />
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="relative flex-1 w-full max-w-md">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search notifications..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter"
+                />
+              </div>
+
+              <div className="w-full sm:w-64">
+                <div className="relative">
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter appearance-none cursor-pointer"
+                  >
+                    <option value="All">All Projects</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -390,32 +437,99 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
         maxWidth="max-w-md"
       >
         {viewingNotif && (
-          <div className="p-6 font-inter">
-            <div className="flex items-center gap-3 mb-6">
-              <div className={`p-3 rounded-xl ${typeColor(viewingNotif.type)}`}>
-                <Bell className="w-6 h-6" />
+          <div className="font-inter">
+            {/* Header Section */}
+            <div className={`p-6 bg-gradient-to-br ${viewingNotif.type === "Alert" ? "from-rose-500 to-rose-600" :
+              viewingNotif.type === "Approval" ? "from-emerald-500 to-emerald-600" :
+                "from-blue-500 to-blue-600"
+              } text-white`}>
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30">
+                  <Bell className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-xl font-bold leading-tight">{viewingNotif.title}</h3>
+                    <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md text-[10px] font-black rounded-lg uppercase tracking-tighter border border-white/20">
+                      {viewingNotif.status || "NORMAL"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-white/80 text-[10px] font-bold uppercase tracking-widest">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    {new Date(viewingNotif.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: 'short', timeStyle: 'short' })}
+                  </div>
+                </div>
               </div>
+            </div>
+
+            <div className="p-6 space-y-8">
+              {/* Message Section */}
               <div>
-                <h3 className="text-lg font-bold text-slate-800 leading-tight">{viewingNotif.title}</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                  {new Date(viewingNotif.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
-                </p>
+                <div className="flex items-center gap-2 mb-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Alert Message
+                </div>
+                <div className="p-5 bg-slate-50 border border-slate-100 rounded-3xl">
+                  <p className="text-sm text-slate-600 leading-relaxed font-semibold">
+                    {viewingNotif.details || viewingNotif.description || "No additional details provided."}
+                  </p>
+                </div>
               </div>
+
+              {/* Grid Section */}
+              <div className="grid grid-cols-2 gap-x-8 gap-y-10">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    Project
+                  </div>
+                  <p className="text-sm font-black text-slate-700 uppercase tracking-tight">
+                    {viewingNotif.project_name || "Enterprise Global"}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Timestamp
+                  </div>
+                  <p className="text-xs font-bold text-slate-600">
+                    {new Date(viewingNotif.timestamp).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: 'short', timeStyle: 'short' })}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Acknowledgment
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${viewingNotif.read ? "bg-emerald-500" : "bg-amber-500 animate-pulse"}`} />
+                    <p className="text-xs font-bold text-slate-600">
+                      {viewingNotif.read ? "Marked as Read" : "Requires Attention"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Data */}
+              <div>
+                <div className="flex items-center gap-2 mb-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7C4 4.79 7.582 3 12 3s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
+                  Additional Information
+                </div>
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 italic text-xs font-bold uppercase tracking-widest">
+                  — No metadata attached —
+                </div>
+              </div>
+
+              <button
+                onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
+                className="w-full py-4 bg-slate-900 hover:bg-black text-white font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-xs shadow-xl shadow-slate-200 active:scale-[0.98]"
+              >
+                Dismiss
+              </button>
             </div>
-            <div className="flex items-center gap-2 mb-4">
-              <span className={`px-2 py-1 text-[10px] font-bold rounded-lg uppercase tracking-widest ${typeColor(viewingNotif.type)}`}>{viewingNotif.type}</span>
-              <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-500 uppercase tracking-widest">{sourceLabel(viewingNotif.source)}</span>
-              <span className={`px-2 py-1 text-[10px] font-bold rounded-lg uppercase tracking-widest ${viewingNotif.read ? "bg-slate-100 text-slate-500" : "bg-blue-50 text-blue-600"}`}>{viewingNotif.read ? "Read" : "Unread"}</span>
-            </div>
-            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl mb-6">
-              <p className="text-sm text-slate-700 leading-relaxed font-medium">{viewingNotif.details || viewingNotif.description || "No additional details."}</p>
-            </div>
-            <button
-              onClick={() => { setIsViewModalOpen(false); setViewingNotif(null); }}
-              className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all uppercase tracking-widest text-xs"
-            >
-              Dismiss
-            </button>
           </div>
         )}
       </Modal>
