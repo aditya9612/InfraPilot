@@ -31,7 +31,7 @@ const ClientPendingApprovalsPage = () => {
              requestType: apr.entity_type === 'bill' ? 'Billing' : 
                           apr.entity_type === 'material' ? 'Material' :
                           apr.entity_type === 'design' ? 'Design' : 'Variation',
-             description: `${(apr.entity_type || 'Unknown').charAt(0).toUpperCase() + (apr.entity_type || 'unknown').slice(1)} Approval Request for related ID #${apr.entity_id}`,
+             description: `${(apr.entity_type || 'Unknown').charAt(0).toUpperCase() + (apr.entity_type || 'unknown').slice(1)} Approval Request`,
              amountQuantity: "—", // Not provided by the API
              requestedBy: `User ID: ${apr.requested_by}`,
              status: apr.status,
@@ -86,7 +86,7 @@ const ClientPendingApprovalsPage = () => {
          const newApproval = {
             id: response?.id?.toString() || `${Math.floor(Math.random() * 1000)}`,
             requestType,
-            description: `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} Approval Request for related ID #${payload.entity_id}`,
+            description: `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} Approval Request`,
             amountQuantity: "—",
             requestedBy: "Self",
             status: "Pending",

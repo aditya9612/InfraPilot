@@ -535,7 +535,7 @@ const ClientPaymentPage = () => {
                                         <th className="px-6 py-5 w-12 text-center">
                                             <input type="checkbox" className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
                                         </th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">ENTITY TYPE & ID</th>
+                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">QUOTATION ID</th>
                                         <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">REQUESTED BY</th>
                                         <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">REMARKS / DETAILS</th>
                                         <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">STATUS</th>
@@ -560,8 +560,7 @@ const ClientPaymentPage = () => {
                                                     <input type="checkbox" className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
                                                 </td>
                                                 <td className="px-6 py-6">
-                                                    <p className="text-xs font-black text-slate-800 tracking-tight">{q.entity_title}</p>
-                                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5 tracking-wider">ID: {q.entity_id_display || q.id}</p>
+                                                    <p className="text-xs font-black text-slate-800 tracking-tight">{q.entity_id_display || q.id}</p>
                                                 </td>
                                                 <td className="px-6 py-6 font-bold text-[12px] text-slate-700">
                                                     {q.requested_by_name}

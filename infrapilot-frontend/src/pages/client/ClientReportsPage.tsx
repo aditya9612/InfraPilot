@@ -158,7 +158,7 @@ const ClientReportsPage = () => {
         total_value: totalStockValue
       });
       const issueList = Array.isArray(issues) ? issues : ((issues as any)?.items || (issues as any)?.data?.items || []);
-      const projectIssues = issueList.filter((i: any) => Number(i.project_id) === Number(pid));
+      const projectIssues = issueList.filter((i: any) => !i.project_id || Number(i.project_id) === Number(pid));
 
       setIssueSummary({
         items: projectIssues,
@@ -797,7 +797,7 @@ const ClientReportsPage = () => {
       toast.loading("Generating Site Issues Report...", { id: "issue-pdf" });
       const issuesRes = await issueService.listIssuesByProject(projectId, { limit: 1000 });
       const rawItems = (issuesRes as any).items || (issuesRes as any).data?.items || (Array.isArray(issuesRes) ? issuesRes : []);
-      const items = rawItems.filter((i: any) => Number(i.project_id) === Number(projectId));
+      const items = rawItems.filter((i: any) => !i.project_id || Number(i.project_id) === Number(projectId));
       const openCount = items.filter((i: any) => i.status !== 'Resolved').length;
 
       generatePremiumPDF({
