@@ -691,25 +691,19 @@ const ProjectDetailsPage = () => {
 
           {activeTab === "Milestones" && (
             <div className="space-y-6 w-full">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
-                    <p className="text-lg font-black text-slate-700">{new Date(schedule?.start_date || project.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              {/* Milestone Count Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Total", value: milestones.length },
+                  { label: "In Progress", value: milestones.filter(m => m.status === "In Progress").length },
+                  { label: "Completed", value: milestones.filter(m => m.status === "Completed").length },
+                  { label: "Pending", value: milestones.filter(m => !m.status || m.status === "Pending" || m.status === "Not Started").length },
+                ].map(s => (
+                  <div key={s.label} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
+                    <p className="text-2xl font-black text-slate-800">{s.value}</p>
                   </div>
-                  <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-primary">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  </div>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Target End Date</p>
-                    <p className="text-lg font-black text-slate-700">{new Date(schedule?.end_date || project.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                  </div>
-                  <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-600">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  </div>
-                </div>
+                ))}
               </div>
               <MilestoneTimeline
                 milestones={milestones}

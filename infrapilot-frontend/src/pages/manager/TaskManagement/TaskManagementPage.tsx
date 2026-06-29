@@ -2342,7 +2342,9 @@ const TaskManagementPage = () => {
                                 required
                             >
                                 <option value="">-- Select Team Member --</option>
-                                {projectMembers.map(m => (
+                                {projectMembers
+                                    .filter(m => (m.role || "").toLowerCase() === "labour")
+                                    .map(m => (
                                     <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
                                 ))}
                             </select>

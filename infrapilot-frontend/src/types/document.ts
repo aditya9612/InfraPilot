@@ -11,6 +11,7 @@ export interface Document {
     is_folder: boolean;
     parent_id: number | null;
     uploaded_by_user_id: number;
+    uploaded_by_name?: string;
     uploaded_at: string;
     remarks: string | null;
 }

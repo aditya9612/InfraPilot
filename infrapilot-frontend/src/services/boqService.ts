@@ -382,7 +382,14 @@ export const boqService = {
   async bulkAddItems(boqId: number, items: CreateBoqRequest[]): Promise<any[]> {
     console.log("bulkAddItems called with:", { boqId, itemCount: items.length });
     try {
-      const response = await api.post(`/boq/groups/${boqId}/items/bulk`, { items });
+      // Adding dummy query parameters to bypass backend FastAPI dependency error 
+      // expecting BOQImportResponse and BOQImportError as query params
+      const response = await api.post(`/boq/groups/${boqId}/items/bulk`, { items }, {
+        params: {
+          BOQImportResponse: "",
+          BOQImportError: ""
+        }
+      });
       return response.data;
     } catch (error: any) {
       console.error(

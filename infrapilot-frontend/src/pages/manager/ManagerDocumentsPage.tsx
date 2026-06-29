@@ -17,7 +17,7 @@ import {
 import { drawingService } from "../../services/drawingService";
 
 // ─── Types ──────────────────────────────────────────────────────────
-type TypeFilter = "All" | "Drawings" | "Contracts" | "Reports" | "Others";
+type TypeFilter = "All" | "Documents" | "Folders";
 type SortOrder = "latest" | "oldest";
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ const DOC_TYPES = ["Drawing", "Contract", "Report", "Specification", "Schedule",
 
 // ─── Page ────────────────────────────────────────────────────────────
 const ManagerDocumentsPage = () => {
-    const { selectedProjectId } = useProject();
+    const { selectedProjectId, selectedProject } = useProject();
     const { tab } = useParams();
     const navigate = useNavigate();
 
@@ -68,6 +68,7 @@ const ManagerDocumentsPage = () => {
     // Filters & Sort
     const [searchTerm, setSearchTerm] = useState("");
     const [typeFilter, setTypeFilter] = useState<TypeFilter>("All");
+    const [categoryFilter, setCategoryFilter] = useState("");
     const [sortOrder, setSortOrder] = useState<SortOrder>("latest");
 
     // Pagination
@@ -85,8 +86,10 @@ const ManagerDocumentsPage = () => {
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editForm, setEditForm] = useState({
-        id: 0, title: "", document_type: "", remarks: "", version: ""
+        id: 0, title: "", document_type: "", remarks: "", version: "", status: ""
     });
+    const [editFile, setEditFile] = useState<File | null>(null);
+    const editFileInputRef = React.useRef<HTMLInputElement>(null);
 
     // History Modal State
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -98,6 +101,7 @@ const ManagerDocumentsPage = () => {
         title: "", document_type: "Drawing", remarks: ""
     });
     const [folderName, setFolderName] = useState("");
+    const [folderParentId, setFolderParentId] = useState<string>("");
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -106,9 +110,11 @@ const ManagerDocumentsPage = () => {
     useEffect(() => {
         if (tab) {
             const tabMap: Record<string, TypeFilter> = {
-                drawings: "Drawings",
-                contracts: "Contracts",
+                documents: "Documents",
+                folders: "Folders",
                 files: "All",
+                drawings: "All",
+                contracts: "All",
             };
             const mappedTab = tabMap[tab.toLowerCase()];
             if (mappedTab) setTypeFilter(mappedTab);
@@ -120,10 +126,8 @@ const ManagerDocumentsPage = () => {
         setCurrentPage(1);
         const urlMap: Record<TypeFilter, string> = {
             All: "files",
-            Drawings: "drawings",
-            Contracts: "contracts",
-            Reports: "files",
-            Others: "files",
+            Documents: "documents",
+            Folders: "folders",
         };
         navigate(`/manager/documents/${urlMap[newTab]}`);
     };
@@ -158,7 +162,7 @@ const ManagerDocumentsPage = () => {
     }, [selectedProjectId, currentParentId]);
 
     useEffect(() => { fetchDocs(); }, [fetchDocs]);
-    useEffect(() => { setCurrentPage(1); }, [searchTerm, typeFilter]);
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, typeFilter, categoryFilter]);
 
     // ─── Actions ─────────────────────────────────────────────────────
     const handleUpload = async () => {
@@ -194,14 +198,18 @@ const ManagerDocumentsPage = () => {
         if (!selectedProjectId) { toast.error("No project selected."); return; }
         setIsSubmitting(true);
         try {
+            const resolvedParentId = folderParentId.trim() !== ""
+                ? Number(folderParentId)
+                : currentParentId || undefined;
             await documentService.createFolder({
                 project_id: selectedProjectId,
                 title: folderName,
-                parent_id: currentParentId || undefined,
+                parent_id: resolvedParentId,
             });
             toast.success("Folder created!");
             setIsFolderModalOpen(false);
             setFolderName("");
+            setFolderParentId("");
             fetchDocs();
         } catch {
             toast.error("Failed to create folder.");
@@ -226,8 +234,10 @@ const ManagerDocumentsPage = () => {
             title: doc.title || "",
             document_type: doc.document_type || "Other",
             remarks: doc.remarks || "",
-            version: doc.version || "v1.0"
+            version: doc.version || "v1.0",
+            status: doc.status || "PENDING",
         });
+        setEditFile(null);
         setIsEditModalOpen(true);
     };
 
@@ -239,14 +249,29 @@ const ManagerDocumentsPage = () => {
         setIsSubmitting(true);
         const toastId = toast.loading("Updating metadata...");
         try {
-            await documentService.updateDocument(editForm.id, {
-                title: editForm.title,
-                document_type: editForm.document_type,
-                remarks: editForm.remarks,
-                version: editForm.version
-            });
+            let payload: DocumentUpdateParams | FormData;
+            if (editFile) {
+                const fd = new FormData();
+                fd.append("title", editForm.title);
+                fd.append("document_type", editForm.document_type);
+                fd.append("remarks", editForm.remarks);
+                fd.append("version", editForm.version);
+                fd.append("status", editForm.status);
+                fd.append("file", editFile);
+                payload = fd;
+            } else {
+                payload = {
+                    title: editForm.title,
+                    document_type: editForm.document_type,
+                    remarks: editForm.remarks,
+                    version: editForm.version,
+                    status: editForm.status,
+                };
+            }
+            await documentService.updateDocument(editForm.id, payload);
             toast.success("Document updated successfully!", { id: toastId });
             setIsEditModalOpen(false);
+            setEditFile(null);
             fetchDocs();
         } catch {
             toast.error("Update failed.", { id: toastId });
@@ -302,21 +327,23 @@ const ManagerDocumentsPage = () => {
     const filtered = useMemo(() => {
         let data = docs;
 
-        if (typeFilter !== "All") {
-            const typeMap: Record<TypeFilter, string[]> = {
-                All: [],
-                Drawings: ["Drawing", "CAD", "Blueprint"],
-                Contracts: ["Contract", "Agreement"],
-                Reports: ["Report", "Schedule"],
-                Others: ["Invoice", "Specification", "Other"],
-            };
+        // Tab filter: All, Documents (non-folders), Folders
+        if (typeFilter === "Documents") {
+            data = data.filter(d => !d.is_folder);
+        } else if (typeFilter === "Folders") {
+            data = data.filter(d => d.is_folder);
+        }
+
+        // Specific category filter (exact document_type match)
+        if (categoryFilter) {
             data = data.filter(d =>
                 d.is_folder ||
-                typeMap[typeFilter].some(t => (d.document_type || "").toLowerCase().includes(t.toLowerCase()))
+                (d.document_type || "").toLowerCase() === categoryFilter.toLowerCase()
             );
         }
 
-        if (searchTerm) {
+        // Search filter
+        if (searchTerm.trim()) {
             const term = searchTerm.toLowerCase();
             data = data.filter(d =>
                 (d.title || "").toLowerCase().includes(term) ||
@@ -331,7 +358,15 @@ const ManagerDocumentsPage = () => {
             const timeB = new Date(b.uploaded_at || 0).getTime();
             return sortOrder === "latest" ? timeB - timeA : timeA - timeB;
         });
-    }, [docs, typeFilter, searchTerm, sortOrder]);
+    }, [docs, typeFilter, categoryFilter, searchTerm, sortOrder]);
+
+    // Derive available category options from ALL docs (not filtered) so dropdown always shows full list
+    const availableCategories = useMemo(() => {
+        const types = docs
+            .filter(d => !d.is_folder && d.document_type)
+            .map(d => d.document_type as string);
+        return Array.from(new Set(types)).sort();
+    }, [docs]);
 
     const paginated = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
@@ -439,19 +474,34 @@ const ManagerDocumentsPage = () => {
                                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                             />
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Filter className="w-4 h-4 text-slate-400" />
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Filter className="w-4 h-4 text-slate-400 shrink-0" />
                             <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
-                                {(["All", "Drawings", "Contracts", "Reports", "Others"] as TypeFilter[]).map(tabName => (
+                                {(["All", "Documents", "Folders"] as TypeFilter[]).map(tabName => (
                                     <button
                                         key={tabName}
-                                        onClick={() => handleTabChange(tabName)}
+                                        onClick={() => { handleTabChange(tabName); setCategoryFilter(""); }}
                                         className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${typeFilter === tabName ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                                     >
                                         {tabName}
                                     </button>
                                 ))}
                             </div>
+                            {/* Category type filter — shows actual document_type values from data */}
+                            <select
+                                value={categoryFilter}
+                                onChange={e => setCategoryFilter(e.target.value)}
+                                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${
+                                    categoryFilter
+                                        ? "bg-primary/10 border-primary/30 text-primary"
+                                        : "bg-slate-50 border-slate-200 text-slate-600"
+                                }`}
+                            >
+                                <option value="">All Types</option>
+                                {availableCategories.map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </select>
                             <select
                                 value={sortOrder}
                                 onChange={e => setSortOrder(e.target.value as SortOrder)}
@@ -704,15 +754,14 @@ const ManagerDocumentsPage = () => {
                 </div>
             </Modal>
 
-            {/* Folder Modal */}
             <Modal
                 isOpen={isFolderModalOpen}
-                onClose={() => setIsFolderModalOpen(false)}
+                onClose={() => { setIsFolderModalOpen(false); setFolderName(""); setFolderParentId(""); }}
                 title="Create New Folder"
                 maxWidth="max-w-sm"
                 footer={
                     <>
-                        <button onClick={() => setIsFolderModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl">Cancel</button>
+                        <button onClick={() => { setIsFolderModalOpen(false); setFolderName(""); setFolderParentId(""); }} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl">Cancel</button>
                         <button onClick={handleCreateFolder} disabled={isSubmitting}
                             className="px-8 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2">
                             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FolderPlus className="w-4 h-4" />}
@@ -721,30 +770,81 @@ const ManagerDocumentsPage = () => {
                     </>
                 }
             >
-                <div className="p-4">
-                    <label className={labelCls}>Folder Name <span className="text-rose-500">*</span></label>
-                    <input value={folderName} onChange={e => setFolderName(e.target.value)}
-                        placeholder="e.g. Structural Drawings" className={inputCls} />
+                <div className="p-4 space-y-4">
+                    <div>
+                        <label className={labelCls}>Project Name</label>
+                        <input
+                            value={selectedProject?.project_name || `Project #${selectedProjectId}`}
+                            readOnly
+                            className={inputCls + " bg-slate-50 text-slate-500 cursor-not-allowed"}
+                        />
+                    </div>
+                    <div>
+                        <label className={labelCls}>Folder Name <span className="text-rose-500">*</span></label>
+                        <input value={folderName} onChange={e => setFolderName(e.target.value)}
+                            placeholder="e.g. Structural Drawings" className={inputCls} autoFocus />
+                    </div>
+                    <div>
+                        <label className={labelCls}>Parent ID <span className="text-slate-400 font-medium normal-case tracking-normal">(optional)</span></label>
+                        <input
+                            type="number"
+                            value={folderParentId}
+                            onChange={e => setFolderParentId(e.target.value)}
+                            placeholder={currentParentId ? `Current: ${currentParentId}` : "Leave blank for root"}
+                            className={inputCls}
+                            min={1}
+                        />
+                        {currentParentId && !folderParentId && (
+                            <p className="text-[10px] text-slate-400 mt-1 ml-1">
+                                Defaults to current folder (ID: {currentParentId})
+                            </p>
+                        )}
+                    </div>
                 </div>
             </Modal>
 
             {/* View Modal */}
             <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Document Details" maxWidth="max-w-md">
                 {viewingDoc && (
-                    <div className="p-6 space-y-4">
+                    <div className="p-6 space-y-3">
                         {[
                             ["Title", viewingDoc.title],
+                            ["Project", viewingDoc.project_name || `Project #${viewingDoc.project_id}`],
                             ["Type", viewingDoc.document_type || "—"],
                             ["Status", viewingDoc.status || "PENDING"],
                             ["Version", viewingDoc.version || "v1.0"],
                             ["Uploaded", viewingDoc.uploaded_at ? new Date(viewingDoc.uploaded_at).toLocaleString() : "—"],
+                            ["Uploaded By", viewingDoc.uploaded_by_name || (viewingDoc.uploaded_by_user_id ? `User #${viewingDoc.uploaded_by_user_id}` : "—")],
                             ["Remarks", viewingDoc.remarks || "—"],
                         ].map(([label, value]) => (
                             <div key={label} className="flex justify-between items-start border-b border-slate-50 pb-3 last:border-0">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
-                                <span className="text-sm font-bold text-slate-800 text-right max-w-[60%]">{value}</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 mr-4">{label}</span>
+                                <span className={`text-sm font-bold text-right max-w-[60%] ${
+                                    label === "Status"
+                                        ? value === "APPROVED" ? "text-emerald-600"
+                                        : value === "REJECTED" ? "text-rose-600"
+                                        : "text-amber-600"
+                                        : "text-slate-800"
+                                }`}>{value}</span>
                             </div>
                         ))}
+
+                        {/* File URL row */}
+                        {viewingDoc.file_url && (
+                            <div className="flex justify-between items-start border-b border-slate-50 pb-3">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 mr-4">File URL</span>
+                                <a
+                                    href={viewingDoc.file_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-bold text-primary hover:underline text-right max-w-[60%] truncate block"
+                                    title={viewingDoc.file_url}
+                                >
+                                    {viewingDoc.file_url.split("/").pop() || viewingDoc.file_url}
+                                </a>
+                            </div>
+                        )}
+
                         {viewingDoc.file_url && (
                             <button onClick={() => handleDownload(viewingDoc)}
                                 className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-all">
@@ -769,12 +869,12 @@ const ManagerDocumentsPage = () => {
             {/* Edit Document Modal */}
             <Modal
                 isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
+                onClose={() => { setIsEditModalOpen(false); setEditFile(null); }}
                 title="Edit Document Details"
                 maxWidth="max-w-lg"
                 footer={
                     <>
-                        <button onClick={() => setIsEditModalOpen(false)} disabled={isSubmitting}
+                        <button onClick={() => { setIsEditModalOpen(false); setEditFile(null); }} disabled={isSubmitting}
                             className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">
                             Cancel
                         </button>
@@ -806,9 +906,46 @@ const ManagerDocumentsPage = () => {
                         </div>
                     </div>
                     <div>
+                        <label className={labelCls}>Status</label>
+                        <select value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
+                            <option value="PENDING">Pending</option>
+                            <option value="APPROVED">Approved</option>
+                            <option value="REJECTED">Rejected</option>
+                        </select>
+                    </div>
+                    <div>
                         <label className={labelCls}>Remarks</label>
                         <textarea value={editForm.remarks} onChange={e => setEditForm(p => ({ ...p, remarks: e.target.value }))}
                             placeholder="Update notes..." rows={3} className={inputCls + " resize-none"} />
+                    </div>
+                    <div>
+                        <label className={labelCls}>Replace File <span className="text-slate-400 font-medium normal-case tracking-normal">(optional)</span></label>
+                        <div
+                            onClick={() => editFileInputRef.current?.click()}
+                            className="w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+                        >
+                            {editFile ? (
+                                <div className="flex items-center justify-center gap-3">
+                                    <FileText className="w-5 h-5 text-primary" />
+                                    <div className="text-left">
+                                        <p className="text-sm font-bold text-slate-800">{editFile.name}</p>
+                                        <p className="text-xs text-slate-400">{(editFile.size / 1024).toFixed(1)} KB</p>
+                                    </div>
+                                    <button onClick={e => { e.stopPropagation(); setEditFile(null); }}
+                                        className="ml-auto p-1 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <Upload className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
+                                    <p className="text-xs font-bold text-slate-500">Click to select a new file</p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">PDF, DOC, DWG, Images supported</p>
+                                </>
+                            )}
+                        </div>
+                        <input ref={editFileInputRef} type="file" className="hidden"
+                            onChange={e => { if (e.target.files?.[0]) setEditFile(e.target.files[0]); }} />
                     </div>
                 </div>
             </Modal>

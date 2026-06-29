@@ -26,7 +26,7 @@ export interface CreateQcRequest {
     task_id?: number | null;
     dsr_id?: number | null;
     remarks?: string | null;
-    report_file?: string | null;
+    report_file?: File | string | null;
 }
 
 export type UpdateQcRequest = CreateQcRequest;
@@ -63,27 +63,53 @@ export const qcService = {
 
     createQc: async (data: CreateQcRequest): Promise<QcItem> => {
         const payload = {
-            ...data,
+            project_id: data.project_id,
+            inspection_type: data.inspection_type,
+            test_type: data.test_type,
+            result: data.result,
+            standard_value: data.standard_value,
+            status: data.status,
+            engineer_name: data.engineer_name,
             task_id: data.task_id || null,
             dsr_id: data.dsr_id || null,
             remarks: data.remarks || null
         };
-        const response = await api.post('/qc', null, {
-            params: payload
+
+        const formData = new FormData();
+        if (data.report_file && typeof data.report_file !== 'string') {
+            formData.append("report_file", data.report_file as Blob);
+        }
+
+        const response = await api.post('/qc', formData, {
+            params: payload,
+            headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;
     },
 
     updateQc: async (qc_id: number, data: UpdateQcRequest): Promise<QcItem> => {
         const payload = {
-            ...data,
             id: qc_id,
+            project_id: data.project_id,
+            inspection_type: data.inspection_type,
+            test_type: data.test_type,
+            result: data.result,
+            standard_value: data.standard_value,
+            status: data.status,
+            engineer_name: data.engineer_name,
             task_id: data.task_id || null,
             dsr_id: data.dsr_id || null,
             remarks: data.remarks || null
         };
-        const response = await api.put(`/qc/${qc_id}`, null, {
-            params: payload
+
+        const formData = new FormData();
+        if (data.report_file && typeof data.report_file !== 'string') {
+            formData.append("report_file", data.report_file as Blob);
+        }
+
+        const response = await api.put(`/qc/${qc_id}`, formData, {
+            params: payload,
+            headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;
     },

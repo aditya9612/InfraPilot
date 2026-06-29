@@ -62,6 +62,7 @@ const AllInvoicesPage = () => {
   const [activeCreateType, setActiveCreateType] = useState<InvoiceType>("owner");
   const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
+  const [activeTab, setActiveTab] = useState<"invoices" | "quotations">("invoices");
 
   const PAGE_SIZE = 10;
 
@@ -136,7 +137,7 @@ const AllInvoicesPage = () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      const itemToDelete = unifiedAllData.find(d => d.id === deleteTarget);
+      const itemToDelete = displayData.find((d: any) => d.id === deleteTarget);
       if (itemToDelete?.isQuotation) {
         await quotationService.deleteQuotation(deleteTarget);
         const data = await quotationService.getQuotations();
@@ -158,9 +159,6 @@ const AllInvoicesPage = () => {
   // Filtered data
   const filteredQuotations = useMemo(() => {
     return quotations.filter((q) => {
-      const isConverted = q.status?.toLowerCase() === "converted";
-      if (!isConverted) return false;
-
       const matchSearch =
         q.quotation_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         q.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -203,11 +201,13 @@ const AllInvoicesPage = () => {
 
     const mappedInvoices = filteredInvoices.map(inv => {
       const proj = projects.find(p => p.id === inv.project_id);
+      const owner = owners.find((o: any) => String(o.id) === String(inv.owner_id));
       return {
         ...inv,
         isQuotation: false,
         invoice_no: `INV-${String(inv.id).padStart(3, "0")}`,
-        project_name: proj?.project_name || `Project #${inv.project_id}`
+        project_name: proj?.project_name || `Project #${inv.project_id}`,
+        owner_name: owner?.name || (inv.owner_id ? `Owner #${inv.owner_id}` : "-")
       };
     });
 
@@ -226,13 +226,32 @@ const AllInvoicesPage = () => {
     });
   }, [filteredInvoices, filteredQuotations, projects, sortOrder, typeFilter]);
 
-  const displayData = unifiedAllData;
+  const displayData = activeTab === "quotations"
+    ? filteredQuotations.map(q => ({
+      id: q.id,
+      isQuotation: true,
+      invoice_no: q.quotation_no || `QTN-${q.id}`,
+      project_name: q.project_name || "Unknown Project",
+      client_name: q.client_name,
+      description: "Quotation",
+      type: "quotation",
+      amount: q.subtotal || 0,
+      gst_amount: q.gst_amount || 0,
+      tax_amount: q.tds_amount || 0,
+      total_amount: q.grand_total || 0,
+      paid_amount: q.advance_paid || 0,
+      pending_amount: q.balance_due || 0,
+      status: q.status || "draft",
+      created_at: q.created_at
+    }))
+    : unifiedAllData.filter(d => !d.isQuotation);
+
   const totalPages = Math.max(1, Math.ceil(displayData.length / PAGE_SIZE));
   const pagedData = displayData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchTerm, statusFilter, typeFilter]);
+  }, [searchTerm, statusFilter, typeFilter, activeTab]);
 
   // Stats
   const stats = useMemo(() => {
@@ -332,6 +351,34 @@ const AllInvoicesPage = () => {
 
 
 
+          {/* TABS */}
+          <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl p-1.5 shadow-sm w-fit">
+            <button
+              onClick={() => { setActiveTab("invoices"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); }}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "invoices"
+                ? "bg-primary text-white shadow-md shadow-primary/20"
+                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                }`}
+            >
+              <FileText className="w-4 h-4" />
+              Invoices
+              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${activeTab === "invoices" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                }`}>{invoices.length}</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab("quotations"); setCurrentPage(0); setSearchTerm(""); setStatusFilter("all"); }}
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "quotations"
+                ? "bg-primary text-white shadow-md shadow-primary/20"
+                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                }`}
+            >
+              <Layers className="w-4 h-4" />
+              Quotations
+              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${activeTab === "quotations" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                }`}>{quotations.length}</span>
+            </button>
+          </div>
+
           {/* STATS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard title="Portfolio Value" value={formatCompactCurrency(stats.total)} sub={`${displayData.length} records`} accent="text-indigo-600" />
@@ -381,26 +428,35 @@ const AllInvoicesPage = () => {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                    <th className="px-6 py-4">Invoice #</th>
-                    <th className="px-6 py-4">Project / Description</th>
-                    <th className="px-6 py-4">Type</th>
-                    <th className="px-6 py-4 text-right">Base Amount</th>
-                    <th className="px-6 py-4 text-right">Total Amount</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Invoice #</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Project / Description</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Owner</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Type</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Source Type</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Reference</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Quotation ID</th>
+                    <th className="px-4 py-4 text-right whitespace-nowrap">Base Amount</th>
+                    <th className="px-4 py-4 text-right whitespace-nowrap">GST Amount</th>
+                    <th className="px-4 py-4 text-right whitespace-nowrap">Tax Amount</th>
+                    <th className="px-4 py-4 text-right whitespace-nowrap">Total Amount</th>
+                    <th className="px-4 py-4 text-right whitespace-nowrap">Paid Amount</th>
+                    <th className="px-4 py-4 text-right whitespace-nowrap">Pending Amount</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Status</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Date</th>
+                    <th className="px-4 py-4 text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-20 text-center">
+                      <td colSpan={16} className="px-6 py-20 text-center">
                         <div className="inline-block w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2"></div>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading...</p>
                       </td>
                     </tr>
                   ) : pagedData.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-20 text-center">
+                      <td colSpan={16} className="px-6 py-20 text-center">
                         <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
                         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No records found</p>
                       </td>
@@ -409,32 +465,59 @@ const AllInvoicesPage = () => {
                     pagedData.map((inv: any) => {
                       return (
                         <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-6 py-4 text-sm font-black text-slate-800">
+                          <td className="px-4 py-4 text-sm font-black text-slate-800 whitespace-nowrap">
                             {inv.invoice_no}
                           </td>
-                          <td className="px-6 py-4">
-                            <p className="text-sm font-bold text-slate-700">{inv.project_name || "Unknown Project"}</p>
-                            <p className="text-xs text-slate-400 line-clamp-1 max-w-[220px]">{inv.description}</p>
+                          <td className="px-4 py-4">
+                            <p className="text-sm font-bold text-slate-700 whitespace-nowrap">{inv.project_name || "Unknown Project"}</p>
+                            <p className="text-xs text-slate-400 line-clamp-1 max-w-[180px]">{inv.description}</p>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest ${inv.type === "labour" ? "bg-blue-100 text-blue-600" :
+                          <td className="px-4 py-4 text-xs text-slate-700 whitespace-nowrap font-semibold">
+                            {inv.owner_name || "-"}
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className={`px-2 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest whitespace-nowrap ${inv.type === "labour" ? "bg-blue-100 text-blue-600" :
                               inv.type === "material" ? "bg-purple-100 text-purple-600" : "bg-emerald-100 text-emerald-600"
                               }`}>
-                              {inv.type}
+                              {inv.type || "-"}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-700 text-right tabular-nums">
+                          <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
+                            {inv.source_type || "-"}
+                          </td>
+                          <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
+                            {inv.reference_id || "-"}
+                          </td>
+                          <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
+                            {inv.quotation_id ? `QT-${inv.quotation_id}` : "-"}
+                          </td>
+                          <td className="px-4 py-4 text-sm font-bold text-slate-700 text-right tabular-nums whitespace-nowrap">
                             {formatCompactCurrency(Number(inv.amount) || 0)}
                           </td>
-                          <td className="px-6 py-4 text-sm font-black text-slate-800 text-right tabular-nums">
+                          <td className="px-4 py-4 text-sm font-bold text-indigo-600 text-right tabular-nums whitespace-nowrap">
+                            {formatCompactCurrency(Number(inv.gst_amount) || 0)}
+                          </td>
+                          <td className="px-4 py-4 text-sm font-bold text-purple-600 text-right tabular-nums whitespace-nowrap">
+                            {formatCompactCurrency(Number(inv.tax_amount) || 0)}
+                          </td>
+                          <td className="px-4 py-4 text-sm font-black text-slate-800 text-right tabular-nums whitespace-nowrap">
                             {formatCompactCurrency(Number(inv.total_amount) || 0)}
                           </td>
-                          <td className="px-6 py-4">
-                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${STATUS_BADGE[inv.status || "pending"] || "bg-emerald-100 text-emerald-600"}`}>
+                          <td className="px-4 py-4 text-sm font-bold text-emerald-600 text-right tabular-nums whitespace-nowrap">
+                            {formatCompactCurrency(Number(inv.paid_amount) || 0)}
+                          </td>
+                          <td className="px-4 py-4 text-sm font-bold text-amber-600 text-right tabular-nums whitespace-nowrap">
+                            {formatCompactCurrency(Number(inv.pending_amount) || 0)}
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${STATUS_BADGE[inv.status || "pending"] || "bg-emerald-100 text-emerald-600"}`}>
                               {inv.status || "pending"}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
+                            {inv.invoice_date || inv.created_at ? new Date(inv.invoice_date || inv.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
+                          </td>
+                          <td className="px-4 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
                               {inv.isQuotation && (
                                 <Link

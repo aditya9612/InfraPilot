@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/common/Navbar";
@@ -10,7 +10,6 @@ import { masterService } from "../../services/masterService";
 import toast from "react-hot-toast";
 import {
     List,
-    DollarSign,
     TrendingUp,
     Search,
     Download,
@@ -82,6 +81,17 @@ const ManagerBOQPage = () => {
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [activeItemForModal, setActiveItemForModal] = useState<BoqItem | null>(null);
     const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+                setIsExportMenuOpen(false);
+            }
+        };
+        if (isExportMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [isExportMenuOpen]);
     const [isExporting, setIsExporting] = useState(false);
     const [isOptimizationModalOpen, setIsOptimizationModalOpen] = useState(false);
     const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
@@ -89,7 +99,6 @@ const ManagerBOQPage = () => {
     // Map URL param to tab ID
     const tabMap: Record<string, string> = useMemo(() => ({
         list: "boq-list",
-        budget: "budget",
         cost: "cost-tracking"
     }), []);
 
@@ -452,7 +461,6 @@ const ManagerBOQPage = () => {
 
     const tabs = [
         { id: "boq-list", label: "BOQ List", icon: <List className="w-4 h-4" /> },
-        { id: "budget", label: "Budget Monitoring", icon: <DollarSign className="w-4 h-4" /> },
         { id: "cost-tracking", label: "Cost Tracking", icon: <TrendingUp className="w-4 h-4" /> },
     ];
 
@@ -640,7 +648,7 @@ const ManagerBOQPage = () => {
                                             </div>
                                         )}
 
-                                        <div className="relative">
+                                        <div className="relative" ref={exportMenuRef}>
                                             <button
                                                 onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
                                                 className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
@@ -763,7 +771,6 @@ const ManagerBOQPage = () => {
                                 />
                             </div>
                         )}
-                        {activeTab === "budget" && <BudgetView summary={summary} items={boqData} isLoading={isLoading} />}
                         {activeTab === "cost-tracking" && <CostTrackingView items={boqData} isLoading={isLoading} />}
                     </motion.div>
                 </AnimatePresence>

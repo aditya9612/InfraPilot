@@ -88,13 +88,33 @@ export const labourService = {
 
     /**
      * Update an existing labour record
-     * PUT /api/v1/labour/{id}
+     * PUT /api/v1/labour/{id}  (multipart/form-data)
      */
     async updateLabour(id: number, data: Partial<LabourItem>): Promise<LabourItem> {
         try {
-            console.log(`PUT /api/v1/labour/${id} Request Body:`, data);
-            const response = await api.put<any>(`labour/${id}`, data);
-            console.log(`PUT /api/v1/labour/${id} Raw Response:`, response.data);
+            const formData = new FormData();
+            const fieldMap: Record<string, any> = {
+                labour_name: data.labour_name,
+                status: data.status,
+                custom_daily_wage_rate: data.custom_daily_wage_rate ?? (data as any).daily_wage_rate,
+                custom_ot_rate_per_hour: (data as any).custom_ot_rate_per_hour,
+                contractor_id: data.contractor_id,
+                labour_type_id: data.labour_type_id,
+                aadhaar_number: (data as any).aadhaar_number,
+                pan_number: (data as any).pan_number,
+                mobile_number: (data as any).mobile_number,
+                email: (data as any).email,
+                address: (data as any).address,
+                notes: (data as any).notes,
+            };
+            Object.entries(fieldMap).forEach(([key, val]) => {
+                if (val !== undefined && val !== null && val !== "") {
+                    formData.append(key, String(val));
+                }
+            });
+            const response = await api.put<any>(`labour/${id}`, formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
             return this._normalizeLabour(response.data);
         } catch (error: any) {
             console.warn("updateLabour API error, using virtual success fallback:", error.message);
@@ -197,15 +217,8 @@ export const labourService = {
     },
 
     async deleteLabour(labourId: number): Promise<any> {
-        try {
-            const response = await api.delete(`labour/${labourId}`);
-            return response.data;
-        } catch (err: any) {
-            console.warn(`deleteLabour API error, using virtual success fallback:`, err.message);
-            this._mockLabours = this._mockLabours.filter((l: any) => l.id !== labourId);
-            this._persistMockLabours();
-            return { message: "Deleted successfully" };
-        }
+        const response = await api.delete(`labour/${labourId}`);
+        return response.data;
     },
 
     /**

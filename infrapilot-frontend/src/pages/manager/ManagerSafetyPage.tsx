@@ -3,12 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import PageTransition from "../../components/common/PageTransition";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
+import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { useProject } from "../../context/ProjectContext";
 import {
-  Plus, Search, Eye, Edit2, RotateCcw,
+  Plus, Search, Eye, Edit2, RotateCcw, Trash2,
   ChevronLeft, ChevronRight, HeartPulse,
-  AlertOctagon, ShieldCheck, Download
+  AlertOctagon, ShieldCheck
 } from "lucide-react";
 import { safetyService } from "../../services/safetyService";
 import { projectService } from "../../services/projectService";
@@ -44,11 +45,26 @@ const ManagerSafetyPage = () => {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [filterViolationType, setFilterViolationType] = useState("");
+  const [filterProjectId, setFilterProjectId] = useState<number | "">("");
 
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<SafetyItem | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const [tasks, setTasks] = useState<{ id: number; title: string }[]>([]);
+
+  const fetchTasks = useCallback(async (projectId: number) => {
+    if (!projectId) return;
+    try {
+      const res = await projectService.getTasks(projectId);
+      const items = Array.isArray(res) ? res : (res.items || res.data || []);
+      setTasks(items.map((t: any) => ({ id: t.id, title: t.title || t.name || `Task #${t.id}` })));
+    } catch {
+      setTasks([]);
+    }
+  }, []);
 
   const [projects, setProjects] = useState<any[]>([]);
 
@@ -83,6 +99,7 @@ const ManagerSafetyPage = () => {
 
   const defaultForm = (): CreateIncidentRequest => ({
     project_id: selectedProjectId || projects[0]?.id || 0,
+    task_id: null,
     date: new Date().toISOString().split("T")[0],
     violation_type: "No Helmet",
     description: "",
@@ -99,8 +116,8 @@ const ManagerSafetyPage = () => {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      // PM can see all projects if selectedProjectId is null
-      const res = await safetyService.listIncidents(selectedProjectId || undefined, filterViolationType || undefined);
+      const projectId = filterProjectId !== "" ? (filterProjectId as number) : (selectedProjectId || undefined);
+      const res = await safetyService.listIncidents(projectId, filterViolationType || undefined);
       const items = (res.items || []).sort((a: SafetyItem, b: SafetyItem) => Number(b.id) - Number(a.id));
       setIncidentList(items);
     } catch {
@@ -108,11 +125,15 @@ const ManagerSafetyPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProjectId, filterViolationType]);
+  }, [selectedProjectId, filterViolationType, filterProjectId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterViolationType, activeStatFilter, sortOrder]);
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterViolationType, filterProjectId, activeStatFilter, sortOrder]);
   useEffect(() => { setActiveStatFilter("All"); }, [activeTab]);
+  useEffect(() => {
+    const pid = Number(formData.project_id);
+    if (pid) fetchTasks(pid);
+  }, [formData.project_id, fetchTasks]);
 
   // ── STATS ─────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -234,7 +255,7 @@ const ManagerSafetyPage = () => {
       const item = await safetyService.getIncident(id);
       setSelectedIncident(item);
       setFormData({
-        project_id: item.project_id, date: item.date,
+        project_id: item.project_id, task_id: item.task_id || null, date: item.date,
         violation_type: item.violation_type, description: item.description,
         injury_details: item.injury_details || "", action_taken: item.action_taken,
         responsible_person: item.responsible_person,
@@ -245,12 +266,23 @@ const ManagerSafetyPage = () => {
     } catch { toast.error("Failed to fetch details"); }
   };
 
+  const handleDeleteIncident = async () => {
+    if (!deleteTargetId) return;
+    try {
+      await safetyService.deleteIncident(deleteTargetId);
+      toast.success("Incident deleted!");
+      setIncidentList(prev => prev.filter(i => i.id !== deleteTargetId));
+      setIsDeleteModalOpen(false);
+      setDeleteTargetId(null);
+    } catch { toast.error("Failed to delete incident"); }
+  };
+
   const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
   const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
 
   const tabs = [
-    { id: "incidents", label: "Incident Report" },
-    { id: "actions", label: "Corrective Actions" },
+    { id: "incidents", label: "Safety Checklist" },
+    { id: "actions", label: "Incident Report" },
   ];
 
   const isActions = activeTab === "actions";
@@ -259,7 +291,7 @@ const ManagerSafetyPage = () => {
     <>
       <Navbar
         title="Safety Management"
-        breadcrumb={["Manager", "Safety", isActions ? "Corrective Actions" : "Incident Logs"]}
+        breadcrumb={["Manager", "Safety", isActions ? "Incident Report" : "Safety Checklist"]}
       />
 
       <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
@@ -271,7 +303,7 @@ const ManagerSafetyPage = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                {isActions ? "Safety Corrective Actions" : "Incident Response Vault"}
+                {isActions ? "Incident Report" : "Safety Checklist"}
               </h1>
               <p className="text-slate-500 text-sm">
                 {isActions ? "Verified logs of safety inspections and site compliance." : "Detailed archive of site accidents and response protocols."}
@@ -279,14 +311,10 @@ const ManagerSafetyPage = () => {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => toast.success("Exporting safety data...")}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-              <Download className="w-4 h-4 text-primary" /> Export
-            </button>
             <button onClick={() => { setFormData(defaultForm()); setIsNewModalOpen(true); }}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">
               <Plus className="w-4 h-4" />
-              {isActions ? "Log Audit Entry" : "Log Incident"}
+              {isActions ? "Log Audit Entry" : "Log Safety Checklist"}
             </button>
           </div>
         </div>
@@ -297,7 +325,7 @@ const ManagerSafetyPage = () => {
             { title: "Total Records", value: stats.total.toString(), sub: "All Time Logs", accent: "text-slate-800", status: "All" },
             { title: "Compliance", value: `${stats.compliance}%`, sub: "Safe Operations", accent: "text-emerald-500", status: "Compliance" },
             { title: "High Risks", value: stats.critical.toString(), sub: "Critical Hazards", accent: "text-rose-500", status: "HighRisk" },
-            { title: "Monthly Report", value: stats.thisMonthCount.toString(), sub: "Recent Safety Events", accent: "text-blue-500", status: "Month" },
+            { title: "Site Safety", value: `${stats.siteSafety}%`, sub: "Safety Movement Score", accent: "text-blue-500", status: "Month" },
           ].map(s => (
             <div key={s.title}
               onClick={() => s.status && setActiveStatFilter(s.status as any)}
@@ -330,6 +358,15 @@ const ManagerSafetyPage = () => {
                   className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-bold" />
               </div>
               <div className="flex flex-wrap items-center gap-3">
+                <select value={filterProjectId} onChange={e => setFilterProjectId(e.target.value === "" ? "" : Number(e.target.value))}
+                  className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm">
+                  <option value="">All Projects</option>
+                  {projects.map(p => (
+                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                      {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                    </option>
+                  ))}
+                </select>
                 <select value={filterViolationType} onChange={e => setFilterViolationType(e.target.value)}
                   className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm">
                   <option value="">All Violations</option>
@@ -360,6 +397,7 @@ const ManagerSafetyPage = () => {
                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                       <th className="px-6 py-4">Date</th>
                       <th className="px-6 py-4">Project Name</th>
+                      <th className="px-6 py-4">Task</th>
                       <th className="px-6 py-4">Incident Summary</th>
                       <th className="px-6 py-4">Violation Type</th>
                       <th className="px-6 py-4">Resources</th>
@@ -374,6 +412,9 @@ const ManagerSafetyPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-xs font-semibold text-slate-600">{getProjectName(item.project_id)}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-semibold text-slate-400">—</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col max-w-xs">
@@ -401,12 +442,15 @@ const ManagerSafetyPage = () => {
                             <button onClick={() => handleEditClick(item.id)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
                               <Edit2 className="w-4 h-4" />
                             </button>
+                            <button onClick={() => { setDeleteTargetId(item.id); setIsDeleteModalOpen(true); }} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                        <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                           No safety records found.
                         </td>
                       </tr>
@@ -495,7 +539,7 @@ const ManagerSafetyPage = () => {
       <Modal
         isOpen={isNewModalOpen || isEditModalOpen}
         onClose={() => { setIsNewModalOpen(false); setIsEditModalOpen(false); }}
-        title={isEditModalOpen ? "Modify Safety Intelligence" : (isActions ? "Record Safety Audit" : "Log Incident Report")}
+        title={isEditModalOpen ? "Modify Safety Intelligence" : (isActions ? "Record Safety Audit" : "Log Safety Checklist")}
         maxWidth="max-w-2xl"
         footer={
           <>
@@ -523,6 +567,17 @@ const ManagerSafetyPage = () => {
                   <option key={p.id || p.project_id} value={p.id || p.project_id}>
                     {p.name || p.project_name || `Project #${p.id || p.project_id}`}
                   </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Task (Optional)</label>
+              <select name="task_id" value={formData.task_id || ""}
+                onChange={e => setFormData(p => ({ ...p, task_id: e.target.value ? Number(e.target.value) : null }))}
+                className={inputCls}>
+                <option value="">— None —</option>
+                {tasks.map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
                 ))}
               </select>
             </div>
@@ -593,6 +648,16 @@ const ManagerSafetyPage = () => {
           </div>
         )}
       </Modal>
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => { setIsDeleteModalOpen(false); setDeleteTargetId(null); }}
+        onConfirm={handleDeleteIncident}
+        title="Delete Incident"
+        message="Are you sure you want to delete this incident? This action cannot be undone."
+        confirmText="Delete"
+        type="danger"
+      />
     </>
   );
 };
