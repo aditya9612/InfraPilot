@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
+import { userService } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 
 interface AddActivityModalProps {
@@ -98,20 +99,21 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   }, [isOpen]);
 
   useEffect(() => {
-    const fetchEngineersForProject = async () => {
-      const targetProjectId = Number(formData.project_id) || projectId;
-      if (!targetProjectId) return;
-
+    const fetchSiteEngineers = async () => {
       try {
-        const mems = await projectService.getProjectMembers(targetProjectId);
-        const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
-        // Filter for SiteEngineers
-        const engineers = memberList.filter((m: any) =>
-          (m.role === 'SiteEngineer' || m.role?.name === 'SiteEngineer' || m.user?.role === 'SiteEngineer')
-        ).map((m: any) => ({
-          id: m.user_id || m.id || m.user?.id,
-          name: m.full_name || m.name || m.user?.full_name || `Engineer #${m.user_id || m.id}`
-        }));
+        // Fetch all users and filter by SiteEngineer role
+        const res = await userService.getAllUsers(200, 0);
+        const allUsers = Array.isArray(res) ? res : (res.items || res.data || []);
+        const engineers = allUsers
+          .filter((u: any) => {
+            const role = typeof u.role === 'string' ? u.role : u.role?.name || '';
+            const normalizedRole = role.toLowerCase().replace(/\s/g, '');
+            return normalizedRole === 'siteengineer' || normalizedRole === 'engineer';
+          })
+          .map((u: any) => ({
+            id: u.user_id || u.id,
+            name: u.full_name || u.name || `Engineer #${u.user_id || u.id}`
+          }));
         setSiteEngineers(uniqueById(engineers));
       } catch (err) {
         console.error("Failed to fetch site engineers", err);
@@ -120,9 +122,9 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     };
 
     if (isOpen) {
-      fetchEngineersForProject();
+      fetchSiteEngineers();
     }
-  }, [formData.project_id, isOpen, projectId]);
+  }, [isOpen]);
 
   const displayedBoqs = allBoqs;
   const displayedWorkOrders = allWorkOrders;

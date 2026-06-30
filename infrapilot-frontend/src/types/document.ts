@@ -38,6 +38,7 @@ export interface DocumentUploadParams {
     document_type: string;
     parent_id?: number | null;
     remarks?: string;
+    version?: string;
     file: File;
 }
 

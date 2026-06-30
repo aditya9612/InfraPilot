@@ -155,13 +155,6 @@ const ApprovalsPage = () => {
                     </div>
                     <div className="flex gap-2">
                         <button
-                            onClick={handleExport}
-                            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
-                        >
-                            <Download className="w-4 h-4" />
-                            Export Report
-                        </button>
-                        <button
                             onClick={handleBulkApprove}
                             disabled={selectedIds.length === 0}
                             className={`px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${selectedIds.length > 0

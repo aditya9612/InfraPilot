@@ -103,6 +103,9 @@ const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               <InfoItem label="File Type" value={document.type} />
               <InfoItem label="Linked Project" value={document.project} />
               <InfoItem label="Status" value={document.status} />
+              <InfoItem label="Uploaded By" value={document.uploaded_by || "—"} />
+              <InfoItem label="Folder Status" value={document.folder_status || (document.isFolder ? "Folder" : "File")} />
+              <InfoItem label="Remarks" value={document.remarks || "—"} />
               <InfoItem label="Storage Location" value={document.isFolder ? "Root Directory" : "Secure Vault / Project Files"} />
             </Section>
           </div>

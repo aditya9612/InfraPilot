@@ -73,6 +73,68 @@ export interface LabourDashboardResponse {
   tasks: any[];
 }
 
+// --------------- PM Command Center Types ---------------
+export interface PMCommandCenterData {
+  header_date: string;
+  kpis: {
+    total_managed_projects: number;
+    active_site_deployments: number;
+    avg_completion_percent: number;
+    delayed_sites_count: number;
+    pending_reviews_count: number;
+  };
+  project_performance: {
+    id: number;
+    name: string;
+    business_id: string;
+    progress: number;
+    status: string;
+    start_date: string;
+    end_date: string;
+    budget_utilization_actual: number;
+    budget_utilization_total: number;
+  }[];
+  quality_score: number;
+  safety_score: number;
+  cost_tracking: {
+    month: string;
+    actual_cost: number;
+    budget: number;
+  }[];
+  risk_analysis: {
+    project_name: string;
+    risk_type: string;
+    priority: string;
+    status: string;
+  }[];
+  critical_alerts: {
+    id: number;
+    alert_type: string;
+    message: string;
+    project_name: string;
+    timestamp: string;
+  }[];
+  task_management: {
+    id: number;
+    task_name: string;
+    engineer_name: string;
+    status: string;
+    due_date: string | null;
+  }[];
+  recent_activities: any[];
+}
+
+export interface PMSummaryData {
+  total_projects: number;
+  active_projects: number;
+  completed_projects: number;
+  delayed_projects: number;
+  pending_approvals: number;
+  open_issues: number;
+  budget_utilized_percent: number;
+  todays_activities: number;
+}
+
 export const dashboardService = {
   /**
    * Get Client Dashboard stats
@@ -113,10 +175,28 @@ export const dashboardService = {
   },
 
   /**
-   * PM Dashboard APIs
+   * Labour Dashboard
    */
   async getLabourDashboard(): Promise<LabourDashboardResponse> {
     const response = await api.get<LabourDashboardResponse>('dashboard/labour');
+    return response.data;
+  },
+
+  /**
+   * PM Command Center
+   * GET /api/v1/dashboard/pm-command-center
+   */
+  async getPMCommandCenter(): Promise<PMCommandCenterData> {
+    const response = await api.get<PMCommandCenterData>('/dashboard/pm-command-center');
+    return response.data;
+  },
+
+  /**
+   * PM Summary
+   * GET /api/v1/dashboard/project-manager-summary
+   */
+  async getPMSummary(): Promise<PMSummaryData> {
+    const response = await api.get<PMSummaryData>('/dashboard/project-manager-summary');
     return response.data;
   },
 };
