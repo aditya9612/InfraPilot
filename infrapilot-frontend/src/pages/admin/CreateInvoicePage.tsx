@@ -2375,7 +2375,7 @@ const CreateInvoicePage = () => {
                 ) : (
                   <Eye className="w-5 h-5 group-hover:animate-pulse" />
                 )}
-                {isPreviewLoading ? 'GENERATING PREVIEW...' : 'PREVIEW INVOICE'}
+                {isPreviewLoading ? 'GENERATING PREVIEW...' : 'PREVIEW QUOTATION'}
               </button>
               <button
                 onClick={handleSaveQuotation}

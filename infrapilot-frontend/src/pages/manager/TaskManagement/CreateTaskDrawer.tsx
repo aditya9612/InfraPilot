@@ -5,6 +5,7 @@ import { projectService } from '../../../services/projectService';
 import { labourService } from '../../../services/labourService';
 import { boqService } from '../../../services/boqService';
 import { masterService } from '../../../services/masterService';
+import { useProject } from '../../../context/ProjectContext';
 import toast from 'react-hot-toast';
 
 interface CreateTaskModalProps {
@@ -15,6 +16,7 @@ interface CreateTaskModalProps {
 }
 
 const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskModalProps) => {
+    const { assignedProjects } = useProject();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState('Medium');
@@ -45,7 +47,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const audioChunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<any>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+    const [assignedProjectsLocal] = useState<any[]>([]); // replaced by context
 
     useEffect(() => {
         const fetchProjectData = async () => {
@@ -72,15 +74,6 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     }, [targetProjectId]);
 
     useEffect(() => {
-        let localProjects: any[] = [];
-        const userStr = localStorage.getItem('infrapilot_user');
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                localProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
-            } catch (e) { }
-        }
-
         if (isOpen) {
             // Reset form state
             setTitle('');
@@ -96,16 +89,6 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
             setInstructionImage(null);
             setSelectedEmployees([]);
             deleteRecording();
-
-            projectService.getProjects(100, 0)
-                .then(data => {
-                    const apiProjects = Array.isArray(data) ? data : (data.items || []);
-                    setAssignedProjects(apiProjects.length > 0 ? apiProjects : localProjects);
-                })
-                .catch(err => {
-                    console.error("Failed to load projects", err);
-                    setAssignedProjects(localProjects);
-                });
         }
     }, [isOpen]);
 

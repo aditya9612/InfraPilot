@@ -11,6 +11,11 @@ export interface Notification {
     role_target: "SiteEngineer" | "Admin" | "All";
     source?: "general" | "project" | "task" | "direct" | "system";
     created_at: string;
+    status?: string | null;
+    project_name?: string | null;
+    project_id?: number | string | null;
+    user_name?: string | null;
+    user_id?: number | string | null;
 }
 
 export const notificationService = {

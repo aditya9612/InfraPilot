@@ -4,7 +4,7 @@ import Modal from '../common/Modal';
 
 import type { Project } from '../../types/project';
 import type { BoqItem } from '../../types/boq';
-import { BOQ_STATUSES } from '../../config/constants';
+
 import { masterService, type MasterEntity } from '../../services/masterService';
 
 interface CreateBOQModalProps {
@@ -293,17 +293,6 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             {errors.unit_cost && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.unit_cost}</p>}
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Status</label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className={`w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none`}
-            >
-              {BOQ_STATUSES?.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Activity Type <span className="text-rose-500">*</span></label>

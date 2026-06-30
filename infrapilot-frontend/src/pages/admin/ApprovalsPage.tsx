@@ -98,9 +98,9 @@ const ApprovalsPage = () => {
     // 3. Search Term Filtering
     const searchStr = searchTerm.toLowerCase();
     return (
-      a.entity_type?.toLowerCase().includes(searchStr) ||
-      a.remarks?.toLowerCase().includes(searchStr) ||
-      a.entity_id?.toString().includes(searchStr)
+      String(a.entity_type || "").toLowerCase().includes(searchStr) ||
+      String(a.remarks || "").toLowerCase().includes(searchStr) ||
+      String(a.entity_id || "").toLowerCase().includes(searchStr)
     );
   }) : [];
 

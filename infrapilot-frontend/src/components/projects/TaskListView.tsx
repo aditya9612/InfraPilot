@@ -1,168 +1,214 @@
+import { useState, useEffect, useMemo } from "react";
 import type { Task, ProjectMember } from "../../types/project";
+import { ChevronDown, TrendingUp, Forward, Eye, Edit2, Trash2 } from "lucide-react";
+import { getFullImageUrl } from "../../utils/imageUtils";
 
 interface TaskListViewProps {
   tasks: Task[];
   members: ProjectMember[];
+  projectName?: string;
   onEdit: (task: Task) => void;
-  onDelete: (id: number) => void;
   onView: (task: Task) => void;
+  onDelete?: (taskId: number) => void;
+  onStatusChange?: (taskId: number, status: string) => void;
+  onUpdateProgress?: (task: Task) => void;
+  onPassDelegate?: (task: Task) => void;
 }
 
-const TaskListView = ({ tasks, members, onEdit, onDelete, onView }: TaskListViewProps) => {
+const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, onStatusChange, onUpdateProgress, onPassDelegate }: TaskListViewProps) => {
+  const [currentPage, setCurrentPage] = useState(0);
+  const PAGE_SIZE = 10;
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [tasks.length]);
+
+  const totalPages = Math.ceil(tasks.length / PAGE_SIZE);
+  const pagedTasks = useMemo(() => {
+    return tasks.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  }, [tasks, currentPage]);
+
   const getMemberName = (task: any) => {
-    // 1. Check for direct name fields
-    const directName = task.assigned_to_name ||
-      task.engineer_name ||
-      task.assigned_user?.full_name ||
-      task.engineer?.full_name ||
-      task.user?.full_name ||
-      task.user?.name;
+    const directName = task.assigned_to_name || task.engineer_name || task.assigned_user?.full_name || task.engineer?.full_name;
     if (directName) return directName;
-
-    // 2. Check for various possible assignment ID fields
-    const id = task.assigned_user_id ||
-      task.assigned_to ||
-      task.engineer_id ||
-      task.lead_id ||
-      task.assigned_user?.id ||
-      task.engineer?.id;
-
-    // If no ID found at all, then it's truly unassigned
-    if (!id && id !== 0) return "Unassigned";
-
-    // Diagnostic: If we have an ID but can't find the member, show the ID
+    const id = task.assigned_user_id || task.assigned_to || task.engineer_id;
+    if (!id) return "Unassigned";
     const member = members.find(m => (m as any).user_id == id || (m as any).id == id);
     if (!member) return `User ${id}`;
-
     return member.full_name;
   };
 
-  const priorityLabels: Record<number, string> = {
-    1: "High",
-    2: "Medium",
-    3: "Low",
-  };
-
-  const priorityColors: Record<number, string> = {
-    1: "text-rose-600 bg-rose-50 border-rose-100",
-    2: "text-amber-600 bg-amber-50 border-amber-100",
-    3: "text-blue-600 bg-blue-50 border-blue-100",
+  const priorityBadges: Record<any, string> = {
+    HIGH: "bg-rose-500 text-white",
+    MEDIUM: "bg-amber-500 text-white",
+    LOW: "bg-blue-500 text-white",
+    1: "bg-rose-500 text-white",
+    2: "bg-amber-500 text-white",
+    3: "bg-blue-500 text-white",
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mt-2">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-              <th className="px-6 py-4">Task Information</th>
-              <th className="px-6 py-4 text-center">Priority</th>
-              <th className="px-6 py-4">Assigned To</th>
-              <th className="px-6 py-4">Schedule</th>
-              <th className="px-6 py-4">Progress</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-center">Actions</th>
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mt-2 font-inter">
+      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
+        <table className="w-full text-left min-w-[1000px] block md:table">
+          <thead className="hidden md:table-header-group">
+            <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+              <th className="p-4 whitespace-nowrap text-slate-800">Project</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Title</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Description</th>
+              <th className="p-4 whitespace-nowrap text-slate-800 text-center">Priority</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Status</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Start / End Date</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Actual Start / End</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Assigned Users</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Completion %</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Delay Days</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Instructions</th>
+              <th className="p-4 whitespace-nowrap text-slate-800 text-center">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
-            {tasks.map((task) => (
-              <tr key={task.id} className="hover:bg-slate-50/30 transition-colors group">
-                <td className="px-6 py-4">
-                  <div className="max-w-xs">
-                    <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                      {task.title}
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-medium line-clamp-1">{task.description}</p>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex justify-center">
-                    <span className={`px-2 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider ${priorityColors[task.priority] || priorityColors[3]}`}>
-                      {priorityLabels[task.priority] || "Low"}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-500 border border-slate-200 ring-2 ring-white shadow-sm">
-                      {getMemberName(task).split(' ').map((n: string) => n[0]).join('')}
-                    </div>
-                    <span className="text-xs font-bold text-slate-600">{getMemberName(task)}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[10px] font-bold text-slate-600">{new Date(task.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
-                    <span className="text-[8px] text-slate-400 uppercase font-bold tracking-tighter">Deadline</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-col gap-1.5 min-w-[120px]">
-                    <div className="flex justify-between text-[9px] font-bold">
-                      <span className="text-slate-400">{task.completion_percentage}% Done</span>
-                      {task.is_delayed && <span className="text-rose-500 animate-pulse">DELAYED</span>}
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-1000 ${task.is_delayed ? 'bg-rose-500' : 'bg-success'}`}
-                        style={{ width: `${task.completion_percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${task.status === 'Completed' ? 'bg-emerald-100 text-emerald-600' :
-                    task.status === 'In Progress' ? 'bg-blue-100 text-primary' :
-                      task.status === 'Cancelled' ? 'bg-rose-100 text-rose-600' :
-                        'bg-slate-100 text-slate-500'
-                    }`}>
-                    {task.status}
+          <tbody className="block md:table-row-group">
+            {pagedTasks.map((task) => (
+              <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors block md:table-row">
+                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{projectName || (task as any).projectName || `Project ${task.project_id}`}</td>
+                <td className="p-4 whitespace-nowrap text-xs font-bold text-slate-800 block md:table-cell">{task.title}</td>
+                <td className="p-4 text-xs text-slate-500 truncate max-w-[200px] block md:table-cell">{task.description}</td>
+                <td className="p-4 text-center block md:table-cell">
+                  <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority] || 'bg-slate-500 text-white'}`}>
+                    {typeof task.priority === 'number' ? (task.priority === 1 ? 'HIGH' : task.priority === 2 ? 'MEDIUM' : 'LOW') : (task.priority || 'LOW')}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="flex items-center justify-center gap-1.5">
+                <td className="p-4 block md:table-cell">
+                  <div className="relative inline-block w-full min-w-[130px]">
+                    <select
+                      value={task.status}
+                      onChange={(e) => onStatusChange ? onStatusChange(task.id, e.target.value) : undefined}
+                      disabled={!onStatusChange}
+                      className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 py-1.5 pl-8 text-xs font-bold text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                      <option value="Planned">Planned</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <div className={`w-2 h-2 rounded-full ${task.status === 'Cancelled' ? 'bg-rose-500' : task.status === 'Completed' ? 'bg-emerald-500' : task.status === 'In Progress' ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
+                    </div>
+                    <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-slate-400">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </td>
+                <td className="p-4 whitespace-nowrap block md:table-cell">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{new Date(task.start_date).toLocaleDateString() || 'NA'}</span></span>
+                    <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{new Date(task.end_date).toLocaleDateString() || 'NA'}</span></span>
+                  </div>
+                </td>
+                <td className="p-4 whitespace-nowrap block md:table-cell">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{(task as any).actual_start_date ? new Date((task as any).actual_start_date).toLocaleDateString() : 'NA'}</span></span>
+                    <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date ? new Date((task as any).actual_end_date).toLocaleDateString() : 'NA'}</span></span>
+                  </div>
+                </td>
+                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{getMemberName(task)}</td>
+                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.completion_percentage || 0}</td>
+                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell font-bold ${(task as any).is_delayed ? 'text-rose-500' : ''}">{(task as any).delay_days || 0}</td>
+
+                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
+                  <div className="flex items-center gap-2">
+                    {(task.audio_file || (task as any).audio_instruction_url) ? (
+                      <audio controls src={getFullImageUrl(task.audio_file || String((task as any).audio_instruction_url)) || ''} className="h-8 max-w-[120px]" />
+                    ) : '-'}
+                    {(task.instruction_image || (task as any).instruction_image_url) ? (
+                      <img src={getFullImageUrl(task.instruction_image || String((task as any).instruction_image_url)) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
+                    ) : null}
+                  </div>
+                </td>
+
+                <td className="p-4 text-center block md:table-cell">
+                  <div className="flex items-center justify-center gap-1">
+                    {onUpdateProgress && (
+                      <button
+                        onClick={() => onUpdateProgress(task)}
+                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                        title="Update Progress"
+                      >
+                        <TrendingUp className="w-4 h-4" />
+                      </button>
+                    )}
+                    {onPassDelegate && (
+                      <button
+                        onClick={() => onPassDelegate(task)}
+                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                        title="Pass/Delegate Task"
+                      >
+                        <Forward className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => onView(task)}
-                      className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all"
+                      className="w-8 h-8 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors shrink-0"
                       title="View Details"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
+                      <Eye className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => onEdit(task)}
-                      className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                      title="Edit Task"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
+                    <button onClick={() => onEdit(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit">
+                      <Edit2 className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => onDelete(task.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                      title="Delete Task"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    {onDelete && (
+                      <button
+                        onClick={() => {
+                          if (confirm("Are you sure you want to delete this task?")) {
+                            onDelete(task.id);
+                          }
+                        }}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
             ))}
             {tasks.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-6 py-12 text-center">
-                  <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">No activities found</p>
+              <tr className="block md:table-row">
+                <td colSpan={12} className="p-12 text-center text-sm font-bold text-slate-800 bg-white block md:table-cell">
+                  No matching tasks found.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      {tasks.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-white">
+          <span className="text-xs text-slate-400 font-medium">
+            {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, tasks.length)} of {tasks.length} activities
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-xs font-bold text-slate-700">
+              {currentPage + 1}
+            </div>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -110,9 +110,23 @@ const ProjectsPage = () => {
       setProjects(projectList);
       setAllProjects(fullList);
 
-      // Process Alerts into Activities
+      // Process Alerts into Activities — filter to assigned projects for PM
+      const assignedProjectIds = new Set(projectList.map((p: any) => p.id || p.project_id));
+
+      const filteredPAlerts = user?.role === "ProjectManager"
+        ? pAlerts.filter((a: any) => assignedProjectIds.has(a.project_id))
+        : pAlerts;
+
+      const filteredTAlerts = user?.role === "ProjectManager"
+        ? tAlerts.filter((a: any) => assignedProjectIds.has(a.project_id))
+        : tAlerts;
+
+      const filteredInvoices = user?.role === "ProjectManager"
+        ? invoices.filter((inv: any) => assignedProjectIds.has(inv.project_id))
+        : invoices;
+
       const combined = [
-        ...pAlerts.map((a: any) => ({
+        ...filteredPAlerts.map((a: any) => ({
           user: a.user_name || "System",
           action: `${a.project_name || 'Project'} is ${a.status || 'Updated'}`,
           rawTime: a.created_at || "",
@@ -121,7 +135,7 @@ const ProjectsPage = () => {
           icon: "⚠️",
           color: "bg-red-50 text-red-500",
         })),
-        ...tAlerts.map((a: any) => {
+        ...filteredTAlerts.map((a: any) => {
           const isFinance = /payment|invoice|bill|payroll|budget|expense|salary/i.test(a.task_name || "");
           return {
             user: a.assigned_to_name || a.author || "Member",
@@ -133,7 +147,7 @@ const ProjectsPage = () => {
             color: isFinance ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500",
           };
         }),
-        ...invoices.map((inv: any) => ({
+        ...filteredInvoices.map((inv: any) => ({
           user: inv.client_name || "System",
           action: `Invoice #${inv.invoice_number || inv.id}: ${inv.status}`,
           rawTime: inv.created_at || "",

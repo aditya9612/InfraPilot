@@ -71,6 +71,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     },
     { label: "AutoCAD Viewer", path: "/admin/autocad", icon: "layers" },
     { label: "Site Engineers", path: "/admin/engineers", icon: "tool" },
+    { label: "Project Managers", path: "/admin/managers", icon: "briefcase" },
     {
       label: "Work & BOQ",
       path: "/admin/boq",
@@ -231,7 +232,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "list",
       subNav: [
         { label: "BOQ", path: "/manager/boq/list", icon: "file-text" },
-        { label: "Budget", path: "/manager/boq/budget", icon: "dollar-sign" },
         { label: "Cost Tracking", path: "/manager/boq/cost", icon: "trending-up" },
       ]
     },
@@ -259,29 +259,19 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/manager/safety",
       icon: "shield",
       subNav: [
-        { label: "Incidents", path: "/manager/safety/incidents", icon: "alert-triangle" },
-        { label: "Corrective Actions", path: "/manager/safety/actions", icon: "check-square" },
+        { label: "Safety Checklist", path: "/manager/safety/incidents", icon: "alert-triangle" },
+        { label: "Incident Report", path: "/manager/safety/actions", icon: "check-square" },
       ]
     },
     {
       label: "Documents",
       path: "/manager/documents",
       icon: "folder",
-      subNav: [
-        { label: "Drawings", path: "/manager/documents/drawings", icon: "edit-3" },
-        { label: "Contracts", path: "/manager/documents/contracts", icon: "file-text" },
-        { label: "Project Files", path: "/manager/documents/files", icon: "file" },
-      ]
     },
     {
       label: "Approvals",
       path: "/manager/approvals",
       icon: "check-circle",
-      subNav: [
-        { label: "Pending Approvals", path: "/manager/approvals/pending", icon: "clock" },
-        { label: "Approved", path: "/manager/approvals/approved", icon: "check-circle" },
-        { label: "Rejected", path: "/manager/approvals/rejected", icon: "rotate-ccw" },
-      ]
     },
     { label: "Reports", path: "/manager/reports", icon: "bar-chart", subNav: [{ label: "Progress Report", path: "/manager/reports/progress", icon: "trending-up" }, { label: "Cost Report", path: "/manager/reports/cost", icon: "dollar-sign" }, { label: "Resource Report", path: "/manager/reports/resource", icon: "users" },] },
     { label: "Chat", path: "/chat", icon: "message-circle" },

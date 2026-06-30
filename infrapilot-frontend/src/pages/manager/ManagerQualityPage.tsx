@@ -9,7 +9,7 @@ import { useProject } from "../../context/ProjectContext";
 import {
     Plus, Search, Eye, Edit2, Trash2, Activity, User,
     ShieldCheck, RotateCcw,
-    ChevronLeft, ChevronRight, Download
+    ChevronLeft, ChevronRight
 } from "lucide-react";
 import ProjectSelector from "../../components/common/ProjectSelector";
 import { qcService } from "../../services/qcService";
@@ -60,7 +60,7 @@ const ManagerQualityPage = () => {
         status: string;
         engineer_name: string;
         remarks: string;
-        report_file: string;
+        report_file: File | string;
     }
 
     const [formData, setFormData] = useState<QcFormData>({
@@ -253,9 +253,6 @@ const ManagerQualityPage = () => {
                     <div className="flex flex-col md:flex-row items-end gap-4">
                         <ProjectSelector variant="page" />
                         <div className="flex flex-wrap gap-2">
-                            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-                                <Download className="w-4 h-4 text-primary" /> Export
-                            </button>
                             <button
                                 onClick={() => { resetForm(); setIsNewModalOpen(true); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all font-inter"
@@ -339,6 +336,7 @@ const ManagerQualityPage = () => {
                                     <thead>
                                         <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                                             <th className="px-6 py-4">Audit Details</th>
+                                            <th className="px-6 py-4">Project</th>
                                             <th className="px-6 py-4">Test Description</th>
                                             <th className="px-6 py-4">Status</th>
                                             <th className="px-6 py-4">Values</th>
@@ -351,6 +349,11 @@ const ManagerQualityPage = () => {
                                             <tr key={qc.id} className="hover:bg-slate-50/50 transition-colors group">
                                                 <td className="px-6 py-4">
                                                     <span className="text-sm font-bold text-slate-800">{qc.inspection_type}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-bold text-slate-700">
+                                                        {assignedProjects.find((p: any) => p.id === qc.project_id)?.project_name || `Project #${qc.project_id}`}
+                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col max-w-xs">
@@ -394,7 +397,7 @@ const ManagerQualityPage = () => {
                                             </tr>
                                         )) : (
                                             <tr>
-                                                <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                                                <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                                                     No quality audits found.
                                                 </td>
                                             </tr>
@@ -556,6 +559,13 @@ const ManagerQualityPage = () => {
                             <label className={labelCls}>Remarks</label>
                             <textarea value={formData.remarks} onChange={e => setFormData(p => ({ ...p, remarks: e.target.value }))} placeholder="Additional observations..." rows={3} className={inputCls + " resize-none"} />
                         </div>
+                        <div className="md:col-span-2">
+                            <label className={labelCls}>Report File</label>
+                            <input type="file" onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (file) setFormData(p => ({ ...p, report_file: file }));
+                            }} className={inputCls} />
+                        </div>
                     </div>
                 </form>
             </Modal>
@@ -565,6 +575,7 @@ const ManagerQualityPage = () => {
                 {selectedQc && (
                     <div className="p-6 space-y-4">
                         {[
+                            ["Project", assignedProjects.find(p => p.id === selectedQc.project_id)?.project_name || `Project #${selectedQc.project_id}`],
                             ["Inspection Type", selectedQc.inspection_type],
                             ["Test Type", selectedQc.test_type],
                             ["Status", selectedQc.status],
