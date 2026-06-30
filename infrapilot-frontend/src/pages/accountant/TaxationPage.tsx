@@ -5,6 +5,7 @@ import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import api from "../../services/api";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 export interface GSTReturn {
   id: number;
@@ -23,68 +24,122 @@ export interface GSTReturn {
 
 // 1. Dashboard
 const DashboardSection = () => {
-  const kpis = [
-    { label: "GST Payable", value: "₹4.5L", icon: "📈", accent: "from-rose-500 to-pink-500", sub: "Output GST" },
-    { label: "GST Receivable (ITC)", value: "₹6.2L", icon: "📉", accent: "from-emerald-500 to-teal-500", sub: "Input GST" },
-    { label: "TDS Payable", value: "₹1.8L", icon: "✂️", accent: "from-amber-500 to-orange-500", sub: "Due by 7th" },
-    { label: "Net GST Liability", value: "₹0", icon: "⚖️", accent: "from-indigo-500 to-blue-500", sub: "ITC > Payable" },
+  const chartData = [
+    { name: 'Jan', input: 12, output: 18 },
+    { name: 'Feb', input: 15, output: 20 },
+    { name: 'Mar', input: 18, output: 25 },
+    { name: 'Apr', input: 14, output: 22 },
+    { name: 'May', input: 21, output: 30 },
+    { name: 'Jun', input: 25, output: 35 },
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((k, i) => (
-          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm text-white`}>{k.icon}</div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
-            <p className="text-xl font-bold text-slate-800">{k.value}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{k.sub}</p>
-          </div>
-        ))}
+    <div className="space-y-6 mt-4">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Taxation</p>
+          <h2 className="text-xl font-bold text-slate-800 tracking-tight uppercase">GST DASHBOARD</h2>
+        </div>
+        <div className="flex gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-50 transition-all shadow-sm">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg> Import
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-lg hover:bg-slate-50 transition-all shadow-sm">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Export
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-          <h3 className="text-base font-bold text-slate-800 mb-5">Pending Returns & Deadlines</h3>
-          <div className="space-y-3">
-            {[
-              { form: "GSTR-1", desc: "Outward Supplies", due: "11th May 2024", status: "Due in 3 Days", color: "text-rose-500" },
-              { form: "GSTR-3B", desc: "Summary Return", due: "20th May 2024", status: "Pending", color: "text-amber-500" },
-              { form: "TDS Payment", desc: "Non-Salary (Sec 194C)", due: "7th May 2024", status: "Overdue", color: "text-rose-600 font-bold" },
-            ].map((t, i) => (
-              <div key={i} className="flex justify-between items-center p-3 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100">
-                <div className="flex gap-3 items-center">
-                  <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center font-bold text-xs">{t.form}</div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">{t.desc}</h4>
-                    <p className="text-xs text-slate-500 mt-0.5">Due: {t.due}</p>
-                  </div>
-                </div>
-                <p className={`text-[10px] uppercase tracking-wider ${t.color}`}>{t.status}</p>
-              </div>
-            ))}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group">
+          <div className="w-10 h-10 rounded-lg bg-emerald-100/50 text-emerald-600 flex items-center justify-center mb-4">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Input GST</p>
+          <p className="text-xl font-bold text-slate-800">₹1.2 Cr</p>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group">
+          <div className="w-10 h-10 rounded-lg bg-rose-100/50 text-rose-600 flex items-center justify-center mb-4">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Output GST</p>
+          <p className="text-xl font-bold text-slate-800">₹1.8 Cr</p>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group">
+          <div className="w-10 h-10 rounded-lg bg-blue-100/50 text-blue-600 flex items-center justify-center mb-4">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Net GST</p>
+          <p className="text-xl font-bold text-slate-800">₹60 Lakh</p>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group">
+          <div className="w-10 h-10 rounded-lg bg-purple-100/50 text-purple-600 flex items-center justify-center mb-4">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">TDS Collected</p>
+          <p className="text-xl font-bold text-slate-800">₹15 Lakh</p>
+        </div>
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group">
+          <div className="w-10 h-10 rounded-lg bg-amber-100/50 text-amber-600 flex items-center justify-center mb-4">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Upcoming Return</p>
+          <p className="text-xl font-bold text-slate-800">20th Jun</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col">
+          <h3 className="font-bold text-slate-800 mb-6">Monthly GST Graph</h3>
+          <div className="flex-1 min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} tickFormatter={(val) => `₹${val}L`} />
+                <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: any) => [`₹${value} Lakh`, '']} />
+                <Bar dataKey="input" name="Input GST" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
+                <Bar dataKey="output" name="Output GST" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={12} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex justify-center gap-6 mt-4 pt-4 border-t border-slate-50">
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-xs font-bold text-slate-500">Input GST</span></div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-500"></div><span className="text-xs font-bold text-slate-500">Output GST</span></div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-          <h3 className="text-base font-bold text-slate-800 mb-5">Recent Tax Entries</h3>
-          <div className="space-y-3">
-            {[
-              { type: "ITC Claimed", party: "UltraTech Cement", amt: "₹45,000", date: "Today" },
-              { type: "TDS Deducted", party: "Ramesh Contractor", amt: "₹10,000", date: "Yesterday" },
-              { type: "Output GST", party: "Apex Developers", amt: "₹1,80,000", date: "2 Days Ago" },
-            ].map((t, i) => (
-              <div key={i} className="flex justify-between items-center p-3 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800">{t.party}</h4>
-                  <p className="text-xs font-semibold text-primary mt-0.5">{t.type}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-slate-800">{t.amt}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{t.date}</p>
-                </div>
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            <h3 className="font-bold text-slate-800 mb-4">Return Status</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div><p className="text-sm font-bold text-slate-800">GSTR-1</p><p className="text-[10px] text-slate-500 mt-0.5">Due: 11th Jun</p></div>
+                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-md font-bold text-[10px] uppercase">Filed</span>
               </div>
-            ))}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div><p className="text-sm font-bold text-slate-800">GSTR-3B</p><p className="text-[10px] text-slate-500 mt-0.5">Due: 20th Jun</p></div>
+                <span className="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-md font-bold text-[10px] uppercase">Pending</span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <div><p className="text-sm font-bold text-slate-800">GSTR-9 (Annual)</p><p className="text-[10px] text-slate-500 mt-0.5">Due: 31st Dec</p></div>
+                <span className="px-2.5 py-1 bg-slate-200 text-slate-600 rounded-md font-bold text-[10px] uppercase">Upcoming</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            <h3 className="font-bold text-slate-800 mb-4">Recent Filing</h3>
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <div className="mt-0.5"><div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div></div>
+                <div><p className="text-sm font-bold text-slate-800">GSTR-1 (April 2026)</p><p className="text-[10px] text-slate-500 mt-0.5">Filed on 10th May 2026. ARN: AA270526001234F</p></div>
+              </div>
+              <div className="flex gap-3">
+                <div className="mt-0.5"><div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div></div>
+                <div><p className="text-sm font-bold text-slate-800">GSTR-3B (April 2026)</p><p className="text-[10px] text-slate-500 mt-0.5">Filed on 19th May 2026. ARN: AA270526001235G</p></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -492,76 +547,7 @@ const GSTReturnsWrapperSection = ({ initialSubTab }: { initialSubTab?: string })
 };
 
 // 4. Input GST (Purchases)
-const InputGSTSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100">
-      <h3 className="font-bold text-slate-800">Input GST (Purchase Side)</h3>
-      <p className="text-xs text-slate-400 mt-0.5">Material Purchases, Vendor Bills, Equipment</p>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50/60 border-b border-slate-100">
-          <tr>
-            {["Date", "Vendor Name", "GSTIN", "Invoice No", "Taxable Amount", "GST Amount", "ITC Eligible", "ITC Claimed"].map(h => (
-              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          <tr className="hover:bg-slate-50/50 transition-colors">
-            <td className="px-4 py-3 text-xs text-slate-500">2024-05-10</td>
-            <td className="px-4 py-3 text-xs font-bold text-slate-800">UltraTech Cement</td>
-            <td className="px-4 py-3 text-xs font-mono text-slate-500">27ABCDE1234F1Z5</td>
-            <td className="px-4 py-3 text-xs font-semibold text-primary">INV-UTC-991</td>
-            <td className="px-4 py-3 text-xs text-right">₹5,00,000</td>
-            <td className="px-4 py-3 text-xs text-indigo-600 text-right font-bold">₹1,40,000</td>
-            <td className="px-4 py-3 text-xs text-emerald-600 text-center font-bold">Yes</td>
-            <td className="px-4 py-3 text-xs text-center">
-              <select className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 font-semibold focus:outline-none focus:ring-1 focus:ring-primary">
-                <option>Claimed</option>
-                <option>Pending</option>
-                <option>Hold</option>
-              </select>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
 // 5. Output GST (Sales)
-const OutputGSTSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100">
-      <h3 className="font-bold text-slate-800">Output GST (Sales Side)</h3>
-      <p className="text-xs text-slate-400 mt-0.5">Client Invoices, RA Bills, Service Charges</p>
-    </div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50/60 border-b border-slate-100">
-          <tr>
-            {["Date", "Client Name", "GSTIN", "Invoice No", "Taxable Amount", "GST Collected", "Total Invoice"].map(h => (
-              <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          <tr className="hover:bg-slate-50/50 transition-colors">
-            <td className="px-4 py-3 text-xs text-slate-500">2024-05-12</td>
-            <td className="px-4 py-3 text-xs font-bold text-slate-800">Apex Developers</td>
-            <td className="px-4 py-3 text-xs font-mono text-slate-500">27XYZAQ9876P1Z2</td>
-            <td className="px-4 py-3 text-xs font-semibold text-primary">RA-BILL-009</td>
-            <td className="px-4 py-3 text-xs text-right">₹10,00,000</td>
-            <td className="px-4 py-3 text-xs text-rose-600 text-right font-bold">₹1,80,000</td>
-            <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹11,80,000</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
 // 6. TDS Management
 const TDSManagementSection = () => (
   <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -666,54 +652,16 @@ const TaxReconciliationSection = () => (
 );
 
 // 8. Reports Wrapper
-const ReportsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "summary");
-
-  const tabs = [
-    { key: "summary", label: "GST Summary" },
-    { key: "input", label: "Input GST Report" },
-    { key: "output", label: "Output GST Report" },
-    { key: "tds", label: "TDS Report" },
-    { key: "return", label: "GST Return Report" },
-    { key: "audit", label: "Tax Audit Report" },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setActiveSubTab(t.key)}
-            className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <PlaceholderSection title={tabs.find(t=>t.key===activeSubTab)?.label || "Report"} />
-    </div>
-  );
-};
-
-// 9. Placeholder
-const PlaceholderSection = ({ title }: { title: string }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center">
-    <div className="text-4xl mb-4">🚧</div><h3 className="text-lg font-bold text-slate-800">{title}</h3>
-    <p className="text-slate-500 text-sm mt-1">This section is being built.</p>
-  </div>
-);
-
 // --- MAIN COMPONENT ---
 
-type TabKey = "dashboard" | "invoices" | "returns" | "input" | "output" | "tds" | "reconciliation" | "reports";
+type TabKey = "dashboard" | "gst" | "tds" | "returns" | "reconciliation";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "dashboard",      label: "Dashboard",       icon: "📊" },
-  { key: "invoices",       label: "GST Invoices",    icon: "📄" },
-  { key: "returns",        label: "GST Returns",     icon: "🔄" },
-  { key: "input",          label: "Input GST",       icon: "⬇️" },
-  { key: "output",         label: "Output GST",      icon: "⬆️" },
-  { key: "tds",            label: "TDS Mgmt",        icon: "✂️" },
-  { key: "reconciliation", label: "Reconciliation",  icon: "⚖️" },
-  { key: "reports",        label: "Reports",         icon: "📉" },
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "dashboard",      label: "Dashboard" },
+  { key: "gst",            label: "GST" },
+  { key: "tds",            label: "TDS" },
+  { key: "returns",        label: "Returns" },
+  { key: "reconciliation", label: "Reconciliation" },
 ];
 
 const TaxationPage = () => {
@@ -729,14 +677,11 @@ const TaxationPage = () => {
     const currentSub = category || lastPart;
 
     const map: Record<string, TabKey> = {
-      "invoices": "invoices",
-      "returns": "returns",
-      "input": "input",
-      "output": "output",
-      "tds": "tds",
-      "reconciliation": "reconciliation",
-      "reports": "reports",
       "dashboard": "dashboard",
+      "gst": "gst",
+      "tds": "tds",
+      "returns": "returns",
+      "reconciliation": "reconciliation",
     };
     return map[currentSub || ""] || "dashboard";
   };
@@ -757,22 +702,33 @@ const TaxationPage = () => {
       <Navbar title="GST & Taxation" breadcrumb={["Accountant", "Taxation"]} />
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Compliance</p>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">GST & Taxation</h1>
             <p className="text-slate-500 text-sm mt-1">Manage GST invoices, returns, TDS deductions, and reconciliations.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+              <span className="text-lg">📥</span> Import
+            </button>
+            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+              <span className="text-lg">📤</span> Export
+            </button>
+            <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+              <span className="text-base leading-none">+</span> New Tax Entry
+            </button>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+        <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
               }`}>
-              <span>{tab.icon}</span>{tab.label}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -786,13 +742,10 @@ const TaxationPage = () => {
 
         {/* Content Rendering */}
         {activeTab === "dashboard"      && <DashboardSection />}
-        {activeTab === "invoices"       && <GSTInvoicesWrapperSection key={subTab || "sales"} />}
-        {activeTab === "returns"        && <GSTReturnsWrapperSection initialSubTab={subTab} key={subTab || "gstr1"} />}
-        {activeTab === "input"          && <InputGSTSection />}
-        {activeTab === "output"         && <OutputGSTSection />}
+        {activeTab === "gst"            && <GSTInvoicesWrapperSection />}
         {activeTab === "tds"            && <TDSManagementSection />}
+        {activeTab === "returns"        && <GSTReturnsWrapperSection initialSubTab={subTab} key={subTab || "gstr1"} />}
         {activeTab === "reconciliation" && <TaxReconciliationSection />}
-        {activeTab === "reports"        && <ReportsWrapperSection initialSubTab={subTab} key={subTab || "summary"} />}
       </PageTransition>
     </>
   );

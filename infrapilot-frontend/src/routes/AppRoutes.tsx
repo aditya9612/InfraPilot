@@ -130,6 +130,7 @@ import JournalEntriesPage from "../pages/accountant/JournalEntriesPage";
 import FixedAssetsPage from "../pages/accountant/FixedAssetsPage";
 import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
 import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
+import ApprovalCenterPage from "../pages/accountant/ApprovalCenterPage";
 import ClientDashboard from "../pages/dashboard/ClientDashboard";
 import LabourDashboard from "../pages/labour/LabourDashboard";
 import MyTasksPage from "../pages/labour/MyTasksPage";
@@ -603,6 +604,14 @@ function AppRoutes() {
                 <Route
                   path="/accountant/settings/:category"
                   element={<AccountantSettingsPage />}
+                />
+                <Route
+                  path="/accountant/approvals"
+                  element={<Navigate to="/accountant/approvals/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/approvals/:category"
+                  element={<ApprovalCenterPage />}
                 />
               </Route>
             </Route>

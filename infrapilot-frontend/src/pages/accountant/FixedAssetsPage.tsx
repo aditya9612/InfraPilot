@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
@@ -12,7 +12,7 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
     <div className="overflow-x-auto">
       <table className="w-full text-left">
         <thead className="bg-slate-50 border-b border-slate-100">
-          <tr>{columns.map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+          <tr>{columns.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
           {data.map((row, i) => (
@@ -27,59 +27,6 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
 );
 
 // --- SECTIONS ---
-const DashboardSection = () => {
-  const kpis = [
-    { label: "Total Asset Value", value: "₹4.5 Cr", icon: "🏢", accent: "from-blue-500 to-indigo-500", sub: "Gross Block" },
-    { label: "Active Assets", value: "142", icon: "✅", accent: "from-emerald-500 to-teal-500", sub: "Currently Deployed" },
-    { label: "Under Maintenance", value: "8", icon: "🔧", accent: "from-amber-500 to-orange-500", sub: "Machinery/Vehicles" },
-    { label: "Depreciation Value", value: "₹45.2 L", icon: "📉", accent: "from-rose-500 to-pink-500", sub: "Accumulated YTD" },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((k, i) => (
-          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm text-white`}>{k.icon}</div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
-            <p className="text-xl font-bold text-slate-800">{k.value}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{k.sub}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-          <h3 className="text-base font-bold text-slate-800 mb-5">Asset Value by Category</h3>
-          <div className="space-y-4">
-            {[
-              { cat: "Construction Machinery", val: "₹2.1 Cr", pct: 45, color: "bg-blue-500" },
-              { cat: "Vehicles", val: "₹1.2 Cr", pct: 25, color: "bg-indigo-500" },
-              { pos: "Buildings & Land", val: "₹80 L", pct: 20, color: "bg-emerald-500" },
-              { cat: "Office & IT Assets", val: "₹40 L", pct: 10, color: "bg-amber-500" }
-            ].map((c, i) => (
-              <div key={i}>
-                <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                  <span>{c.cat || c.pos}</span><span>{c.val}</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2.5">
-                  <div className={`${c.color} h-2.5 rounded-full`} style={{ width: `${c.pct}%` }}></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <GenericTableSection 
-          title="Recent Additions" 
-          columns={["Asset ID", "Name", "Category", "Cost"]} 
-          data={[
-            ["AST-2024-088", "Tata Prima Tipper", "Vehicles", "₹35,00,000"],
-            ["AST-2024-089", "Concrete Mixer 2", "Machinery", "₹8,50,000"]
-          ]} 
-        />
-      </div>
-    </div>
-  );
-};
 
 const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => (
   <Modal
@@ -158,7 +105,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "list");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }, { key: "transfer", label: "Asset Transfer", icon: "🔁" }];
-  
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
@@ -169,7 +116,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
           + Add Asset
         </button>
       </div>
-      
+
       <AddAssetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       {activeSubTab === "list" && (
         <div className="space-y-4">
@@ -211,9 +158,9 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
       </div>
-      
+
       {activeSubTab === "setup" && <GenericTableSection title="Depreciation Methods Configured" columns={["Asset Category", "Method", "Rate (%)", "Status"]} data={[["Vehicles", "SLM", "15", "Active"], ["Machinery", "WDV", "20", "Active"]]} />}
-      
+
       {activeSubTab === "monthly" && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex justify-between items-center">
@@ -230,17 +177,17 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
               <div className="flex justify-between pl-8"><span>To Accumulated Depreciation A/c</span><span>Cr</span><span>₹1,25,000</span></div>
             </div>
           </div>
-          <GenericTableSection 
-            title="Monthly Depreciation Schedule" 
-            columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Monthly Depreciation"]} 
+          <GenericTableSection
+            title="Monthly Depreciation Schedule"
+            columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Monthly Depreciation"]}
             data={[
               ["CAT 320 Excavator", "₹65,00,000", "15% (SLM)", "₹55,25,000", "₹81,250"],
               ["Tata Prima Tipper", "₹35,00,000", "15% (SLM)", "₹29,75,000", "₹43,750"]
-            ]} 
+            ]}
           />
         </div>
       )}
-      
+
       {activeSubTab === "annual" && <GenericTableSection title="Annual Depreciation Summary" columns={["Financial Year", "Total Gross Block", "Depreciation Claimed", "Net Block"]} data={[["2023-24", "₹4,50,00,000", "₹45,20,000", "₹4,04,80,000"]]} />}
       {activeSubTab === "history" && <GenericTableSection title="Depreciation Entry History" columns={["Date", "Journal No", "Amount", "Period", "Status"]} data={[["2024-10-31", "JE-DEP-010", "₹1,25,000", "October 2024", "Posted"]]} />}
     </div>
@@ -261,7 +208,7 @@ const AssetMaintenanceWrapper = ({ initialSubTab }: { initialSubTab?: string }) 
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
       </div>
-      
+
       {activeSubTab === "schedule" && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <div className="xl:col-span-1 space-y-6">
@@ -283,7 +230,7 @@ const AssetMaintenanceWrapper = ({ initialSubTab }: { initialSubTab?: string }) 
           </div>
         </div>
       )}
-      
+
       {activeSubTab === "history" && <GenericTableSection title="Service History Log" columns={["Date", "Asset", "Vendor", "Cost", "Next Due", "Remarks"]} data={[["2024-10-15", "CAT 320 Excavator", "ABC Heavy Machinery Repair", "₹45,000", "2025-04-15", "Routine servicing"]]} />}
       {activeSubTab === "cost" && <GenericTableSection title="Repair Cost Analysis" columns={["Asset Category", "YTD Maintenance Cost", "Avg Cost/Asset"]} data={[["Construction Machinery", "₹1,20,000", "₹24,000"], ["Vehicles", "₹45,000", "₹15,000"]]} />}
       {activeSubTab === "amc" && <GenericTableSection title="AMC Tracking" columns={["Vendor", "Asset Covered", "AMC Start", "AMC End", "Amount"]} data={[["Reliable IT Services", "Office Computers (x20)", "2024-01-01", "2024-12-31", "₹50,000"]]} />}
@@ -333,130 +280,41 @@ const AssetTransfersWrapper = ({ initialSubTab }: { initialSubTab?: string }) =>
       <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
       </div>
-      
+
       {activeSubTab === "site" && (
         <div className="space-y-6">
           <h2 className="font-bold text-slate-800 px-1">Inter-Site Asset Transfer</h2>
           <AssetTransferForm />
         </div>
       )}
-      
+
       {activeSubTab === "department" && (
         <div className="space-y-6">
           <h2 className="font-bold text-slate-800 px-1">Inter-Department Asset Transfer</h2>
           <AssetTransferForm />
         </div>
       )}
-      
+
       {activeSubTab === "history" && <GenericTableSection title="Asset Movement History" columns={["Date", "Asset", "From", "To", "Type", "Approved By"]} data={[["2024-09-01", "CAT 320 Excavator", "Project A", "Metro Line 3", "Site Transfer", "Rahul Verma"]]} />}
     </div>
   );
 };
 
-const AssetDisposalWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "sale");
-  const tabs = [
-    { key: "sale", label: "Asset Sale", icon: "💰" },
-    { key: "scrap", label: "Asset Scrap", icon: "⚙️" },
-    { key: "writeoff", label: "Asset Write-Off", icon: "❌" }
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
-      </div>
-      
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-              <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-              {tabs.find(t=>t.key===activeSubTab)?.label} Details
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Name *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Old Concrete Mixer (AST-2018-012)</option></select></div>
-              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Disposal Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-              
-              {activeSubTab === "sale" && (
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sale Value (₹)</label><input type="number" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-              )}
-              {activeSubTab === "scrap" && (
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scrap Value (₹)</label><input type="number" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-              )}
-              
-              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gain/Loss (₹)</label><input type="text" readOnly placeholder="Auto-calculated" className="w-full px-3 py-2 text-sm border border-slate-100 rounded-xl bg-slate-50 font-bold" /></div>
-              
-              <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><input type="text" placeholder="Reason for disposal" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-            </div>
-          </div>
-        </div>
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
-            <h3 className="text-sm font-bold text-slate-800 mb-5">Process Disposal</h3>
-            <button onClick={() => toast.success("Asset Disposed!")} className="w-full bg-rose-600 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-rose-700 transition-all shadow-md">
-              Execute {tabs.find(t=>t.key===activeSubTab)?.label}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ReportsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "register");
-  const tabs = [
-    { key: "register", label: "Asset Register Report", icon: "📋" },
-    { key: "depreciation", label: "Depreciation Report", icon: "📉" },
-    { key: "valuation", label: "Asset Valuation Report", icon: "💲" },
-    { key: "maintenance", label: "Maintenance Report", icon: "🔧" },
-    { key: "disposal", label: "Disposal Report", icon: "🗑️" }
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
-      </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex justify-between items-center mb-4">
-        <div>
-          <h3 className="font-bold text-slate-800">{tabs.find(t=>t.key===activeSubTab)?.label}</h3>
-          <p className="text-xs text-slate-500 mt-1">Data from the current financial year is available in this view.</p>
-        </div>
-        <button className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg font-bold shadow-sm">Download PDF</button>
-      </div>
-
-      {activeSubTab === "register" && <GenericTableSection title="Asset Register Report" columns={["Asset ID", "Name", "Category", "Cost", "Value"]} data={[["AST-2024-001", "CAT 320 Excavator", "Machinery", "₹65,00,000", "₹55,25,000"]]} />}
-      {activeSubTab === "depreciation" && <GenericTableSection title="Depreciation Report" columns={["Asset ID", "Name", "Depreciation Method", "YTD Depreciation", "Net Value"]} data={[["AST-2024-001", "CAT 320 Excavator", "SLM 15%", "₹9,75,000", "₹55,25,000"]]} />}
-      {activeSubTab === "valuation" && <GenericTableSection title="Asset Valuation Report" columns={["Category", "Total Assets", "Original Cost", "Accumulated Depr.", "Net Book Value"]} data={[["Machinery", "45", "₹2.5 Cr", "₹40 L", "₹2.1 Cr"]]} />}
-      {activeSubTab === "maintenance" && <GenericTableSection title="Maintenance Report" columns={["Asset ID", "Name", "Total Maintenance Cost", "Last Service Date"]} data={[["AST-2024-001", "CAT 320 Excavator", "₹45,000", "2024-10-15"]]} />}
-      {activeSubTab === "disposal" && <GenericTableSection title="Disposal Report" columns={["Asset ID", "Name", "Disposal Date", "Sale/Scrap Value", "Gain/Loss"]} data={[["AST-2018-012", "Old Concrete Mixer", "2024-05-10", "₹2,00,000", "₹50,000 Gain"]]} />}
-    </div>
-  );
-};
 
 // --- MAIN PAGE ---
-type TabKey = "dashboard" | "register" | "categories" | "depreciation" | "maintenance" | "transfers" | "disposal" | "ledger" | "reports";
+type TabKey = "assets" | "depreciation" | "maintenance" | "transfers";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "dashboard",    label: "Dashboard",       icon: "📊" },
-  { key: "register",     label: "Asset Register",  icon: "🏢" },
-  { key: "categories",   label: "Categories",      icon: "🏷️" },
-  { key: "depreciation", label: "Depreciation",    icon: "📉" },
-  { key: "maintenance",  label: "Maintenance",     icon: "🔧" },
-  { key: "transfers",    label: "Transfers",       icon: "🔁" },
-  { key: "disposal",     label: "Disposal",        icon: "🗑️" },
-  { key: "ledger",       label: "Asset Ledger",    icon: "📖" },
-  { key: "reports",      label: "Reports",         icon: "📈" },
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "assets", label: "Assets" },
+  { key: "depreciation", label: "Depreciation" },
+  { key: "maintenance", label: "Maintenance" },
+  { key: "transfers", label: "Transfer" },
 ];
 
 const FixedAssetsPage = () => {
   const { category } = useParams<{ category?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const subTab = searchParams.get("sub") || undefined;
 
   const resolveTab = (): TabKey => {
     const pathParts = location.pathname.split("/").filter(Boolean);
@@ -464,17 +322,12 @@ const FixedAssetsPage = () => {
     const currentSub = category || lastPart;
 
     const map: Record<string, TabKey> = {
-      "register": "register",
-      "categories": "categories",
+      "assets": "assets",
       "depreciation": "depreciation",
       "maintenance": "maintenance",
       "transfers": "transfers",
-      "disposal": "disposal",
-      "ledger": "ledger",
-      "reports": "reports",
-      "dashboard": "dashboard",
     };
-    return map[currentSub || ""] || "dashboard";
+    return map[currentSub || ""] || "assets";
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
@@ -488,48 +341,103 @@ const FixedAssetsPage = () => {
     navigate(`/accountant/assets/${key}`, { replace: true });
   };
 
+  const TAB_CONFIG: Record<TabKey, { title: string; subtitle: string; actions: React.ReactNode }> = {
+    assets: {
+      title: "Assets Register",
+      subtitle: "Manage and track all company fixed assets.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button onClick={() => toast.success("Opening New Asset Form...")} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+            <span className="text-base leading-none">+</span> New Asset
+          </button>
+        </div>
+      ),
+    },
+    depreciation: {
+      title: "Depreciation",
+      subtitle: "Calculate and manage asset depreciation.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button onClick={() => toast.success("Running Depreciation...")} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+            <span className="text-base leading-none">🔄</span> Run Depreciation
+          </button>
+        </div>
+      ),
+    },
+    maintenance: {
+      title: "Maintenance",
+      subtitle: "Log and track asset maintenance activities.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button onClick={() => toast.success("Opening New Maintenance Log...")} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+            <span className="text-base leading-none">+</span> Log Maintenance
+          </button>
+        </div>
+      ),
+    },
+    transfers: {
+      title: "Transfers",
+      subtitle: "Manage transfer of assets across branches or projects.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button onClick={() => toast.success("Opening New Transfer...")} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+            <span className="text-base leading-none">+</span> New Transfer
+          </button>
+        </div>
+      ),
+    },
+  };
+
+  const currentConfig = TAB_CONFIG[activeTab];
+
   return (
     <>
       <Navbar title="Fixed Assets Management" breadcrumb={["Accountant", "Fixed Assets"]} />
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+
+        {/* ── Section Header ─────────────────────────────── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Asset Tracking</p>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Fixed Assets Management</h1>
-            <p className="text-slate-500 text-sm mt-1">Track machinery, vehicles, equipment, and their depreciation.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{currentConfig.title}</h1>
+            <p className="text-slate-500 text-sm mt-1">{currentConfig.subtitle}</p>
           </div>
+          {currentConfig.actions}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+        {/* ── Tab Navigation ─────────────────────────────── */}
+        <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
-            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}>
-              <span>{tab.icon}</span>{tab.label}
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key
+                  ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
+                  : "text-slate-500 hover:text-slate-700"
+                }`}
+            >
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Breadcrumb Label */}
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Fixed Assets</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{TABS.find(t => t.key === activeTab)?.label}</span>
-        </div>
-
-        {/* Content Rendering */}
-        {activeTab === "dashboard"      && <DashboardSection />}
-        {activeTab === "register"       && <AssetRegisterWrapper initialSubTab={subTab} key={subTab || "add"} />}
-        {activeTab === "categories"     && <GenericTableSection title="Construction Asset Categories" columns={["Category", "Total Assets", "Gross Block Value", "Depreciation Method"]} data={[["Construction Machinery", "45", "₹2.1 Cr", "SLM 15%"], ["Vehicles", "20", "₹1.2 Cr", "SLM 15%"], ["Land & Buildings", "5", "₹80 L", "None/Varies"], ["Equipment", "34", "₹55 L", "WDV 20%"], ["Office Assets", "120", "₹25 L", "WDV 10%"], ["IT Assets", "85", "₹40 L", "SLM 33%"]]} />}
-        {activeTab === "depreciation"   && <DepreciationWrapper initialSubTab={subTab} key={subTab || "monthly"} />}
-        {activeTab === "maintenance"    && <AssetMaintenanceWrapper initialSubTab={subTab} key={subTab || "schedule"} />}
-        {activeTab === "transfers"      && <AssetTransfersWrapper initialSubTab={subTab} key={subTab || "site"} />}
-        {activeTab === "disposal"       && <AssetDisposalWrapper initialSubTab={subTab} key={subTab || "sale"} />}
-        {activeTab === "ledger"         && <GenericTableSection title="Asset Ledger (CAT 320)" columns={["Date", "Ref No", "Particulars", "Debit", "Credit", "Balance"]} data={[["2023-01-15", "INV-889", "Purchase", "₹65,00,000", "—", "₹65,00,000 Dr"], ["2024-03-31", "JE-DEP-01", "Depreciation", "—", "₹9,75,000", "₹55,25,000 Dr"]]} />}
-        {activeTab === "reports"        && <ReportsWrapperSection initialSubTab={subTab} key={subTab || "register"} />}
+        {/* ── Content Rendering ──────────────────────────── */}
+        {activeTab === "assets" && <AssetRegisterWrapper />}
+        {activeTab === "depreciation" && <DepreciationWrapper />}
+        {activeTab === "maintenance" && <AssetMaintenanceWrapper />}
+        {activeTab === "transfers" && <AssetTransfersWrapper />}
       </PageTransition>
     </>
   );

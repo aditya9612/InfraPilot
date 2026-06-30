@@ -187,6 +187,9 @@ const TaskManagementPage = () => {
     const [passRemark, setPassRemark] = useState("");
     const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
 
+    // Image Modal State
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
     useEffect(() => {
         if (projectId) {
             projectService.getProjectMembers(projectId).then(res => {
@@ -1184,7 +1187,12 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {(task as any).instruction_image_url ? (
-                                                                <img src={String((task as any).instruction_image_url) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
+                                                                <img 
+                                                                    src={String((task as any).instruction_image_url) || ''} 
+                                                                    alt="Instruction" 
+                                                                    className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity" 
+                                                                    onClick={() => setSelectedImage(String((task as any).instruction_image_url) || '')}
+                                                                />
                                                             ) : 'null'}
                                                         </td>
 
@@ -1778,7 +1786,10 @@ const TaskManagementPage = () => {
                                                 {(selectedTask as any).instruction_image_url && (
                                                     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                                         <p className="text-xs font-bold text-slate-400 mb-3">Instruction Image</p>
-                                                        <div className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video max-w-sm">
+                                                        <div 
+                                                            className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video max-w-sm cursor-pointer hover:opacity-90 transition-opacity"
+                                                            onClick={() => setSelectedImage(getFullUrl(String((selectedTask as any).instruction_image_url)) || '')}
+                                                        >
                                                             <img src={getFullUrl(String((selectedTask as any).instruction_image_url)) || ''} alt="Instruction" className="w-full h-full object-cover" />
                                                         </div>
                                                     </div>
@@ -2452,6 +2463,18 @@ const TaskManagementPage = () => {
                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
                         />
                     </div>
+                </div>
+            </Modal>
+
+            {/* Image Modal */}
+            <Modal
+                isOpen={!!selectedImage}
+                onClose={() => setSelectedImage(null)}
+                title="Instruction Image"
+                maxWidth="max-w-4xl"
+            >
+                <div className="flex justify-center items-center p-4">
+                    <img src={selectedImage || ''} alt="Instruction Full" className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-lg" />
                 </div>
             </Modal>
         </>

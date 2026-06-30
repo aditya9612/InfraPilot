@@ -7,153 +7,151 @@ import toast from "react-hot-toast";
 
 // --- SECTIONS ---
 
-// 1. Dashboard
-const DashboardSection = () => {
-  const kpis = [
-    { label: "Total Employees", value: "42", icon: "🏢", accent: "from-blue-500 to-indigo-500", sub: "Active Staff" },
-    { label: "Site Engineers", value: "12", icon: "👷‍♂️", accent: "from-cyan-500 to-blue-500", sub: "On-site" },
-    { label: "Project Managers", value: "5", icon: "👔", accent: "from-purple-500 to-indigo-500", sub: "Managing Sites" },
-    { label: "Total Labor", value: "156", icon: "👷", accent: "from-amber-500 to-orange-500", sub: "On-site today" },
-    { label: "Total Contractors", value: "18", icon: "🏗️", accent: "from-emerald-500 to-teal-500", sub: "Active Projects" },
-    { label: "Pending Payments", value: "₹4.5L", icon: "⏳", accent: "from-rose-500 to-pink-500", sub: "Unpaid Wages/Bills" },
-  ];
 
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        {kpis.map((k, i) => (
-          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm text-white`}>{k.icon}</div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
-            <p className="text-xl font-bold text-slate-800">{k.value}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{k.sub}</p>
-          </div>
-        ))}
+const PayrollKPICards = () => (
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-amber-200 transition-all group active:scale-[0.98]">
+      <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-4">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-          <h3 className="text-base font-bold text-slate-800 mb-5">Payroll Summary (This Month)</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <span className="text-sm font-semibold text-slate-600">Staff Salary</span>
-              <span className="text-sm font-bold text-slate-800">₹12,50,000</span>
-            </div>
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <span className="text-sm font-semibold text-slate-600">Labor Wages</span>
-              <span className="text-sm font-bold text-slate-800">₹8,20,000</span>
-            </div>
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-              <span className="text-sm font-semibold text-slate-600">Contractor Bills</span>
-              <span className="text-sm font-bold text-slate-800">₹45,00,000</span>
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <span className="text-sm font-bold text-indigo-600">Total Payroll Outflow</span>
-              <span className="text-lg font-black text-indigo-700">₹65,70,000</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-          <h3 className="text-base font-bold text-slate-800 mb-5">Pending Approvals</h3>
-          <div className="space-y-3">
-            {[
-              { type: "Labor Weekly Wages", date: "Week 42", amt: "₹1,45,000", status: "Awaiting HR" },
-              { type: "Civil Contractor Bill", date: "RA-04", amt: "₹12,00,000", status: "Awaiting PM" },
-              { type: "Staff Salary", date: "October 2024", amt: "₹12,50,000", status: "Awaiting Mgmt" },
-            ].map((t, i) => (
-              <div key={i} className="flex justify-between items-center p-3 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100 cursor-pointer">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800">{t.type}</h4>
-                  <p className="text-xs font-semibold text-amber-500 mt-0.5">{t.status}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-slate-800">{t.amt}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{t.date}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PENDING PAYROLL</p>
+      <p className="text-xl font-bold text-slate-800">₹14.2 L</p>
     </div>
-  );
-};
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group active:scale-[0.98]">
+      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      </div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PAID PAYROLL</p>
+      <p className="text-xl font-bold text-slate-800">₹45.5 L</p>
+    </div>
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group active:scale-[0.98]">
+      <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+      </div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ADVANCE GIVEN</p>
+      <p className="text-xl font-bold text-slate-800">₹2.1 L</p>
+    </div>
+    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all group active:scale-[0.98]">
+      <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center mb-4">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+      </div>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR PAYMENT</p>
+      <p className="text-xl font-bold text-slate-800">₹1.8 Cr</p>
+    </div>
+  </div>
+);
 
 // 2. Staff Salary Form
-const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => (
-  <Modal
-    isOpen={isOpen}
-    onClose={onClose}
-    title="Process Staff Salary"
-    maxWidth="max-w-4xl"
-    footer={
-      <>
-        <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={() => { toast.success("Salary Processed Successfully!"); onClose(); }} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">Process Salary</button>
-      </>
-    }
-  >
-    <form className="space-y-6" onSubmit={e => e.preventDefault()}>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Employee Information
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee Name *</label><input type="text" placeholder="Select Employee" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee ID *</label><input type="text" placeholder="EMP-000" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-mono" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department *</label><input type="text" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Designation *</label><input type="text" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-          <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Assigned</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        </div>
-      </div>
+const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const [department, setDepartment] = useState("");
+  const [employee, setEmployee] = useState("");
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  const employeesByDepartment: Record<string, string[]> = {
+    "admin": ["Alice Admin", "Bob Admin"],
+    "project manager": ["Charlie PM", "Dave PM"],
+    "site engineer": ["Eve Engineer", "Frank Engineer"]
+  };
+
+  const currentEmployees = department ? employeesByDepartment[department] : [];
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Process Staff Salary"
+      maxWidth="max-w-4xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+          <button onClick={() => { toast.success("Salary Processed Successfully!"); onClose(); }} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">Process Salary</button>
+        </>
+      }
+    >
+      <form className="space-y-6" onSubmit={e => e.preventDefault()}>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-            <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-            Salary Details
+            <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+            Employee Information
           </h3>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Working Days</label><input type="number" defaultValue="30" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Attendance Days</label><input type="number" defaultValue="28" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 font-bold" /></div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department *</label>
+              <select 
+                value={department}
+                onChange={(e) => { setDepartment(e.target.value); setEmployee(""); }}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500"
+              >
+                <option value="">Select Department</option>
+                <option value="admin">Admin</option>
+                <option value="project manager">Project Manager</option>
+                <option value="site engineer">Site Engineer</option>
+              </select>
             </div>
-            <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Basic Salary (₹)</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 font-semibold" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">HRA</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Allowances</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee Name *</label>
+              <select 
+                value={employee}
+                onChange={(e) => setEmployee(e.target.value)}
+                disabled={!department}
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500 disabled:opacity-50"
+              >
+                <option value="">Select Employee</option>
+                {currentEmployees?.map(emp => (
+                  <option key={emp} value={emp}>{emp}</option>
+                ))}
+              </select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overtime</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bonus</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-            </div>
-            <div className="pt-2 border-t border-slate-100">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Salary</label><input type="number" readOnly placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-blue-50 font-bold text-blue-700" /></div>
-            </div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee ID *</label><input type="text" placeholder="EMP-000" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-mono" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Designation *</label><input type="text" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
+            <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Assigned</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-            <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-            Deductions
-          </h3>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PF</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ESIC</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+              <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
+              Salary Details
+            </h3>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Working Days</label><input type="number" defaultValue="30" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Attendance Days</label><input type="number" defaultValue="28" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 font-bold" /></div>
+              </div>
+              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Basic Salary (₹)</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 font-semibold" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">HRA</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Allowances</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overtime</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bonus</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
+              </div>
+              <div className="pt-2 border-t border-slate-100">
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Salary</label><input type="number" readOnly placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-blue-50 font-bold text-blue-700" /></div>
+              </div>
             </div>
-            <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional Tax</label><input type="number" placeholder="200" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
-            <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salary Advance Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600 font-semibold" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loan Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Other Deductions</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+              <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
+              Deductions
+            </h3>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PF</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ESIC</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+              </div>
+              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional Tax</label><input type="number" placeholder="200" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salary Advance Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600 font-semibold" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loan Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Other Deductions</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
         <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
           <h3 className="text-sm font-bold text-slate-800 mb-3">Final Calculation</h3>
           <div className="space-y-3">
@@ -171,9 +169,10 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
             </div>
           </div>
         </div>
-    </form>
-  </Modal>
-);
+      </form>
+    </Modal>
+  );
+};
 
 const StaffSalaryWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "register");
@@ -184,6 +183,7 @@ const StaffSalaryWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
     { key: "payslips", label: "Payslips" },
     { key: "history", label: "Salary History" }
   ];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
@@ -465,166 +465,6 @@ const ContractorPaymentSection = () => (
   </div>
 );
 
-// 5. Attendance Integration
-const AttendanceIntegrationSection = () => {
-  const [activeTab, setActiveTab] = useState("employee");
-
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 bg-white p-4 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
-        <button onClick={() => setActiveTab("employee")} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeTab === "employee" ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>Employee Attendance</button>
-        <button onClick={() => setActiveTab("labor")} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeTab === "labor" ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>Labor Attendance</button>
-      </div>
-
-      {activeTab === "employee" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-            <div>
-              <h3 className="font-bold text-slate-800">Employee Attendance Summary</h3>
-            </div>
-            <div className="flex gap-2">
-              <button className="bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">Sync Biometrics</button>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/60 border-b border-slate-100">
-                <tr>
-                  {["Date", "Employee Name", "Role", "Present", "Absent", "Leave", "Half Day"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-xs text-slate-500">Oct 2024</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">Amit Kumar</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">Site Engineer</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-emerald-600">24</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-rose-500">1</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-amber-500">1</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-slate-400">0</td>
-                </tr>
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-xs text-slate-500">Oct 2024</td>
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">Priya Sharma</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">Project Manager</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-emerald-600">26</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-slate-400">0</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-slate-400">0</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-slate-400">0</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "labor" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-            <div>
-              <h3 className="font-bold text-slate-800">Labor Attendance</h3>
-            </div>
-            <div className="flex gap-2">
-              <button className="bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">Export Sheet</button>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/60 border-b border-slate-100">
-                <tr>
-                  {["Labor Name", "Site", "Attendance Days", "Overtime Hours"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">Raju Mason</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">Project Alpha</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-emerald-600">6</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-indigo-600">12.5</td>
-                </tr>
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">Ramesh Worker</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">Project Beta</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-emerald-600">5</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-indigo-600">8</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// 6. Reports Wrapper
-const ReportsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "summary");
-  const tabs = [
-    { key: "salary", label: "Salary Report" },
-    { key: "wage", label: "Labor Wage Report" },
-    { key: "contractor", label: "Contractor Report" },
-    { key: "attendance", label: "Attendance Report" },
-    { key: "overtime", label: "Overtime Report" },
-    { key: "summary", label: "Payroll Summary" },
-  ];
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setActiveSubTab(t.key)}
-            className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex justify-between items-center"><h3 className="font-bold text-slate-800">{tabs.find(t=>t.key===activeSubTab)?.label}</h3><button className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg font-bold shadow-sm">Download PDF</button></div>
-        <div className="p-8 text-center bg-slate-50 border-b border-slate-100">
-          <div className="text-4xl mb-3">📊</div>
-          <h4 className="text-sm font-bold text-slate-800">Report Generated</h4>
-          <p className="text-xs text-slate-500 mt-1">Data from the last 30 days is available in this view.</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-white border-b border-slate-100">
-              <tr>{["Date", "Reference", "Category", "Amount", "Status"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 bg-white">
-              <tr className="hover:bg-slate-50/50"><td className="px-4 py-3 text-xs text-slate-500">2024-10-31</td><td className="px-4 py-3 text-xs font-mono text-slate-600">REF-001</td><td className="px-4 py-3 text-xs font-semibold text-slate-700">Payroll Entry</td><td className="px-4 py-3 text-xs font-bold text-slate-800">₹1,25,000</td><td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Active</span></td></tr>
-              <tr className="hover:bg-slate-50/50"><td className="px-4 py-3 text-xs text-slate-500">2024-10-30</td><td className="px-4 py-3 text-xs font-mono text-slate-600">REF-002</td><td className="px-4 py-3 text-xs font-semibold text-slate-700">Payroll Entry</td><td className="px-4 py-3 text-xs font-bold text-slate-800">₹85,000</td><td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Active</span></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// 7. Generic Placeholders & Tables
-const AdvancesSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Advances & Deductions</h3></div>
-    <div className="p-6 text-center text-slate-500 text-sm">No active advances or deductions found.</div>
-  </div>
-);
-
-const ApprovalsSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Pending Approvals</h3></div>
-    <div className="p-4 space-y-3">
-      <div className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
-        <div><h4 className="text-sm font-bold text-slate-800">Labor Weekly Wages (W42)</h4><p className="text-xs text-slate-500 mt-0.5">Submitted by Site Engineer</p></div>
-        <div className="flex items-center gap-4"><p className="text-sm font-bold text-amber-600">₹1,45,000</p><button className="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-600">Approve</button></div>
-      </div>
-    </div>
-  </div>
-);
-
 const LedgerSection = () => (
   <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
     <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Payroll Ledger</h3></div>
@@ -643,18 +483,13 @@ const LedgerSection = () => (
 
 // --- MAIN COMPONENT ---
 
-type TabKey = "dashboard" | "salary" | "wages" | "contractor" | "attendance" | "advances" | "approvals" | "ledger" | "reports";
+type TabKey = "salary" | "wages" | "contractor" | "ledger";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "dashboard",   label: "Dashboard",       icon: "📊" },
-  { key: "salary",      label: "Staff Salary",    icon: "💼" },
-  { key: "wages",       label: "Labor Wages",     icon: "👷" },
-  { key: "contractor",  label: "Contractor Pmt",  icon: "🏗️" },
-  { key: "attendance",  label: "Attendance",      icon: "⏱️" },
-  { key: "advances",    label: "Advances",        icon: "📉" },
-  { key: "approvals",   label: "Approvals",       icon: "✓" },
-  { key: "ledger",      label: "Payroll Ledger",  icon: "📖" },
-  { key: "reports",     label: "Reports",         icon: "📈" },
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "salary",      label: "Staff Salary" },
+  { key: "wages",       label: "Labour Payroll" },
+  { key: "contractor",  label: "Contractor Payment" },
+  { key: "ledger",      label: "Payroll Register" },
 ];
 
 const PayrollPage = () => {
@@ -673,20 +508,15 @@ const PayrollPage = () => {
       "salary": "salary",
       "wages": "wages",
       "contractor": "contractor",
-      "attendance": "attendance",
-      "advances": "advances",
-      "approvals": "approvals",
       "ledger": "ledger",
-      "reports": "reports",
-      "dashboard": "dashboard",
     };
-    return map[currentSub || ""] || "dashboard";
+    return map[currentSub || ""] || "salary";
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
 
   useEffect(() => {
-    setActiveTab(resolveTab());
+  setActiveTab(resolveTab());
   }, [category, location.pathname]);
 
   const handleTabChange = (key: TabKey) => {
@@ -694,48 +524,111 @@ const PayrollPage = () => {
     navigate(`/accountant/payroll/${key}`, { replace: true });
   };
 
+  // Per-tab config: title, subtitle, and action buttons
+  const TAB_CONFIG: Record<TabKey, { title: string; subtitle: string; actions: React.ReactNode }> = {
+    salary: {
+      title: "Staff Salary",
+      subtitle: "Process and manage monthly staff salaries.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📄</span> Payslips
+          </button>
+          <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+            <span className="text-base leading-none">⚙️</span> Process Salary
+          </button>
+        </div>
+      ),
+    },
+    wages: {
+      title: "Labour Wages",
+      subtitle: "Process and manage daily or monthly labour wages.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📅</span> Attendance
+          </button>
+          <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+            <span className="text-base leading-none">⚙️</span> Generate Wages
+          </button>
+        </div>
+      ),
+    },
+    contractor: {
+      title: "Contractor Payment",
+      subtitle: "Manage and process contractor invoices and payments.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+            <span className="text-base leading-none">⚙️</span> Process Bills
+          </button>
+        </div>
+      ),
+    },
+    ledger: {
+      title: "Payroll Register",
+      subtitle: "View comprehensive payroll ledger and history.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+        </div>
+      ),
+    },
+  };
+
+  const currentConfig = TAB_CONFIG[activeTab];
+
   return (
     <>
       <Navbar title="Payroll Management" breadcrumb={["Accountant", "Payroll"]} />
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+
+        {/* ── Section Header ─────────────────────────────── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · HR & Site</p>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Payroll Management</h1>
-            <p className="text-slate-500 text-sm mt-1">Manage staff salaries, labor wages, contractor payments, and attendance.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{currentConfig.title}</h1>
+            <p className="text-slate-500 text-sm mt-1">{currentConfig.subtitle}</p>
           </div>
+          {currentConfig.actions}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+        {/* ── Tab Navigation ─────────────────────────────── */}
+        <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
-            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}>
-              <span>{tab.icon}</span>{tab.label}
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === tab.key
+                  ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Breadcrumb Label */}
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Payroll</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{TABS.find(t => t.key === activeTab)?.label}</span>
-        </div>
+        {/* ── KPI Stat Cards ─────────────────────────────── */}
+        <PayrollKPICards />
 
-        {/* Content Rendering */}
-        {activeTab === "dashboard"  && <DashboardSection />}
+        {/* ── Content Rendering ──────────────────────────── */}
         {activeTab === "salary"     && <StaffSalaryWrapper initialSubTab={subTab} key={subTab || "process"} />}
         {activeTab === "wages"      && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} />}
         {activeTab === "contractor" && <ContractorPaymentSection />}
-        {activeTab === "attendance" && <AttendanceIntegrationSection />}
-        {activeTab === "advances"   && <AdvancesSection />}
-        {activeTab === "approvals"  && <ApprovalsSection />}
         {activeTab === "ledger"     && <LedgerSection />}
-        {activeTab === "reports"    && <ReportsWrapperSection initialSubTab={subTab} key={subTab || "summary"} />}
       </PageTransition>
     </>
   );

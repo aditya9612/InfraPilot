@@ -70,6 +70,21 @@ export const checklistService = {
         return response.data;
     },
 
+    getItems: async (checklistId: number): Promise<ChecklistItemEntry[]> => {
+        const response = await api.get(`/checklists/${checklistId}/items`);
+        return response.data;
+    },
+
+    updateItem: async (itemId: number, data: any): Promise<ChecklistItemEntry> => {
+        const response = await api.put(`/checklists/items/${itemId}`, data);
+        return response.data;
+    },
+
+    deleteItem: async (itemId: number): Promise<{ message: string }> => {
+        const response = await api.delete(`/checklists/items/${itemId}`);
+        return response.data;
+    },
+
     executeChecklist: async (data: ExecuteChecklistRequest): Promise<ChecklistLog> => {
         const response = await api.post('/checklists/execute', data);
         return response.data;

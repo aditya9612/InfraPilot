@@ -8,8 +8,8 @@ import PageTransition from "../../components/common/PageTransition";
 // --- GENERIC COMPONENTS ---
 const GenericTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  
-  const filteredData = data.filter(row => 
+
+  const filteredData = data.filter(row =>
     row.some(cell => String(cell).toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -34,7 +34,7 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-100">
-            <tr>{columns.map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+            <tr>{columns.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {filteredData.length > 0 ? filteredData.map((row, i) => (
@@ -77,61 +77,21 @@ const CommonFilters = () => {
   );
 };
 
-// --- SECTIONS ---
-
-const DashboardSection = () => {
-  const kpis = [
-    { label: "Total Revenue", value: "₹24.5 Cr", icon: "💰", accent: "from-emerald-500 to-teal-500", sub: "YTD Revenue" },
-    { label: "Total Expenses", value: "₹18.2 Cr", icon: "📉", accent: "from-rose-500 to-pink-500", sub: "YTD Direct & Indirect" },
-    { label: "Net Profit", value: "₹6.3 Cr", icon: "📈", accent: "from-blue-500 to-indigo-500", sub: "25.7% Margin" },
-    { label: "O/S Receivables", value: "₹4.1 Cr", icon: "📥", accent: "from-amber-500 to-orange-500", sub: "From Clients" },
-    { label: "O/S Payables", value: "₹2.8 Cr", icon: "📤", accent: "from-purple-500 to-fuchsia-500", sub: "To Vendors/Contractors" },
-    { label: "Cash Balance", value: "₹1.5 Cr", icon: "🏦", accent: "from-emerald-500 to-green-500", sub: "All Bank Accounts" },
-    { label: "Project Cost", value: "₹16.5 Cr", icon: "🏗️", accent: "from-slate-500 to-gray-500", sub: "Allocated to Projects" },
-    { label: "GST Liability", value: "₹45.2 L", icon: "⚖️", accent: "from-red-500 to-orange-500", sub: "Net Payable" },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((k, i) => (
-          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm text-white`}>{k.icon}</div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
-            <p className="text-xl font-bold text-slate-800">{k.value}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{k.sub}</p>
-          </div>
-        ))}
-      </div>
-      
-      <h3 className="font-bold text-slate-800 pt-4">Most Used Reports by Construction Company Management</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {["Profit & Loss", "Cash Flow", "Outstanding Receivables", "Outstanding Payables", "Project Profitability", "Budget vs Actual", "Material Cost Report", "Labor Cost Report", "GST Report", "Management MIS Report"].map((r, i) => (
-          <div key={i} className="bg-white border border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 cursor-pointer shadow-sm transition-all">
-            <span className="text-2xl mb-2 block">📊</span>
-            <p className="text-xs font-bold text-slate-700">{r}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // Generic Wrapper Generator
-const createWrapper = (categoryTabs: {key: string, label: string, icon?: string}[], tableGenerators: Record<string, () => React.ReactNode>) => {
+const createWrapper = (categoryTabs: { key: string, label: string, icon?: string }[], tableGenerators: Record<string, () => React.ReactNode>) => {
   return ({ initialSubTab }: { initialSubTab?: string }) => {
     const navigate = useNavigate();
     const sub = initialSubTab || categoryTabs[0].key;
-    
+
     return (
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1 overflow-x-auto">
             {categoryTabs.map(t => (
               <button key={t.key} onClick={() => navigate(`?sub=${t.key}`, { replace: true })}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  sub === t.key ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
-                }`}>
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${sub === t.key ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}>
                 {t.icon && <span>{t.icon}</span>}
                 {t.label}
               </button>
@@ -141,7 +101,7 @@ const createWrapper = (categoryTabs: {key: string, label: string, icon?: string}
         <CommonFilters />
         {tableGenerators[sub] ? tableGenerators[sub]() : (
           <div className="p-12 text-center bg-white rounded-2xl border border-slate-100">
-            <p className="text-slate-500">Report details for {categoryTabs.find(t=>t.key===sub)?.label} are generated here.</p>
+            <p className="text-slate-500">Report details for {categoryTabs.find(t => t.key === sub)?.label} are generated here.</p>
           </div>
         )}
       </div>
@@ -150,7 +110,7 @@ const createWrapper = (categoryTabs: {key: string, label: string, icon?: string}
 };
 
 const FinancialReportsWrapper = createWrapper([
-  { key: "pl", label: "Profit & Loss", icon: "📈" }, { key: "bs", label: "Balance Sheet", icon: "⚖️" }, { key: "cashflow", label: "Cash Flow Statement", icon: "💸" }, 
+  { key: "pl", label: "Profit & Loss", icon: "📈" }, { key: "bs", label: "Balance Sheet", icon: "⚖️" }, { key: "cashflow", label: "Cash Flow Statement", icon: "💸" },
   { key: "trial", label: "Trial Balance", icon: "📊" }, { key: "ledger", label: "General Ledger", icon: "📓" }, { key: "journal", label: "Journal Report", icon: "📔" }
 ], {
   "pl": () => (
@@ -214,20 +174,6 @@ const AssetReportsWrapper = createWrapper([
   { key: "transfer", label: "Asset Transfer Report", icon: "🔁" }, { key: "maintenance", label: "Maintenance Cost Report", icon: "🔧" }
 ], {});
 
-const TaxReportsWrapper = createWrapper([
-  { key: "gst", label: "GST Report", icon: "🏛️" }, { key: "input", label: "Input GST Report", icon: "📥" }, { key: "output", label: "Output GST Report", icon: "📤" },
-  { key: "tds", label: "TDS Report", icon: "✂️" }, { key: "recon", label: "GST Reconciliation Report", icon: "🔍" }, { key: "filing", label: "Tax Filing Report", icon: "✅" }
-], {});
-
-const ProjectCostReportsWrapper = createWrapper([
-  { key: "budget", label: "Budget vs Actual", icon: "📊" }, { key: "profit", label: "Project Profitability", icon: "📈" }, { key: "material", label: "Material Cost Report", icon: "🧱" },
-  { key: "labor", label: "Labor Cost Report", icon: "👷" }, { key: "contractor", label: "Contractor Cost Report", icon: "🛠️" }, { key: "equipment", label: "Equipment Cost Report", icon: "🚜" }, { key: "variance", label: "Cost Variance Report", icon: "📉" }
-], {
-  "budget": () => <GenericTableSection title="Budget vs Actual" columns={["Project", "Budget", "Actual Cost", "Variance"]} data={[["Metro Line 3", "₹50,00,00,000", "₹45,00,00,000", "₹5,00,00,000 (10%)"]]} />,
-  "profit": () => <GenericTableSection title="Project Profitability" columns={["Project", "Revenue", "Expense", "Profit", "Margin"]} data={[["Highway Proj A", "₹10,00,00,000", "₹8,00,00,000", "₹2,00,00,000", "20%"]]} />,
-  "material": () => <GenericTableSection title="Material Cost Report" columns={["Material", "Quantity Used", "Total Cost", "Avg Cost/Unit"]} data={[["Cement (OPC 53)", "5000 Bags", "₹20,00,000", "₹400/Bag"]]} />,
-  "labor": () => <GenericTableSection title="Labor Cost Report" columns={["Project", "Skilled Labor Cost", "Unskilled Labor Cost", "Total Labor Cost"]} data={[["Metro Line 3", "₹12,00,000", "₹8,00,000", "₹20,00,000"]]} />
-});
 
 const BankingReportsWrapper = createWrapper([
   { key: "cash", label: "Cash Book", icon: "💵" }, { key: "bank", label: "Bank Book", icon: "🏦" }, { key: "recon", label: "Bank Reconciliation", icon: "🔍" },
@@ -240,20 +186,17 @@ const MISReportsWrapper = createWrapper([
 ], {});
 
 // --- MAIN PAGE ---
-type TabKey = "dashboard" | "financial" | "receivables" | "payables" | "expenses" | "payroll" | "assets" | "taxes" | "project" | "banking" | "mis";
+type TabKey = "financial" | "receivable" | "payable" | "expense" | "payroll" | "assets" | "cash_flow" | "mis";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "dashboard",   label: "Dashboard",       icon: "📊" },
-  { key: "financial",   label: "Financial",       icon: "💵" },
-  { key: "receivables", label: "Receivables",     icon: "📥" },
-  { key: "payables",    label: "Payables",        icon: "📤" },
-  { key: "expenses",    label: "Expenses",        icon: "💳" },
-  { key: "payroll",     label: "Payroll",         icon: "👥" },
-  { key: "assets",      label: "Assets",          icon: "🏢" },
-  { key: "taxes",       label: "GST & Tax",       icon: "⚖️" },
-  { key: "project",     label: "Project Cost",    icon: "🏗️" },
-  { key: "banking",     label: "Bank & Cash",     icon: "🏦" },
-  { key: "mis",         label: "MIS",             icon: "📈" },
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "financial", label: "Financial" },
+  { key: "receivable", label: "Receivable" },
+  { key: "payable", label: "Payable" },
+  { key: "expense", label: "Expense" },
+  { key: "payroll", label: "Payroll" },
+  { key: "assets", label: "Assets" },
+  { key: "cash_flow", label: "Cash Flow" },
+  { key: "mis", label: "MIS" },
 ];
 
 const AccountantReportsPage = () => {
@@ -270,18 +213,15 @@ const AccountantReportsPage = () => {
 
     const map: Record<string, TabKey> = {
       "financial": "financial",
-      "receivables": "receivables",
-      "payables": "payables",
-      "expenses": "expenses",
+      "receivable": "receivable",
+      "payable": "payable",
+      "expense": "expense",
       "payroll": "payroll",
       "assets": "assets",
-      "taxes": "taxes",
-      "project": "project",
-      "banking": "banking",
+      "cash_flow": "cash_flow",
       "mis": "mis",
-      "dashboard": "dashboard",
     };
-    return map[currentSub || ""] || "dashboard";
+    return map[currentSub || ""] || "financial";
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
@@ -295,50 +235,70 @@ const AccountantReportsPage = () => {
     navigate(`/accountant/reports/${key}`, { replace: true });
   };
 
+  const commonActions = (
+    <div className="flex flex-wrap items-center gap-3">
+      <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+        <span className="text-lg">📤</span> Export PDF
+      </button>
+      <button onClick={() => toast.success("Emailing Report...")} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+        <span className="text-lg">✉️</span> Email Report
+      </button>
+    </div>
+  );
+
+  const TAB_CONFIG: Record<TabKey, { title: string; subtitle: string; actions: React.ReactNode }> = {
+    financial: { title: "Financial Reports", subtitle: "Analyze core financial statements and summaries.", actions: commonActions },
+    receivable: { title: "Receivable Reports", subtitle: "Track client invoices, collections, and outstanding dues.", actions: commonActions },
+    payable: { title: "Payable Reports", subtitle: "Monitor vendor bills and outstanding payments.", actions: commonActions },
+    expense: { title: "Expense Reports", subtitle: "Review organizational and project expenses.", actions: commonActions },
+    payroll: { title: "Payroll Reports", subtitle: "Analyze salary, wages, and contractor payments.", actions: commonActions },
+    assets: { title: "Asset Reports", subtitle: "View asset register, valuation, and depreciation.", actions: commonActions },
+    cash_flow: { title: "Cash Flow Reports", subtitle: "Monitor bank transactions and cash balances.", actions: commonActions },
+    mis: { title: "MIS Reports", subtitle: "Executive dashboards and performance metrics.", actions: commonActions },
+  };
+
+  const currentConfig = TAB_CONFIG[activeTab];
+
   return (
     <>
       <Navbar title="Financial & Project Reports" breadcrumb={["Accountant", "Reports"]} />
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+
+        {/* ── Section Header ─────────────────────────────── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Analytics</p>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Enterprise Reports</h1>
-            <p className="text-slate-500 text-sm mt-1">Financial, Project Cost, Receivables, Payables, and MIS reporting.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{currentConfig.title}</h1>
+            <p className="text-slate-500 text-sm mt-1">{currentConfig.subtitle}</p>
           </div>
+          {currentConfig.actions}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+        {/* ── Tab Navigation ─────────────────────────────── */}
+        <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
-            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}>
-              <span>{tab.icon}</span>{tab.label}
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key
+                ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
+                : "text-slate-500 hover:text-slate-700"
+                }`}
+            >
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Breadcrumb Label */}
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase">Reports</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[10px] font-black text-primary tracking-[0.2em] uppercase">{TABS.find(t => t.key === activeTab)?.label}</span>
-        </div>
-
-        {/* Content Rendering */}
-        {activeTab === "dashboard"    && <DashboardSection />}
-        {activeTab === "financial"    && <FinancialReportsWrapper initialSubTab={subTab} key={subTab || "pl"} />}
-        {activeTab === "receivables"  && <ReceivableReportsWrapper initialSubTab={subTab} key={subTab || "client"} />}
-        {activeTab === "payables"     && <PayableReportsWrapper initialSubTab={subTab} key={subTab || "vendor"} />}
-        {activeTab === "expenses"     && <ExpenseReportsWrapper initialSubTab={subTab} key={subTab || "summary"} />}
-        {activeTab === "payroll"      && <PayrollReportsWrapper initialSubTab={subTab} key={subTab || "salary"} />}
-        {activeTab === "assets"       && <AssetReportsWrapper initialSubTab={subTab} key={subTab || "register"} />}
-        {activeTab === "taxes"        && <TaxReportsWrapper initialSubTab={subTab} key={subTab || "gst"} />}
-        {activeTab === "project"      && <ProjectCostReportsWrapper initialSubTab={subTab} key={subTab || "budget"} />}
-        {activeTab === "banking"      && <BankingReportsWrapper initialSubTab={subTab} key={subTab || "cash"} />}
-        {activeTab === "mis"          && <MISReportsWrapper initialSubTab={subTab} key={subTab || "dashboard"} />}
+        {/* ── Content Rendering ──────────────────────────── */}
+        {activeTab === "financial" && <FinancialReportsWrapper initialSubTab={subTab} key={subTab || "pl"} />}
+        {activeTab === "receivable" && <ReceivableReportsWrapper initialSubTab={subTab} key={subTab || "client"} />}
+        {activeTab === "payable" && <PayableReportsWrapper initialSubTab={subTab} key={subTab || "vendor"} />}
+        {activeTab === "expense" && <ExpenseReportsWrapper initialSubTab={subTab} key={subTab || "summary"} />}
+        {activeTab === "payroll" && <PayrollReportsWrapper initialSubTab={subTab} key={subTab || "salary"} />}
+        {activeTab === "assets" && <AssetReportsWrapper initialSubTab={subTab} key={subTab || "register"} />}
+        {activeTab === "cash_flow" && <BankingReportsWrapper initialSubTab={subTab} key={subTab || "cash"} />}
+        {activeTab === "mis" && <MISReportsWrapper initialSubTab={subTab} key={subTab || "dashboard"} />}
       </PageTransition>
     </>
   );
