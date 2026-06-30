@@ -7,7 +7,6 @@ const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
-  const [timeRange, setTimeRange] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const { projectId } = useClientProjectId();
@@ -100,11 +99,10 @@ const ClientProgressPage = () => {
                 setFilterStatus(card.id);
                 setCurrentPage(1);
               }}
-              className={`p-6 rounded-2xl bg-white border transition-all flex flex-col items-start gap-4 text-left group active:scale-[0.98] ${
-                filterStatus === card.id 
-                  ? "border-blue-500 shadow-lg shadow-blue-50" 
+              className={`p-6 rounded-2xl bg-white border transition-all flex flex-col items-start gap-4 text-left group active:scale-[0.98] ${filterStatus === card.id
+                  ? "border-blue-500 shadow-lg shadow-blue-50"
                   : "border-slate-100 shadow-sm hover:border-slate-200"
-              }`}
+                }`}
             >
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
                 {card.label}
@@ -121,30 +119,8 @@ const ClientProgressPage = () => {
 
         {/* Detailed Activity Progress — now from API */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="p-8 border-b border-slate-50">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Detailed Activity Progress</h2>
-            
-            <div className="flex items-center gap-3">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Time Range:</span>
-              <div className="relative inline-block">
-                <select 
-                  value={timeRange}
-                  onChange={(e) => setTimeRange(e.target.value)}
-                  className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 text-[10px] font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/10 transition-all cursor-pointer appearance-none pr-8"
-                >
-                  <option value="ALL">All Time</option>
-                  <option value="DAILY">Daily</option>
-                  <option value="WEEKLY">Weekly</option>
-                  <option value="MONTHLY">Monthly</option>
-                  <option value="3_MONTHS">3 Months</option>
-                  <option value="6_MONTHS">6 Months</option>
-                  <option value="1_YEAR">1 Year</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-                </div>
-              </div>
-            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

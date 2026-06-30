@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import {
@@ -29,6 +30,8 @@ const getFullUrl = (path: string | null | undefined): string | undefined => {
 };
 
 const MyTasksPage: React.FC = () => {
+    const navigate = useNavigate();
+    const { user } = useAuth();
     const { speak } = useTextToAudio();
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [activeTab, setActiveTab] = useState('All Tasks');
@@ -137,6 +140,11 @@ const handleViewTask = async (taskId: string) => {
         setSelectedTask(task);
         setIsDetailModalOpen(true);
     }
+};
+
+const handleTaskClick = (task: Task) => {
+    if (task.status === 'Completed') return;
+    navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
 };
 
 const handleUpdateStatus = async (taskId: string, newStatus: string) => {
@@ -321,7 +329,8 @@ return (
                                     {filteredTasks.map(task => (
                                         <tr
                                             key={task.id}
-                                            className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50"
+                                            className={`group transition-colors border-b border-slate-50 ${task.status === 'Completed' ? 'cursor-default' : 'hover:bg-slate-50/50 cursor-pointer'}`}
+                                            onClick={() => handleTaskClick(task)}
                                         >
                                             {/* PROJECT */}
                                             <td className="px-6 py-5 whitespace-nowrap">
@@ -458,15 +467,15 @@ return (
 
                                             {/* ACTION — View only */}
                                             <td className="px-6 py-5 whitespace-nowrap">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
-                                                                                                         className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-
-                                                    title="View Task Details"
-                                                >
-                                                                                                         <Eye className="w-5 h-5" />
-
-                                                </button>
+                                                {task.status !== 'Completed' && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleTaskClick(task); }}
+                                                        className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                        title="View Task Details"
+                                                    >
+                                                        <Eye className="w-5 h-5" />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -475,12 +484,13 @@ return (
                         </div>
                     ) : (
                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 bg-slate-50/10">
+                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 bg-slate-50/10">
                             {filteredTasks.map(task => (
                                 <div
                                     key={task.id}
-                                    className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-50 transition-all group flex flex-col justify-between"
+                                    className={`bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm transition-all group flex flex-col justify-between ${task.status === 'Completed' ? 'cursor-default' : 'hover:shadow-xl hover:shadow-indigo-50 cursor-pointer'}`}
+                                    onClick={() => handleTaskClick(task)}
                                 >
-                                    <div className="space-y-4">
                                         <div className="flex items-start justify-between">
                                             <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${priorityBadge(task.priority)}`}>
                                                 {task.priority}
@@ -492,13 +502,15 @@ return (
                                                 >
                                                     <Play className="w-3 h-3 fill-current" />
                                                 </button>
-                                                                                                 <button
-                                                     onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
+                                                                                                 {task.status !== 'Completed' && (
+                                                    <button
+                                                     onClick={(e) => { e.stopPropagation(); handleTaskClick(task); }}
                                                      className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
                                                      title="View Task Details"
                                                  >
                                                      <Eye className="w-4 h-4" />
                                                  </button>
+                                                )}
 
                                             </div>
                                         </div>

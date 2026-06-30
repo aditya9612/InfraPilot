@@ -1,16 +1,6 @@
 import React from 'react';
 import { Clock, MoreVertical, Circle, Calendar } from 'lucide-react';
-
-interface Task {
-    id: string;
-    project: string;
-    name: string;
-    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold';
-    priority: 'High' | 'Medium' | 'Low';
-    startDate: string;
-    endDate: string;
-    progress: number;
-}
+import type { Task } from '../../types/task';
 
 interface TaskListProps {
     tasks: Task[];
@@ -67,8 +57,8 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                             return (
                                 <tr
                                     key={task.id}
-                                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
-                                    onClick={() => onSelectTask(task)}
+                                    className={`transition-colors group ${task.status === 'Completed' ? 'cursor-default' : 'hover:bg-slate-50/50 cursor-pointer'}`}
+                                    onClick={() => task.status !== 'Completed' && onSelectTask(task)}
                                 >
                                     <td className="px-8 py-6">
                                         <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{task.id}</span>
