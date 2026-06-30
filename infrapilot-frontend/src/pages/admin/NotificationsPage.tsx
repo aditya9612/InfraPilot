@@ -17,7 +17,13 @@ interface NotificationsPageProps {
 
 const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<"alerts" | "system">(filter ?? "alerts");
   const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Sync tab when filter prop changes (e.g. navigating between routes)
+  useEffect(() => {
+    if (filter) setActiveTab(filter);
+  }, [filter]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewingNotif, setViewingNotif] = useState<Notification | null>(null);
@@ -34,21 +40,17 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   const PAGE_SIZE = 10;
 
   useEffect(() => {
-    fetchNotifications();
+    fetchNotifications(activeTab);
     fetchProjects();
-  }, [filter]);
+  }, [activeTab]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (tab: "alerts" | "system") => {
     setIsLoading(true);
+    setNotifications([]);
     try {
-      let data;
-      if (filter === "alerts") {
-        data = await notificationService.getAlertsOnly();
-      } else if (filter === "system") {
-        data = await notificationService.getSystemNotificationsOnly();
-      } else {
-        data = await notificationService.getNotifications();
-      }
+      const data = tab === "alerts"
+        ? await notificationService.getAlertsOnly()
+        : await notificationService.getSystemNotificationsOnly();
       setNotifications(data);
     } catch (err) {
       console.error("Failed to fetch notifications", err);
@@ -100,7 +102,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   useEffect(() => {
     setCurrentPage(0);
     setSelectedIds([]);
-  }, [searchTerm, activeStatFilter, filter, selectedProjectId, sourceFilter]);
+  }, [searchTerm, activeStatFilter, filter, selectedProjectId, sourceFilter, activeTab]);
 
   const totalPages = Math.max(1, Math.ceil(filteredNotifs.length / PAGE_SIZE));
   const pagedNotifs = filteredNotifs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
@@ -170,7 +172,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
       });
       toast.success("Alert broadcasted successfully!");
       setIsCreateModalOpen(false);
-      fetchNotifications();
+      fetchNotifications(activeTab);
     } catch (error: any) {
       toast.error(error.response?.data?.detail || "Failed to send alert.");
     }
@@ -192,12 +194,12 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   return (
     <>
       <Navbar
-        title={filter === "alerts" ? "Project Alerts" : filter === "system" ? "System Notifications" : "Notifications & Alerts"}
-        breadcrumb={["Admin", filter === "alerts" ? "Alerts" : "Notifications"]}
+        title="Notifications & Alerts"
+        breadcrumb={["Admin", "Notifications"]}
       />
 
       <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Notification Center</h1>
             <p className="text-slate-500 text-sm">View all alerts, approvals, and system messages.</p>
@@ -228,39 +230,84 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
           </div>
         </div>
 
+        {/* Alerts / System Notification Tabs */}
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit mb-6">
+          {([
+            { key: "alerts", label: "Project Alerts" },
+            { key: "system", label: "System Notifications" },
+          ] as const).map(t => (
+            <button
+              key={t.key}
+              onClick={() => {
+                setActiveTab(t.key);
+                setActiveStatFilter("All");
+                setSearchTerm("");
+                setSourceFilter("All");
+                setSelectedProjectId("All");
+                fetchNotifications(t.key);
+              }}
+              className={`px-5 py-2 rounded-lg text-[11px] font-bold transition-all ${
+                activeTab === t.key ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         {/* Stat Cards — clickable to filter */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {(["Unread", "Read", "Approval", "All"] as const).map(f => {
-            const count =
-              f === "Unread" ? notifications.filter(n => !n.read).length :
-                f === "Read" ? notifications.filter(n => n.read).length :
-                  f === "Approval" ? notifications.filter(n => n.type === "Approval").length :
-                    notifications.length;
-            const accent =
-              f === "Unread" ? "text-rose-500" :
-                f === "Read" ? "text-emerald-500" :
-                  f === "Approval" ? "text-blue-500" :
-                    "text-primary";
-            const sub =
-              f === "Unread" ? "Require attention" :
-                f === "Read" ? "Processed messages" :
-                  f === "Approval" ? "Action requests" :
-                    "All-time received";
-            const ring =
-              f === "Unread" ? "ring-rose-500" :
-                f === "Read" ? "ring-emerald-500" :
-                  f === "Approval" ? "ring-blue-500" :
-                    "ring-primary";
-            return (
-              <div
-                key={f}
-                onClick={() => setActiveStatFilter(f)}
-                className={`cursor-pointer transition-all duration-200 rounded-xl hover:-translate-y-0.5 ${activeStatFilter === f ? `ring-2 ${ring} ring-offset-2 shadow-md scale-[1.02]` : "hover:shadow-sm"}`}
-              >
-                <StatCard title={f === "All" ? "Total Alerts" : `${f} Messages`} value={count.toString()} sub={sub} accent={accent} />
-              </div>
-            );
-          })}
+          {[
+            {
+              f: "All" as const,
+              label: "Total",
+              sub: activeTab === "alerts" ? "All alerts received" : "All system notifications",
+              count: notifications.length,
+              accent: "text-primary",
+              ring: "ring-primary",
+            },
+            {
+              f: "Unread" as const,
+              label: "Unread",
+              sub: "Require attention",
+              count: notifications.filter(n => !n.read).length,
+              accent: "text-rose-500",
+              ring: "ring-rose-500",
+            },
+            {
+              f: "Read" as const,
+              label: "Read",
+              sub: "Processed messages",
+              count: notifications.filter(n => n.read).length,
+              accent: "text-emerald-500",
+              ring: "ring-emerald-500",
+            },
+            activeTab === "alerts"
+              ? {
+                  f: "Approval" as const,
+                  label: "Alerts",
+                  sub: "Project & task alerts",
+                  count: notifications.filter(n => n.type === "Alert").length,
+                  accent: "text-amber-500",
+                  ring: "ring-amber-500",
+                }
+              : {
+                  f: "Approval" as const,
+                  label: "System",
+                  sub: "System messages",
+                  count: notifications.filter(n => n.type === "System" || n.source === "system").length,
+                  accent: "text-blue-500",
+                  ring: "ring-blue-500",
+                },
+          ].map(({ f, label, sub, count, accent, ring }) => (
+            <div
+              key={f}
+              onClick={() => setActiveStatFilter(f)}
+              className={`cursor-pointer transition-all duration-200 rounded-xl hover:-translate-y-0.5 ${activeStatFilter === f ? `ring-2 ${ring} ring-offset-2 shadow-md scale-[1.02]` : "hover:shadow-sm"}`}
+            >
+              <StatCard title={label} value={count.toString()} sub={sub} accent={accent} />
+            </div>
+          ))}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">

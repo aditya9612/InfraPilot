@@ -158,10 +158,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       label: "Notifications",
       path: "/admin/notifications",
       icon: "bell",
-      subNav: [
-        { label: "Alerts", path: "/admin/notifications/alerts", icon: "alert-circle" },
-        { label: "System Notifications", path: "/admin/notifications/system", icon: "info" },
-      ]
     },
     { label: "Documents", path: "/admin/documents", icon: "file-text" },
     {

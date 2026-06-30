@@ -730,6 +730,8 @@ const ProjectDetailsPage = () => {
               <MilestoneTimeline
                 milestones={milestones}
                 projectId={projectId}
+                tasks={tasks}
+                members={members}
                 onCreateMilestone={handleCreateMilestone}
                 onEditMilestone={handleEditMilestone}
                 onDeleteMilestone={handleDeleteMilestoneClick}

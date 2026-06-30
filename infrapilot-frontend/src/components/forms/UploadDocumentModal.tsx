@@ -111,14 +111,14 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden border border-slate-100 scale-in-center">
-                <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center text-white">
-                            <Upload size={24} strokeWidth={2.5} />
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 scale-in-center">
+                <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center text-white flex-shrink-0">
+                            <Upload size={20} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">
+                            <h2 className="text-lg font-black text-slate-800 tracking-tight">
                                 Upload {formData.document_type === "Drawing" ? "Drawing" : "Document"}
                             </h2>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1">
@@ -129,21 +129,21 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-3 hover:bg-slate-200/50 rounded-2xl transition-all text-slate-400 hover:text-slate-600"
+                        className="p-2 hover:bg-slate-200/50 rounded-2xl transition-all text-slate-400 hover:text-slate-600 flex-shrink-0"
                     >
-                        <X size={24} strokeWidth={2.5} />
+                        <X size={20} strokeWidth={2.5} />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                 Project Link <span className="text-rose-500">*</span>
                             </label>
                             <select
                                 required
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
                                 value={formData.project_id}
                                 onChange={(e) => setFormData(prev => ({ ...prev, project_id: e.target.value }))}
                             >
@@ -160,7 +160,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                             </label>
                             <select
                                 required
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
                                 value={formData.document_type}
                                 onChange={(e) => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
                             >
@@ -175,45 +175,45 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                     </div>
 
                     {formData.document_type === "Drawing" && (
-                        <div className="p-5 bg-amber-50/50 rounded-[1.5rem] border border-amber-100 space-y-4 animate-in slide-in-from-top-2 duration-300">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Layers className="w-4 h-4 text-amber-500" />
+                        <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100 space-y-3 animate-in slide-in-from-top-2 duration-300">
+                            <div className="flex items-center gap-2">
+                                <Layers className="w-4 h-4 text-amber-500 flex-shrink-0" />
                                 <h3 className="text-xs font-black text-amber-700 uppercase tracking-widest">Engineering Metadata</h3>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="space-y-1.5">
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="space-y-1">
                                     <label className="text-[10px] font-black text-amber-600/70 uppercase tracking-widest ml-1">
                                         Version <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         type="text"
                                         required
-                                        placeholder="e.g. v1.0"
-                                        className="w-full px-4 py-2.5 bg-white border border-amber-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
+                                        placeholder="v1.0"
+                                        className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
                                         value={formData.version}
                                         onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
                                     />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="space-y-1">
                                     <label className="text-[10px] font-black text-amber-600/70 uppercase tracking-widest ml-1">
                                         Release Date <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         type="date"
                                         required
-                                        className="w-full px-4 py-2.5 bg-white border border-amber-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
+                                        className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
                                         value={formData.date}
                                         onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                                     />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="space-y-1">
                                     <label className="text-[10px] font-black text-amber-600/70 uppercase tracking-widest ml-1">
                                         Approved By
                                     </label>
                                     <input
                                         type="text"
-                                        placeholder="e.g. Chief Engineer"
-                                        className="w-full px-4 py-2.5 bg-white border border-amber-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
+                                        placeholder="Site Engineer"
+                                        className="w-full px-3 py-2 bg-white border border-amber-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
                                         value={formData.approved_by}
                                         onChange={(e) => setFormData(prev => ({ ...prev, approved_by: e.target.value }))}
                                     />
@@ -230,7 +230,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                             type="text"
                             required
                             placeholder="e.g. Structural Design - Wing A"
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
                             value={formData.title}
                             onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                         />
@@ -241,7 +241,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                             File Selection <span className="text-rose-500">*</span>
                         </label>
                         <div
-                            className={`relative border-2 border-dashed rounded-[1.5rem] p-8 transition-all flex flex-col items-center justify-center text-center group cursor-pointer ${selectedFile ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/40"
+                            className={`relative border-2 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center text-center group cursor-pointer ${selectedFile ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200 bg-slate-50/50 hover:bg-slate-50 hover:border-primary/40"
                                 }`}
                             onClick={() => document.getElementById('file-upload-input')?.click()}
                         >
@@ -251,9 +251,9 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                                 className="hidden"
                                 onChange={handleFileChange}
                             />
-                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-colors ${selectedFile ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary"
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 transition-colors ${selectedFile ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary"
                                 }`}>
-                                {selectedFile ? <CheckCircle2 size={24} /> : <FileText size={24} />}
+                                {selectedFile ? <CheckCircle2 size={20} /> : <FileText size={20} />}
                             </div>
                             <p className={`text-sm font-bold ${selectedFile ? "text-emerald-700" : "text-slate-600"}`}>
                                 {selectedFile ? selectedFile.name : "Click to select or drag & drop"}
@@ -271,31 +271,31 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                         <textarea
                             rows={2}
                             placeholder="Any additional notes or version information..."
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium resize-none"
+                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium resize-none"
                             value={formData.remarks}
                             onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
                         />
                     </div>
 
-                    <div className="pt-4 flex gap-4">
+                    <div className="pt-2 flex gap-3">
                         <button
                             type="button"
                             disabled={isSubmitting}
                             onClick={onClose}
-                            className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50"
+                            className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={isSubmitting || !selectedFile || !formData.project_id || !formData.title}
-                            className="flex-[2] px-8 py-4 bg-slate-800 text-white rounded-2xl text-sm font-black shadow-xl hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="flex-[2] px-6 py-3 bg-slate-800 text-white rounded-2xl text-sm font-black shadow-xl hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                             {isSubmitting ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                             ) : (
                                 <>
-                                    <Upload size={18} strokeWidth={3} />
+                                    <Upload size={16} strokeWidth={3} />
                                     Initiate Upload
                                 </>
                             )}
