@@ -30,6 +30,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("All");
+  const [sourceFilter, setSourceFilter] = useState<string>("All");
   const PAGE_SIZE = 10;
 
   useEffect(() => {
@@ -76,22 +77,30 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
       (activeStatFilter === "Approval" && n.type === "Approval");
 
     const matchesSearch =
-      n.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      n.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      n.description.toLowerCase().includes(searchTerm.toLowerCase());
+      !searchTerm.trim() ||
+      (n.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (n.type || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (n.description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (n.details || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (n.project_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (n.user_name || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesProject =
       selectedProjectId === "All" ||
       Number(n.project_id) === Number(selectedProjectId);
 
-    return matchesStatFilter && matchesSearch && matchesProject;
+    const matchesSource =
+      sourceFilter === "All" ||
+      (n.source || "general").toLowerCase() === sourceFilter.toLowerCase();
+
+    return matchesStatFilter && matchesSearch && matchesProject && matchesSource;
   });
 
   // Reset page on filter/search change
   useEffect(() => {
     setCurrentPage(0);
     setSelectedIds([]);
-  }, [searchTerm, activeStatFilter, filter, selectedProjectId]);
+  }, [searchTerm, activeStatFilter, filter, selectedProjectId, sourceFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredNotifs.length / PAGE_SIZE));
   const pagedNotifs = filteredNotifs.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
@@ -298,6 +307,23 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                   </span>
                 </div>
               </div>
+
+              <select
+                value={sourceFilter}
+                onChange={(e) => { setSourceFilter(e.target.value); }}
+                className={`px-3 py-2 border rounded-xl text-sm font-medium outline-none transition-all font-inter ${
+                  sourceFilter !== "All"
+                    ? "bg-primary/10 border-primary/30 text-primary"
+                    : "bg-slate-50 border-slate-200 text-slate-600"
+                }`}
+              >
+                <option value="All">All Sources</option>
+                <option value="general">General</option>
+                <option value="project">Project</option>
+                <option value="task">Task</option>
+                <option value="system">System</option>
+                <option value="direct">Direct</option>
+              </select>
             </div>
           </div>
 
@@ -316,6 +342,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                   <th className="px-6 py-4 w-48">Type</th>
                   <th className="px-6 py-4">Title & Description</th>
                   <th className="px-6 py-4">Source</th>
+                  <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Date & Time</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -370,6 +397,15 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                       <td className="px-6 py-4">
                         <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-500 uppercase tracking-widest">
                           {sourceLabel(notif.source)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-widest ${
+                          notif.read
+                            ? "bg-slate-100 text-slate-500"
+                            : "bg-primary/10 text-primary"
+                        }`}>
+                          {notif.read ? "Read" : "Unread"}
                         </span>
                       </td>
                       <td className="px-6 py-4">

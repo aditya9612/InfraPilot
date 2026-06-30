@@ -30,8 +30,27 @@ const ProjectManagersPage = () => {
     const fetchManagers = async () => {
         try {
             setIsLoading(true);
-            const res = await userService.getAllUsers(100, 0);
-            const userList = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
+            // Fetch first page only — filter client-side for ProjectManager role
+            // API max limit is 100; if more pages needed, check total from response
+            const res = await userService.getAllUsers(100, 0, "");
+            const data = Array.isArray(res) ? { items: res, total: res.length } : res;
+            const firstPage = data.items || data.data || data.users || [];
+            const total = data.total || data.total_count || firstPage.length;
+
+            let userList = [...firstPage];
+
+            // Only paginate if there are more users beyond first 100
+            if (total > 100) {
+                const remainingPages = Math.ceil((total - 100) / 100);
+                const pageRequests = Array.from({ length: remainingPages }, (_, i) =>
+                    userService.getAllUsers(100, (i + 1) * 100, "").catch(() => [])
+                );
+                const pages = await Promise.all(pageRequests);
+                pages.forEach((pageRes: any) => {
+                    const pageItems = Array.isArray(pageRes) ? pageRes : (pageRes.items || pageRes.data || pageRes.users || []);
+                    userList = [...userList, ...pageItems];
+                });
+            }
 
             const projectsRes = await projectService.getProjects(100, 0);
             const projectList = Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || projectsRes.data || []);
@@ -40,7 +59,7 @@ const ProjectManagersPage = () => {
             const managerRecords = userList.filter((u: any) => {
                 const role = typeof u.role === "string" ? u.role : u.role?.name || "";
                 const normalizedRole = role.toLowerCase().replace(/\s/g, "");
-                return normalizedRole === "projectmanager" || normalizedRole === "manager";
+                return normalizedRole === "projectmanager";
             });
 
             // Pre-fetch all project memberships to build lookup map
@@ -293,7 +312,7 @@ const ProjectManagersPage = () => {
                                 <thead>
                                     <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                                         <th className="px-6 py-4">Manager Info</th>
-                                        <th className="px-6 py-4">Designation</th>
+                                        <th className="px-6 py-4">Role</th>
                                         <th className="px-6 py-4">Assigned Projects</th>
                                         <th className="px-6 py-4">Joined Date</th>
                                         <th className="px-6 py-4">Status</th>
@@ -326,7 +345,7 @@ const ProjectManagersPage = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-xs font-semibold text-slate-600">
-                                                {m.designation || "Project Manager"}
+                                                {m.role || "ProjectManager"}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div>

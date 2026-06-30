@@ -119,37 +119,11 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.full_name || formData.full_name.length < 3)
-      newErrors.full_name = "Full Name must be at least 3 characters.";
     const cleanMobile = formData.mobile_number.replace(/\D/g, "").replace(/^91/, "");
     if (!cleanMobile || cleanMobile.length !== 10)
       newErrors.mobile_number = "Enter a valid 10-digit mobile number.";
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       newErrors.email = "Enter a valid email address.";
-
-    if (!formData.role) newErrors.role = "Please select a role.";
-    if (!formData.designation)
-      newErrors.designation = "Designation is required.";
-
-    if (!initialData) {
-      if (!formData.password) {
-        newErrors.password = "Password is required for new users.";
-      } else {
-        const pass = formData.password;
-        const requirements = [
-          { re: /.{8,}/, msg: "8+ characters" },
-          { re: /[A-Z]/, msg: "uppercase" },
-          { re: /[a-z]/, msg: "lowercase" },
-          { re: /[0-9]/, msg: "number" },
-          { re: /[^A-Za-z0-9]/, msg: "special character" }
-        ];
-
-        const failed = requirements.filter(req => !req.re.test(pass));
-        if (failed.length > 0) {
-          newErrors.password = `Must include: ${failed.map(f => f.msg).join(", ")}.`;
-        }
-      }
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -298,7 +272,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Full Name <span className="text-rose-500">*</span>
+                Full Name
               </label>
               <input
                 type="text"
@@ -349,7 +323,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             {!initialData && (
               <div className="md:col-span-1">
                 <label className="block text-sm font-medium text-gray-600 mb-1">
-                  Password <span className="text-rose-500">*</span>
+                  Password
                 </label>
                 <div className="relative group">
                   <input
@@ -424,7 +398,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             )}
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Role <span className="text-rose-500">*</span>
+                Role
               </label>
               <select
                 name="role"
@@ -445,7 +419,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Designation <span className="text-rose-500">*</span>
+                Designation
               </label>
               <input
                 type="text"

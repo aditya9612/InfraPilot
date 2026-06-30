@@ -73,6 +73,7 @@ const ProjectDetailsPage = () => {
   const [expenses, _setExpenses] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+  const [isLogsLoading, setIsLogsLoading] = useState(false);
 
   const fetchProjectData = useCallback(async () => {
     if (!projectId) return;
@@ -174,6 +175,27 @@ const ProjectDetailsPage = () => {
   useEffect(() => {
     fetchProjectData();
   }, [fetchProjectData]);
+
+  // Re-fetch logs on-demand when Logs tab is activated
+  useEffect(() => {
+    if (activeTab === "Logs" && projectId) {
+      setIsLogsLoading(true);
+      projectService.getProjectLogs(projectId)
+        .then((data: any) => {
+          // API may return a message object instead of an array
+          if (Array.isArray(data)) {
+            setLogs(data);
+          } else if (data?.items || data?.data || data?.logs) {
+            setLogs(data.items || data.data || data.logs);
+          } else {
+            // API returned a message (e.g. logs stored in ELK/file system)
+            setLogs(data ? [data] : []);
+          }
+        })
+        .catch(() => setLogs([]))
+        .finally(() => setIsLogsLoading(false));
+    }
+  }, [activeTab, projectId]);
 
   const handleCreateMilestone = async (milestoneData: any) => {
     try {
@@ -432,7 +454,7 @@ const ProjectDetailsPage = () => {
               onClick={() => setIsEditModalOpen(true)}
               className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all active:scale-95"
             >
-              Edit
+              Update Project
             </button>
 
             <button
@@ -790,23 +812,73 @@ const ProjectDetailsPage = () => {
 
           {activeTab === "Logs" && (
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-              <h3 className="font-bold text-slate-800 mb-6 uppercase tracking-widest text-xs">Project Activity Logs</h3>
-              <div className="space-y-4">
-                {logs.map((log, i) => (
-                  <div key={i} className="flex gap-4 pb-4 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-all p-2 rounded-lg">
-                    <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                    <div>
-                      <p className="text-xs text-slate-700">{log.message || log.action || "Activity logged"}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">{new Date(log.created_at || log.timestamp).toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
-                {logs.length === 0 && (
-                  <div className="text-center py-12 text-slate-400 italic text-sm">
-                    No logs found for this project.
-                  </div>
-                )}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-slate-800 uppercase tracking-widest text-xs">Project Activity Logs</h3>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{logs.length} {logs.length === 1 ? "Entry" : "Entries"}</span>
               </div>
+              {isLogsLoading ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading logs...</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {logs.length > 0 ? logs.map((log: any, i: number) => {
+                    // If the entry is a plain message object (not a log entry)
+                    const isMessageOnly = log.message && !log.action && !log.created_at && !log.timestamp && Object.keys(log).length <= 3;
+                    if (isMessageOnly) {
+                      return (
+                        <div key={i} className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl">
+                          <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          <div>
+                            <p className="text-sm font-semibold text-amber-800">{log.message}</p>
+                            {log.project_id && <p className="text-[10px] text-amber-600 mt-1">Project ID: {log.project_id}</p>}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={i} className="flex gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-slate-50">
+                        <div className="flex flex-col items-center gap-1 shrink-0">
+                          <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />
+                          {i < logs.length - 1 && <div className="w-px flex-1 bg-slate-100 min-h-[16px]" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-slate-800">
+                              {log.message || log.action || log.description || log.event || "Activity logged"}
+                            </p>
+                            {(log.action_type || log.event_type || log.type) && (
+                              <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full shrink-0">
+                                {log.action_type || log.event_type || log.type}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            {(log.user_name || log.performed_by || log.actor || log.created_by) && (
+                              <span className="text-[10px] font-bold text-primary">
+                                {log.user_name || log.performed_by || log.actor || log.created_by}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400">
+                              {log.created_at || log.timestamp || log.date
+                                ? new Date(log.created_at || log.timestamp || log.date).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                                : "—"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <div className="text-center py-16">
+                      <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                      </div>
+                      <p className="text-sm font-bold text-slate-400">No activity logs found for this project.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
