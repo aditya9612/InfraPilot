@@ -1081,12 +1081,8 @@ const TaskManagementPage = () => {
                                                         </button>
                                                     </div>
                                                     <div className="flex items-center">
-                                                        {task.audio_data ? (
+                                                        {task.audio_data && (
                                                             <AudioButton audioData={task.audio_data} />
-                                                        ) : (
-                                                            <button onClick={() => setRecordingTaskId(task.id)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all" title="Add Audio">
-                                                                <Mic className="w-4 h-4" />
-                                                            </button>
                                                         )}
                                                         <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all">
                                                             <Edit2 className="w-4 h-4" />
@@ -1417,7 +1413,7 @@ const TaskManagementPage = () => {
                                                                             <td className="p-4 block md:table-cell">
                                                                                 <p className="text-sm font-bold text-slate-800">{task.title}</p>
                                                                                 <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{task.description}</p>
-                                                                                {task.audio_data ? (
+                                                                                {task.audio_data && (
                                                                                     <div className="mt-2 flex items-center gap-2 max-w-[160px] bg-slate-100/80 rounded-full p-1 pr-3 border border-slate-200/50">
                                                                                         <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm cursor-pointer" onClick={(e) => {
                                                                                             const audio = e.currentTarget.parentElement?.querySelector('audio');
@@ -1431,13 +1427,6 @@ const TaskManagementPage = () => {
                                                                                         <audio src={task.audio_data} className="hidden" />
                                                                                         <span className="text-[10px] font-bold text-slate-400">0:00</span>
                                                                                     </div>
-                                                                                ) : (
-                                                                                    <button
-                                                                                        onClick={() => setRecordingTaskId(task.id)}
-                                                                                        className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-bold transition-colors w-max"
-                                                                                    >
-                                                                                        <Mic className="w-3 h-3" /> Add Audio
-                                                                                    </button>
                                                                                 )}
                                                                             </td>
                                                                             <td className="p-4 block md:table-cell">

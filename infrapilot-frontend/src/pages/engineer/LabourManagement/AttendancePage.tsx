@@ -196,13 +196,26 @@ const AttendancePage: React.FC = () => {
             const data = await labourService.getAttendanceList(activeProjectId, fromDate || undefined, toDate || undefined);
 
             // Filter only this engineer's own records
-            const allItems = data.items || [];
+            const allItems = Array.isArray(data) ? data : (data.items || (data as any).data || []);
             const userIdNum = user?.id ? Number(user.id) : null;
-            const filteredItems = allItems.filter((item: any) =>
+            let filteredItems = allItems.filter((item: any) =>
                 Number(item.user_id) === userIdNum ||
                 Number(item.labour_id) === userIdNum ||
                 (item.worker_code && item.worker_code === `LAB-${userIdNum}`)
             );
+            
+            // For 'Today', if no record was found in the list, fetch from getTodayStatus
+            if (historyFilter === 'Today' && filteredItems.length === 0 && userIdNum) {
+                try {
+                    const todayData = await labourService.getTodayStatus(userIdNum);
+                    const att = todayData?.attendance || todayData;
+                    if (att && att.in_time && att.in_time !== "--:--") {
+                        filteredItems = [att];
+                    }
+                } catch (err) {
+                    console.warn("Could not fetch today's status for list fallback", err);
+                }
+            }
 
             setSelfAttendances(filteredItems);
         } catch (error) {

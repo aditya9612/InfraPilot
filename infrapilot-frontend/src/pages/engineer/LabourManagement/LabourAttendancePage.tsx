@@ -161,6 +161,7 @@ const LabourAttendancePage: React.FC = () => {
     // ─────────────────────────────────────────────────────────────────────────
 
     const [labourAttendances, setLabourAttendances] = useState<any[]>([]);
+    const [selectedLabourIds, setSelectedLabourIds] = useState<any[]>([]);
     const [dashboardStats, setDashboardStats] = useState({ total_labour: 0, present: 0 });
     const [contractorMap] = useState<Record<number, string>>(LOCAL_CONTRACTOR_MAP);
 
@@ -443,6 +444,11 @@ const LabourAttendancePage: React.FC = () => {
         return true;
     });
 
+    const selectedLabours = filteredLabourAttendances.filter(lab => selectedLabourIds.includes(lab.id || lab.labour_id));
+    const allCheckedOut = selectedLabours.length > 0 && selectedLabours.every(lab => lab.in_time && lab.in_time !== "--:--" && lab.out_time && lab.out_time !== "--:--");
+    const hasUncheckedIn = selectedLabours.length > 0 && selectedLabours.some(lab => !lab.in_time || lab.in_time === "--:--");
+    const isCheckInEnabled = selectedLabourIds.length > 0 && (hasUncheckedIn || allCheckedOut);
+    const isCheckOutEnabled = selectedLabourIds.length > 0 && !hasUncheckedIn && !allCheckedOut;
 
     return (
         <>
@@ -458,7 +464,21 @@ const LabourAttendancePage: React.FC = () => {
                             <span>{formatDate(currentDateTime)} | {formatTime(currentDateTime)}</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 font-inter">
+                    <div className="flex flex-wrap items-center gap-3 font-inter">
+                        <button
+                            disabled={!isCheckInEnabled}
+                            className={`flex items-center justify-center gap-2 px-6 py-2 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 font-inter w-fit ${isCheckInEnabled ? 'bg-primary text-white hover:bg-primary/90' : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'}`}
+                        >
+                            <LogIn className="w-4 h-4" />
+                            Check In {selectedLabourIds.length > 0 && `(${selectedLabourIds.length})`}
+                        </button>
+                        <button
+                            disabled={!isCheckOutEnabled}
+                            className={`flex items-center justify-center gap-2 px-6 py-2 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 font-inter w-fit ${isCheckOutEnabled ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'}`}
+                        >
+                            <LogOut className="w-4 h-4" />
+                            Check Out {selectedLabourIds.length > 0 && `(${selectedLabourIds.length})`}
+                        </button>
                         <button
                             onClick={() => {
                                 // Pre-fill with current duration filter dates
@@ -600,6 +620,26 @@ const LabourAttendancePage: React.FC = () => {
                         <table className="w-full text-left whitespace-nowrap">
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
+                                    <th className="px-6 py-4 w-12">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                            checked={
+                                                (() => {
+                                                    const available = filteredLabourAttendances.filter((lab: any) => !(lab.in_time && lab.in_time !== "--:--" && lab.out_time && lab.out_time !== "--:--"));
+                                                    return available.length > 0 && selectedLabourIds.length === available.length;
+                                                })()
+                                            }
+                                            onChange={e => {
+                                                if (e.target.checked) {
+                                                    const available = filteredLabourAttendances.filter((lab: any) => !(lab.in_time && lab.in_time !== "--:--" && lab.out_time && lab.out_time !== "--:--"));
+                                                    setSelectedLabourIds(available.map((lab: any) => lab.id || lab.labour_id));
+                                                } else {
+                                                    setSelectedLabourIds([]);
+                                                }
+                                            }}
+                                        />
+                                    </th>
                                     <th className="px-6 py-4">Date</th>
                                     <th className="px-6 py-4">Labour Name</th>
                                     <th className="px-6 py-4">Contractor Name</th>
@@ -622,7 +662,22 @@ const LabourAttendancePage: React.FC = () => {
                                     </tr>
                                 ) : (
                                     filteredLabourAttendances.map((lab, index) => (
-                                        <tr key={index} className="hover:bg-slate-50/50 transition-colors">
+                                        <tr key={index} className={`hover:bg-slate-50/50 transition-colors ${selectedLabourIds.includes(lab.id || lab.labour_id) ? 'bg-primary/5' : ''}`}>
+                                            <td className="px-6 py-4 w-12">
+                                                {!(lab.in_time && lab.in_time !== "--:--" && lab.out_time && lab.out_time !== "--:--") && (
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
+                                                        checked={selectedLabourIds.includes(lab.id || lab.labour_id)}
+                                                        onChange={() => {
+                                                            const id = lab.id || lab.labour_id;
+                                                            setSelectedLabourIds(prev => 
+                                                                prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+                                                            );
+                                                        }}
+                                                    />
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.attendance_date || "N/A"}</span></td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2.5">
