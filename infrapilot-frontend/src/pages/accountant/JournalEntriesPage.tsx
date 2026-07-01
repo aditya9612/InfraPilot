@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
@@ -27,43 +27,6 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
 );
 
 // --- SECTIONS ---
-
-const DashboardSection = () => {
-  const kpis = [
-    { label: "Total Entries", value: "1,245", icon: "📚", accent: "from-blue-500 to-indigo-500", sub: "This Financial Year" },
-    { label: "Today's Entries", value: "32", icon: "📝", accent: "from-emerald-500 to-teal-500", sub: "12 Manual, 20 Auto" },
-    { label: "Pending Approval", value: "8", icon: "⚖️", accent: "from-amber-500 to-orange-500", sub: "Needs Review" },
-    { label: "Posted Entries", value: "1,237", icon: "✅", accent: "from-emerald-500 to-green-500", sub: "Fully reconciled" },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((k, i) => (
-          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm text-white`}>{k.icon}</div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
-            <p className="text-xl font-bold text-slate-800">{k.value}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{k.sub}</p>
-          </div>
-        ))}
-      </div>
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        <h3 className="text-base font-bold text-slate-800 mb-5">Monthly Journal Summary</h3>
-        <div className="h-48 flex items-end justify-between px-2 gap-2">
-          {[40, 60, 35, 80, 50, 90, 70, 85, 45, 65, 55, 75].map((h, i) => (
-            <div key={i} className="w-full bg-slate-100 rounded-t-lg relative group">
-              <div className="absolute bottom-0 w-full bg-indigo-400 rounded-t-lg transition-all" style={{ height: `${h}%` }}></div>
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between mt-4 border-t border-slate-100 pt-4 text-xs font-bold text-slate-400 uppercase">
-          <span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => (
   <Modal
@@ -169,292 +132,104 @@ const ManualEntriesWrapper = () => {
   );
 };
 
-const AutoEntriesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "bills");
-  const tabs = [
-    { key: "invoices", label: "Invoices" },
-    { key: "bills", label: "Vendor Bills" },
-    { key: "payroll", label: "Payroll" },
-    { key: "payments", label: "Payments" },
-    { key: "gst", label: "GST Entries" }
+// --- ADJUSTMENT REGISTER SECTION ---
+const AdjustmentRegisterSection = () => {
+  const [search, setSearch] = useState("");
+
+  const entries = [
+    { id: "ADJ-001", date: "31/05/26", reason: "Depreciation Entry", amount: "₹6,50,000", status: "Pending Approval" },
+    { id: "ADJ-002", date: "30/04/26", reason: "Prepaid Expense Amortization", amount: "₹25,000", status: "Posted" },
   ];
 
-  const examples: Record<string, any[][]> = {
-    "bills": [
-      ["Material Expense A/c", "Dr", "₹1,00,000"],
-      ["Input GST A/c", "Dr", "₹18,000"],
-      ["Vendor Payable A/c", "Cr", "₹1,18,000"]
-    ],
-    "payroll": [
-      ["Salary Expense A/c", "Dr", "₹5,00,000"],
-      ["Salary Payable A/c", "Cr", "₹5,00,000"]
-    ],
-    "invoices": [
-      ["Client Receivable A/c", "Dr", "₹5,90,000"],
-      ["Project Revenue A/c", "Cr", "₹5,00,000"],
-      ["Output GST A/c", "Cr", "₹90,000"]
-    ]
-  };
-
-  const data = examples[activeSubTab] || examples["bills"];
+  const filtered = entries.filter(e =>
+    e.id.toLowerCase().includes(search.toLowerCase()) ||
+    e.reason.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
-      </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Auto-Generated Entries: {tabs.find(t=>t.key===activeSubTab)?.label}</h3></div>
-        <div className="p-6 bg-slate-50">
-          <p className="text-xs text-slate-500 mb-4">Example mapping generated by the system when a {tabs.find(t=>t.key===activeSubTab)?.label.toLowerCase()} is processed:</p>
-          <div className="bg-white border border-slate-200 rounded-xl p-4 font-mono text-sm shadow-sm max-w-2xl">
-            {data.map((row, i) => (
-              <div key={i} className={`flex justify-between py-1.5 ${row[1] === "Cr" ? "pl-12 text-slate-600" : "text-slate-800 font-bold"}`}>
-                <span>{row[0]} <span className="text-slate-400 ml-2">{row[1]}</span></span>
-                <span>{row[2]}</span>
-              </div>
-            ))}
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      {/* Toolbar */}
+      <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100">
+        <span className="text-sm font-bold text-slate-700">All Adjustment Registers</span>
+        <div className="flex items-center gap-3 flex-1 justify-center max-w-sm mx-auto sm:mx-0">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+            <input
+              type="text"
+              placeholder="Search adjustment register..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-blue-300"
+            />
           </div>
         </div>
+        <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all shadow-sm ml-auto">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
+          Filter
+        </button>
       </div>
-    </div>
-  );
-};
 
-const AdjustmentEntriesWrapper = () => (
-  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-      <h3 className="font-bold text-slate-800 mb-4">Year End Adjustments</h3>
-      <div className="font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 text-slate-600">
-        <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Retained Earnings A/c</span><span>Dr</span></div>
-        <div className="flex justify-between pl-8"><span>To P&L Summary A/c</span><span>Cr</span></div>
-      </div>
-      <button className="w-full text-xs font-bold bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-all">Create Entry</button>
-    </div>
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-      <h3 className="font-bold text-slate-800 mb-4">Depreciation Entries</h3>
-      <div className="font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 text-slate-600">
-        <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Depreciation Exp A/c</span><span>Dr</span></div>
-        <div className="flex justify-between pl-8"><span>To Machinery A/c</span><span>Cr</span></div>
-      </div>
-      <button className="w-full text-xs font-bold bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-all">Create Entry</button>
-    </div>
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-      <h3 className="font-bold text-slate-800 mb-4">Accrual Entries</h3>
-      <div className="font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 text-slate-600">
-        <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Accrued Expenses A/c</span><span>Dr</span></div>
-        <div className="flex justify-between pl-8"><span>To Outstanding Exp A/c</span><span>Cr</span></div>
-      </div>
-      <button className="w-full text-xs font-bold bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-all">Create Entry</button>
-    </div>
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-      <h3 className="font-bold text-slate-800 mb-4">Salary Provision</h3>
-      <div className="font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 text-slate-600">
-        <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Salary Expense A/c</span><span>Dr</span></div>
-        <div className="flex justify-between pl-8"><span>To Salary Payable A/c</span><span>Cr</span></div>
-      </div>
-      <button className="w-full text-xs font-bold bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-all">Create Entry</button>
-    </div>
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-      <h3 className="font-bold text-slate-800 mb-4">GST Provision</h3>
-      <div className="font-mono text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 text-slate-600">
-        <div className="flex justify-between font-bold text-slate-800 mb-2"><span>GST Expense A/c</span><span>Dr</span></div>
-        <div className="flex justify-between pl-8"><span>To GST Payable A/c</span><span>Cr</span></div>
-      </div>
-      <button className="w-full text-xs font-bold bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-all">Create Entry</button>
-    </div>
-  </div>
-);
-
-const JournalApprovalSection = () => (
-  <div className="space-y-6">
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-        <h3 className="font-bold text-slate-800">Pending Approvals</h3>
-        <div className="flex gap-2">
-          <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full font-bold text-xs">8 Pending</span>
-        </div>
-      </div>
+      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-100">
-            <tr>{["Journal No", "Date", "Amount", "Created By", "Status", "Actions"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+            <tr>
+              {["ADJ NO", "DATE", "REASON", "AMOUNT", "STATUS", "ACTION"].map(h => (
+                <th key={h} className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            <tr className="hover:bg-slate-50/50">
-              <td className="px-4 py-3 text-xs font-mono font-bold text-slate-800">JE-2024-1088</td><td className="px-4 py-3 text-xs text-slate-600">2024-11-05</td><td className="px-4 py-3 text-xs font-bold text-emerald-600">₹45,000</td><td className="px-4 py-3 text-xs text-slate-600">Amit Kumar</td>
-              <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-bold text-[10px] uppercase">Pending</span></td>
-              <td className="px-4 py-3 text-xs flex gap-3">
-                <button className="text-blue-600 font-bold hover:underline">View</button>
-                <button className="text-emerald-600 font-bold hover:underline">Approve</button>
-                <button className="text-rose-600 font-bold hover:underline">Reject</button>
-              </td>
-            </tr>
+            {filtered.map(row => (
+              <tr key={row.id} className="hover:bg-slate-50/50">
+                <td className="px-5 py-3.5 text-xs font-bold text-emerald-600">{row.id}</td>
+                <td className="px-5 py-3.5 text-xs text-slate-500">{row.date}</td>
+                <td className="px-5 py-3.5 text-xs text-slate-700">{row.reason}</td>
+                <td className="px-5 py-3.5 text-xs font-semibold text-slate-800">{row.amount}</td>
+                <td className="px-5 py-3.5 text-xs">
+                  {row.status === "Pending Approval" ? (
+                    <span className="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full font-bold text-[10px]">Pending Approval</span>
+                  ) : (
+                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px]">Posted</span>
+                  )}
+                </td>
+                <td className="px-5 py-3.5 text-xs">
+                  <button className="text-blue-600 font-bold hover:underline">Review</button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
-      </div>
-    </div>
-
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-        <h3 className="font-bold text-slate-800">Approved Entries</h3>
-        <div className="flex gap-2">
-          <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full font-bold text-xs">12 Approved</span>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 border-b border-slate-100">
-            <tr>{["Journal No", "Date", "Amount", "Created By", "Status", "Actions"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            <tr className="hover:bg-slate-50/50">
-              <td className="px-4 py-3 text-xs font-mono font-bold text-slate-800">JE-2024-1085</td><td className="px-4 py-3 text-xs text-slate-600">2024-11-04</td><td className="px-4 py-3 text-xs font-bold text-emerald-600">₹1,20,000</td><td className="px-4 py-3 text-xs text-slate-600">Rohan Das</td>
-              <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Approved</span></td>
-              <td className="px-4 py-3 text-xs flex gap-3">
-                <button className="text-blue-600 font-bold hover:underline">View</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-        <h3 className="font-bold text-slate-800">Rejected Entries</h3>
-        <div className="flex gap-2">
-          <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-full font-bold text-xs">3 Rejected</span>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 border-b border-slate-100">
-            <tr>{["Journal No", "Date", "Amount", "Created By", "Status", "Actions"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            <tr className="hover:bg-slate-50/50">
-              <td className="px-4 py-3 text-xs font-mono font-bold text-slate-800">JE-2024-1082</td><td className="px-4 py-3 text-xs text-slate-600">2024-11-03</td><td className="px-4 py-3 text-xs font-bold text-rose-600">₹15,000</td><td className="px-4 py-3 text-xs text-slate-600">Amit Kumar</td>
-              <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full font-bold text-[10px] uppercase">Rejected</span></td>
-              <td className="px-4 py-3 text-xs flex gap-3">
-                <button className="text-blue-600 font-bold hover:underline">View</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-);
-
-const JournalRegisterSection = () => (
-  <div className="space-y-6">
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-wrap gap-4 items-end">
-      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date Range</label><input type="date" className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg" /></div>
-      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg min-w-[150px]"><option>All Projects</option></select></div>
-      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account</label><input type="text" placeholder="Search account..." className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg" /></div>
-      <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Type</label><select className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg"><option>All Types</option><option>Manual</option><option>Auto</option></select></div>
-      <button className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold">Filter</button>
-    </div>
-    <GenericTableSection 
-      title="Journal Register" 
-      columns={["Date", "Journal No", "Debit Account", "Credit Account", "Amount", "Type"]} 
-      data={[
-        ["2024-11-01", "JE-2024-1045", "Material Expense", "Vendor Payable", "₹50,000", "Auto"],
-        ["2024-11-01", "JE-2024-1046", "Salary Expense", "Salary Payable", "₹2,50,000", "Auto"]
-      ]} 
-    />
-  </div>
-);
-
-const AuditTrailSection = () => (
-  <GenericTableSection 
-    title="Audit Trail" 
-    columns={["Journal No", "Created By", "Created Date", "Modified By", "Modified Date", "Approval Status"]} 
-    data={[
-      ["JE-2024-1045", "System", "2024-11-01 10:30 AM", "-", "-", "Approved"],
-      ["JE-2024-1088", "Amit Kumar", "2024-11-05 14:15 PM", "Neha Sharma", "2024-11-05 15:00 PM", "Pending"]
-    ]} 
-  />
-);
-
-const ReportsWrapperSection = ({ initialSubTab }: { initialSubTab?: string }) => {
-  const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "journal");
-  const tabs = [
-    { key: "journal", label: "Journal Report" },
-    { key: "ledger", label: "Ledger Report" },
-    { key: "trial", label: "Trial Balance" },
-    { key: "audit", label: "Audit Trail Report" }
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
-        {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.label}</button>)}
-      </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex justify-between items-center"><h3 className="font-bold text-slate-800">{tabs.find(t=>t.key===activeSubTab)?.label}</h3><button className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg font-bold shadow-sm">Download PDF</button></div>
-        <div className="p-8 text-center bg-slate-50 border-b border-slate-100">
-          <div className="text-4xl mb-3">📊</div>
-          <h4 className="text-sm font-bold text-slate-800">Report Generated</h4>
-          <p className="text-xs text-slate-500 mt-1">Data from the current financial year is available in this view.</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-white border-b border-slate-100">
-              <tr>{["Date", "Account", "Description", "Debit", "Credit", "Balance"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 bg-white">
-              <tr className="hover:bg-slate-50/50"><td className="px-4 py-3 text-xs text-slate-500">2024-11-01</td><td className="px-4 py-3 text-xs font-semibold text-slate-800">Material Expense</td><td className="px-4 py-3 text-xs text-slate-600">Purchase of Cement</td><td className="px-4 py-3 text-xs font-bold text-emerald-600">₹50,000</td><td className="px-4 py-3 text-xs text-slate-400">-</td><td className="px-4 py-3 text-xs font-bold text-slate-800">₹50,000 Dr</td></tr>
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
   );
 };
 
 // --- MAIN PAGE ---
-type TabKey = "dashboard" | "manual" | "auto" | "recurring" | "adjustments" | "reversing" | "approval" | "register" | "audit" | "reports";
+type TabKey = "journal" | "recurring" | "adjustment";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "dashboard",   label: "Dashboard",       icon: "📊" },
-  { key: "manual",      label: "Manual Entry",    icon: "✏️" },
-  { key: "auto",        label: "Auto Entries",    icon: "⚙️" },
-  { key: "recurring",   label: "Recurring",       icon: "🔁" },
-  { key: "adjustments", label: "Adjustments",     icon: "🎛️" },
-  { key: "reversing",   label: "Reversing",       icon: "↩️" },
-  { key: "approval",    label: "Approval",        icon: "✅" },
-  { key: "register",    label: "Register",        icon: "📖" },
-  { key: "audit",       label: "Audit Trail",     icon: "🛡️" },
-  { key: "reports",     label: "Reports",         icon: "📈" },
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "journal",    label: "Journal Entry" },
+  { key: "recurring",  label: "Recurring" },
+  { key: "adjustment", label: "Adjustment Register" },
 ];
 
 const JournalEntriesPage = () => {
   const { category } = useParams<{ category?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const subTab = searchParams.get("sub") || undefined;
+
 
   const resolveTab = (): TabKey => {
     const pathParts = location.pathname.split("/").filter(Boolean);
     const lastPart = pathParts[pathParts.length - 1];
     const currentSub = category || lastPart;
-
     const map: Record<string, TabKey> = {
-      "manual": "manual",
-      "auto": "auto",
-      "recurring": "recurring",
-      "adjustments": "adjustments",
-      "reversing": "reversing",
-      "approval": "approval",
-      "register": "register",
-      "audit": "audit",
-      "reports": "reports",
-      "dashboard": "dashboard",
+      "journal":    "journal",
+      "recurring":  "recurring",
+      "adjustment": "adjustment",
     };
-    return map[currentSub || ""] || "dashboard";
+    return map[currentSub || ""] || "journal";
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
@@ -468,52 +243,106 @@ const JournalEntriesPage = () => {
     navigate(`/accountant/journal/${key}`, { replace: true });
   };
 
+  // Per-tab config
+  const TAB_CONFIG: Record<TabKey, { title: string; subtitle: string; actions: React.ReactNode }> = {
+    journal: {
+      title: "Journal Entries",
+      subtitle: "Record and manage manual journal entries.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button
+            onClick={() => toast.success("Opening New Journal Entry...")}
+            className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
+          >
+            <span className="text-base leading-none">+</span> New Entry
+          </button>
+        </div>
+      ),
+    },
+    recurring: {
+      title: "Recurring Entries",
+      subtitle: "Manage recurring and automated journal entries.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button
+            onClick={() => toast.success("Opening New Recurring Entry...")}
+            className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
+          >
+            <span className="text-base leading-none">+</span> New Recurring
+          </button>
+        </div>
+      ),
+    },
+    adjustment: {
+      title: "Adjustment Register",
+      subtitle: "Manage accounting adjustments and corrections.",
+      actions: (
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📥</span> Import
+          </button>
+          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export
+          </button>
+          <button
+            onClick={() => toast.success("Opening New Adjustment...")}
+            className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
+          >
+            <span className="text-base leading-none">+</span> New Adjustment
+          </button>
+        </div>
+      ),
+    },
+  };
+
+  const currentConfig = TAB_CONFIG[activeTab];
+
   return (
     <>
       <Navbar title="Journal Entries" breadcrumb={["Accountant", "Journal Entries"]} />
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+
+        {/* ── Section Header ─────────────────────────────── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Core Accounting</p>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Journal Entries</h1>
-            <p className="text-slate-500 text-sm mt-1">Manage manual entries, adjustments, auto-generated journals, and approvals.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{currentConfig.title}</h1>
+            <p className="text-slate-500 text-sm mt-1">{currentConfig.subtitle}</p>
           </div>
+          {currentConfig.actions}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+        {/* ── Tab Navigation ─────────────────────────────── */}
+        <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
-            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}>
-              <span>{tab.icon}</span>{tab.label}
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === tab.key
+                  ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Breadcrumb Label */}
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Journal Entries</span>
-          <span className="text-slate-300">/</span>
-          <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{TABS.find(t => t.key === activeTab)?.label}</span>
-        </div>
-
-        {/* Content Rendering */}
-        {activeTab === "dashboard"      && <DashboardSection />}
-        {activeTab === "manual"         && <ManualEntriesWrapper />}
-        {activeTab === "auto"           && <AutoEntriesWrapper initialSubTab={subTab} key={subTab || "bills"} />}
-        {activeTab === "recurring"      && <GenericTableSection title="Recurring Entries" columns={["Template Name", "Frequency", "Next Run Date", "Amount", "Status"]} data={[["Office Rent", "Monthly", "2024-12-01", "₹1,50,000", "Active"]]} />}
-        {activeTab === "adjustments"    && <AdjustmentEntriesWrapper />}
-        {activeTab === "reversing"      && <GenericTableSection title="Reversing Entries" columns={["Original Journal", "Reversal Date", "Reason", "Status"]} data={[["JE-2024-0995", "2024-11-01", "Accrual Reversal", "Completed"]]} />}
-        {activeTab === "approval"       && <JournalApprovalSection />}
-        {activeTab === "register"       && <JournalRegisterSection />}
-        {activeTab === "audit"          && <AuditTrailSection />}
-        {activeTab === "reports"        && <ReportsWrapperSection initialSubTab={subTab} key={subTab || "journal"} />}
+        {/* ── Content Rendering ──────────────────────────── */}
+        {activeTab === "journal"    && <ManualEntriesWrapper />}
+        {activeTab === "recurring"  && <GenericTableSection title="Recurring Entries" columns={["Template Name", "Frequency", "Next Run Date", "Amount", "Status"]} data={[["Office Rent", "Monthly", "2024-12-01", "₹1,50,000", "Active"]]} />}
+        {activeTab === "adjustment" && <AdjustmentRegisterSection />}
       </PageTransition>
     </>
   );
 };
 
 export default JournalEntriesPage;
+

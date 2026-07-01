@@ -110,15 +110,15 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     }, [isOpen]);
 
     useEffect(() => {
-        if (isOpen && projectId) {
+        if (isOpen && targetProjectId) {
             fetchMembers();
         }
-    }, [isOpen, projectId]);
+    }, [isOpen, targetProjectId]);
 
     const fetchMembers = async () => {
-        if (!projectId) return;
+        if (!targetProjectId) return;
         try {
-            const data = await labourService.getLabours(projectId, { limit: 100 });
+            const data = await labourService.getLabours(targetProjectId, { limit: 100 });
             setEmployees(data.items || []);
         } catch (error) {
             console.error("Failed to load labours", error);
@@ -126,7 +126,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     };
 
     const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
-    
+
     // Custom Dropdown State
     const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
     const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -145,8 +145,8 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const filteredEmployees = employees.filter((emp: any) => {
         const s = userSearchQuery.toLowerCase();
         return (emp.labour_name || emp.name || '').toLowerCase().includes(s) ||
-               (emp.worker_code || '').toLowerCase().includes(s) ||
-               (emp.skill_type || '').toLowerCase().includes(s);
+            (emp.worker_code || '').toLowerCase().includes(s) ||
+            (emp.skill_type || '').toLowerCase().includes(s);
     });
 
     const isAllVisibleSelected = filteredEmployees.length > 0 && filteredEmployees.every((emp: any) => selectedEmployees.includes(emp.id));
@@ -255,11 +255,11 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
             const formData = new FormData();
             formData.append('title', title);
             formData.append('activity_name', title);
-            
+
             if (description) formData.append('description', description);
             formData.append('priority', String(priorityMap[priority]));
             formData.append('status', status);
-            
+
             if (selectedEmployees.length > 0) {
                 const assignedIdsStr = selectedEmployees.join(",");
                 formData.append('assigned_user_ids', assignedIdsStr);
@@ -271,10 +271,10 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                 formData.append('lead_id', assignedUserIdNum);
                 formData.append('assigned_to_id', assignedUserIdNum);
             }
-            
+
             if (startDate) formData.append('start_date', startDate);
             if (deadline) formData.append('end_date', deadline);
-            
+
             if (activityTypeId && activityTypeId !== 'None') formData.append('activity_type_id', String(activityTypeId));
             if (milestoneId && milestoneId !== 'None') formData.append('milestone_id', String(milestoneId));
             if (boqId && boqId !== 'None') formData.append('boq_id', String(boqId));
@@ -544,14 +544,14 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 <UserCircle className="w-3 h-3 text-primary" />
                                 Assigned User
                             </label>
-                            
-                            <div 
+
+                            <div
                                 className={`${inputClasses} flex items-center justify-between cursor-pointer ${isUserDropdownOpen ? 'ring-2 ring-primary/20 border-primary' : ''}`}
                                 onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
                             >
                                 <span className="text-slate-600 truncate flex-1">
-                                    {selectedEmployees.length === 0 
-                                        ? "Select users..." 
+                                    {selectedEmployees.length === 0
+                                        ? "Select users..."
                                         : `${selectedEmployees.length} user${selectedEmployees.length > 1 ? 's' : ''} selected`}
                                 </span>
                                 <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
@@ -562,8 +562,8 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                     <div className="p-2 border-b border-slate-100">
                                         <div className="relative">
                                             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                            <input 
-                                                type="text" 
+                                            <input
+                                                type="text"
                                                 placeholder="Search employees by name, ID or email..."
                                                 className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
                                                 value={userSearchQuery}
@@ -571,7 +571,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                             />
                                         </div>
                                     </div>
-                                    
+
                                     <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
                                         <label className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors border-b border-slate-100 mb-2">
                                             <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isAllVisibleSelected ? 'bg-primary border-primary' : 'border-slate-300'}`}>
@@ -589,7 +589,6 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                                 </div>
                                                 <div className="flex-1">
                                                     <p className="text-sm font-bold text-slate-800">{emp.labour_name || emp.name}</p>
-                                                    <p className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded w-fit mt-0.5 border border-slate-200">{emp.worker_code}</p>
                                                 </div>
                                                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-1 rounded-md group-hover:bg-white transition-colors border border-slate-200 group-hover:border-slate-300 shadow-sm">
                                                     {emp.skill_type || 'GENERAL'}
@@ -597,7 +596,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                                 <input type="checkbox" className="hidden" checked={selectedEmployees.includes(emp.id)} onChange={() => toggleEmployee(emp.id)} />
                                             </label>
                                         ))}
-                                        
+
                                         {filteredEmployees.length === 0 && (
                                             <div className="p-4 text-center text-sm text-slate-500">No employees found</div>
                                         )}

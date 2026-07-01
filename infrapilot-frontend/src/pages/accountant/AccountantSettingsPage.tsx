@@ -147,43 +147,6 @@ const InvoiceSettingsWrapper = createWrapper([
   )
 });
 
-const PaymentSettingsWrapper = createWrapper([
-  { key: "terms", label: "Payment Terms", icon: "⏱️" }, { key: "banks", label: "Bank Accounts", icon: "🏦" }, 
-  { key: "modes", label: "Payment Modes", icon: "💳" }, { key: "auto", label: "Auto Payment Rules", icon: "🤖" }
-], {
-  "terms": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">Payment Terms</h3>
-      <div className="space-y-4">
-        {[
-          { name: "Immediate", days: "0 Days", desc: "Payment due upon receipt" },
-          { name: "Net 15", days: "15 Days", desc: "Payment due within 15 days" },
-          { name: "Net 30", days: "30 Days", desc: "Payment due within 30 days" },
-          { name: "Net 45", days: "45 Days", desc: "Payment due within 45 days" },
-          { name: "Net 60", days: "60 Days", desc: "Payment due within 60 days" }
-        ].map(term => (
-          <div key={term.name} className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-2 md:items-center">
-            <div className="font-bold text-sm text-slate-800">{term.name}</div>
-            <div className="text-sm font-semibold text-slate-600">{term.days}</div>
-            <div className="text-xs text-slate-500">{term.desc}</div>
-          </div>
-        ))}
-        <button onClick={() => toast.success("Custom term added!")} className="text-indigo-600 font-bold text-sm hover:text-indigo-800 transition-colors">+ Add Custom Term</button>
-      </div>
-    </div>
-  ),
-  "modes": () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-black text-slate-800 mb-6">Payment Modes</h3>
-      <div className="flex flex-wrap gap-3">
-        {["Cash", "Bank Transfer", "UPI", "Cheque", "RTGS", "NEFT"].map(m => (
-          <div key={m} className="px-4 py-2 border border-slate-200 rounded-xl bg-slate-50 text-sm font-bold text-slate-700">{m}</div>
-        ))}
-      </div>
-    </div>
-  )
-});
-
 const ApprovalWorkflowWrapper = createWrapper([
   { key: "expense", label: "Expense Approval", icon: "📉" }, { key: "purchase", label: "Purchase Approval", icon: "🛍️" }, 
   { key: "payroll", label: "Payroll Approval", icon: "👥" }, { key: "payment", label: "Payment Approval", icon: "💸" }, { key: "journal", label: "Journal Approval", icon: "📓" }
@@ -282,35 +245,16 @@ const UsersRolesWrapper = createWrapper([
   )
 });
 
-const NotificationSettingsWrapper = createWrapper([
-  { key: "email", label: "Email Notifications", icon: "📧" }, { key: "sms", label: "SMS Notifications", icon: "📱" }, 
-  { key: "alerts", label: "Due Date Alerts", icon: "⏰" }, { key: "approvals", label: "Approval Alerts", icon: "✅" }
-], {});
-
-const DocumentSettingsWrapper = createWrapper([
-  { key: "rules", label: "Attachment Rules", icon: "📎" }, { key: "size", label: "File Size Limits", icon: "📏" }, { key: "categories", label: "Document Categories", icon: "🗂️" }
-], {});
-
-const SystemSettingsWrapper = createWrapper([
-  { key: "backup", label: "Backup Settings", icon: "💾" }, { key: "import", label: "Data Import", icon: "📥" }, 
-  { key: "export", label: "Data Export", icon: "📤" }, { key: "preferences", label: "System Preferences", icon: "⚙️" }
-], {});
-
-
 // --- MAIN PAGE ---
-type TabKey = "company" | "financial" | "tax" | "invoice" | "payment" | "approval" | "users" | "notifications" | "documents" | "system";
+type TabKey = "company" | "financial" | "tax" | "invoice" | "users" | "approvals";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "company",       label: "Company",       icon: "🏢" },
-  { key: "financial",     label: "Financial",     icon: "💵" },
-  { key: "tax",           label: "Tax",           icon: "⚖️" },
-  { key: "invoice",       label: "Invoice",       icon: "📄" },
-  { key: "payment",       label: "Payment",       icon: "💳" },
-  { key: "approval",      label: "Approval Workflow", icon: "✅" },
-  { key: "users",         label: "User & Roles",  icon: "👥" },
-  { key: "notifications", label: "Notifications", icon: "🔔" },
-  { key: "documents",     label: "Documents",     icon: "📁" },
-  { key: "system",        label: "System",        icon: "⚙️" },
+const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+  { key: "company",   label: "Company",   icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg> },
+  { key: "financial", label: "Finance",   icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
+  { key: "tax",       label: "Tax",       icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> },
+  { key: "invoice",   label: "Invoice",   icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> },
+  { key: "users",     label: "Users",     icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg> },
+  { key: "approvals", label: "Approvals", icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
 ];
 
 const AccountantSettingsPage = () => {
@@ -330,12 +274,8 @@ const AccountantSettingsPage = () => {
       "financial": "financial",
       "tax": "tax",
       "invoice": "invoice",
-      "payment": "payment",
-      "approval": "approval",
       "users": "users",
-      "notifications": "notifications",
-      "documents": "documents",
-      "system": "system",
+      "approvals": "approvals",
     };
     return map[currentSub || ""] || "company";
   };
@@ -356,20 +296,25 @@ const AccountantSettingsPage = () => {
       <Navbar title="Settings & Configuration" breadcrumb={["Accountant", "Settings"]} />
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Configuration</p>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">System Settings</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Settings</h1>
             <p className="text-slate-500 text-sm mt-1">Manage financial rules, tax settings, numbering formats, and company preferences.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+              <span className="text-base leading-none">💾</span> Save Changes
+            </button>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+        <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
               }`}>
               <span>{tab.icon}</span>{tab.label}
             </button>
@@ -388,12 +333,8 @@ const AccountantSettingsPage = () => {
         {activeTab === "financial"     && <FinancialSettingsWrapper initialSubTab={subTab} key={subTab || "year"} />}
         {activeTab === "tax"           && <TaxSettingsWrapper initialSubTab={subTab} key={subTab || "gst"} />}
         {activeTab === "invoice"       && <InvoiceSettingsWrapper initialSubTab={subTab} key={subTab || "format"} />}
-        {activeTab === "payment"       && <PaymentSettingsWrapper initialSubTab={subTab} key={subTab || "terms"} />}
-        {activeTab === "approval"      && <ApprovalWorkflowWrapper initialSubTab={subTab} key={subTab || "expense"} />}
         {activeTab === "users"         && <UsersRolesWrapper initialSubTab={subTab} key={subTab || "roles"} />}
-        {activeTab === "notifications" && <NotificationSettingsWrapper initialSubTab={subTab} key={subTab || "email"} />}
-        {activeTab === "documents"     && <DocumentSettingsWrapper initialSubTab={subTab} key={subTab || "rules"} />}
-        {activeTab === "system"        && <SystemSettingsWrapper initialSubTab={subTab} key={subTab || "backup"} />}
+        {activeTab === "approvals"     && <ApprovalWorkflowWrapper initialSubTab={subTab} key={subTab || "expense"} />}
       </PageTransition>
     </>
   );

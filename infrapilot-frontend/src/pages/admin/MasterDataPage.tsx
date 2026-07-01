@@ -9,7 +9,7 @@ import CreateActivityModal from "../../components/forms/CreateActivityModal";
 import CreateUnitModal from "../../components/forms/CreateUnitModal";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Trash2, Edit2 } from "lucide-react";
 import MasterDataDetailsModal from "../../components/dashboard/MasterDataDetailsModal";
 import { masterService } from "../../services/masterService";
 import type { MasterEntity, MasterStats } from "../../services/masterService";
@@ -30,7 +30,7 @@ const MasterDataPage = () => {
   const [activeTab, setActiveTab] = useState("All");
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
-  const [showInactive, setShowInactive] = useState(false);
+  const [showInactive, setShowInactive] = useState(true);
   const [unitsMap, setUnitsMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 10;
 
@@ -287,7 +287,6 @@ const MasterDataPage = () => {
                 />
               </div>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
-              {/* 
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
                 <input
                   type="checkbox"
@@ -300,7 +299,6 @@ const MasterDataPage = () => {
                   Show Inactive
                 </label>
               </div>
-              */}
             </div>
             <div className="flex gap-2">
               {["All", "Material", "Labour", "Activity", "Unit"].map((tab) => (
@@ -375,23 +373,21 @@ const MasterDataPage = () => {
                         >
                           <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
                         </button>
-                        {/* 
-                         <button
-                           onClick={() => {
-                             setEditingItem({
-                               ...item,
-                               type: item.system_tag === "MATERIAL" ? "Material" :
-                                 item.system_tag === "LABOR" ? "Labour" :
-                                   item.system_tag === "ACTIVITY" ? "Activity" : "Unit"
-                             });
-                             setIsModalOpen(true);
-                           }}
-                           className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
-                           title="Edit Entity"
-                         >
-                           <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
-                         </button>
-                         */}
+                        <button
+                          onClick={() => {
+                            setEditingItem({
+                              ...item,
+                              type: item.system_tag === "MATERIAL" ? "Material" :
+                                item.system_tag === "LABOR" ? "Labour" :
+                                  item.system_tag === "ACTIVITY" ? "Activity" : "Unit"
+                            });
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
+                          title="Edit Entity"
+                        >
+                          <Edit2 className="w-4.5 h-4.5" strokeWidth={1.5} />
+                        </button>
                         <button
                           onClick={() => {
                             setItemToDelete(item);

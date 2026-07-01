@@ -110,9 +110,23 @@ const ProjectsPage = () => {
       setProjects(projectList);
       setAllProjects(fullList);
 
-      // Process Alerts into Activities
+      // Process Alerts into Activities — filter to assigned projects for PM
+      const assignedProjectIds = new Set(projectList.map((p: any) => p.id || p.project_id));
+
+      const filteredPAlerts = user?.role === "ProjectManager"
+        ? pAlerts.filter((a: any) => assignedProjectIds.has(a.project_id))
+        : pAlerts;
+
+      const filteredTAlerts = user?.role === "ProjectManager"
+        ? tAlerts.filter((a: any) => assignedProjectIds.has(a.project_id))
+        : tAlerts;
+
+      const filteredInvoices = user?.role === "ProjectManager"
+        ? invoices.filter((inv: any) => assignedProjectIds.has(inv.project_id))
+        : invoices;
+
       const combined = [
-        ...pAlerts.map((a: any) => ({
+        ...filteredPAlerts.map((a: any) => ({
           user: a.user_name || "System",
           action: `${a.project_name || 'Project'} is ${a.status || 'Updated'}`,
           rawTime: a.created_at || "",
@@ -121,7 +135,7 @@ const ProjectsPage = () => {
           icon: "⚠️",
           color: "bg-red-50 text-red-500",
         })),
-        ...tAlerts.map((a: any) => {
+        ...filteredTAlerts.map((a: any) => {
           const isFinance = /payment|invoice|bill|payroll|budget|expense|salary/i.test(a.task_name || "");
           return {
             user: a.assigned_to_name || a.author || "Member",
@@ -133,7 +147,7 @@ const ProjectsPage = () => {
             color: isFinance ? "bg-emerald-50 text-emerald-500" : "bg-blue-50 text-blue-500",
           };
         }),
-        ...invoices.map((inv: any) => ({
+        ...filteredInvoices.map((inv: any) => ({
           user: inv.client_name || "System",
           action: `Invoice #${inv.invoice_number || inv.id}: ${inv.status}`,
           rawTime: inv.created_at || "",
@@ -652,16 +666,7 @@ const ProjectsPage = () => {
                             <button onClick={() => handleViewProject(p.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all" title="View Details">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                             </button>
-                            {user?.role === "ProjectManager" && (
-                              <>
-                                <button onClick={() => handleViewProject(p.id, "Progress")} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all" title="View Progress">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                                </button>
-                                <button onClick={() => handleViewProject(p.id, "Schedule")} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all" title="View Schedule">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                                </button>
-                              </>
-                            )}
+
                             {user?.role !== "ProjectManager" && (
                               <>
                                 <button onClick={() => handleEditClick(p)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit Project">

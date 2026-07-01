@@ -326,9 +326,9 @@ const EngineerProfilePage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="flex flex-col xl:flex-row gap-8 items-start">
                     {/* ── Left Column: Profile Card & Vitals ─────────────────────── */}
-                    <div className="lg:col-span-4 space-y-8">
+                    <div className="w-full xl:w-[340px] shrink-0 space-y-8">
                         {/* Executive Profile Card */}
                         <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
@@ -413,7 +413,7 @@ const EngineerProfilePage: React.FC = () => {
                     </div>
 
                     {/* ── Right Column: Site Intelligence Feed ────────────────────── */}
-                    <div className="lg:col-span-8 flex flex-col gap-8">
+                    <div className="flex-1 min-w-0 flex flex-col gap-8">
                         {/* Force Distribution & Active Task */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">

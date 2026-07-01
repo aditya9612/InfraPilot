@@ -103,6 +103,10 @@ const InventoryPage = () => {
     type: "material" | "supplier" | "po";
   } | null>(null);
 
+  const [logProjectId, setLogProjectId] = useState<number | "all">("all");
+  const [logType, setLogType] = useState<string>("all");
+  const [isLogsRefreshing, setIsLogsRefreshing] = useState(false);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -204,6 +208,30 @@ const InventoryPage = () => {
       return sortOrder === "latest" ? bTime - aTime : aTime - bTime;
     });
   }, [logs, sortOrder]);
+
+  const refreshLogs = async () => {
+    setIsLogsRefreshing(true);
+    try {
+      const params: any = {};
+      if (logProjectId !== "all") params.project_id = logProjectId;
+      if (logType !== "all") params.type = logType;
+
+      const logsData = await materialService.getLogs(params);
+      setLogs(Array.isArray(logsData) ? logsData : []);
+      setLogsPage(0);
+    } catch (error) {
+      console.error("Failed to refresh logs:", error);
+      toast.error("Failed to filter logs");
+    } finally {
+      setIsLogsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "logs") {
+      refreshLogs();
+    }
+  }, [logProjectId, logType, activeTab]);
 
   // Handlers
   const handleSupplierSubmit = async (data: any) => {
@@ -697,6 +725,34 @@ const InventoryPage = () => {
                 />
               </div>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
+
+              {activeTab === "logs" && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={logProjectId}
+                    onChange={(e) => setLogProjectId(e.target.value === "all" ? "all" : Number(e.target.value))}
+                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
+                  >
+                    <option value="all">All Projects</option>
+                    {projectList.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={logType}
+                    onChange={(e) => setLogType(e.target.value)}
+                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
+                  >
+                    <option value="all">All Action Types</option>
+                    <option value="PURCHASE">Purchase</option>
+                    <option value="USAGE">Usage</option>
+                    <option value="TRANSFER_IN">Transfer In</option>
+                    <option value="TRANSFER_OUT">Transfer Out</option>
+                    <option value="ADJUSTMENT">Adjustment</option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
@@ -818,10 +874,6 @@ const InventoryPage = () => {
                           setIsEditPOModalOpen(true);
                         }}
                         onDelete={(id) => handleDeleteClick(id, "po")}
-                        onStatusUpdate={async (id, status) => {
-                          setPos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
-                          toast.success("PO status updated!");
-                        }}
                       />
                       {totalPages > 1 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
@@ -903,7 +955,16 @@ const InventoryPage = () => {
                   const paged = sortedLogs.slice(logsPage * PAGE_SIZE, (logsPage + 1) * PAGE_SIZE);
                   return (
                     <>
-                      <InventoryLogsTable logs={paged} />
+                      {isLogsRefreshing ? (
+                        <div className="flex flex-col items-center justify-center py-24 gap-4">
+                          <div className="w-10 h-10 border-4 border-slate-100 border-t-primary rounded-full animate-spin" />
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">
+                            Filtering transaction logs...
+                          </p>
+                        </div>
+                      ) : (
+                        <InventoryLogsTable logs={paged} projectMap={projectMap} />
+                      )}
                       {totalPages > 1 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
@@ -983,6 +1044,7 @@ const InventoryPage = () => {
         material={purchaseActionConfig.material}
         projects={projectList}
         suppliers={suppliers}
+        allMaterials={masterMaterials}
       />
       {/* Passing inventory strictly styled as what TransferMaterial expects or reformatted locally */}
       <TransferMaterialModal

@@ -4,11 +4,7 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
-import {
-  BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+
 import AccountantCreateInvoice from "./AccountantCreateInvoice";
 import { quotationService } from "../../services/quotationService";
 import api from "../../services/api";
@@ -35,10 +31,7 @@ const MOCK_RA_BILLS = [
   { id: 3, bill_no: "RA/SKY/002", client: "Aditya Enterprises", project: "Skyline Residency", billing_from: "2026-05-01", billing_to: "2026-05-31", billing_date: "2026-06-01", gross_amount: 2100000, gst_percent: 18, gst_amount: 378000, total_with_gst: 2478000, net_payable: 2478000, status: "Submitted", certified_by: "Internal Audit" },
 ];
 
-const MOCK_CREDIT_NOTES = [
-  { id: 1, cn_number: "CN-2026-001", related_invoice: "INV-2026-001", client_name: "Aditya Enterprises", credit_date: "2026-05-20", reason: "Work quality deduction – Phase 1", credit_amount: 5000, gst_adjustment: 900, total_credit: 5900 },
-  { id: 2, cn_number: "CN-2026-002", related_invoice: "INV-2026-002", client_name: "BuildCorp Solutions", credit_date: "2026-06-01", reason: "Rate revision approved by client", credit_amount: 12000, gst_adjustment: 2160, total_credit: 14160 },
-];
+
 
 const MOCK_COLLECTIONS = [
   { id: 1, invoice: "INV-2026-001", client: "Aditya Enterprises", amount: 21240, received_on: "2026-06-05", mode: "NEFT", ref: "HDFC20260605001", status: "Received" },
@@ -55,14 +48,7 @@ const MOCK_LEDGER = [
   { date: "2026-06-10", particulars: "Partial Payment Received – Cheque", debit: 0, credit: 60000, balance: 52100 },
 ];
 
-const COLLECTION_TREND = [
-  { month: "Jan", invoiced: 85, collected: 70 },
-  { month: "Feb", invoiced: 110, collected: 95 },
-  { month: "Mar", invoiced: 95, collected: 80 },
-  { month: "Apr", invoiced: 140, collected: 115 },
-  { month: "May", invoiced: 125, collected: 105 },
-  { month: "Jun", invoiced: 160, collected: 130 },
-];
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -88,117 +74,13 @@ const statusBadge = (s: any) => {
   return map[s.toLowerCase()] || "bg-slate-100 text-slate-500";
 };
 
-const CustomTip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border border-slate-100 rounded-xl shadow-lg p-3 text-xs">
-      <p className="font-bold text-slate-700 mb-1">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.color }} className="font-semibold">
-          {p.name}: ₹{p.value}L
-        </p>
-      ))}
-    </div>
-  );
-};
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-sections
 // ─────────────────────────────────────────────────────────────────────────────
 
-// 1. Dashboard
-const DashboardSection = () => {
-  const totalReceivables = MOCK_INVOICES.reduce((s, i) => s + i.total_with_gst, 0);
-  const paidAmount = MOCK_INVOICES.filter(i => i.payment_status === "Paid").reduce((s, i) => s + i.received_amount, 0);
-  const partialAmount = MOCK_INVOICES.filter(i => i.payment_status === "Partial").reduce((s, i) => s + i.received_amount, 0);
-  const pendingAmount = MOCK_INVOICES.filter(i => i.payment_status === "Pending").reduce((s, i) => s + i.pending_amount, 0);
-  const overdueAmount = MOCK_INVOICES.filter(i => i.payment_status === "Overdue").reduce((s, i) => s + i.pending_amount, 0);
 
-  const kpis = [
-    { label: "Total Receivables", value: fmt(totalReceivables), icon: "🧾", accent: "from-indigo-500 to-blue-500", sub: `${MOCK_INVOICES.length} Invoices` },
-    { label: "Paid Amount", value: fmt(paidAmount + partialAmount), icon: "✅", accent: "from-emerald-500 to-teal-500", sub: "Fully + Partial" },
-    { label: "Pending Amount", value: fmt(pendingAmount), icon: "⏳", accent: "from-amber-500 to-orange-500", sub: "Awaiting Collection" },
-    { label: "Overdue Amount", value: fmt(overdueAmount), icon: "🚨", accent: "from-rose-500 to-pink-500", sub: "Past Due Date" },
-  ];
-
-  return (
-    <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((k, i) => (
-          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${k.accent} flex items-center justify-center text-xl mb-4 shadow-sm`}>{k.icon}</div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{k.label}</p>
-            <p className="text-xl font-bold text-slate-800">{k.value}</p>
-            <p className="text-[10px] text-slate-400 mt-1">{k.sub}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Collection Trend Chart */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        <div className="flex justify-between items-start mb-5">
-          <div>
-            <h3 className="text-base font-bold text-slate-800">Collection Trend</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Invoiced vs Collected – Monthly (₹ Lakh)</p>
-          </div>
-          <span className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full uppercase tracking-widest">FY 2026-27</span>
-        </div>
-        <div className="h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={COLLECTION_TREND} barCategoryGap="30%">
-              <defs>
-                <linearGradient id="invGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6366f1" /><stop offset="100%" stopColor="#818cf8" />
-                </linearGradient>
-                <linearGradient id="colGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" /><stop offset="100%" stopColor="#34d399" />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} dy={8} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10 }} tickFormatter={v => `₹${v}L`} />
-              <Tooltip content={<CustomTip />} />
-              <Bar dataKey="invoiced" name="Invoiced" fill="url(#invGrad)" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="collected" name="Collected" fill="url(#colGrad)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Recent Invoices quick view */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-5 border-b border-slate-50 flex justify-between items-center">
-          <h3 className="font-bold text-slate-800">Recent Invoices</h3>
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Last 30 days</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50/60">
-              <tr>
-                {["Invoice No", "Client", "Project", "Amount", "Due Date", "Status"].map(h => (
-                  <th key={h} className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {MOCK_INVOICES.slice(0, 4).map(inv => (
-                <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-5 py-3 text-xs font-bold text-primary">{inv.invoice_number}</td>
-                  <td className="px-5 py-3 text-xs font-semibold text-slate-700">{inv.client_name}</td>
-                  <td className="px-5 py-3 text-xs text-slate-500">{inv.project_name}</td>
-                  <td className="px-5 py-3 text-xs font-bold text-slate-800">{fmt(inv.total_with_gst)}</td>
-                  <td className="px-5 py-3 text-xs text-slate-500">{inv.due_date}</td>
-                  <td className="px-5 py-3"><span className={`px-2.5 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.payment_status)}`}>{inv.payment_status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const InvoicesSection = ({
   initialSubTab,
@@ -1327,220 +1209,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   );
 };
 
-// 4. Credit Notes
-const CreditNotesSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
-  const [, setSearchParams] = useSearchParams();
-  const [activeSubTab, setActiveSubTab] = useState<"create" | "list">(
-    (initialSubTab as any) || "list"
-  );
 
-  const handleTabChange = (key: "create" | "list") => {
-    setActiveSubTab(key);
-    setSearchParams({ sub: key }, { replace: true });
-    if (key !== "create") setEditingCreditNote(null);
-  };
-  const [creditNotes, setCreditNotes] = useState<any[]>(MOCK_CREDIT_NOTES);
-  const [search, setSearch] = useState("");
-  const [editingCreditNote, setEditingCreditNote] = useState<any>(null);
-
-  const handleDelete = (id: number) => {
-    setCreditNotes(prev => prev.filter(cn => cn.id !== id));
-    toast.success("Credit note deleted!");
-  };
-
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const newCn: any = {};
-    formData.forEach((value, key) => { newCn[key] = value; });
-
-    if (editingCreditNote) {
-      setCreditNotes(prev => prev.map(cn => cn.id === editingCreditNote.id ? { ...cn, ...newCn } : cn));
-      toast.success("Credit note updated successfully!");
-    } else {
-      newCn.id = Date.now();
-      newCn.cn_number = newCn.cn_number || `CN-${Math.floor(Math.random() * 1000)}`;
-      newCn.total_credit = Number(newCn.credit_amount || 0) + Number(newCn.gst_adjustment || 0);
-      newCn.client_name = newCn.client_name || "Unknown Client";
-      setCreditNotes(prev => [newCn, ...prev]);
-      toast.success("Credit note created successfully!");
-    }
-    handleTabChange("list");
-  };
-
-  // Sync when sidebar item changes (e.g., "Credit Note List" → "Create Credit Note")
-  useEffect(() => {
-    if (initialSubTab) setActiveSubTab(initialSubTab as "create" | "list");
-  }, [initialSubTab]);
-
-  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-  const inputClasses = (readOnly?: boolean) => `w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${readOnly ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"}`;
-
-  const subTabs = [
-    { key: "create", label: "Create Credit Note" },
-    { key: "list", label: "Credit Note List" },
-  ] as const;
-
-  const filtered = creditNotes.filter(cn =>
-    cn.cn_number.toLowerCase().includes(search.toLowerCase()) ||
-    cn.client_name.toLowerCase().includes(search.toLowerCase()) ||
-    cn.related_invoice.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <div className="space-y-5">
-      {/* Header Row: Sub-tabs + Action Button — same layout as InvoicesSection */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
-          {subTabs.map(t => (
-            <button key={t.key} onClick={() => handleTabChange(t.key)}
-              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${activeSubTab === t.key ? "bg-primary text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search CNs or Clients…"
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" />
-        </div>
-      </div>
-
-      {activeSubTab === "list" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-            <div>
-              <h3 className="font-bold text-slate-800">Credit Notes</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Issued against client invoices</p>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/60 border-b border-slate-100">
-                <tr>
-                  {["CN Number", "Related Invoice", "Client", "Credit Date", "Reason", "Credit Amt", "GST Adj", "Total Credit", "Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {filtered.map(cn => (
-                  <tr key={cn.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 text-xs font-bold text-primary">{cn.cn_number}</td>
-                    <td className="px-4 py-3 text-xs font-mono text-slate-500">{cn.related_invoice}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-slate-700">{cn.client_name}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{cn.credit_date}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 max-w-[160px] truncate">{cn.reason}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-slate-700 text-right">{fmt(cn.credit_amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500 text-right">{fmt(cn.gst_adjustment)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-rose-700 text-right">{fmt(cn.total_credit)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
-                        <button onClick={() => { setEditingCreditNote(cn); handleTabChange("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
-                        <button onClick={() => toast.success("Credit note PDF downloaded!")} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all" title="PDF">📄</button>
-                        <button onClick={() => handleDelete(cn.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {activeSubTab === "create" && (
-        <form onSubmit={handleFormSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Form */}
-          <div className="lg:col-span-2 space-y-5">
-
-            {/* 1. Credit Note Details */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-                Credit Note Details
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: "Credit Note Number", name: "cn_number", placeholder: "Auto: CN-2026-003", readOnly: true, val: editingCreditNote?.cn_number },
-                  { label: "Related Invoice", name: "related_invoice", placeholder: "Select invoice…", val: editingCreditNote?.related_invoice },
-                  { label: "Client Name", name: "client_name", placeholder: "Auto-filled from invoice", readOnly: true, val: editingCreditNote?.client_name },
-                  { label: "Credit Date", name: "credit_date", placeholder: "", type: "date", val: editingCreditNote?.credit_date },
-                ].map((f, i) => (
-                  <div key={i}>
-                    <label className={labelClasses}>{f.label}</label>
-                    <input type={f.type || "text"} name={f.name} placeholder={f.placeholder} readOnly={f.readOnly} defaultValue={f.val || ""}
-                      className={inputClasses(f.readOnly)} />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 2. Reason */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-                Reason
-              </h3>
-              <textarea name="reason" rows={4} placeholder="Describe reason for credit note e.g. Material returned, Work not completed, Rate revision…" defaultValue={editingCreditNote?.reason || ""}
-                className={inputClasses(false) + " resize-none"} />
-            </div>
-
-            {/* 3. Attachment */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-                Attachment
-              </h3>
-              <label className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-blue-50/30 transition-all flex flex-col items-center group">
-                <span className="text-3xl mb-2">📎</span>
-                <p className="text-sm font-semibold text-slate-500 group-hover:text-primary">Upload Supporting Document</p>
-                <p className="text-xs text-slate-400 mt-1">PDF, JPG, PNG — Max 10MB</p>
-                <input type="file" className="hidden" />
-              </label>
-            </div>
-          </div>
-
-          {/* Right: Amount Summary Sidebar */}
-          <div className="space-y-5">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">₹</span>
-                Credit Summary
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className={labelClasses}>Credit Amount (₹)</label>
-                  <input type="number" name="credit_amount" placeholder="Enter credit amount" defaultValue={editingCreditNote?.credit_amount || ""}
-                    className={inputClasses(false)} />
-                </div>
-                <div>
-                  <label className={labelClasses}>GST Adjustment (₹)</label>
-                  <input type="number" name="gst_adjustment" placeholder="GST to be reversed" defaultValue={editingCreditNote?.gst_adjustment || ""}
-                    className={inputClasses(false)} />
-                </div>
-              </div>
-              <div className="mt-6 pt-4 border-t border-slate-100 space-y-3">
-                <div className="flex justify-between text-xs text-slate-500"><span>Credit Amount</span><span className="font-semibold text-slate-700">—</span></div>
-                <div className="flex justify-between text-xs text-slate-500"><span>GST Adjustment</span><span className="font-semibold text-slate-700">—</span></div>
-                <div className="flex justify-between text-xs font-bold text-rose-600 border-t border-slate-100 pt-2"><span>Total Credit</span><span>—</span></div>
-              </div>
-              <button type="submit"
-                className="w-full mt-6 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all active:scale-95 shadow-md shadow-primary/20">
-                {editingCreditNote ? "Update Credit Note" : "Create Credit Note"}
-              </button>
-              <button type="button" onClick={() => setActiveSubTab("list")}
-                className="w-full mt-2 bg-slate-50 text-slate-500 py-2.5 rounded-xl text-sm font-bold border border-slate-200 hover:bg-slate-100 transition-all">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </form>
-      )}
-    </div>
-  );
-};
 
 // 5. Collections
 const CollectionsSection = () => (
@@ -1673,48 +1342,20 @@ const ClientLedgerSection = () => {
   );
 };
 
-// 7. Reports
-const ReportsSection = () => {
-  const reports = [
-    { title: "Invoice Report", desc: "All client invoices with payment status", icon: "🧾", color: "bg-blue-50 border-blue-100", accent: "text-blue-600" },
-    { title: "RA Bill Report", desc: "Running account bills with certification status", icon: "📋", color: "bg-indigo-50 border-indigo-100", accent: "text-indigo-600" },
-    { title: "Collection Report", desc: "Amounts received vs outstanding by client", icon: "💰", color: "bg-emerald-50 border-emerald-100", accent: "text-emerald-600" },
-    { title: "Outstanding Report", desc: "Aging analysis of pending receivables", icon: "📊", color: "bg-amber-50 border-amber-100", accent: "text-amber-600" },
-  ];
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {reports.map((r, i) => (
-          <div key={i} className={`bg-white rounded-2xl shadow-sm border ${r.color} p-6 flex items-start gap-4 hover:shadow-md transition-shadow cursor-pointer`}
-            onClick={() => toast.success(`${r.title} — generating…`)}>
-            <div className={`w-12 h-12 rounded-xl ${r.color} flex items-center justify-center text-2xl`}>{r.icon}</div>
-            <div className="flex-1">
-              <h3 className={`font-bold ${r.accent} mb-1`}>{r.title}</h3>
-              <p className="text-xs text-slate-400">{r.desc}</p>
-              <button className={`mt-3 text-[10px] font-black uppercase tracking-widest ${r.accent} hover:underline`}>Download CSV / PDF →</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabKey = "dashboard" | "quotations" | "invoices" | "ra-bills" | "credit-notes" | "collections" | "client-ledger" | "reports";
+type TabKey = "quotations" | "invoices" | "ra-bills" | "collections" | "client-ledger";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "dashboard", label: "Dashboard", icon: "📊" },
-  { key: "quotations", label: "Quotation", icon: "🧾" },
-  { key: "invoices", label: "Invoice", icon: "🧾" },
-  { key: "ra-bills", label: "Running Bills (RA Bills)", icon: "📋" },
-  { key: "credit-notes", label: "Credit Notes", icon: "📝" },
-  { key: "collections", label: "Collections", icon: "💰" },
-  { key: "client-ledger", label: "Client Ledger", icon: "📒" },
-  { key: "reports", label: "Reports", icon: "📈" },
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "quotations", label: "Quotations" },
+  { key: "invoices", label: "Invoices" },
+  { key: "ra-bills", label: "RA Bills" },
+  { key: "collections", label: "Collections" },
+  { key: "client-ledger", label: "Client Ledger" },
 ];
 
 const ReceivablesPage = () => {
@@ -1732,13 +1373,10 @@ const ReceivablesPage = () => {
       invoices: "invoices",
       quotations: "quotations",
       "ra-bills": "ra-bills",
-      "credit-notes": "credit-notes",
       collections: "collections",
       "client-ledger": "client-ledger",
-      reports: "reports",
-      dashboard: "dashboard",
     };
-    return map[currentSub || ""] || "dashboard";
+    return map[currentSub || ""] || "quotations";
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
@@ -1761,27 +1399,37 @@ const ReceivablesPage = () => {
       <Navbar title="Receivables (Client Billing)" breadcrumb={["Accountant", "Receivables"]} />
 
       <PageTransition className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter pb-8">
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Accountant · Finance</p>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Receivables (Client Billing)</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Receivables</h1>
             <p className="text-slate-500 text-sm mt-1">Manage invoices, running bills, collections, client ledger &amp; reports.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+              <span className="text-lg">📥</span> Import
+            </button>
+            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+              <span className="text-lg">📤</span> Export
+            </button>
+            <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
+              <span className="text-base leading-none">+</span> New Receivable
+            </button>
           </div>
         </div>
 
         {/* Tab Navigation — matches sidebar hierarchy exactly */}
-        <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1.5 mb-6 overflow-x-auto shadow-sm">
+        <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${activeTab === tab.key
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                }`}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
+                activeTab === tab.key
+                  ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
             >
-              <span>{tab.icon}</span>
               {tab.label}
             </button>
           ))}
@@ -1799,14 +1447,11 @@ const ReceivablesPage = () => {
         </div>
 
         {/* Tab Content — key={subTab} forces remount when sidebar sub-item changes */}
-        {activeTab === "dashboard" && <DashboardSection />}
         {activeTab === "quotations" && <InvoicesSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "invoices" && <ClientInvoicesSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "ra-bills" && <RABillsSection key={subTab || "list"} initialSubTab={subTab} />}
-        {activeTab === "credit-notes" && <CreditNotesSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "collections" && <CollectionsSection />}
         {activeTab === "client-ledger" && <ClientLedgerSection />}
-        {activeTab === "reports" && <ReportsSection />}
       </PageTransition>
 
       <ConfirmModal

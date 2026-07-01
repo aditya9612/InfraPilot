@@ -117,6 +117,11 @@ const CheckOutModal: React.FC<Props> = ({ isOpen, onClose, attendance, onSuccess
                 fd.append("check_out_image", blob, "checkout.jpg");
             }
 
+            // Append user_id so virtual fallback knows who is checking out if attendance ID is missing
+            if (attendance.labour_id || attendance.user_id || attendance.id) {
+                fd.append("user_id", String(attendance.labour_id || attendance.user_id || attendance.id));
+            }
+
             // In LabourAttendancePage, attendance ID is sometimes stored in id or we have labour_id
             // Depending on the data structure passed down, we need the attendance ID.
             const attendanceIdToUse = attendance.attendance_id || attendance.id;

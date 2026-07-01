@@ -86,8 +86,10 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         .map((row: any) => ({
           project_id: projectId,
           item_name: row["Item Name"] || row["item_name"] || row["Name"],
+          category: row["Category"] || row["category"] || "Material",
           description: row["Description"] || row["description"] || "",
           quantity: Number(row["Quantity"] || row["qty"] || 0),
+          unit: row["Unit"] || row["unit"] || "nos",
           unit_cost: Number(row["Unit Cost"] || row["rate"] || 0),
           status: "Active",
         }))
@@ -186,10 +188,10 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="min-h-full flex items-center justify-center p-4 py-12">
-        <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300 relative">
-          <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+    <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
+      <div className="flex justify-center min-h-full p-4">
+        <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl border border-slate-100 animate-in zoom-in-95 duration-300 relative self-center my-8">
+          <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 shrink-0">
             <div>
               <h3 className="text-xl font-bold text-slate-800 tracking-tight">
                 Bulk Import BOQ

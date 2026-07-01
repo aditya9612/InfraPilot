@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { projectService } from "../../services/projectService";
 import type { IssueType } from "../../types/material";
 
 interface PurchaseActionModalProps {
@@ -10,18 +9,15 @@ interface PurchaseActionModalProps {
   actionType: "purchase" | "usage";
   projects: any[];
   suppliers: any[];
+  allMaterials: any[];
 }
 
-export default function PurchaseActionModal({ isOpen, onClose, onSubmit, material, actionType, projects, suppliers }: PurchaseActionModalProps) {
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+export default function PurchaseActionModal({ isOpen, onClose, onSubmit, material, actionType, projects, suppliers, allMaterials }: PurchaseActionModalProps) {
 
   const [formData, setFormData] = useState({
     quantity: 0,
     rate: material?.purchase_rate || 0,
-    payment: 0,
     project_id: material?.project_id || (projects && projects.length > 0 ? projects[0].id : ""),
-    task_id: 0,
     issue_type: "SYSTEM" as IssueType,
     supplier_id: material?.supplier_id || "",
     material_id: material?.id || "",
@@ -33,9 +29,7 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
       setFormData({
         quantity: 0,
         rate: material.purchase_rate || 0,
-        payment: 0,
         project_id: material.project_id || (projects && projects.length > 0 ? projects[0].id : ""),
-        task_id: 0,
         issue_type: "SYSTEM",
         supplier_id: material.supplier_id || (suppliers && suppliers.length > 0 ? suppliers[0].id : ""),
         material_id: material.id,
@@ -43,24 +37,6 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
     }
   }, [isOpen, material, projects, suppliers]);
 
-  useEffect(() => {
-    if (formData.project_id) {
-      fetchTasks(Number(formData.project_id));
-    }
-  }, [formData.project_id, isOpen]);
-
-  const fetchTasks = async (projectId: number) => {
-    setIsLoadingTasks(true);
-    try {
-      const data = await projectService.getTasks(projectId);
-      setTasks(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Failed to fetch tasks:", error);
-      setTasks([]);
-    } finally {
-      setIsLoadingTasks(false);
-    }
-  };
 
   if (!isOpen || !material) return null;
 
@@ -78,9 +54,7 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
     setFormData({
       quantity: 0,
       rate: material?.purchase_rate || 0,
-      payment: 0,
       project_id: material?.project_id || (projects && projects.length > 0 ? projects[0].id : ""),
-      task_id: 0,
       issue_type: "SYSTEM",
       supplier_id: material?.supplier_id || (suppliers && suppliers.length > 0 ? suppliers[0].id : ""),
       material_id: material?.id || "",
@@ -90,7 +64,6 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
   const isUsage = actionType === "usage";
   const title = isUsage ? "Log Material Usage" : "Record New Purchase";
   const qtyLabel = isUsage ? "Quantity Used *" : "Quantity Purchased *";
-  const paymentLabel = isUsage ? "Associated Payment (Optional)" : "Payment Given Upfront *";
 
   // Predict new state
   const newStock = isUsage
@@ -102,8 +75,6 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
   const newTotalAmount = isUsage
     ? material.total_amount
     : material.total_amount + ((formData.quantity || 0) * currentRate);
-  const newPaymentGiven = material.payment_given + (formData.payment || 0);
-  const newPending = newTotalAmount - newPaymentGiven;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity font-inter">
@@ -149,6 +120,21 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
             {!isUsage && (
               <div className="space-y-4">
                 <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Material *</label>
+                  <select
+                    name="material_id"
+                    value={formData.material_id}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs font-bold outline-none"
+                  >
+                    <option value="">Select Material</option>
+                    {allMaterials.map((m) => (
+                      <option key={m.id} value={m.id}>{m.material_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supplier *</label>
                   <select
                     name="supplier_id"
@@ -186,41 +172,23 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Project *</label>
-                <select
-                  required
-                  name="project_id"
-                  value={formData.project_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs font-bold outline-none"
-                >
-                  <option value="">Select Site</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Task (Optional)</label>
-                <select
-                  name="task_id"
-                  value={formData.task_id}
-                  onChange={handleChange}
-                  disabled={isLoadingTasks}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs font-bold outline-none disabled:opacity-50"
-                >
-                  <option value="0">General Usage</option>
-                  {tasks.map((t) => (
-                    <option key={t.id} value={t.id}>{t.title}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Project *</label>
+              <select
+                required
+                name="project_id"
+                value={formData.project_id}
+                onChange={handleChange}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xs font-bold outline-none"
+              >
+                <option value="">Select Site</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name || p.project_name}</option>
+                ))}
+              </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Issue Type</label>
                 <select
@@ -234,22 +202,6 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
                   <option value="DAMAGE">Damaged / Lost</option>
                   <option value="TRANSFER">Transfer Out</option>
                 </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{paymentLabel}</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">₹</span>
-                  <input
-                    required={!isUsage}
-                    type="number"
-                    name="payment"
-                    value={formData.payment || ""}
-                    onChange={handleChange}
-                    className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm font-bold outline-none ${!isUsage ? 'text-emerald-600' : ''}`}
-                    placeholder="0.00"
-                  />
-                </div>
               </div>
             </div>
 
@@ -268,12 +220,6 @@ export default function PurchaseActionModal({ isOpen, onClose, onSubmit, materia
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Adjusted Valuation</span>
                     <span className="text-sm font-black text-white">₹{newTotalAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Updated Payables</span>
-                    <span className={`text-sm font-black ${newPending > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                      ₹{newPending.toLocaleString()}
-                    </span>
                   </div>
                 </div>
               )}

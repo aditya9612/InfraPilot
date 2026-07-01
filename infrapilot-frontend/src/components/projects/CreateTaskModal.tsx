@@ -175,7 +175,6 @@ const CreateTaskModal = ({
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.title.trim()) newErrors.title = "Title is required.";
-    if (!formData.description.trim()) newErrors.description = "Description is required.";
     if (!formData.start_date) newErrors.start_date = "Start date is required.";
     if (!formData.end_date) newErrors.end_date = "End date is required.";
     if (!formData.assigned_user_id) newErrors.assigned_user_id = "Assigned user is required.";
@@ -314,9 +313,9 @@ const CreateTaskModal = ({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Description <span className="text-red-500">*</span></label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Description</label>
                   <textarea
-                    required name="description" value={formData.description} onChange={handleChange} placeholder="Detailed instructions for the site team" rows={3}
+                    name="description" value={formData.description} onChange={handleChange} placeholder="Detailed instructions for the site team" rows={3}
                     className={`w-full px-4 py-2.5 bg-white border ${errors.description ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 resize-none font-medium`}
                   />
                   {errors.description && <p className="text-[10px] text-red-500 mt-1 ml-1">{errors.description}</p>}

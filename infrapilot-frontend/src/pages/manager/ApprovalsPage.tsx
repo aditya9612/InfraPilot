@@ -5,19 +5,20 @@ import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import ApprovalDetailsModal from "../../components/dashboard/ApprovalDetailsModal";
 import toast from "react-hot-toast";
-import { Eye, Check, X, Search, RotateCcw } from "lucide-react";
+import { Eye, Check, X, Search, RotateCcw, Download } from "lucide-react";
 import { approvalService } from "../../services/approvalService";
 import type { ApprovalItem } from "../../services/approvalService";
 import { useProject } from "../../context/ProjectContext";
-import { userService } from "../../services/userService";
 
 const ApprovalsPage = () => {
     const location = useLocation();
-    const subPage = location.pathname.split("/").pop() || "requests";
     const { selectedProjectId } = useProject();
 
+    const [activeTab, setActiveTab] = useState<"Pending" | "Approved" | "Rejected">("Pending");
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [entityFilter, setEntityFilter] = useState("all");
+    const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
     const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [viewingApproval, setViewingApproval] = useState<ApprovalItem | null>(null);
@@ -28,11 +29,15 @@ const ApprovalsPage = () => {
         setIsLoading(true);
         try {
             const data = await approvalService.getApprovals();
-            // Filter by context if applicable
             const filteredByProject = selectedProjectId
                 ? data.filter(a => a.project_id === selectedProjectId || !a.project_id)
                 : data;
             setApprovals(filteredByProject);
+
+            // Note: /users endpoints require Admin role — skip API resolution.
+            // Columns display raw value: name string if API returns one, else "User #id".
+            // Permanent fix: backend should include names directly in approvals response.
+
         } catch (error) {
             toast.error("Cloud synchronization failed. Using local vault.");
         } finally {
@@ -41,42 +46,28 @@ const ApprovalsPage = () => {
     }, [selectedProjectId]);
 
     useEffect(() => {
-        // Fetch users once to build an id→name lookup map
-        // Increase limit to 1000 to ensure we cover all possible site engineers
-        userService.getAllUsers(1000, 0).then((data) => {
-            const list = Array.isArray(data) ? data : (data?.items || data?.data || data?.users || []);
-            const map: Record<string, string> = {};
-            list.forEach((u: any) => {
-                const uid = u.user_id ?? u.id;
-                if (uid !== undefined && uid !== null) {
-                    map[String(uid)] = u.full_name || u.name || u.username || u.email || `User ${uid}`;
-                }
-            });
-            setUsersMap(map);
-        }).catch(() => {/* silently ignore */ });
-    }, []);
-
-    useEffect(() => {
         fetchApprovals();
     }, [fetchApprovals]);
 
     const filteredApprovals = useMemo(() => {
         const term = searchTerm.toLowerCase();
-        // Determine status filter based on route
-        let statusFilter = "Pending";
-        if (subPage === "history" || subPage === "approved") statusFilter = "Approved";
-        if (subPage === "rejected") statusFilter = "Rejected";
 
-        return approvals.filter(a => {
-            const matchesStatus = a.status === statusFilter;
+        const result = approvals.filter(a => {
+            const matchesStatus = a.status === activeTab;
+            const matchesEntity = entityFilter === "all"
+                || (a.entity_type || "").toLowerCase() === entityFilter.toLowerCase();
             const matchesSearch =
                 (a.project_name || "").toLowerCase().includes(term) ||
-                (usersMap[String(a.requested_by)] || a.requested_by || "").toLowerCase().includes(term) ||
+                (String(usersMap[String(a.requested_by)] || a.requested_by || "")).toLowerCase().includes(term) ||
                 (a.entity_type || "").toLowerCase().includes(term) ||
                 (a.detail || "").toLowerCase().includes(term);
-            return matchesStatus && matchesSearch;
+            return matchesStatus && matchesEntity && matchesSearch;
         });
-    }, [approvals, searchTerm, subPage, usersMap]);
+
+        return [...result].sort((a, b) =>
+            sortOrder === "latest" ? b.id - a.id : a.id - b.id
+        );
+    }, [approvals, searchTerm, entityFilter, sortOrder, activeTab, usersMap]);
 
     const handleApprove = async (id: number, remarks: string = "Approved by Project Manager") => {
         try {
@@ -128,9 +119,33 @@ const ApprovalsPage = () => {
         }
     };
 
+    const handleExport = () => {
+        const headers = ["ID", "Entity Type", "Entity ID", "Status", "Requested By", "Approved By", "Remarks"];
+        const csvData = filteredApprovals.map(a => [
+            a.id,
+            a.entity_type || "",
+            a.entity_id || "",
+            a.status || "",
+            usersMap[String(a.requested_by)] || a.requested_by_name || a.requested_by || "-",
+            a.approved_by ? (usersMap[String(a.approved_by)] || a.approved_by) : "-",
+            (a.remarks || a.detail || "").replace(/,/g, ";"),
+        ].join(","));
+        const csvContent = [headers.join(","), ...csvData].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `approvals_report_${new Date().toISOString().split("T")[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success("Report exported successfully!");
+    };
+
     return (
         <>
-            <Navbar title="Approval Center" breadcrumb={["Manager", "Approvals", subPage.charAt(0).toUpperCase() + subPage.slice(1)]} />
+            <Navbar title="Approval Center" breadcrumb={["Manager", "Approvals", activeTab]} />
 
             <PageTransition key={location.pathname} className="p-6 bg-slate-50 min-h-screen">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -160,6 +175,8 @@ const ApprovalsPage = () => {
                     <StatCard title="Oversight Score" value="98.4%" sub="Site efficiency" accent="text-primary" />
                 </div>
 
+                {/* Tabs */}
+
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="relative flex-1 max-w-md">
@@ -174,7 +191,47 @@ const ApprovalsPage = () => {
                                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                             />
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+                                {(["Pending", "Approved", "Rejected"] as const).map(tab => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => { setActiveTab(tab); setSelectedIds([]); }}
+                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${
+                                            activeTab === tab
+                                                ? "bg-white text-primary shadow-sm"
+                                                : "text-slate-500 hover:text-slate-700"
+                                        }`}
+                                    >
+                                        {tab}
+                                    </button>
+                                ))}
+                            </div>
+                            <select
+                                value={entityFilter}
+                                onChange={e => setEntityFilter(e.target.value)}
+                                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${
+                                    entityFilter !== "all"
+                                        ? "bg-primary/10 border-primary/30 text-primary"
+                                        : "bg-slate-50 border-slate-200 text-slate-600"
+                                }`}
+                            >
+                                <option value="all">All Types</option>
+                                <option value="drawing">Drawing</option>
+                                <option value="document">Document</option>
+                                <option value="equipment">Equipment</option>
+                                <option value="boq">BOQ</option>
+                                <option value="bill">Bill</option>
+                                <option value="measurement">Measurement</option>
+                            </select>
+                            <select
+                                value={sortOrder}
+                                onChange={e => setSortOrder(e.target.value as "latest" | "oldest")}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none"
+                            >
+                                <option value="latest">Latest First</option>
+                                <option value="oldest">Oldest First</option>
+                            </select>
                             <button onClick={() => fetchApprovals()} className="p-2 text-slate-400 hover:text-primary transition-colors border border-slate-100 rounded-lg" title="Refresh">
                                 <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                             </button>
@@ -194,7 +251,7 @@ const ApprovalsPage = () => {
                                         />
                                     </th>
                                     <th className="px-6 py-4">Entity Type & ID</th>
-                                    <th className="px-6 py-4">Site Engineer</th>
+                                    <th className="px-6 py-4">Requested By</th>
                                     <th className="px-6 py-4">Summary Detail</th>
                                     <th className="px-6 py-4">Status</th>
                                     <th className="px-6 py-4">Approved By</th>
@@ -227,7 +284,7 @@ const ApprovalsPage = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-xs font-semibold text-slate-600">
-                                                {usersMap[String(item.requested_by)] || item.requested_by_name || `ID: ${item.requested_by}`}
+                                                {usersMap[String(item.requested_by)] || item.requested_by_name || (String(item.requested_by).match(/^\d+$/) ? `User #${item.requested_by}` : item.requested_by) || "—"}
                                             </td>
                                             <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-[200px] truncate">
                                                 {item.remarks || item.detail || "No details provided"}
@@ -238,7 +295,9 @@ const ApprovalsPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                                                {item.approved_by ? (usersMap[String(item.approved_by)] || `ID: ${item.approved_by}`) : "—"}
+                                                {item.approved_by
+                                                    ? (usersMap[String(item.approved_by)] || item.reviewer_name || (String(item.approved_by).match(/^\d+$/) ? `User #${item.approved_by}` : String(item.approved_by)))
+                                                    : "—"}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1 items-center">
@@ -278,7 +337,7 @@ const ApprovalsPage = () => {
                                 ) : (
                                     <tr>
                                         <td colSpan={6} className="px-6 py-20 text-center">
-                                            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest italic">No {subPage} records found</p>
+                                            <p className="text-xs font-bold text-slate-300 uppercase tracking-widest italic">No {activeTab} records found</p>
                                         </td>
                                     </tr>
                                 )}

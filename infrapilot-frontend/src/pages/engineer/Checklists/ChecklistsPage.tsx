@@ -8,20 +8,21 @@ import {
     Plus,
     Trash2,
     CheckCircle2,
-    PlusSquare,
     ClipboardList,
     Search,
     Activity,
     FileText,
     RotateCcw,
-    Layout
-    ,
+    Layout,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Edit3,
+    Save,
+    X
 } from "lucide-react";
 
 import { checklistService } from "../../../services/checklistService";
-import type { ChecklistItem, ChecklistLog } from "../../../services/checklistService";
+import type { ChecklistItem, ChecklistItemEntry, ChecklistLog } from "../../../services/checklistService";
 import { projectService } from "../../../services/projectService";
 
 const typeColors: Record<string, string> = {
@@ -66,6 +67,10 @@ const ChecklistsPage = () => {
     const [executeRemarks, setExecuteRemarks] = useState("");
     const [executeError, setExecuteError] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [currentChecklistItems, setCurrentChecklistItems] = useState<ChecklistItemEntry[]>([]);
+    const [isFetchingItems, setIsFetchingItems] = useState(false);
+    const [editingItemId, setEditingItemId] = useState<number | null>(null);
+    const [editItemText, setEditItemText] = useState("");
 
     // Resolve Project ID and fetch assigned projects list
     useEffect(() => {
@@ -183,6 +188,25 @@ const ChecklistsPage = () => {
         }
     };
 
+    const fetchChecklistItems = async (checklistId: number) => {
+        setIsFetchingItems(true);
+        try {
+            const items = await checklistService.getItems(checklistId);
+            setCurrentChecklistItems(items);
+        } catch (error) {
+            toast.error("Failed to fetch items");
+            setCurrentChecklistItems([]);
+        } finally {
+            setIsFetchingItems(false);
+        }
+    };
+
+    const openManageItemsModal = (cl: ChecklistItem) => {
+        setSelectedChecklist(cl);
+        setIsAddItemModalOpen(true);
+        fetchChecklistItems(cl.id);
+    };
+
     const handleAddItem = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!addItemText.trim() || !selectedChecklist) return;
@@ -194,11 +218,41 @@ const ChecklistsPage = () => {
                 item: addItemText
             });
             toast.success("Item added successfully!");
-            setIsAddItemModalOpen(false);
             setAddItemText("");
-            fetchData();
+            await fetchChecklistItems(selectedChecklist.id);
         } catch (err) {
             toast.error("Failed to add item");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleUpdateItem = async (itemId: number) => {
+        if (!editItemText.trim() || !selectedChecklist) return;
+        setIsSubmitting(true);
+        try {
+            await checklistService.updateItem(itemId, { item: editItemText });
+            toast.success("Item updated successfully!");
+            setEditingItemId(null);
+            setEditItemText("");
+            await fetchChecklistItems(selectedChecklist.id);
+        } catch (err) {
+            toast.error("Failed to update item");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteItem = async (itemId: number) => {
+        setIsSubmitting(true);
+        try {
+            await checklistService.deleteItem(itemId);
+            toast.success("Item deleted successfully!");
+            if (selectedChecklist) {
+                await fetchChecklistItems(selectedChecklist.id);
+            }
+        } catch (err) {
+            toast.error("Failed to delete item");
         } finally {
             setIsSubmitting(false);
         }
@@ -482,12 +536,12 @@ const ChecklistsPage = () => {
 
                                     <div className="grid grid-cols-3 gap-3 relative z-10 font-inter">
                                         <button
-                                            onClick={() => { setSelectedChecklist(cl); setIsAddItemModalOpen(true); }}
+                                            onClick={() => openManageItemsModal(cl)}
                                             className="flex flex-col items-center gap-2 p-3 bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-primary rounded-2xl transition-all font-inter active:scale-95 border border-slate-100"
-                                            title="Add Item"
+                                            title="Manage Items"
                                         >
-                                            <PlusSquare className="w-4 h-4" />
-                                            <span className="text-[10px] font-bold uppercase tracking-widest">Add Item</span>
+                                            <Layout className="w-4 h-4" />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">Manage Items</span>
                                         </button>
                                         <button
                                             onClick={() => { setSelectedChecklist(cl); setExecuteError(false); setIsExecuteModalOpen(true); }}
@@ -806,34 +860,89 @@ const ChecklistsPage = () => {
                 </div>
             </Modal>
 
-            {/* Modal 2: Add Item */}
+            {/* Modal 2: Manage Items */}
             <Modal
                 isOpen={isAddItemModalOpen}
                 onClose={() => setIsAddItemModalOpen(false)}
-                title="Append Intelligence Point"
-                maxWidth="max-w-md"
+                title="Manage Verification Points"
+                maxWidth="max-w-2xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
-                        <button onClick={() => setIsAddItemModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
-                        <button
-                            onClick={handleAddItem}
-                            disabled={isSubmitting}
-                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
-                        >
-                            {isSubmitting ? "Syncing..." : "Append Point"}
-                        </button>
+                        <button onClick={() => setIsAddItemModalOpen(false)} className="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-blue-600 transition-all font-inter">Done</button>
                     </div>
                 }
             >
-                <div className="p-6 font-inter">
-                    <label className={labelClasses}>New Technical Verification Point</label>
-                    <input
-                        type="text"
-                        value={addItemText}
-                        onChange={(e) => setAddItemText(e.target.value)}
-                        placeholder="e.g. Verify aggregate compaction ratio"
-                        className={inputClasses}
-                    />
+                <div className="p-6 font-inter space-y-6">
+                    {/* Add Item Form */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex gap-3">
+                        <input
+                            type="text"
+                            value={addItemText}
+                            onChange={(e) => setAddItemText(e.target.value)}
+                            placeholder="Add new verification point..."
+                            className={inputClasses}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAddItem(e as any);
+                            }}
+                        />
+                        <button
+                            onClick={handleAddItem}
+                            disabled={isSubmitting || !addItemText.trim()}
+                            className="px-6 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50 font-inter whitespace-nowrap"
+                        >
+                            {isSubmitting && addItemText.trim() ? "Adding..." : "Add Point"}
+                        </button>
+                    </div>
+
+                    {/* Existing Items List */}
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                        <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Existing Points</h3>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                            {isFetchingItems ? (
+                                <div className="py-8 text-center text-slate-400 text-sm font-semibold">Loading points...</div>
+                            ) : currentChecklistItems.length === 0 ? (
+                                <div className="py-8 text-center text-slate-400 text-sm font-semibold">No points found. Add one above.</div>
+                            ) : (
+                                currentChecklistItems.map((item, idx) => (
+                                    <div key={item.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl hover:border-blue-100 transition-all font-inter">
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <div className="w-6 h-6 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0">{idx + 1}</div>
+                                            {editingItemId === item.id ? (
+                                                <input
+                                                    type="text"
+                                                    value={editItemText}
+                                                    onChange={(e) => setEditItemText(e.target.value)}
+                                                    className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/20"
+                                                    autoFocus
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') handleUpdateItem(item.id);
+                                                        if (e.key === 'Escape') setEditingItemId(null);
+                                                    }}
+                                                />
+                                            ) : (
+                                                <span className="text-sm font-semibold text-slate-700">{item.item}</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 ml-4">
+                                            {editingItemId === item.id ? (
+                                                <>
+                                                    <button onClick={() => handleUpdateItem(item.id)} disabled={isSubmitting} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Save"><Save className="w-4 h-4" /></button>
+                                                    <button onClick={() => setEditingItemId(null)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-all" title="Cancel"><X className="w-4 h-4" /></button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button onClick={() => { setEditingItemId(item.id); setEditItemText(item.item); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit"><Edit3 className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDeleteItem(item.id)} disabled={isSubmitting} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
                 </div>
             </Modal>
 

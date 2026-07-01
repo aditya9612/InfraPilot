@@ -3,6 +3,7 @@ import api from './api';
 export interface IncidentItem {
     id: number;
     project_id: number;
+    task_id?: number | null;
     date: string;
     violation_type: string;
     description: string;
@@ -24,6 +25,7 @@ export interface IncidentResponse {
 
 export interface CreateIncidentRequest {
     project_id: number;
+    task_id?: number | null;
     date: string;
     violation_type: string;
     description: string;

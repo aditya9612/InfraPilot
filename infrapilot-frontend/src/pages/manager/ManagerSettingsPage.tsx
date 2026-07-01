@@ -437,6 +437,21 @@ const ManagerSettingsPage: React.FC = () => {
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Address</label>
                                         <input type="text" name="address" value={profile?.address || ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
                                     </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Role</label>
+                                        <input type="text" value={profile?.role || ""} disabled className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 cursor-not-allowed transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Joining Date</label>
+                                        <input type="date" name="joining_date" value={profile?.joining_date ? profile.joining_date.split("T")[0] : ""} onChange={handleProfileChange} className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-primary transition-all" />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5 sm:col-span-2">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active Status</label>
+                                        <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-semibold ${profile?.is_active ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-rose-50 border-rose-200 text-rose-700"}`}>
+                                            <span className={`w-2.5 h-2.5 rounded-full ${profile?.is_active ? "bg-emerald-500" : "bg-rose-500"}`} />
+                                            {profile?.is_active ? "Active" : "Inactive"}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

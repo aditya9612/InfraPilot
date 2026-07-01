@@ -20,6 +20,7 @@ import OwnerLedgerPage from "../pages/admin/OwnerLedgerPage";
 import AutoCADPage from "../pages/admin/AutoCADPage";
 import EngineersPage from "../pages/admin/EngineersPage";
 import EngineerProfilePage from "../pages/admin/EngineerProfilePage";
+import ProjectManagersPage from "../pages/admin/ProjectManagersPage";
 import BOQPage from "../pages/admin/BOQPage";
 import InventoryPage from "../pages/admin/InventoryPage";
 import FinancePage from "../pages/admin/FinancePage";
@@ -131,6 +132,7 @@ import JournalEntriesPage from "../pages/accountant/JournalEntriesPage";
 import FixedAssetsPage from "../pages/accountant/FixedAssetsPage";
 import AccountantReportsPage from "../pages/accountant/AccountantReportsPage";
 import AccountantSettingsPage from "../pages/accountant/AccountantSettingsPage";
+import ApprovalCenterPage from "../pages/accountant/ApprovalCenterPage";
 import ClientDashboard from "../pages/dashboard/ClientDashboard";
 import LabourDashboard from "../pages/labour/LabourDashboard";
 import MyTasksPage from "../pages/labour/MyTasksPage";
@@ -205,6 +207,7 @@ function AppRoutes() {
                 <Route path="/admin/autocad" element={<AutoCADPage />} />
                 <Route path="/admin/engineers" element={<EngineersPage />} />
                 <Route path="/admin/engineers/:id" element={<EngineerProfilePage />} />
+                <Route path="/admin/managers" element={<ProjectManagersPage />} />
                 <Route path="/admin/boq" element={<BOQPage />} />
                 <Route path="/admin/boq/setup" element={<BOQPage />} />
                 <Route path="/admin/boq/activities" element={<BOQPage />} />
@@ -610,6 +613,14 @@ function AppRoutes() {
                 <Route
                   path="/accountant/settings/:category"
                   element={<AccountantSettingsPage />}
+                />
+                <Route
+                  path="/accountant/approvals"
+                  element={<Navigate to="/accountant/approvals/dashboard" replace />}
+                />
+                <Route
+                  path="/accountant/approvals/:category"
+                  element={<ApprovalCenterPage />}
                 />
               </Route>
             </Route>
