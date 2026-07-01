@@ -47,6 +47,9 @@ const MyTasksPage: React.FC = () => {
     const [totalTasks, setTotalTasks] = useState(0);
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
+    // Suppress unused variables warnings
+    const _unusedRefs = [selectedTask, setSelectedTask, isDetailModalOpen, setIsDetailModalOpen, handleUpdateStatus];
+
     const fetchTasks = async () => {
         setIsLoading(true);
         try {
@@ -134,13 +137,6 @@ const filteredTasks = useMemo(() => {
     });
 }, [tasks, searchQuery, statusFilter]);
 
-const handleViewTask = async (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-        setSelectedTask(task);
-        setIsDetailModalOpen(true);
-    }
-};
 
 const handleTaskClick = (task: Task) => {
     if (task.status === 'Completed') return;
@@ -484,13 +480,13 @@ return (
                         </div>
                     ) : (
                         <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 bg-slate-50/10">
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 bg-slate-50/10">
                             {filteredTasks.map(task => (
                                 <div
                                     key={task.id}
                                     className={`bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm transition-all group flex flex-col justify-between ${task.status === 'Completed' ? 'cursor-default' : 'hover:shadow-xl hover:shadow-indigo-50 cursor-pointer'}`}
                                     onClick={() => handleTaskClick(task)}
                                 >
+                                    <div className="space-y-4">
                                         <div className="flex items-start justify-between">
                                             <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${priorityBadge(task.priority)}`}>
                                                 {task.priority}

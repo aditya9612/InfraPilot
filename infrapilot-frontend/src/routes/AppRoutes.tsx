@@ -68,6 +68,7 @@ import ClientDocumentsPage from "../pages/client/ClientDocumentsPage";
 import ClientApprovalsPage from "../pages/client/ClientApprovalsPage";
 import ClientMessagesPage from "../pages/client/communication/ClientMessagesPage";
 import ClientAnnouncementsPage from "../pages/client/communication/ClientAnnouncementsPage";
+import ClientNotificationsPage from "../pages/client/ClientNotificationsPage";
 import ClientReportsPage from "../pages/client/ClientReportsPage";
 import ClientLabourReportPage from "../pages/client/project-data/ClientLabourReportPage";
 import ClientMaterialReportPage from "../pages/client/project-data/ClientMaterialReportPage";
@@ -434,6 +435,12 @@ function AppRoutes() {
                 <Route path="/client/monthly-progress-report" element={<ClientMonthlyProgressPage />} />
                 <Route path="/client/financial-report" element={<ClientFinancialDetailsPage />} />
                 <Route path="/client/work-summary" element={<ClientTaskStatusPage />} />
+
+                {/* Notifications */}
+                <Route
+                  path="/client/notifications"
+                  element={<ClientNotificationsPage />}
+                />
 
                 {/* Settings */}
                 <Route

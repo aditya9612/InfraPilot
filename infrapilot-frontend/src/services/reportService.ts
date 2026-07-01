@@ -17,7 +17,7 @@ export const reportService = {
     },
 
     getMaterialReport: async (projectId: number) => {
-        const response = await api.get(`/materials/reports`, { params: { project_id: projectId, _t: Date.now() } });
+        const response = await api.get(`/reports/material`, { params: { project_id: projectId, _t: Date.now() } });
         return response.data;
     },
 

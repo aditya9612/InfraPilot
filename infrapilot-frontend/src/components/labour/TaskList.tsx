@@ -106,9 +106,11 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-right">
-                                        <button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
-                                            <MoreVertical className="w-5 h-5" />
-                                        </button>
+                                        {task.status !== 'Completed' && (
+                                            <button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                                                <MoreVertical className="w-5 h-5" />
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             );
