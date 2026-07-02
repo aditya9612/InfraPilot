@@ -89,6 +89,11 @@ const LabourDashboard: React.FC = () => {
         setIsTaskModalOpen(false);
     };
 
+    const handleTaskClick = (task: Task) => {
+        if (task.status === 'Completed') return;
+        navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
+    };
+
     const stats = [
         { label: 'Total Tasks', value: statsData.total, icon: Clipboard, color: 'text-blue-500', bg: 'bg-blue-50' },
         { label: 'Completed', value: statsData.completed, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
@@ -202,7 +207,7 @@ const LabourDashboard: React.FC = () => {
                             ) : (
                                 <TaskList
                                     tasks={tasks.slice(0, 3)}
-                                    onSelectTask={(t) => { setSelectedTask(t as any); setIsTaskModalOpen(true); }}
+                                    onSelectTask={handleTaskClick}
                                     onSelfAssign={(id) => handleUpdateTask(id, 'In Progress')}
                                 />
                             )}

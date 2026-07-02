@@ -1,13 +1,26 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import { drawingService } from "../../services/drawingService";
 import { documentService } from "../../services/documentService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { RefreshCw, FileDown } from "lucide-react";
+import {
+  Loader2,
+  FileText,
+  Search,
+  Eye,
+  RefreshCcw,
+  CheckCircle,
+  Download,
+  History,
+  ChevronLeft,
+  ChevronRight,
+  Folder,
+} from "lucide-react";
 import toast from "react-hot-toast";
+import DocumentPreviewModal from "../../components/dashboard/DocumentPreviewModal";
 
-interface DrawingDoc {
+interface DrawingRecord {
   id: number;
   project_id: number;
   drawing_name: string;
@@ -18,9 +31,9 @@ interface DrawingDoc {
   approval_status: string;
   approval_id: number | null;
   is_folder: boolean;
+  type: string;
+  project_name: string;
 }
-
-const tabs = ["All", "Document", "Drawing"];
 
 const getBaseUrl = () => {
   const apiURL = import.meta.env.VITE_API_URL || "";
@@ -31,18 +44,27 @@ const getBaseUrl = () => {
 };
 
 const ClientDocumentsPage = () => {
-  const [activeTab, setActiveTab] = useState("Document");
+  const [activeTab, setActiveTab] = useState<"Drawings" | "Documents">("Drawings");
   const [searchQuery, setSearchQuery] = useState("");
-  const [apiDrawings, setApiDrawings] = useState<DrawingDoc[]>([]);
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [apiDrawings, setApiDrawings] = useState<any[]>([]);
   const [apiDocs, setApiDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalDocsFromApi, setTotalDocsFromApi] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  
   const [selectedPreview, setSelectedPreview] = useState<any>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [fetchingDetail, setFetchingDetail] = useState(false);
+
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [currentFolderName, setCurrentFolderName] = useState<string | null>(null);
+  const [folderPath, setFolderPath] = useState<{ id: number; name: string }[]>([]);
+
+  const [approvalHistory, setApprovalHistory] = useState<any[]>([]);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedDrawingHistory, setSelectedDrawingHistory] = useState<any>(null);
 
   const { projectId } = useClientProjectId();
 
@@ -63,10 +85,10 @@ const ClientDocumentsPage = () => {
 
   const handleDownload = async (doc: any) => {
     if (!doc) return;
-    const toastId = toast.loading(`Preparing ${doc.name || doc.title || 'document'}...`);
+    const toastId = toast.loading(`Preparing ${doc.drawing_name || doc.name || doc.title || 'document'}...`);
     try {
       let file_url = doc.file_url;
-      if (doc.id) {
+      if (doc.id && doc.type !== "Drawing") {
         try {
           const data = await documentService.getDownloadUrl(doc.id);
           if (data?.file_url) {
@@ -92,7 +114,11 @@ const ClientDocumentsPage = () => {
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectUrl;
-      link.download = doc.name || doc.title || "document";
+      const extension = file_url.replace(/\\/g, '/').split('.').pop()?.split('?')[0] || '';
+      const downloadName = (doc.name || doc.drawing_name || 'document').toLowerCase().endsWith(`.${extension.toLowerCase()}`)
+          ? (doc.name || doc.drawing_name || 'document')
+          : `${doc.name || doc.drawing_name || 'document'}.${extension}`;
+      link.download = downloadName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -112,7 +138,7 @@ const ClientDocumentsPage = () => {
       let file_url = doc.file_url;
       let currentDoc = doc;
 
-      if (doc.id) {
+      if (doc.id && doc.type !== "Drawing") {
         try {
           const detail = await documentService.getDocument(doc.id);
           if (detail) {
@@ -142,7 +168,7 @@ const ClientDocumentsPage = () => {
 
       setSelectedPreview({ 
         ...currentDoc, 
-        name: currentDoc.title || currentDoc.name || "Preview", 
+        name: currentDoc.drawing_name || currentDoc.title || currentDoc.name || "Preview", 
         previewUrl: blobUrl, 
         previewType: contentType, 
         fullUrl, 
@@ -162,9 +188,36 @@ const ClientDocumentsPage = () => {
     }
   };
 
-  const handleBack = () => {
-    setCurrentFolderId(null);
-    setCurrentFolderName(null);
+  const handleFolderClick = (folder: any) => {
+    setCurrentFolderId(Number(folder.id));
+    setCurrentFolderName(folder.drawing_name);
+    setFolderPath(prev => [...prev, { id: Number(folder.id), name: folder.drawing_name }]);
+  };
+
+  const handleBreadcrumbClick = (index: number) => {
+    if (index === -1) {
+      setCurrentFolderId(null);
+      setCurrentFolderName(null);
+      setFolderPath([]);
+    } else {
+      const newPath = folderPath.slice(0, index + 1);
+      setCurrentFolderId(newPath[newPath.length - 1].id);
+      setCurrentFolderName(newPath[newPath.length - 1].name);
+      setFolderPath(newPath);
+    }
+  };
+
+  const handleViewHistory = async (drawing: any) => {
+    const toastId = toast.loading("Fetching approval history...");
+    try {
+      const history = await drawingService.getApprovalHistory(drawing.id);
+      setApprovalHistory(history);
+      setSelectedDrawingHistory(drawing);
+      setIsHistoryModalOpen(true);
+      toast.dismiss(toastId);
+    } catch (error) {
+      toast.error("Failed to fetch history", { id: toastId });
+    }
   };
 
   const fetchDrawingHistory = useCallback(async () => {
@@ -175,7 +228,8 @@ const ClientDocumentsPage = () => {
         drawingService.getVersions(projectId),
         documentService.listDocuments({ 
             project_id: projectId,
-            parent_id: currentFolderId
+            parent_id: currentFolderId,
+            limit: 100
         })
       ]);
 
@@ -185,8 +239,15 @@ const ClientDocumentsPage = () => {
       }
 
       if (docsResult.status === 'fulfilled') {
-        const docs = Array.isArray(docsResult.value) ? docsResult.value : (docsResult.value as any).items || (docsResult.value as any).data || (docsResult.value as any).documents || [];
+        const resValue = docsResult.value as any;
+        const docs = Array.isArray(resValue) ? resValue : resValue.items || resValue.data || resValue.documents || [];
         setApiDocs(docs);
+        // Use the backend's total count which includes all docs across all folders
+        if (resValue?.meta?.total != null) {
+          setTotalDocsFromApi(resValue.meta.total);
+        } else {
+          setTotalDocsFromApi(null);
+        }
       }
     } catch (err: any) {
       console.error(">>> Failed to fetch vault repo:", err?.message);
@@ -206,308 +267,566 @@ const ClientDocumentsPage = () => {
     setCurrentPage(1);
   }, [activeTab]);
 
-  const drawingDocs = apiDrawings.map((d: any) => ({
-    id: d.id,
-    projectName: d.project_name || "—",
-    name: d.drawing_name,
-    type: "Drawing",
-    uploadDate: d.date ? new Date(d.date).toLocaleDateString("en-GB") : "—",
-    rawDate: d.date ? new Date(d.date).getTime() : 0,
-    version: d.version || "V1.0",
-    size: "—",
-    file_url: d.file_url || "",
-    approval_status: d.approval_status,
-    approval_id: d.approval_id,
-    is_folder: false,
-    path: d.file_url || ""
-  }));
+  const drawingData = useMemo(() => {
+    const drawingDocsMapped = apiDrawings.map((d: any) => ({
+      id: d.id,
+      project_name: d.project_name || "—",
+      drawing_name: d.drawing_name || d.title,
+      type: "Drawing",
+      date: d.date ? d.date.split('T')[0] : "—",
+      version: d.version || "V1.0",
+      file_size: null,
+      file_url: d.file_url || d.upload_file || "",
+      approval_status: d.approval_status || "Pending",
+      approval_id: d.approval_id,
+      is_folder: false,
+      remarks: d.remarks || ""
+    }));
 
-  const otherDocs = apiDocs
-    .filter(d => (d.document_type || d.type || "").toLowerCase() !== "invoice")
-    .map((d) => {
-      const name = d.title || d.name || "Untitled Document";
-      const is_folder = d.is_folder || d.document_type === "folder";
-      return {
-        id: d.id,
-        projectName: d.project_name || "—",
-        name,
-        type: d.document_type || "Document",
-        uploadDate: d.created_at || d.uploaded_at ? new Date(d.created_at || d.uploaded_at).toLocaleDateString("en-GB") : "—",
-        rawDate: d.created_at || d.uploaded_at ? new Date(d.created_at || d.uploaded_at).getTime() : 0,
-        version: d.version || "V1.0",
-        size: d.file_size ? `${(d.file_size / 1024).toFixed(0)} KB` : "—",
-        file_url: d.file_url || "",
-        approval_status: d.status || d.approval_status || "Pending",
-        approval_id: null,
-        is_folder: is_folder,
-        path: d.file_url || d.title || ""
-      };
+    const otherDocsMapped = apiDocs
+      .filter(d => (d.document_type || d.type || "").toLowerCase() !== "invoice")
+      .map((d) => {
+        const name = d.title || d.name || "Untitled Document";
+        const isFolder = d.is_folder || d.document_type === "folder";
+        return {
+          id: d.id,
+          project_name: d.project_name || "—",
+          drawing_name: name,
+          type: isFolder ? "Folder" : (d.document_type || "Document"),
+          date: d.created_at || d.uploaded_at ? new Date(d.created_at || d.uploaded_at).toISOString().split('T')[0] : "—",
+          version: d.version || "V1.0",
+          file_size: d.file_size || null,
+          file_url: d.file_url || "",
+          approval_status: d.status || d.approval_status || "Pending",
+          approval_id: null,
+          is_folder: isFolder,
+          remarks: d.remarks || ""
+        };
+      });
+
+    return [...drawingDocsMapped, ...otherDocsMapped].sort((a, b) => b.id - a.id);
+  }, [apiDrawings, apiDocs]);
+
+  const IMAGE_EXTS = /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif|sketch)$/i;
+
+  const filteredDrawings = useMemo(() => {
+    let data = drawingData;
+
+    // Apply type tab filter
+    if (activeTab === "Drawings") {
+      // Only drawings/images + folders
+      data = data.filter(d => {
+        if (d.is_folder) return true;
+        const url = (d.file_url || "").toLowerCase();
+        return IMAGE_EXTS.test(url) || d.type === "Drawing";
+      });
+    } else if (activeTab === "Documents") {
+      // All files EXCEPT images + folders
+      data = data.filter(d => {
+        if (d.is_folder) return true;
+        const url = (d.file_url || "").toLowerCase();
+        return !IMAGE_EXTS.test(url) && d.type !== "Drawing";
+      });
+    }
+
+    // Apply search query
+    let result = data.filter(d =>
+      (d.drawing_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(d.id).toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Apply sorting
+    result = [...result].sort((a, b) => {
+      const dateA = new Date(a.date || 0).getTime();
+      const dateB = new Date(b.date || 0).getTime();
+      if (dateA !== dateB) {
+        return sortOrder === "latest" ? dateB - dateA : dateA - dateB;
+      }
+      return b.id - a.id;
     });
 
-  const allVaultDocs = [...drawingDocs, ...otherDocs].sort((a, b) => b.id - a.id);
+    return result;
+  }, [drawingData, searchQuery, activeTab, sortOrder]);
 
-  const filteredDocs = (activeTab === "All" ? allVaultDocs : allVaultDocs.filter((d) => d.type.toLowerCase() === activeTab.toLowerCase()))
-    .filter((d) => !searchQuery || d.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const paginatedDocs = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredDrawings.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredDrawings, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
-  const paginatedDocs = filteredDocs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const stats = useMemo(() => {
+    let allCount = 0;
+    let docsCount = 0;
+    let drawingsCount = 0;
+    let pendingCount = 0;
 
-  const stats = {
-    all: allVaultDocs.length,
-    documents: allVaultDocs.filter((d) => d.type === "Document").length,
-    drawings: allVaultDocs.filter((d) => d.type === "Drawing").length,
-  };
+    drawingData.forEach(d => {
+      allCount++;
+      if (d.is_folder) return;
+      const url = (d.file_url || "").toLowerCase();
+      const isDrawing = IMAGE_EXTS.test(url) || d.type === "Drawing";
+      if (isDrawing) {
+        drawingsCount++;
+      } else {
+        docsCount++;
+      }
+      const s = (d.approval_status || "").toLowerCase();
+      if (s === "pending" || s === "under review" || s === "under_review" || s === "submitted") {
+        pendingCount++;
+      }
+    });
 
-  const getExtIcon = (name: string, type: string, is_folder?: boolean) => {
-    if (is_folder) return { bg: "bg-amber-100/50", text: "text-amber-500", label: "FOLDER", isFolder: true };
-    const ext = name?.split(".").pop()?.toLowerCase() || "";
-    if (["pdf"].includes(ext)) return { bg: "bg-red-100", text: "text-red-600", label: "PDF" };
-    if (["xls", "xlsx", "csv"].includes(ext)) return { bg: "bg-emerald-100", text: "text-emerald-600", label: ext.toUpperCase() };
-    if (["doc", "docx"].includes(ext)) return { bg: "bg-slate-100", text: "text-slate-900", label: "DOC" };
-    if (["jpg", "jpeg", "png", "webp"].includes(ext)) return { bg: "bg-purple-100", text: "text-purple-600", label: "IMG" };
-    if (["dwg", "dxf"].includes(ext)) return { bg: "bg-amber-100", text: "text-amber-600", label: "DWG" };
-    if (type === "Drawing") return { bg: "bg-amber-100", text: "text-amber-600", label: "DWG" };
-    return { bg: "bg-slate-100", text: "text-slate-500", label: "FILE" };
-  };
+    return {
+      all: allCount,
+      documents: docsCount,
+      drawings: drawingsCount,
+      pending: pendingCount
+    };
+  }, [drawingData]);
 
-  const statusStyle = (status: string) => {
-    const s = (status || "").toLowerCase();
-    if (s === "approved" || s === "active" || s === "verified") return "bg-emerald-50 text-emerald-600 border-emerald-100";
-    if (s === "pending" || s === "under review" || s === "under_review" || s === "submitted") return "bg-amber-50 text-amber-600 border-amber-100";
-    if (s === "rejected") return "bg-red-50 text-red-600 border-red-100";
-    return "bg-slate-50 text-slate-500 border-slate-100";
+  const totalStorageBytes = useMemo(() => {
+    return apiDocs.reduce((acc, d) => acc + (d.file_size || 0), 0);
+  }, [apiDocs]);
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
     <>
-      <Navbar title="Drawings and Documents" breadcrumb={["InfraPilot", "Client", "Documents & Drawings"]} />
-      <div className="p-8 bg-[#f8fafc] min-h-screen font-inter pb-20">
+      <Navbar title="Drawings & Documents" breadcrumb={["Client", "Document Vault", "Blueprints"]} />
 
+      <div className="p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto font-inter flex flex-col pb-8">
+        
         {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
-          <div className="flex items-center gap-4">
-            {currentFolderId && (
-              <button
-                onClick={handleBack}
-                className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-slate-900 hover:shadow-md transition-all active:scale-90"
-                title="Back to Root Vault"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-              </button>
-            )}
-            <div>
-              <h1 className="text-4xl font-black text-slate-800 tracking-tight">
-                {currentFolderName ? `Vault: ${currentFolderName}` : "Engineering Document Vault"}
-              </h1>
-              <p className="text-slate-400 font-medium mt-1 text-sm tracking-tight">
-                Centralized repository for structural blueprints and technical revisions.
-              </p>
-            </div>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 font-inter">
+          <div className="font-inter">
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight font-inter">Engineering Document Vault</h1>
+            <p className="text-slate-500 text-sm font-inter">Centralized repository for structural blueprints and technical revisions.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 font-inter">
             <button
               onClick={fetchDrawingHistory}
-              className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-slate-900 hover:border-slate-100 transition-all shadow-sm active:scale-95"
-              title="Refresh"
+              disabled={loading}
+              className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all active:rotate-180 duration-500 disabled:opacity-50 font-inter"
+              title="Refresh Vault"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-slate-900" : ""}`} />
+              <RefreshCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {[
-            { label: "ALL FILES", value: stats.all, sub: "Total Assets", color: "text-slate-800", filter: "All" },
-            { label: "DOCUMENTS", value: stats.documents, sub: "PDFs, Docs, Excels", color: "text-slate-900", filter: "Document" },
-            { label: "DRAWINGS", value: stats.drawings, sub: "Images & CAD", color: "text-amber-500", filter: "Drawing" },
-          ].map((card, i) => (
-            <div
-              key={i}
-              onClick={() => setActiveTab(card.filter)}
-              className={`bg-white p-8 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${activeTab === card.filter ? "border-blue-500 shadow-xl shadow-blue-500/10" : "border-slate-100 shadow-sm"}`}
-            >
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">{card.label}</p>
-              <h3 className={`text-4xl font-black ${card.color} mb-1 tracking-tighter`}>{loading ? "—" : card.value}</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">{card.sub}</p>
+        {/* Dynamic Stat Cards */}
+        {activeTab === "Documents" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-800 tracking-tight">
+                  {totalDocsFromApi != null ? totalDocsFromApi : stats.documents}
+                </span>
+              </div>
+              <span className="text-xs text-slate-500 font-medium mt-1">All Vault Assets</span>
             </div>
-          ))}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Approvals</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-amber-500 tracking-tight">{stats.pending}</span>
+              </div>
+              <span className="text-xs text-slate-500 font-medium mt-1">Awaiting Review</span>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Storage Used</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-indigo-500 tracking-tight">{formatBytes(totalStorageBytes)}</span>
+              </div>
+              <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption</span>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">All Files</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-800 tracking-tight">{stats.all}</span>
+              </div>
+              <span className="text-xs text-slate-500 font-medium mt-1">Total Assets</span>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Drawings</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-amber-500 tracking-tight">{stats.drawings}</span>
+              </div>
+              <span className="text-xs text-slate-500 font-medium mt-1">Images & CAD</span>
+            </div>
+          </div>
+        )}
+
+        {/* Tab switcher */}
+        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 md:mb-8 max-w-full overflow-x-auto scrollbar-none font-inter">
+          <button
+            onClick={() => { setActiveTab("Drawings"); setCurrentPage(1); }}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "Drawings" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+          >
+            Drawings List
+          </button>
+          <button
+            onClick={() => { setActiveTab("Documents"); setCurrentPage(1); }}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "Documents" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"}`}
+          >
+            Documents List
+          </button>
         </div>
 
-        {/* Content Card */}
-        <div className="bg-white rounded-[2rem] border border-slate-50 shadow-sm overflow-hidden min-h-[600px] flex flex-col">
-
-          {/* Filter Bar */}
-          <div className="px-8 py-5 border-b border-slate-50 flex items-center gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
-              <svg className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
-              </svg>
+        {/* Content Vault Dashboard */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+          <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+            {/* Search */}
+            <div className="relative flex-1 max-w-md font-inter">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                <Search className="w-4 h-4" />
+              </span>
               <input
                 type="text"
-                placeholder="Search by document name..."
+                placeholder="Search by document name or ID..."
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                className="w-full bg-slate-50/50 border border-slate-100 rounded-full py-3.5 pl-12 pr-6 text-sm font-medium text-slate-600 outline-none focus:bg-white focus:border-slate-400 transition-all placeholder:text-slate-400"
+                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
               />
             </div>
 
-            <div className="flex items-center gap-1.5 ml-auto">
-              {tabs.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setActiveTab(t)}
-                  className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-slate-900 text-white shadow-lg shadow-slate-500/20" : "bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700"}`}
-                >
-                  {t}
-                </button>
-              ))}
+            {/* Sort Filter */}
+            <div className="flex items-center gap-1 font-inter">
+              <select
+                value={sortOrder}
+                onChange={(e) => { setSortOrder(e.target.value as "latest" | "oldest"); setCurrentPage(1); }}
+                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter cursor-pointer"
+              >
+                <option value="latest">Latest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto flex-1">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-                <div className="w-10 h-10 border-4 border-slate-100 border-t-slate-900 rounded-full animate-spin mb-4" />
-                <p className="text-[10px] font-black uppercase tracking-widest">Auditing Vault Contents...</p>
-              </div>
-            ) : paginatedDocs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-32 text-slate-400">
-                <p className="text-sm font-medium text-slate-400">No documents found in this view.</p>
-              </div>
-            ) : (
-              <table className="w-full text-left border-collapse min-w-[900px]">
-                <thead>
-                  <tr className="bg-slate-50/30">
-                    <th className="p-6 pl-10 text-[9px] font-black text-slate-400 uppercase tracking-widest w-[15%]">Project Name</th>
-                    <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest w-[25%]">Title</th>
-                    <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest w-[12%] text-center">Doc Type</th>
-                    <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest w-[10%] text-center">Version</th>
-                    <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest w-[12%] text-center">Status</th>
-                    <th className="p-6 text-[9px] font-black text-slate-400 uppercase tracking-widest w-[12%] text-center">Uploaded At</th>
-                    <th className="p-6 pr-10 text-[9px] font-black text-slate-400 uppercase tracking-widest w-[14%] text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {paginatedDocs.map((doc, i) => {
-                    const extIcon = getExtIcon(doc.name, doc.type, doc.is_folder);
-                    return (
-                      <tr key={i} className="group hover:bg-slate-50/50 transition-all align-middle">
-                        <td className="p-6 pl-10">
-                          <p className="text-sm font-black text-slate-800 tracking-tight">{doc.projectName}</p>
-                        </td>
-                        <td className="p-6">
-                          <div className="flex items-center gap-4">
-                            <div
-                              onClick={() => { if (doc.is_folder) { setCurrentFolderId(doc.id); setCurrentFolderName(doc.name); } else { handleView(doc); } }}
-                              className={`w-9 h-9 ${extIcon.bg} rounded-xl flex items-center justify-center flex-shrink-0 ${doc.is_folder || doc.file_url ? "cursor-pointer hover:scale-105 transition-transform" : ""} relative overflow-hidden group/thumb shadow-sm border border-slate-100`}
-                            >
-                              {doc.is_folder ? (
-                                <svg className={`w-5 h-5 ${extIcon.text}`} fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" /></svg>
-                              ) : (doc.name.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif|svg)$/) && doc.file_url) ? (
-                                <img 
-                                  src={buildFileUrl(doc.file_url)} 
-                                  alt="" 
-                                  className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform"
-                                  onError={(e) => { (e.target as any).style.display = 'none'; }}
-                                />
-                              ) : (
-                                <span className={`text-[9px] font-black ${extIcon.text} tracking-tighter`}>{extIcon.label}</span>
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-sm font-black text-slate-800 tracking-tight mb-0.5 truncate max-w-[250px] hover:text-blue-600 transition-colors cursor-pointer" onClick={() => !doc.is_folder && handleView(doc)}>{doc.name}</p>
-                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate max-w-[250px]">{(doc.path || doc.file_url || "").split('/').pop()?.toUpperCase()}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-6 text-center">
-                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{doc.type}</span>
-                        </td>
-                        <td className="p-6 text-center">
-                          <span className="text-[10px] font-black text-slate-600 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg uppercase tracking-widest">{doc.version}</span>
-                        </td>
-                        <td className="p-6 text-center">
-                          <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border ${statusStyle(doc.approval_status)} whitespace-nowrap`}>
-                            {(doc.approval_status || "Pending").replace(/_/g, " ").toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="p-6 text-center">
-                          <p className="text-sm font-black text-slate-700 tracking-tight">{doc.uploadDate}</p>
-                        </td>
-                        <td className="p-6 pr-10">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => { if (doc.is_folder) { setCurrentFolderId(doc.id); setCurrentFolderName(doc.name); } else { handleView(doc); } }}
-                              className="p-2 text-slate-400 hover:text-blue-600 transition-all hover:bg-slate-50 rounded-lg active:scale-95"
-                              title="View"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDownload(doc)}
-                              className="p-2 text-slate-400 hover:text-blue-600 transition-all hover:bg-slate-50 rounded-lg active:scale-95"
-                              title="Download"
-                            >
-                              <FileDown className="w-5 h-5" />
-                            </button>
+          {/* Breadcrumbs for folder navigation */}
+          {folderPath.length > 0 && activeTab === "Documents" && (
+            <div className="flex items-center gap-2 mt-4 px-4 pb-2">
+              <button 
+                onClick={() => handleBreadcrumbClick(folderPath.length - 2)} 
+                className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors mr-2 border border-slate-200 shadow-sm"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Back
+              </button>
+              <button onClick={() => handleBreadcrumbClick(-1)} className="text-xs font-bold text-slate-500 hover:text-primary transition-colors">Root Vault</button>
+              {folderPath.map((folder, idx) => (
+                <React.Fragment key={folder.id}>
+                  <ChevronRight className="w-3 h-3 text-slate-300" />
+                  <button onClick={() => handleBreadcrumbClick(idx)} className={`text-xs font-bold transition-colors ${idx === folderPath.length - 1 ? "text-slate-800" : "text-slate-500 hover:text-primary"}`}>
+                    {folder.name}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+
+          <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter mt-2">
+            <table className="w-full text-left font-inter min-w-[1200px]">
+              {activeTab === "Documents" ? (
+                <>
+                  <thead>
+                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter whitespace-nowrap">
+                      <th className="px-4 py-4">project_name</th>
+                      <th className="px-4 py-4">title</th>
+                      <th className="px-4 py-4">document_type</th>
+                      <th className="px-4 py-4">version</th>
+                      <th className="px-4 py-4">status</th>
+                      <th className="px-4 py-4">uploaded_at</th>
+                      <th className="px-4 py-4">remarks</th>
+                      <th className="px-4 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 font-inter whitespace-nowrap">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={12} className="px-6 py-20 text-center font-inter">
+                          <div className="flex flex-col items-center gap-3 font-inter">
+                            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing vault intelligence...</p>
                           </div>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
+                    ) : paginatedDocs.length > 0 ? (
+                      paginatedDocs.map((drawing: any, index) => (
+                        <tr key={`doc_${drawing.id}_${index}`} className="hover:bg-slate-50/50 transition-colors group font-inter text-[11px] font-medium text-slate-600">
+                          <td className="px-4 py-3">{drawing.project_name}</td>
+                          <td className="px-4 py-3 font-bold text-slate-800">
+                            {drawing.is_folder ? (
+                              <button onClick={() => handleFolderClick(drawing)} className="text-indigo-600 hover:underline">{drawing.drawing_name}</button>
+                            ) : (
+                              drawing.drawing_name
+                            )}
+                          </td>
+                          <td className="px-4 py-3">{drawing.type !== undefined ? String(drawing.type) : "null"}</td>
+                          <td className="px-4 py-3">{drawing.version}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              {drawing.approval_status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">{drawing.date || "null"}</td>
+                          <td className="px-4 py-3 truncate max-w-[150px]" title={drawing.remarks}>{drawing.remarks || "null"}</td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5 font-inter">
+                              <button onClick={() => handleView(drawing)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View Details">
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              {!drawing.is_folder && (
+                                <button onClick={() => handleDownload(drawing)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Download File">
+                                  <Download className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={12} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                          No documents found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </>
+              ) : (
+                <>
+                  <thead>
+                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                      <th className="px-6 py-4 font-inter">Asset</th>
+                      <th className="px-6 py-4 font-inter">Engineering Asset</th>
+                      <th className="px-6 py-4 font-inter">Version Profile</th>
+                      <th className="px-4 py-4 font-inter">Approval Status</th>
+                      <th className="px-6 py-4 font-inter">Vault Date</th>
+                      <th className="px-6 py-4 text-right font-inter">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50 font-inter">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-20 text-center font-inter">
+                          <div className="flex flex-col items-center gap-3 font-inter">
+                            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing vault intelligence...</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : paginatedDocs.length > 0 ? (
+                      paginatedDocs.map((drawing, index) => (
+                        <tr key={`${drawing.type}_${drawing.id}_${index}`} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                          <td className="px-6 py-4 font-inter">
+                            {(() => {
+                              if (drawing.is_folder) {
+                                return (
+                                  <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                    <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest leading-none">DIR</span>
+                                    <Folder className="w-5 h-5 text-indigo-500" />
+                                  </div>
+                                );
+                              }
+
+                              const fileUrl = (drawing.file_url || "").toLowerCase();
+                              const isPdf = fileUrl.endsWith(".pdf");
+                              const isDoc = fileUrl.endsWith(".doc") || fileUrl.endsWith(".docx");
+                              const isExcel = fileUrl.endsWith(".xls") || fileUrl.endsWith(".xlsx") || fileUrl.endsWith(".csv");
+                              const isDwg = fileUrl.endsWith(".dwg") || fileUrl.endsWith(".dxf");
+                              const isImage = IMAGE_EXTS.test(fileUrl);
+
+                              if (isPdf) return (
+                                <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                  <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest leading-none">PDF</span>
+                                  <FileText className="w-5 h-5 text-rose-500" />
+                                </div>
+                              );
+                              if (isDoc) return (
+                                <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                  <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest leading-none">DOC</span>
+                                  <FileText className="w-5 h-5 text-blue-500" />
+                                </div>
+                              );
+                              if (isExcel) return (
+                                <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest leading-none">XLS</span>
+                                  <FileText className="w-5 h-5 text-emerald-500" />
+                                </div>
+                              );
+                              if (isDwg) return (
+                                <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                  <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest leading-none">DWG</span>
+                                  <FileText className="w-5 h-5 text-amber-500" />
+                                </div>
+                              );
+                              if (isImage) return (
+                                <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
+                                  <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest leading-none">IMG</span>
+                                  <FileText className="w-5 h-5 text-purple-500" />
+                                </div>
+                              );
+                              return (
+                                <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 shadow-sm group-hover:scale-105 transition-transform flex items-center justify-center font-inter">
+                                  <FileText className="w-6 h-6 text-slate-400" />
+                                </div>
+                              );
+                            })()}
+                          </td>
+                          <td className="px-6 py-4 font-inter">
+                            <div className="flex flex-col font-inter">
+                              {drawing.is_folder ? (
+                                <button
+                                  onClick={() => handleFolderClick(drawing)}
+                                  className="text-sm font-bold text-indigo-600 hover:text-indigo-800 text-left hover:underline font-inter w-fit"
+                                >
+                                  {drawing.drawing_name}
+                                </button>
+                              ) : (
+                                <span onClick={() => handleView(drawing)} className="text-sm font-bold text-slate-800 font-inter hover:text-blue-600 hover:underline cursor-pointer">{drawing.drawing_name}</span>
+                              )}
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
+                                {drawing.file_url || (drawing.is_folder ? "Directory" : "Cloud Sync")}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 font-inter">
+                            <span className="px-2.5 py-1 bg-slate-100 text-[10px] font-bold text-slate-500 rounded-lg uppercase tracking-widest border border-slate-200 font-inter">
+                              {drawing.version}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 font-inter">
+                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest border w-fit font-inter ${drawing.approval_status === "Approved"
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              : drawing.approval_status === "Pending"
+                                ? "bg-amber-50 text-amber-600 border-amber-200"
+                                : "bg-slate-50 text-slate-500 border-slate-200"
+                              }`}>
+                              {drawing.approval_status || "Pending"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-inter">
+                            <span className="text-xs font-bold text-slate-500 font-inter">{drawing.date}</span>
+                          </td>
+                          <td className="px-6 py-4 text-right font-inter">
+                            <div className="flex items-center justify-end gap-1.5 font-inter">
+                              <button onClick={() => handleView(drawing)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              {!drawing.is_folder && (
+                                <>
+                                  <button onClick={() => handleDownload(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
+                                    <Download className="w-4 h-4" />
+                                  </button>
+                                  <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
+                                    <button onClick={() => handleViewHistory(drawing)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="View approval history">
+                                      <History className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                          No technical blueprints found in the project vault.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </>
+              )}
+            </table>
           </div>
 
-          {!loading && totalPages > 1 && (
-            <div className="p-6 border-t border-slate-50 bg-white flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-8">
-                <div className="flex items-center gap-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Records Per Page:</p>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="bg-white border border-slate-100 rounded-xl px-3 py-1.5 text-[10px] font-black text-slate-700 outline-none focus:border-blue-500 transition-all cursor-pointer shadow-sm"
-                  >
-                    {[10, 20, 50].map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                </div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                  Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(filteredDocs.length, currentPage * itemsPerPage)} Of {filteredDocs.length} Records
-                </p>
-              </div>
+          {/* Pagination */}
+          {!loading && filteredDrawings.length > 0 && (
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+              {/* Left: Items per page */}
               <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              {/* Center: Showing info */}
+              <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredDrawings.length)} of {filteredDrawings.length} records
+              </div>
+
+              {/* Right: Pagination */}
+              <div className="flex items-center gap-1.5">
                 <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                  className="px-3 py-1.5 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                 >
-                  Prev
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setCurrentPage(p)}
-                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-black transition-all ${currentPage === p ? "bg-slate-900 text-white shadow-xl shadow-slate-500/20" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"}`}
-                  >
-                    {p}
-                  </button>
-                ))}
+
+                {(() => {
+                  const totalItems = filteredDrawings.length;
+                  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                  const pages = [];
+                  if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                  } else {
+                    if (currentPage <= 3) {
+                      pages.push(1, 2, 3, 4, '...', totalPages);
+                    } else if (currentPage >= totalPages - 2) {
+                      pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                    } else {
+                      pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                    }
+                  }
+
+                  return pages.map((page, index) => {
+                    if (page === '...') {
+                      return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                    }
+                    const pageNum = page as number;
+                    const isActive = currentPage === pageNum;
+                    return (
+                      <button
+                        key={`page-${pageNum}`}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                          ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                          : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                          }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  });
+                })()}
+
                 <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="px-3 py-1.5 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredDrawings.length / itemsPerPage), prev + 1))}
+                  disabled={currentPage === Math.max(1, Math.ceil(filteredDrawings.length / itemsPerPage)) || filteredDrawings.length === 0}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
                 >
-                  Next
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -515,109 +834,62 @@ const ClientDocumentsPage = () => {
         </div>
       </div>
 
-      <Modal
+      {/* ── Document Preview Modal ──────────────────────────────────────────────────────── */}
+      <DocumentPreviewModal
         isOpen={isPreviewOpen}
-        onClose={() => { setIsPreviewOpen(false); setSelectedPreview(null); }}
-        title={`Vault Record: ${selectedPreview?.name || 'Preview'}`}
-        maxWidth="max-w-6xl"
-      >
-        <div className="bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-800 relative">
-          {fetchingDetail ? (
-            <div className="flex flex-col items-center justify-center h-[70vh] text-slate-500">
-              <div className="w-10 h-10 border-4 border-slate-700 border-t-slate-900 rounded-full animate-spin mb-4" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Establishing secure stream...</p>
-            </div>
-          ) : selectedPreview?.previewUrl ? (
-            selectedPreview.previewType?.startsWith("image/") ? (
-              <div className="flex items-center justify-center h-[75vh] bg-slate-900/50 backdrop-blur-sm">
-                <img src={selectedPreview.previewUrl} alt={selectedPreview.name} className="max-h-full max-w-full object-contain shadow-2xl" />
-              </div>
-            ) : selectedPreview.previewType ? (
-              <iframe src={selectedPreview.previewUrl} className="w-full h-[75vh] bg-white" title="Document Preview" />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-[70vh] bg-slate-800/30 text-slate-400 p-12 text-center">
-                <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mb-6 mx-auto shadow-inner">
-                  <svg className="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                </div>
-                <h3 className="text-sm font-black uppercase tracking-widest mb-2 text-white">Preview Unavailable</h3>
-                <p className="text-xs font-bold max-w-xs mb-8 text-slate-400">Direct streaming is not supported for this file type.</p>
-                <button onClick={() => window.open(selectedPreview.fullUrl, "_blank")} className="px-8 py-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-xl active:scale-95 transition-all hover:bg-blue-700">
-                  Try Native Preview
-                </button>
-              </div>
-            )
-          ) : (
-            <div className="flex items-center justify-center h-[70vh] text-slate-500">
-              <p className="text-[10px] font-black uppercase tracking-widest text-red-400">Secure connection failed</p>
-            </div>
-          )}
+        onClose={() => {
+          setIsPreviewOpen(false);
+          setSelectedPreview(null);
+        }}
+        document={selectedPreview ? {
+          ...selectedPreview,
+          name: selectedPreview.drawing_name || selectedPreview.title || selectedPreview.name || "Preview",
+          type: selectedPreview.type || "Document",
+          project: selectedPreview.project_name || selectedPreview.projectName || "General",
+          date: new Date(selectedPreview.uploaded_at || selectedPreview.date).toLocaleDateString(),
+          isFolder: selectedPreview.is_folder || selectedPreview.type === "Folder",
+          status: selectedPreview.status || selectedPreview.approval_status || "Pending",
+          file_url: buildFileUrl(selectedPreview.file_url || "")
+        } : null}
+        onDownload={handleDownload}
+      />
 
-          {!fetchingDetail && selectedPreview && (
-            <div className="absolute top-6 left-6 flex flex-col gap-2 pointer-events-none">
-              <div className="px-4 py-2 bg-slate-900/80 backdrop-blur-md rounded-xl border border-white/10 shadow-2xl">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Active Asset</p>
-                <p className="text-sm font-black text-white tracking-tight truncate max-w-[300px]">{selectedPreview.name}</p>
-                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest truncate max-w-[300px]">{(selectedPreview.path || selectedPreview.file_url || "").toUpperCase()}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-8 space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Project</p>
-              <p className="text-sm font-black text-slate-900 truncate">{selectedPreview?.project_name || "—"}</p>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Doc Type</p>
-              <p className="text-sm font-black text-slate-600">{selectedPreview?.type || "Document"}</p>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Version</p>
-              <p className="text-sm font-black text-slate-600">{selectedPreview?.version || "V1.0"}</p>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
-              <p className={`text-sm font-black uppercase tracking-tight ${selectedPreview?.approval_status?.toLowerCase() === 'approved' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {selectedPreview?.approval_status || "Pending"}
-              </p>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Uploaded</p>
-              <p className="text-sm font-black text-slate-600">{selectedPreview?.uploaded_at ? new Date(selectedPreview.uploaded_at).toLocaleDateString("en-GB") : "—"}</p>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Size</p>
-              <p className="text-sm font-black text-slate-600">{selectedPreview?.file_size ? `${(selectedPreview.file_size / 1024).toFixed(1)} KB` : "—"}</p>
+      {/* ── History Modal ────────────────────────────────────────────────────────── */}
+      <Modal isOpen={isHistoryModalOpen} onClose={() => { setIsHistoryModalOpen(false); setSelectedDrawingHistory(null); }} title="Approval History" maxWidth="max-w-2xl">
+        <div className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden font-inter">
+          <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between font-inter">
+            <div>
+              <h4 className="text-sm font-bold text-slate-800 font-inter">{selectedDrawingHistory?.drawing_name}</h4>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-inter">Version: {selectedDrawingHistory?.version}</p>
             </div>
           </div>
-
-          {selectedPreview?.remarks && (
-            <div className="bg-amber-50/30 p-5 rounded-2xl border border-amber-100/50">
-              <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                Remarks & Annotations
-              </p>
-              <p className="text-sm font-bold text-slate-600 leading-relaxed font-inter italic">
-                "{selectedPreview.remarks}"
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
-            <button 
-              onClick={() => handleDownload(selectedPreview)} 
-              className="px-8 py-3.5 bg-slate-100 text-slate-700 text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all font-inter active:scale-95"
-            >
-              Download File
-            </button>
-            <button 
-              onClick={() => setIsPreviewOpen(false)} 
-              className="px-10 py-3.5 bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest rounded-xl shadow-xl shadow-slate-900/10 active:scale-95 transition-all font-inter"
-            >
-              Close Vault
-            </button>
+          <div className="p-4 max-h-[60vh] overflow-y-auto font-inter col-span-12">
+            {approvalHistory.length > 0 ? (
+              <div className="space-y-4 font-inter relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                {approvalHistory.map((historyItem: any, index: number) => (
+                  <div key={index} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active font-inter">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 group-[.is-active]:bg-primary text-slate-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 font-inter z-10">
+                      <CheckCircle className="w-4 h-4 font-inter" />
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-100 bg-white shadow-sm font-inter">
+                      <div className="flex items-center justify-between mb-1 font-inter">
+                        <div className="font-bold text-slate-800 text-sm font-inter">{historyItem.status || "Status Updated"}</div>
+                        <div className="text-[10px] font-bold text-slate-400 font-inter">
+                          {new Date(historyItem.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-600 font-inter">
+                        {historyItem.remarks || "No remarks provided."}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 font-inter">
+                <p className="text-sm font-bold text-slate-500 font-inter">No approval history found for this document.</p>
+              </div>
+            )}
           </div>
         </div>
       </Modal>

@@ -5,10 +5,10 @@ export const projectService = {
    * Get list of projects with pagination and filtering
    * GET /api/v1/projects
    */
-  async getProjects(limit = 100, skip = 0, search = "", status = "") {
+  async getProjects(limit = 100, skip = 0, search = "", status = "", offset?: number) {
     const params: any = {
       limit: limit,
-      skip: skip
+      offset: offset !== undefined ? offset : skip
     };
     if (search) params.search = search;
     if (status && status !== "All" && status !== "") {

@@ -48,7 +48,8 @@ const WorkUpdatesPage: React.FC = () => {
     const [endTime, setEndTime] = useState('17:30');
     const [category, setCategory] = useState(taskCategory || '');
     const [location, setLocation] = useState('');
-    const [remarks, setRemarks] = useState('');
+    const [beforeRemarks, setBeforeRemarks] = useState('');
+    const [afterRemarks, setAfterRemarks] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [tasks, setTasks] = useState<any[]>([]);
     const [selectedTaskId, setSelectedTaskId] = useState(taskId || '');
@@ -103,7 +104,8 @@ const WorkUpdatesPage: React.FC = () => {
             if (data.endTime) setEndTime(data.endTime);
             if (data.category) setCategory(data.category);
             if (data.location) setLocation(data.location);
-            if (data.remarks !== undefined) setRemarks(data.remarks);
+            if (data.beforeRemarks !== undefined) setBeforeRemarks(data.beforeRemarks);
+            if (data.afterRemarks !== undefined) setAfterRemarks(data.afterRemarks);
         }
 
         // Load Historical Photos
@@ -117,10 +119,10 @@ const WorkUpdatesPage: React.FC = () => {
     useEffect(() => {
         const dataToSave = {
             description, beforePhotos, afterPhotos, workDate, 
-            startTime, endTime, category, location, remarks
+            startTime, endTime, category, location, beforeRemarks, afterRemarks
         };
         localStorage.setItem(persistenceKey, JSON.stringify(dataToSave));
-    }, [description, beforePhotos, afterPhotos, workDate, startTime, endTime, category, location, remarks, persistenceKey]);
+    }, [description, beforePhotos, afterPhotos, workDate, startTime, endTime, category, location, beforeRemarks, afterRemarks, persistenceKey]);
 
     // Handle time calculation
     useEffect(() => {
@@ -199,6 +201,72 @@ const WorkUpdatesPage: React.FC = () => {
         else setAfterPhotos(prev => prev.filter((_, i) => i !== index));
     };
 
+    const handleSaveBeforePhotos = async () => {
+        if (!selectedTaskId) return toast.error("Please select a task first");
+        
+        const loadingToast = toast.loading("Saving Before Work details...");
+        try {
+            // Update status to "In Progress"
+            await projectService.updateTaskStatus(Number(projectId), Number(selectedTaskId), 'In Progress');
+            localStorage.setItem(`task_status_${selectedTaskId}`, 'In Progress');
+
+            // Best-effort description / before details update
+            try {
+                const formData = new FormData();
+                const combinedDesc = beforeRemarks ? `${description} | Before: ${beforeRemarks}` : description;
+                formData.append('description', combinedDesc);
+                formData.append('category', category);
+                formData.append('location', location);
+                formData.append('work_date', workDate);
+                formData.append('start_time', startTime);
+
+                beforePhotos.forEach((base64, index) => {
+                    formData.append('before_images', base64ToFile(base64, `before_${index}.jpg`));
+                });
+
+                await projectService.updateTask(Number(projectId), Number(selectedTaskId), formData);
+            } catch (putErr) {
+                console.warn('PUT before details skipped (permission):', putErr);
+            }
+
+            toast.success("Before Work details saved!", { id: loadingToast });
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || "Failed to save Before Work details", { id: loadingToast });
+        }
+    };
+
+    const handleSaveAfterPhotos = async () => {
+        if (!selectedTaskId) return toast.error("Please select a task first");
+        
+        const loadingToast = toast.loading("Saving After Work details...");
+        try {
+            // Best-effort description / after details update
+            try {
+                const formData = new FormData();
+                const combinedDesc = afterRemarks ? `${description} | After: ${afterRemarks}` : description;
+                formData.append('description', combinedDesc);
+                formData.append('category', category);
+                formData.append('location', location);
+                formData.append('work_date', workDate);
+                formData.append('end_time', endTime);
+
+                afterPhotos.forEach((base64, index) => {
+                    formData.append('after_images', base64ToFile(base64, `after_${index}.jpg`));
+                });
+
+                await projectService.updateTask(Number(projectId), Number(selectedTaskId), formData);
+            } catch (putErr) {
+                console.warn('PUT after details skipped (permission):', putErr);
+            }
+
+            toast.success("After Work details saved!", { id: loadingToast });
+        } catch (err: any) {
+            console.error(err);
+            toast.error(err.message || "Failed to save After Work details", { id: loadingToast });
+        }
+    };
+
     const handleSubmit = async () => {
         if (!selectedTaskId) return toast.error("Please select a task first");
         if (!description.trim()) return toast.error("Work description is required");
@@ -214,7 +282,12 @@ const WorkUpdatesPage: React.FC = () => {
             // 2. Best-effort: Update Task Details (PUT) — Labour may get 403, that's acceptable
             try {
                 const formData = new FormData();
-                formData.append('description', `${description} | ${remarks}`);
+                const combinedRemarks = [
+                    beforeRemarks ? `Before: ${beforeRemarks}` : '',
+                    afterRemarks ? `After: ${afterRemarks}` : ''
+                ].filter(Boolean).join(' | ');
+                const finalDesc = combinedRemarks ? `${description} | ${combinedRemarks}` : description;
+                formData.append('description', finalDesc);
                 formData.append('category', category);
                 formData.append('location', location);
                 formData.append('work_date', workDate);
@@ -252,7 +325,8 @@ const WorkUpdatesPage: React.FC = () => {
             setDescription('');
             setBeforePhotos([]);
             setAfterPhotos([]);
-            setRemarks('');
+            setBeforeRemarks('');
+            setAfterRemarks('');
             if (!taskId) setSelectedTaskId('');
 
         } catch (error: any) {
@@ -350,7 +424,16 @@ const WorkUpdatesPage: React.FC = () => {
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <label className="text-sm font-bold text-slate-700">Before Work Photos <span className="text-red-500">*</span></label>
-                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{beforePhotos.length} / 4</span>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveBeforePhotos}
+                                            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-1"
+                                        >
+                                            Save
+                                        </button>
+                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{beforePhotos.length} / 4</span>
+                                    </div>
                                 </div>
                                 <p className="text-[11px] text-slate-400 font-medium">Upload photos before starting the work (Max 4)</p>
                                 <input 
@@ -410,13 +493,37 @@ const WorkUpdatesPage: React.FC = () => {
                                         )}
                                     </div>
                                 </div>
+
+                                <div className="space-y-2 mt-4">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Before Work Remarks (Optional)</label>
+                                    <div className="relative">
+                                        <textarea 
+                                            value={beforeRemarks}
+                                            onChange={(e) => setBeforeRemarks(e.target.value.slice(0, 500))}
+                                            placeholder="Before work remarks..."
+                                            className="w-full p-3 min-h-[85px] border border-slate-200 rounded-2xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
+                                        />
+                                        <div className="absolute right-3 bottom-2">
+                                            <span className="text-[9px] font-bold text-slate-400 tabular-nums">{beforeRemarks.length}/500</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* After Work Photos */}
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center">
                                     <label className="text-sm font-bold text-slate-700">After Work Photos <span className="text-red-500">*</span></label>
-                                    <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{afterPhotos.length} / 4</span>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveAfterPhotos}
+                                            className="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20 active:scale-95 flex items-center gap-1"
+                                        >
+                                            Save
+                                        </button>
+                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{afterPhotos.length} / 4</span>
+                                    </div>
                                 </div>
                                 <p className="text-[11px] text-slate-400 font-medium">Upload photos after completing the work (Max 4)</p>
                                 <input 
@@ -474,6 +581,21 @@ const WorkUpdatesPage: React.FC = () => {
                                         ) : (
                                             <p className="text-[11px] text-slate-400 font-medium">No images uploaded yet</p>
                                         )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2 mt-4">
+                                    <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">After Work Remarks (Optional)</label>
+                                    <div className="relative">
+                                        <textarea 
+                                            value={afterRemarks}
+                                            onChange={(e) => setAfterRemarks(e.target.value.slice(0, 500))}
+                                            placeholder="After work remarks..."
+                                            className="w-full p-3 min-h-[85px] border border-slate-200 rounded-2xl text-slate-700 text-xs placeholder:text-slate-300 focus:outline-none focus:border-blue-400 transition-all font-medium"
+                                        />
+                                        <div className="absolute right-3 bottom-2">
+                                            <span className="text-[9px] font-bold text-slate-400 tabular-nums">{afterRemarks.length}/500</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -564,21 +686,7 @@ const WorkUpdatesPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Remarks Section */}
-                        <div className="space-y-3">
-                            <label className="text-sm font-bold text-slate-700">Remarks (Optional)</label>
-                            <div className="relative">
-                                <textarea 
-                                    value={remarks}
-                                    onChange={(e) => setRemarks(e.target.value.slice(0, 500))}
-                                    placeholder="Add any additional remarks..."
-                                    className="w-full p-4 min-h-[100px] border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 text-slate-700 text-sm placeholder:text-slate-300"
-                                />
-                                <div className="absolute right-4 bottom-3">
-                                    <span className="text-[10px] font-bold text-slate-400 tabular-nums">{remarks.length}/500</span>
-                                </div>
-                            </div>
-                        </div>
+
 
                         {/* Footer Buttons */}
                         <div className="flex items-center justify-between pt-6 border-t border-slate-100">
