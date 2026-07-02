@@ -27,6 +27,14 @@ const LabourSettingsPage: React.FC = () => {
     // Settings State
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
+    
+    // Projects Pagination & Search States
+    const [projectsSearchTerm, setProjectsSearchTerm] = useState('');
+    const [projectsOffset, setProjectsOffset] = useState(0);
+    const [isProjectsLoading, setIsProjectsLoading] = useState(false);
+    const [isProjectsDropdownOpen, setIsProjectsDropdownOpen] = useState(false);
+    const [projectsTotal, setProjectsTotal] = useState(0);
+    const [selectedProjectName, setSelectedProjectName] = useState('Default Project');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,21 +50,69 @@ const LabourSettingsPage: React.FC = () => {
         fetchData();
     }, []);
 
+    const loadProjects = async (search: string, offsetValue: number) => {
+        setIsProjectsLoading(true);
+        try {
+            const projectsData = await projectService.getProjects(20, offsetValue, search, "", offsetValue);
+            const itemList = Array.isArray(projectsData) ? projectsData : (projectsData.items || []);
+            setProjects(itemList);
+            if (projectsData.meta) {
+                setProjectsTotal(projectsData.meta.total || itemList.length);
+            } else {
+                setProjectsTotal(itemList.length);
+            }
+        } catch (error) {
+            console.error("Failed to load projects:", error);
+        } finally {
+            setIsProjectsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!isLoading) {
+            const delayDebounceFn = setTimeout(() => {
+                loadProjects(projectsSearchTerm, projectsOffset);
+            }, 300);
+
+            return () => clearTimeout(delayDebounceFn);
+        }
+    }, [projectsSearchTerm, projectsOffset]);
+
     const fetchData = async () => {
         setIsLoading(true);
         try {
             const [profileData, settingsData, projectsData] = await Promise.all([
                 settingsService.getProfile(),
                 settingsService.getSettings(),
-                projectService.getProjects(100)
+                projectService.getProjects(20, 0, "", "", 0)
             ]);
             
             setProfile(profileData);
             setSettings(settingsData);
             
-            // Map projects from wrapper or array
             const itemList = Array.isArray(projectsData) ? projectsData : (projectsData.items || []);
             setProjects(itemList);
+            if (projectsData.meta) {
+                setProjectsTotal(projectsData.meta.total || itemList.length);
+            } else {
+                setProjectsTotal(itemList.length);
+            }
+
+            if (settingsData?.default_project_id) {
+                const activeProj = itemList.find((p: any) => p.id === settingsData.default_project_id);
+                if (activeProj) {
+                    setSelectedProjectName(activeProj.name || activeProj.project_name);
+                } else {
+                    try {
+                        const projDetail = await projectService.getProjectById(settingsData.default_project_id);
+                        if (projDetail) {
+                            setSelectedProjectName(projDetail.name || projDetail.project_name || `Project ${settingsData.default_project_id}`);
+                        }
+                    } catch (e) {
+                        setSelectedProjectName(`Project ${settingsData.default_project_id}`);
+                    }
+                }
+            }
             
             if (profileData.profile_image) {
                 setProfilePicPreview(settingsService.resolveUrl(profileData.profile_image));
@@ -197,7 +253,7 @@ const LabourSettingsPage: React.FC = () => {
                             {[
                                 { 
                                     label: 'ACTIVE PROJECT', 
-                                    value: projects.find(p => p.id === settings?.default_project_id)?.name || 'Default Project', 
+                                    value: projects.find(p => p.id === settings?.default_project_id)?.name || selectedProjectName || 'Default Project', 
                                     sub: 'PRIMARY PROJECT WORKSPACE', 
                                     color: 'text-[#0062ff]' 
                                 },
@@ -469,18 +525,112 @@ const LabourSettingsPage: React.FC = () => {
                                     <MapPin className="w-4 h-4" />
                                     <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">PROJECT SELECTION</h2>
                                 </div>
-                                <div className="space-y-4">
+                                <div className="space-y-4 relative">
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">ACTIVE PROJECT</label>
-                                    <select 
-                                        value={settings?.default_project_id || ''}
-                                        onChange={e => settings && setSettings({ ...settings, default_project_id: e.target.value ? Number(e.target.value) : null })}
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 text-sm font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 transition-all appearance-none cursor-pointer"
-                                    >
-                                        <option value="">Select a default project</option>
-                                        {projects.map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </select>
+                                    
+                                    {/* Selected Project Input / Search Filter */}
+                                    <div className="relative">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Search and select project..."
+                                            value={isProjectsDropdownOpen ? projectsSearchTerm : (projects.find(p => p.id === settings?.default_project_id)?.name || selectedProjectName || 'Select a default project')}
+                                            onChange={e => {
+                                                if (!isProjectsDropdownOpen) setIsProjectsDropdownOpen(true);
+                                                setProjectsSearchTerm(e.target.value);
+                                            }}
+                                            onFocus={() => {
+                                                setIsProjectsDropdownOpen(true);
+                                                setProjectsSearchTerm('');
+                                            }}
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 text-sm font-black text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer"
+                                        />
+                                        <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                            {isProjectsLoading && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+                                            <span className="text-slate-400 text-xs">▼</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Backdrop for closing dropdown */}
+                                    {isProjectsDropdownOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProjectsDropdownOpen(false)} />
+                                            <div className="absolute top-[85px] left-0 right-0 bg-white border border-slate-150 rounded-2xl shadow-xl z-50 p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                <div className="flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2">
+                                                    <span>Search Projects: "{projectsSearchTerm}"</span>
+                                                    <button 
+                                                        onClick={() => setIsProjectsDropdownOpen(false)}
+                                                        className="text-rose-500 hover:text-rose-600 font-bold"
+                                                    >
+                                                        CLOSE
+                                                    </button>
+                                                </div>
+
+                                                {/* Results List */}
+                                                <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                                                    {projects.length === 0 ? (
+                                                        <div className="py-8 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                                            No projects found
+                                                        </div>
+                                                    ) : (
+                                                        projects.map((p) => {
+                                                            const isSelected = p.id === settings?.default_project_id;
+                                                            return (
+                                                                <div 
+                                                                    key={p.id}
+                                                                    onClick={() => {
+                                                                        if (settings) {
+                                                                            setSettings({ ...settings, default_project_id: p.id });
+                                                                            setSelectedProjectName(p.name || p.project_name);
+                                                                        }
+                                                                        setIsProjectsDropdownOpen(false);
+                                                                        setProjectsSearchTerm('');
+                                                                        toast.success(`Selected active project: ${p.name || p.project_name}`);
+                                                                    }}
+                                                                    className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-700'}`}
+                                                                >
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-xs font-black tracking-tight">{p.name || p.project_name}</span>
+                                                                        <span className={`text-[9px] uppercase tracking-wider font-bold ${isSelected ? 'text-slate-400' : 'text-slate-400'}`}>
+                                                                            Code: {p.business_id || p.id} • Status: {p.status || 'Planned'}
+                                                                        </span>
+                                                                    </div>
+                                                                    {isSelected && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+                                                                </div>
+                                                            );
+                                                        })
+                                                    )}
+                                                </div>
+
+                                                {/* Pagination Actions */}
+                                                <div className="flex items-center justify-between pt-3 border-t border-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    <span>Showing {projects.length} of {projectsTotal} projects</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <button 
+                                                            disabled={projectsOffset === 0}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setProjectsOffset(prev => Math.max(0, prev - 20));
+                                                            }}
+                                                            className="px-3 py-1 bg-slate-50 rounded-lg hover:bg-slate-100 disabled:opacity-50 transition-all border border-slate-105"
+                                                        >
+                                                            Prev
+                                                        </button>
+                                                        <button 
+                                                            disabled={projectsOffset + 20 >= projectsTotal}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setProjectsOffset(prev => prev + 20);
+                                                            }}
+                                                            className="px-3 py-1 bg-slate-50 rounded-lg hover:bg-slate-100 disabled:opacity-50 transition-all border border-slate-105"
+                                                        >
+                                                            Next
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
                                         This project will be loaded automatically across the dashboard and task reporting modules.
                                     </p>

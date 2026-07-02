@@ -197,6 +197,51 @@ const AttendancePage: React.FC = () => {
         }
     };
 
+    const getRunningHours = () => {
+        if (statusData?.attendance?.working_hours) {
+            const wh = statusData.attendance.working_hours;
+            if (typeof wh === 'number') {
+                const hrs = Math.floor(wh);
+                const mins = Math.round((wh % 1) * 60);
+                return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+            }
+            if (typeof wh === 'string' && wh.includes(':')) {
+                return wh;
+            }
+            const whNum = parseFloat(wh);
+            if (!isNaN(whNum)) {
+                const hrs = Math.floor(whNum);
+                const mins = Math.round((whNum % 1) * 60);
+                return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+            }
+            return wh;
+        }
+        if (!statusData?.attendance?.in_time) return "--:--";
+        const inTime = new Date(statusData.attendance.in_time);
+        const diffMs = currentTime.getTime() - inTime.getTime();
+        if (diffMs < 0) return "00:00";
+        const hrs = Math.floor(diffMs / (1000 * 60 * 60));
+        const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    };
+
+    const getFilteredRecords = () => {
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        return attendanceList.filter(record => {
+            if (historyFilter === 'Today') return record.attendance_date === today;
+            if (historyFilter === 'Yesterday') return record.attendance_date === yesterday;
+            if (historyFilter === 'Date') {
+                if (dateFrom && dateTo) return record.attendance_date >= dateFrom && record.attendance_date <= dateTo;
+                if (dateFrom) return record.attendance_date >= dateFrom;
+                if (dateTo) return record.attendance_date <= dateTo;
+            }
+            return true; // 'All'
+        });
+    };
+
+    const filteredRecords = getFilteredRecords();
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">
@@ -266,35 +311,69 @@ const AttendancePage: React.FC = () => {
 
                                 <div className="space-y-6">
                                     {statusData?.checked_in && !statusData?.checked_out && !statusData?.attendance?.out_time ? (
-                                        /* Active Session View: Show Check Out */
-                                        <>
-                                            <div className="flex flex-col items-center justify-center py-10 space-y-6">
-                                                <div className="w-24 h-24 rounded-full border-[6px] border-slate-50 flex items-center justify-center relative">
-                                                    <div className="absolute inset-0 rounded-full border border-slate-200" />
-                                                    <div className="relative">
-                                                        <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full scale-150 animate-pulse" />
-                                                        <Clock className="w-10 h-10 text-emerald-500 relative z-10" />
+                                        /* Active Session View: Show Check Out (Matches Screenshot Exactly) */
+                                        <div className="space-y-6 animate-in fade-in duration-500">
+                                            <div className="grid grid-cols-2 gap-12">
+                                                <div className="space-y-6">
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <LogIn className="w-4 h-4 text-emerald-500" />
+                                                            <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Check-In Time</span>
+                                                            {statusData.attendance?.is_late && (
+                                                                <span className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-full uppercase tracking-widest shadow-sm shadow-rose-100">Late</span>
+                                                            )}
+                                                            <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black rounded-full uppercase tracking-widest">
+                                                                <MapPinIcon className="w-2.5 h-2.5" />
+                                                                {statusData.attendance?.work_location_type === 'wfo' || statusData.attendance?.work_location_type === 'office' ? 'Work From Office' : (statusData.attendance?.work_location_type || 'Work From Office')}
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-2xl font-black text-slate-800">
+                                                            {statusData.attendance?.in_time ? new Date(statusData.attendance.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
+                                                        </p>
+                                                    </div>
+                                                    
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Work Hours</span>
+                                                        </div>
+                                                        <p className="text-sm font-black text-slate-850 tracking-tight">
+                                                            {getRunningHours()}
+                                                        </p>
                                                     </div>
                                                 </div>
-                                                <p className="text-sm font-black text-slate-400 tracking-tight text-center uppercase tracking-widest leading-relaxed">
-                                                    You are currently <span className="text-emerald-500">Checked In</span><br/>
-                                                    <span className="text-[10px] font-bold">Shift started at {statusData.attendance?.in_time ? new Date(statusData.attendance.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}</span>
-                                                </p>
+
+                                                <div className="flex flex-col items-end text-right">
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center gap-2 justify-end">
+                                                            <LogOut className="w-4 h-4 text-rose-500" />
+                                                            <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Check-out Time</span>
+                                                        </div>
+                                                        <p className="text-2xl font-black text-slate-800">
+                                                            -
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 text-emerald-500 py-1">
+                                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                <span className="text-[10px] font-black uppercase tracking-[0.1em]">Live tracking - updates in real-time</span>
                                             </div>
 
                                             <button
                                                 onClick={() => setIsCheckOutModalOpen(true)}
                                                 disabled={isActionLoading}
-                                                className="w-full bg-rose-500 hover:bg-rose-600 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-rose-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] group/btn disabled:opacity-50"
+                                                className="w-full bg-[#ff2156] hover:bg-[#e01b4c] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-rose-100 flex items-center justify-center gap-2.5 transition-all hover:scale-[1.01] active:scale-[0.99] group/btn disabled:opacity-50"
                                             >
                                                 {isActionLoading ? (
                                                     <Loader2 className="w-5 h-5 animate-spin" />
                                                 ) : (
-                                                    <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                                                    <LogOut className="w-5 h-5" />
                                                 )}
                                                 {isActionLoading ? "Processing..." : "Check Out"}
                                             </button>
-                                        </>
+                                        </div>
                                     ) : (statusData?.checked_out || statusData?.attendance?.out_time) ? (
                                         /* Shift Completed View (Matches Screenshot Exactly) */
                                         <div className="space-y-10 animate-in fade-in duration-500">
@@ -321,7 +400,7 @@ const AttendancePage: React.FC = () => {
                                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Work Hours</span>
                                                         </div>
                                                         <p className="text-sm font-black text-slate-800 tracking-tight">
-                                                            {statusData.attendance?.working_hours || "00:10"}
+                                                            {getRunningHours()}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -331,10 +410,12 @@ const AttendancePage: React.FC = () => {
                                                         <div className="flex items-center gap-2 justify-end">
                                                             <LogOut className="w-4 h-4 text-rose-500" />
                                                             <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">Check-out Time</span>
-                                                            <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded-full uppercase tracking-widest shadow-sm shadow-amber-100">Early</span>
+                                                            {statusData.attendance?.is_early_departure && (
+                                                                <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black rounded-full uppercase tracking-widest shadow-sm shadow-amber-100">Early</span>
+                                                            )}
                                                         </div>
                                                         <p className="text-2xl font-black text-slate-800">
-                                                            {statusData.attendance?.out_time ? new Date(statusData.attendance.out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "02:51 PM"}
+                                                            {statusData.attendance?.out_time ? new Date(statusData.attendance.out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -417,11 +498,11 @@ const AttendancePage: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">
-                                            Showing {attendanceList.length} records
-                                        </p>
-                                    </div>
+                                     <div className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none">
+                                             Showing {filteredRecords.length} records
+                                         </p>
+                                     </div>
                                 </div>
 
                                 {historyFilter === 'Date' && (
@@ -465,21 +546,8 @@ const AttendancePage: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {(() => {
-                                            const today = new Date().toISOString().split('T')[0];
-                                            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                                            const filtered = attendanceList.filter(record => {
-                                                if (historyFilter === 'Today') return record.attendance_date === today;
-                                                if (historyFilter === 'Yesterday') return record.attendance_date === yesterday;
-                                                if (historyFilter === 'Date') {
-                                                    if (dateFrom && dateTo) return record.attendance_date >= dateFrom && record.attendance_date <= dateTo;
-                                                    if (dateFrom) return record.attendance_date >= dateFrom;
-                                                    if (dateTo) return record.attendance_date <= dateTo;
-                                                }
-                                                return true; // 'All'
-                                            });
-                                            return filtered.length > 0 ? (
-                                            filtered.map((record) => (
+                                        {filteredRecords.length > 0 ? (
+                                            filteredRecords.map((record) => (
                                                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span className="text-xs font-bold text-slate-500">
@@ -581,8 +649,7 @@ const AttendancePage: React.FC = () => {
                                                     </div>
                                                 </td>
                                             </tr>
-                                         );
-                                        })()}
+                                         )}
                                     </tbody>
                                 </table>
                             </div>

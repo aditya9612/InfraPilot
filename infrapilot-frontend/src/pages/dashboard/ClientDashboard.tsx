@@ -215,7 +215,6 @@ const ClientDashboard = () => {
                       <span className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-lg shadow-sm shrink-0">{update.icon}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-bold text-slate-700 leading-tight tracking-tight truncate">{update.text}</p>
-                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1 italic">{update.time}</p>
                       </div>
                     </div>
                   )) : (

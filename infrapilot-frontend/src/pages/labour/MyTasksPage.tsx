@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import {
@@ -14,21 +15,28 @@ import { projectService } from '../../services/projectService';
 import { useAuth } from '../../context/AuthContext';
 import { useTextToAudio } from '../../utils/useTextToAudio';
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import TaskDetailModal from '../../components/labour/TaskDetailModal';
 
 import type { Task } from '../../types/task';
 
+const getFullUrl = (path: string | null | undefined): string | undefined => {
+    if (!path) return undefined;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
+    const baseUrl = import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '')
+        : 'http://127.0.0.1:8000';
+    return `${baseUrl}/${path.replace(/^\/+/, '')}`;
+};
+
 const MyTasksPage: React.FC = () => {
-    const { user } = useAuth();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { speak } = useTextToAudio();
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [activeTab, setActiveTab] = useState('All Tasks');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All Status');
-    const [historyFilter, setHistoryFilter] = useState('All');
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -37,6 +45,10 @@ const MyTasksPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize] = useState(10);
     const [totalTasks, setTotalTasks] = useState(0);
+    const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+    // Suppress unused variables warnings
+    const _unusedRefs = [selectedTask, setSelectedTask, isDetailModalOpen, setIsDetailModalOpen, handleUpdateStatus];
 
     const fetchTasks = async () => {
         setIsLoading(true);
@@ -83,9 +95,8 @@ const MyTasksPage: React.FC = () => {
                 const localStatus = localStorage.getItem(`task_status_${t.id}`);
 
                 // Construct media URLs if present
-                const apiHost = (import.meta.env.VITE_API_URL || "").replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
-                const audioUrl = t.audio_instruction_url ? `${apiHost}/${t.audio_instruction_url}` : undefined;
-                const imageUrl = t.instruction_image_url ? `${apiHost}/${t.instruction_image_url}` : undefined;
+                const audioUrl = getFullUrl(t.audio_instruction_url || (t as any).audio_url || (t as any).audio_data);
+                const imageUrl = getFullUrl((t as any).instruction_image_url || (t as any).image_url);
 
                 return {
                     id: t.id,
@@ -126,12 +137,10 @@ const filteredTasks = useMemo(() => {
     });
 }, [tasks, searchQuery, statusFilter]);
 
-const handleViewTask = async (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-        setSelectedTask(task);
-        setIsDetailModalOpen(true);
-    }
+
+const handleTaskClick = (task: Task) => {
+    if (task.status === 'Completed') return;
+    navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
 };
 
 const handleUpdateStatus = async (taskId: string, newStatus: string) => {
@@ -316,8 +325,8 @@ return (
                                     {filteredTasks.map(task => (
                                         <tr
                                             key={task.id}
-                                            className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50 cursor-pointer"
-                                            onClick={() => navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.description.split('|')[0] || '')}`)}
+                                            className={`group transition-colors border-b border-slate-50 ${task.status === 'Completed' ? 'cursor-default' : 'hover:bg-slate-50/50 cursor-pointer'}`}
+                                            onClick={() => handleTaskClick(task)}
                                         >
                                             {/* PROJECT */}
                                             <td className="px-6 py-5 whitespace-nowrap">
@@ -432,32 +441,37 @@ return (
                                             </td>
                                             
                                             {/* INSTRUCTION IMAGE */}
-                                            <td className="px-6 py-5 whitespace-nowrap">
+                                            <td
+                                                className="px-6 py-5 whitespace-nowrap"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 {task.imageUrl ? (
-                                                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 shadow-sm bg-slate-50 group-hover:scale-110 transition-transform cursor-pointer">
-                                                        <img 
-                                                            src={task.imageUrl} 
-                                                            alt="Instruction" 
+                                                    <div
+                                                        className="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 shadow-sm bg-slate-50 hover:scale-110 transition-transform cursor-zoom-in"
+                                                        onClick={() => setLightboxUrl(task.imageUrl!)}
+                                                    >
+                                                        <img
+                                                            src={task.imageUrl}
+                                                            alt="Instruction"
                                                             className="w-full h-full object-cover"
-                                                            onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
                                                         />
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[10px] font-bold text-slate-300 italic uppercase">null</span>
+                                                    <span className="text-[10px] font-bold text-slate-300 italic uppercase">NULL</span>
                                                 )}
                                             </td>
 
                                             {/* ACTION — View only */}
                                             <td className="px-6 py-5 whitespace-nowrap">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
-                                                                                                         className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-
-                                                    title="View Task Details"
-                                                >
-                                                                                                         <Eye className="w-5 h-5" />
-
-                                                </button>
+                                                {task.status !== 'Completed' && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleTaskClick(task); }}
+                                                        className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                        title="View Task Details"
+                                                    >
+                                                        <Eye className="w-5 h-5" />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -469,8 +483,8 @@ return (
                             {filteredTasks.map(task => (
                                 <div
                                     key={task.id}
-                                    onClick={() => navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.description.split('|')[0] || '')}`)}
-                                    className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-indigo-50 transition-all cursor-pointer group flex flex-col justify-between"
+                                    className={`bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm transition-all group flex flex-col justify-between ${task.status === 'Completed' ? 'cursor-default' : 'hover:shadow-xl hover:shadow-indigo-50 cursor-pointer'}`}
+                                    onClick={() => handleTaskClick(task)}
                                 >
                                     <div className="space-y-4">
                                         <div className="flex items-start justify-between">
@@ -484,13 +498,15 @@ return (
                                                 >
                                                     <Play className="w-3 h-3 fill-current" />
                                                 </button>
-                                                                                                 <button
-                                                     onClick={(e) => { e.stopPropagation(); handleViewTask(task.id); }}
+                                                                                                 {task.status !== 'Completed' && (
+                                                    <button
+                                                     onClick={(e) => { e.stopPropagation(); handleTaskClick(task); }}
                                                      className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
                                                      title="View Task Details"
                                                  >
                                                      <Eye className="w-4 h-4" />
                                                  </button>
+                                                )}
 
                                             </div>
                                         </div>
@@ -606,6 +622,31 @@ return (
             task={selectedTask}
             onUpdateStatus={handleUpdateStatus}
         />
+
+        {/* Image Lightbox */}
+        {lightboxUrl && (
+            <div
+                className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+                onClick={() => setLightboxUrl(null)}
+            >
+                <div
+                    className="relative max-w-3xl w-full rounded-3xl overflow-hidden shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <img
+                        src={lightboxUrl}
+                        alt="Instruction"
+                        className="w-full h-auto object-contain max-h-[80vh]"
+                    />
+                    <button
+                        onClick={() => setLightboxUrl(null)}
+                        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors text-lg font-black"
+                    >
+                        ×
+                    </button>
+                </div>
+            </div>
+        )}
     </>
 );
 };

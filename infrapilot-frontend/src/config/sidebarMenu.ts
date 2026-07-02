@@ -158,10 +158,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       label: "Notifications",
       path: "/admin/notifications",
       icon: "bell",
-      subNav: [
-        { label: "Alerts", path: "/admin/notifications/alerts", icon: "alert-circle" },
-        { label: "System Notifications", path: "/admin/notifications/system", icon: "info" },
-      ]
     },
     { label: "Documents", path: "/admin/documents", icon: "file-text" },
     {
@@ -451,7 +447,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       ],
     },
     { label: "Chat", path: "/chat", icon: "message-circle" },
-    { label: "Notifications", path: "/client/communication/announcements", icon: "bell" },
+    { label: "Notifications", path: "/client/notifications", icon: "bell" },
     {
       label: "Reports",
       path: "/client/reports",
@@ -472,7 +468,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "calendar",
     },
     { label: "My Tasks", path: "/labour/tasks", icon: "clipboard" },
-    // { label: "Work Updates", path: "/labour/work-updates", icon: "activity" },
+    { label: "Work Updates", path: "/labour/work-updates", icon: "activity" },
     { label: "Task Requests", path: "/labour/task-requests", icon: "plus-circle" },
     { label: "Payments", path: "/labour/payments", icon: "wallet" },
     { label: "Chat", path: "/chat", icon: "message-circle" },

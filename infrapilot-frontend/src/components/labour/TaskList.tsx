@@ -1,16 +1,6 @@
 import React from 'react';
 import { Clock, MoreVertical, Circle, Calendar } from 'lucide-react';
-
-interface Task {
-    id: string;
-    project: string;
-    name: string;
-    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold';
-    priority: 'High' | 'Medium' | 'Low';
-    startDate: string;
-    endDate: string;
-    progress: number;
-}
+import type { Task } from '../../types/task';
 
 interface TaskListProps {
     tasks: Task[];
@@ -67,8 +57,8 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                             return (
                                 <tr
                                     key={task.id}
-                                    className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
-                                    onClick={() => onSelectTask(task)}
+                                    className={`transition-colors group ${task.status === 'Completed' ? 'cursor-default' : 'hover:bg-slate-50/50 cursor-pointer'}`}
+                                    onClick={() => task.status !== 'Completed' && onSelectTask(task)}
                                 >
                                     <td className="px-8 py-6">
                                         <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{task.id}</span>
@@ -116,9 +106,11 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-right">
-                                        <button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
-                                            <MoreVertical className="w-5 h-5" />
-                                        </button>
+                                        {task.status !== 'Completed' && (
+                                            <button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                                                <MoreVertical className="w-5 h-5" />
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             );

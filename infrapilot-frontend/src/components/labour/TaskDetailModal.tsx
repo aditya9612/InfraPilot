@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
     X, FileText, User, Calendar, Clock, CheckSquare, 
     History, MessageSquare, Play, 
@@ -47,6 +47,57 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     const [progressUpdate, setProgressUpdate] = useState({ percentage: 0, description: '' });
     
     const { speak } = useTextToAudio();
+
+    // Audio player state
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+
+    // Reset audio state when task changes
+    useEffect(() => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+    }, [task?.id]);
+
+    const formatTime = (secs: number) => {
+        if (!secs || isNaN(secs)) return '0:00';
+        const m = Math.floor(secs / 60);
+        const s = Math.floor(secs % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    const handlePlayPause = () => {
+        if (task?.audioUrl) {
+            if (!audioRef.current) {
+                audioRef.current = new Audio(task.audioUrl);
+                audioRef.current.onloadedmetadata = () => setDuration(audioRef.current!.duration);
+                audioRef.current.ontimeupdate = () => setCurrentTime(audioRef.current!.currentTime);
+                audioRef.current.onended = () => { setIsPlaying(false); setCurrentTime(0); };
+            }
+            if (isPlaying) {
+                audioRef.current.pause();
+                setIsPlaying(false);
+            } else {
+                audioRef.current.play();
+                setIsPlaying(true);
+            }
+        } else {
+            speak(task?.description || 'No instruction found.');
+        }
+    };
+
+    const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!audioRef.current || !duration) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const pct = (e.clientX - rect.left) / rect.width;
+        audioRef.current.currentTime = pct * duration;
+    };
 
     const projectId = task?.project_id ? Number(task.project_id) : 92;
     const taskId = task?.id ? Number(task.id) : 0;
@@ -289,24 +340,38 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                     <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Audio Instruction</span>
                         <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl">
-                            <button 
-                                onClick={() => {
-                                    if (task.audioUrl) {
-                                        const audio = new Audio(task.audioUrl);
-                                        audio.play();
-                                    } else {
-                                        speak(task.description || 'No instruction found.');
-                                    }
-                                }}
-                                className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-slate-800 hover:text-blue-600 transition-colors"
+                            {/* Play / Pause button */}
+                            <button
+                                onClick={handlePlayPause}
+                                className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-slate-800 hover:text-blue-600 transition-colors flex-shrink-0"
                             >
-                                <Play className="w-4 h-4 fill-current ml-1" />
+                                {isPlaying ? (
+                                    /* Pause icon — two vertical bars */
+                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                        <rect x="5" y="4" width="4" height="16" rx="1" />
+                                        <rect x="15" y="4" width="4" height="16" rx="1" />
+                                    </svg>
+                                ) : (
+                                    <Play className="w-4 h-4 fill-current ml-0.5" />
+                                )}
                             </button>
-                            <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                <div className="w-1/3 h-full bg-slate-800 rounded-full" />
+
+                            {/* Progress track — clickable */}
+                            <div
+                                className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden cursor-pointer relative"
+                                onClick={handleSeek}
+                            >
+                                <div
+                                    className="h-full bg-slate-800 rounded-full transition-none"
+                                    style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
+                                />
                             </div>
-                            <span className="text-[10px] font-black text-slate-400">{task.audioUrl ? 'FILE' : '0:00 / 0:01'}</span>
-                            <Volume2 className="w-4 h-4 text-slate-400" />
+
+                            {/* Time display */}
+                            <span className="text-[10px] font-black text-slate-400 whitespace-nowrap">
+                                {task?.audioUrl ? `${formatTime(currentTime)} / ${formatTime(duration)}` : '0:00'}
+                            </span>
+                            <Volume2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
                             <button>
                                 <MoreHorizontal className="w-4 h-4 text-slate-400" />
                             </button>

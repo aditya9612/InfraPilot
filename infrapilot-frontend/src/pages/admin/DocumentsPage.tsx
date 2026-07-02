@@ -15,6 +15,7 @@ import Modal from "../../components/common/Modal";
 import { documentService } from "../../services/documentService";
 import { drawingService } from "../../services/drawingService";
 import { projectService } from "../../services/projectService";
+import { userService } from "../../services/userService";
 import UploadDocumentModal from "../../components/forms/UploadDocumentModal";
 import EditDocumentModal from "../../components/forms/EditDocumentModal";
 import type { Document, DocumentStats } from "../../types/document";
@@ -50,7 +51,7 @@ const colorMap: Record<string, string> = {
   slate: "bg-slate-50 border-slate-200 text-slate-500",
 };
 
-type TypeFilter = "All" | "Drawings" | "Contracts" | "Reports" | "Others";
+type TypeFilter = "All" | "Documents" | "Folders";
 
 const DocumentsPage = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -58,6 +59,8 @@ const DocumentsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("All");
+  const [mainTab, setMainTab] = useState<"Drawings" | "Documents">("Drawings");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -76,6 +79,7 @@ const DocumentsPage = () => {
   const [folderPath, setFolderPath] = useState<{ id: number; name: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [uploaderName, setUploaderName] = useState<string>("");
 
   const PAGE_SIZE = 10;
 
@@ -85,10 +89,6 @@ const DocumentsPage = () => {
         const data = await projectService.getProjects(100, 0);
         const list = Array.isArray(data) ? data : (data.items || data.data || []);
         setProjects(list);
-        // Auto-select first project so drawings are visible on initial load
-        if (list.length > 0) {
-          setSelectedProjectId((prev) => prev ?? (list[0]?.id || list[0]?.project_id));
-        }
       } catch (err) {
         console.error("Failed to fetch projects", err);
       }
@@ -149,7 +149,7 @@ const DocumentsPage = () => {
         type: "Drawing",
         uploaded_at: d.created_at || d.date,
         file_url: d.file_url,
-        project_name: projects.find(p => p.id === d.project_id)?.name || "Project #" + d.project_id
+        project_name: projects.find(p => p.id === d.project_id)?.project_name || projects.find(p => p.id === d.project_id)?.name || "Project #" + d.project_id
       }));
 
       const combined = [...mappedDrawings, ...mappedDocs];
@@ -324,52 +324,25 @@ const DocumentsPage = () => {
   const handleDownload = async (doc: Document) => {
     const toastId = toast.loading(`Preparing ${doc.title}...`);
     try {
-      if (doc.document_type === "Drawing" || /\.(dwg|dxf|sketch)$/i.test(doc.file_url || "")) {
-        await drawingService.downloadDocument(doc.id, doc.title, doc.file_url || "");
-        toast.success("Download started", { id: toastId });
-        return;
-      }
-
-      // Prioritize the file_url already in the document (the one that works in previews)
-      let file_url = doc.file_url;
-
-      // Fallback only if missing
-      if (!file_url) {
-        const data = await documentService.getDownloadUrl(doc.id);
-        file_url = typeof data === 'string' ? data : (data as any)?.file_url;
-      }
-
-      if (!file_url) throw new Error("File path not available");
-
-      // Normalize path
-      const normalizedPath = file_url.replace(/\\/g, '/');
-      const fullUrl = buildFileUrl(normalizedPath);
-
-      // Extract extension from file_url
-      const extension = normalizedPath.split('.').pop()?.split('?')[0] || '';
-      const downloadName = doc.title.toLowerCase().endsWith(`.${extension.toLowerCase()}`)
-        ? doc.title
-        : `${doc.title}.${extension}`;
-
-      const userString = localStorage.getItem("infrapilot_user");
-      const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
-      const response = await fetch(fullUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = downloadName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(objectUrl);
+      await documentService.downloadDocument(doc.id, doc.title);
       toast.success("Download started", { id: toastId });
     } catch (err: any) {
       console.error("Download failed:", err);
       toast.error(`Download failed: ${err.message}`, { id: toastId });
+    }
+  };
+
+  const openPreview = async (doc: Document) => {
+    setViewingDoc(doc);
+    setUploaderName("");
+    setIsPreviewModalOpen(true);
+    if (doc.uploaded_by_user_id) {
+      try {
+        const user = await userService.getUserById(doc.uploaded_by_user_id);
+        setUploaderName(user.full_name || user.name || `User #${doc.uploaded_by_user_id}`);
+      } catch {
+        setUploaderName(`User #${doc.uploaded_by_user_id}`);
+      }
     }
   };
 
@@ -392,34 +365,51 @@ const DocumentsPage = () => {
   const filteredDocuments = useMemo(() => {
     let data = documents;
 
-    if (typeFilter !== "All") {
-      const typeMap: Record<TypeFilter, string[]> = {
-        All: [],
-        Drawings: ["Drawing", "CAD", "Blueprint", "dwg", "dxf"],
-        Contracts: ["Contract", "Agreement"],
-        Reports: ["Report", "Schedule"],
-        Others: ["Invoice", "Specification", "Other"],
-      };
+    // Main tab: Drawings vs Documents
+    if (mainTab === "Drawings") {
+      data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() === "drawing");
+    } else {
+      data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() !== "drawing");
+    }
+
+    // Sub-tab: All, Documents (non-folders), Folders
+    if (typeFilter === "Documents") {
+      data = data.filter(d => !d.is_folder);
+    } else if (typeFilter === "Folders") {
+      data = data.filter(d => d.is_folder);
+    }
+
+    // Category filter
+    if (categoryFilter) {
       data = data.filter(d =>
-        d.is_folder ||
-        typeMap[typeFilter].some(t => {
-          const docType = (d.document_type || "").toLowerCase();
-          const fileUrl = (d.file_url || "").toLowerCase();
-          return docType.includes(t.toLowerCase()) || fileUrl.endsWith(`.${t.toLowerCase()}`);
-        })
+        d.is_folder || (d.document_type || "").toLowerCase() === categoryFilter.toLowerCase()
+      );
+    }
+
+    // Search
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      data = data.filter(d =>
+        (d.title || "").toLowerCase().includes(term) ||
+        (d.document_type || "").toLowerCase().includes(term)
       );
     }
 
     return [...data].sort((a, b) => {
-      // Folders first
       if (a.is_folder && !b.is_folder) return -1;
       if (!a.is_folder && b.is_folder) return 1;
-
       const aDate = new Date(a.uploaded_at || 0).getTime();
       const bDate = new Date(b.uploaded_at || 0).getTime();
       return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
     });
-  }, [documents, typeFilter, sortOrder]);
+  }, [documents, mainTab, typeFilter, categoryFilter, searchTerm, sortOrder]);
+
+  const availableCategories = useMemo(() => {
+    const types = documents
+      .filter(d => !d.is_folder && d.document_type)
+      .map(d => d.document_type as string);
+    return Array.from(new Set(types)).sort();
+  }, [documents]);
 
   const totalPages = Math.max(1, Math.ceil(filteredDocuments.length / PAGE_SIZE));
   const pagedDocuments = filteredDocuments.slice(
@@ -452,19 +442,22 @@ const DocumentsPage = () => {
               className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
             >
               <FileText className="w-4 h-4" />
-              Upload Document
-            </button>
-            <button
-              onClick={() => {
-                setUploadType("Drawing");
-                setIsUploadModalOpen(true);
-              }}
-              className="px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2"
-            >
-              <FileImage className="w-4 h-4" />
-              Upload Drawing
+              {mainTab === "Drawings" ? "Upload Drawing" : "Upload Document"}
             </button>
           </div>
+        </div>
+
+        {/* Main Tabs — Drawings / Documents */}
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit mb-6">
+          {(["Drawings", "Documents"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => { setMainTab(tab); setCategoryFilter(""); setCurrentPage(0); }}
+              className={`px-5 py-2 rounded-lg text-[11px] font-bold transition-all ${mainTab === tab ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
 
         {/* Document Stats */}
@@ -517,7 +510,7 @@ const DocumentsPage = () => {
                 >
                   <option value="">All Projects</option>
                   {projects.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                   ))}
                 </select>
               </div>
@@ -525,16 +518,30 @@ const DocumentsPage = () => {
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
               <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
               <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl whitespace-nowrap">
-                {(["All", "Drawings", "Contracts", "Reports", "Others"] as TypeFilter[]).map(tabName => (
+                {(["All", "Documents", "Folders"] as TypeFilter[]).map(tabName => (
                   <button
                     key={tabName}
-                    onClick={() => setTypeFilter(tabName)}
+                    onClick={() => { setTypeFilter(tabName); setCategoryFilter(""); }}
                     className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${typeFilter === tabName ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                   >
                     {tabName}
                   </button>
                 ))}
               </div>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${
+                  categoryFilter
+                    ? "bg-primary/10 border-primary/30 text-primary"
+                    : "bg-slate-50 border-slate-200 text-slate-600"
+                }`}
+              >
+                <option value="">All Types</option>
+                {availableCategories.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
           </div>
@@ -596,8 +603,7 @@ const DocumentsPage = () => {
                                 if (doc.is_folder) {
                                   handleFolderClick(doc);
                                 } else {
-                                  setViewingDoc(doc);
-                                  setIsPreviewModalOpen(true);
+                                  openPreview(doc);
                                 }
                               }}
                             >
@@ -626,8 +632,7 @@ const DocumentsPage = () => {
                           <div className="flex items-center justify-end gap-1 sm:gap-2 flex-shrink-0">
                             <button
                               onClick={() => {
-                                setViewingDoc(doc);
-                                setIsPreviewModalOpen(true);
+                                openPreview(doc);
                               }}
                               className="p-1.5 text-slate-400 hover:text-primary transition-all rounded-lg hover:bg-primary/5"
                               title="View Details"
@@ -796,7 +801,10 @@ const DocumentsPage = () => {
           project: viewingDoc.project_name || "General",
           date: new Date(viewingDoc.uploaded_at).toLocaleDateString(),
           isFolder: viewingDoc.is_folder,
-          file_url: previewUrl
+          file_url: previewUrl,
+          uploaded_by: uploaderName || viewingDoc.uploaded_by_name || "—",
+          remarks: viewingDoc.remarks || "—",
+          folder_status: viewingDoc.is_folder ? "Folder" : "File",
         } : null}
         onDownload={handleDownload}
       />

@@ -310,6 +310,22 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             {errors.activity_type_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.activity_type_id}</p>}
           </div>
 
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Status</label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none"
+            >
+              <option value="Active">Active</option>
+              <option value="Draft">Draft</option>
+              <option value="Pending">Pending</option>
+              <option value="Under Review">Under Review</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+
           <div className="md:col-span-2 p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Estimated Total Cost</p>

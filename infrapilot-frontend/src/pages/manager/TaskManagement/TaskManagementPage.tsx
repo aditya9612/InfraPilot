@@ -10,6 +10,7 @@ import {
     ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Folder,
     Paperclip, Send, X, FileText, Edit2, Trash2, Play, Pause, Mic, TrendingUp, Forward, Square, AlertCircle, Loader2
 } from 'lucide-react';
+import ConfirmModal from "../../../components/common/ConfirmModal";
 // import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
 import AudioRecordModal from './AudioRecordModal';
@@ -97,8 +98,8 @@ const TaskManagementPage = () => {
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
     // Delete Modal State (Commented out as delete button is hidden)
-    // const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    // const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteId, setDeleteId] = useState<number | null>(null);
     // const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Filters
@@ -538,7 +539,6 @@ const TaskManagementPage = () => {
         }
     };
 
-    /* 
     const handleDeleteTask = (taskId: number) => {
         setDeleteId(taskId);
         setIsDeleteModalOpen(true);
@@ -546,7 +546,6 @@ const TaskManagementPage = () => {
 
     const executeDeleteTask = async () => {
         if (!projectId || !deleteId) return;
-        setIsSubmitting(true);
         try {
             const res = await projectService.deleteTask(projectId, deleteId);
             toast.success(res?.message || "Task deleted successfully");
@@ -555,11 +554,8 @@ const TaskManagementPage = () => {
             fetchData();
         } catch (error: any) {
             toast.error(error.response?.data?.message || "Failed to delete task");
-        } finally {
-            setIsSubmitting(false);
         }
     };
-    */
 
     const handleStatusChange = async (taskId: number, newStatus: string) => {
         if (!projectId) return;
@@ -1043,9 +1039,9 @@ const TaskManagementPage = () => {
                                                         <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all">
                                                             <Edit2 className="w-4 h-4" />
                                                         </button>
-                                                        {/* <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+                                                        <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Task">
                                                             <Trash2 className="w-4 h-4" />
-                                                        </button> */}
+                                                        </button>
                                                         <button onClick={() => openTaskModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View Details">
                                                             <Eye className="w-4 h-4" />
                                                         </button>
@@ -1182,6 +1178,9 @@ const TaskManagementPage = () => {
                                                                 </button>
                                                                 <button onClick={() => openEditModal(task)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit">
                                                                     <Edit2 className="w-4 h-4" />
+                                                                </button>
+                                                                <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Task">
+                                                                    <Trash2 className="w-4 h-4" />
                                                                 </button>
                                                             </div>
                                                         </td>
@@ -2239,6 +2238,16 @@ const TaskManagementPage = () => {
                 type="danger"
                 isLoading={isSubmitting}
             /> */}
+
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => { setIsDeleteModalOpen(false); setDeleteId(null); }}
+                onConfirm={executeDeleteTask}
+                title="Delete Task"
+                message="Are you sure you want to delete this task? This action cannot be undone."
+                confirmText="Delete"
+                type="danger"
+            />
 
             <AudioRecordModal
                 isOpen={recordingTaskId !== null}

@@ -5,10 +5,10 @@ export const projectService = {
    * Get list of projects with pagination and filtering
    * GET /api/v1/projects
    */
-  async getProjects(limit = 100, skip = 0, search = "", status = "") {
+  async getProjects(limit = 100, skip = 0, search = "", status = "", offset?: number) {
     const params: any = {
       limit: limit,
-      skip: skip
+      offset: offset !== undefined ? offset : skip
     };
     if (search) params.search = search;
     if (status && status !== "All" && status !== "") {
@@ -219,12 +219,12 @@ export const projectService = {
   },
 
   async exportProjectExcel(projectId: number) {
-    const response = await api.get(`projects/${projectId}/report/excel`, { responseType: 'blob' });
+    const response = await api.get(`reports/projects/excel`, { params: { project_id: projectId }, responseType: 'blob' });
     return response.data;
   },
 
   async exportProjectPdf(projectId: number) {
-    const response = await api.get(`projects/${projectId}/report/pdf`, { responseType: 'blob' });
+    const response = await api.get(`reports/projects/pdf`, { params: { project_id: projectId }, responseType: 'blob' });
     return response.data;
   },
 

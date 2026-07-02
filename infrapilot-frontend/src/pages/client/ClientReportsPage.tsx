@@ -110,29 +110,69 @@ const ClientReportsPage = () => {
       setLoading(true);
       const pid = projectId;
       const [daily, weekly, material, issues, labour] = await Promise.all([
-        reportService.getDailyReport(pid, reportDate),
-        workProgressService.listActivities(pid),
-        reportService.getMaterialReport(pid),
-        issueService.listIssuesByProject(pid, { limit: 1000 }),
-        reportService.getLabourReport(pid)
+        // 1) Daily Report — GET /api/v1/reports/daily
+        reportService.getDailyReport(pid, reportDate).catch(err => {
+          console.error("Daily report fetch failed:", err);
+          return null;
+        }),
+        // 5) Weekly Progress — GET /api/v1/reports/weekly
+        reportService.getWeeklyProgress(pid).catch(err => {
+          console.error("Weekly progress fetch failed:", err);
+          return null;
+        }),
+        // 3) Material Report — GET /api/v1/reports/material
+        reportService.getMaterialReport(pid).catch(err => {
+          console.error("Material report fetch failed:", err);
+          return null;
+        }),
+        // 4) Issue Report — GET /api/v1/reports/issues
+        reportService.getIssueReport(pid).catch(err => {
+          console.error("Issues fetch failed:", err);
+          return null;
+        }),
+        // 2) Labour Report — GET /api/v1/reports/labour
+        reportService.getLabourReport(pid).catch(err => {
+          console.error("Labour report fetch failed:", err);
+          return null;
+        })
       ]);
-      setDailyReport(daily.dsr || daily);
-      const tasks = Array.isArray(weekly) ? weekly : ((weekly as any).items || (weekly as any).data || []);
-      const totalActivities = tasks.length;
-      const completedActivities = tasks.filter((a: any) => a.completion_percentage === 100 || a.status === 'Completed').length;
-      const overallCompletion = totalActivities > 0 ? Math.round((tasks.reduce((acc: number, val: any) => acc + (Number(val.completion_percentage) || 0), 0)) / totalActivities) : 0;
 
+      console.log("[Reports] daily=", daily, "weekly=", weekly, "material=", material, "issues=", issues, "labour=", labour);
+
+      // ── DAILY ──────────────────────────────────────────────────────────────
+      const resolvedDaily = daily ? (daily.dsr !== undefined ? daily.dsr : daily) : null;
+      setDailyReport(resolvedDaily);
+
+      // ── WEEKLY ─────────────────────────────────────────────────────────────
+      // API may return: { overall_completion, total_activities, completed_activities, tasks:[...] }
+      // or plain weekly progress summary object: { weekly_progress_percent, tasks_count }
+      // or a plain array of tasks
+      const weeklyItems: any[] = Array.isArray(weekly)
+        ? weekly
+        : (weekly?.tasks || weekly?.items || weekly?.data?.items || weekly?.data || []);
+      const calcTotal = weeklyItems.length;
+      const calcCompleted = weeklyItems.filter((a: any) =>
+        Number(a.completion_percentage) === 100 || a.status === 'Completed'
+      ).length;
+      const calcCompletion = calcTotal > 0
+        ? Math.round(weeklyItems.reduce((acc: number, val: any) => acc + (Number(val.completion_percentage) || 0), 0) / calcTotal)
+        : 0;
       setWeeklyProgress({
-        tasks,
-        total_activities: totalActivities,
-        completed_activities: completedActivities,
-        overall_completion: overallCompletion
+        tasks: weeklyItems,
+        total_activities:    weekly?.total_activities    ?? weekly?.tasks_count ?? calcTotal,
+        completed_activities: weekly?.completed_activities ?? calcCompleted,
+        overall_completion:  weekly?.overall_completion  ?? weekly?.weekly_progress_percent ?? calcCompletion
       });
-      const allMaterials = Array.isArray(material) ? material : (material?.materials || material?.items || material?.data || []);
-      
-      // 1. Filter by Project ID and 2. Deduplicate by Name
-      const projectMaterials = allMaterials.filter((m: any) => !m.project_id || Number(m.project_id) === Number(projectId));
-      
+
+      // ── MATERIAL ───────────────────────────────────────────────────────────
+      // API may return: { total_items, total_purchased, total_used, total_value, materials:[...] }
+      // or a plain array
+      const allMaterials: any[] = Array.isArray(material)
+        ? material
+        : (material?.materials || material?.items || material?.data || []);
+      const projectMaterials = allMaterials.filter((m: any) =>
+        !m.project_id || Number(m.project_id) === Number(projectId)
+      );
       const uniqueMaterials = projectMaterials.reduce((acc: any[], item: any) => {
         const name = (item.material_name || item.name || "").trim().toLowerCase();
         if (name && !acc.some(m => (m.material_name || m.name || "").trim().toLowerCase() === name)) {
@@ -140,40 +180,70 @@ const ClientReportsPage = () => {
         }
         return acc;
       }, []);
-
-      // If still too many, it might be due to empty items or specialized groupings
       const finalMaterials = uniqueMaterials.filter((m: any) => m.material_name || m.name).slice(0, 23);
-
-      const totalPurchased = finalMaterials.reduce((acc: number, item: any) => acc + (Number(item.quantity_purchased || 0)), 0);
-      const totalUsed = finalMaterials.reduce((acc: number, item: any) => acc + (Number(item.quantity_used || 0)), 0);
-      const totalStockQty = finalMaterials.reduce((acc: number, item: any) => acc + (Number(item.remaining_stock || 0)), 0);
-      const totalStockValue = finalMaterials.reduce((acc: number, item: any) => acc + (Number(item.total_amount || 0)), 0);
-
+      const calcPurchased  = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.quantity_purchased || 0), 0);
+      const calcUsed       = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.quantity_used || 0), 0);
+      const calcStock      = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.remaining_stock || 0), 0);
+      const calcValue      = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.total_amount || 0), 0);
       setMaterialSummary({
-        items: finalMaterials,
-        total_items: finalMaterials.length,
-        total_purchased: totalPurchased,
-        total_used: totalUsed,
-        total_qty: totalStockQty,
-        total_value: totalStockValue
+        items:           finalMaterials,
+        total_items:     material?.total_items     ?? finalMaterials.length,
+        total_purchased: material?.total_purchased ?? calcPurchased,
+        total_used:      material?.total_used      ?? calcUsed,
+        total_qty:       material?.total_stock     ?? material?.remaining_stock ?? calcStock,
+        total_value:     material?.total_value     ?? calcValue
       });
-      const issueList = Array.isArray(issues) ? issues : ((issues as any)?.items || (issues as any)?.data?.items || []);
-      const projectIssues = issueList.filter((i: any) => Number(i.project_id) === Number(pid));
 
+      // ── ISSUES ─────────────────────────────────────────────────────────────
+      // API returns flat summary: { open, closed, critical?, total? }
+      // or may return { issues:[...], open_issues, closed_issues, ... }
+      const issueList: any[] = Array.isArray(issues)
+        ? issues
+        : (issues?.issues || issues?.items || issues?.data?.items || issues?.data || []);
+      const projectIssues = issueList.filter((i: any) =>
+        !i.project_id || Number(i.project_id) === Number(pid)
+      );
       setIssueSummary({
-        items: projectIssues,
-        open: projectIssues.filter((i: any) => i.status !== 'Resolved').length,
-        closed: projectIssues.filter((i: any) => i.status === 'Resolved').length,
-        critical: projectIssues.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length,
-        total: projectIssues.length
+        items:    projectIssues,
+        // Direct flat-summary field names (from screenshot: {open:22, closed:1})
+        open:     issues?.open      ?? issues?.open_issues     ?? projectIssues.filter((i: any) =>
+          i.status?.toLowerCase() !== 'resolved' && i.status?.toLowerCase() !== 'closed'
+        ).length,
+        closed:   issues?.closed    ?? issues?.resolved_issues ?? projectIssues.filter((i: any) =>
+          i.status?.toLowerCase() === 'resolved' || i.status?.toLowerCase() === 'closed'
+        ).length,
+        critical: issues?.critical  ?? issues?.critical_issues ?? projectIssues.filter((i: any) =>
+          i.priority?.toLowerCase() === 'high' || i.priority?.toLowerCase() === 'critical'
+        ).length,
+        total:    issues?.total ?? issues?.total_issues ?? (((issues?.open ?? 0) + (issues?.closed ?? 0)) || projectIssues.length)
       });
-      setLabourSummary(labour);
+
+      // ── LABOUR ─────────────────────────────────────────────────────────────
+      // API may return: { total_workers, skilled_workers, unskilled_workers, contractors_count, labour_summary:[...] }
+      let resolvedLabour = labour;
+      if (labour) {
+        const summary = Array.isArray(labour) ? labour : (labour.labour_summary || labour.data?.labour_summary || []);
+        const calcTotalWorkers = summary.reduce((acc: number, curr: any) => acc + (Number(curr.count) || 0), 0);
+        const calcSkilled = summary.find((s: any) => s.skill_type?.toLowerCase() === 'skilled')?.count ?? 0;
+        const calcUnskilled = summary.find((s: any) => s.skill_type?.toLowerCase() === 'unskilled')?.count ?? 0;
+        
+        resolvedLabour = {
+          ...labour,
+          total_workers: labour.total_workers ?? labour.total_acc_workers ?? labour.total_labour ?? calcTotalWorkers,
+          skilled_workers: labour.skilled_workers ?? labour.skilled_labour ?? calcSkilled,
+          unskilled_workers: labour.unskilled_workers ?? labour.unskilled_labour ?? calcUnskilled,
+          contractors_count: labour.contractors_count ?? labour.categories_count ?? (summary.length || 0),
+          labour_summary: summary
+        };
+      }
+      setLabourSummary(resolvedLabour);
     } catch (error) {
       console.error("Failed to fetch reports:", error);
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     if (projectId) {
@@ -209,12 +279,14 @@ const ClientReportsPage = () => {
           <path d="M9 11h6M9 14h6M9 17h4" stroke="#D5D8DC" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       ),
-      desc: dailyReport?.work_done || "Full summary of today's site operations — labour deployed, work completed, materials consumed, and any issues logged.",
+      desc: dailyReport
+        ? (dailyReport.work_done || "Full summary of today's site operations — labour deployed, work completed, materials consumed, and any issues logged.")
+        : "Daily operations report has not yet been filed for this date.",
       stats: [
-        { label: "TOTAL LABOUR", value: `${dailyReport?.total_labour ?? 2} Labour` },
-        { label: "SKILLED", value: dailyReport?.skilled_labour ?? 2 },
-        { label: "WEATHER", value: dailyReport?.weather || 'Sunny' },
-        { label: "LOCATION", value: dailyReport?.site_location || "Hinjawadi Phase 1, Hinjawadi, Marunji, Mulshi Subdistrict, Pune District, Maharashtra, 411057, India" }
+        { label: "TOTAL LABOUR", value: dailyReport ? `${dailyReport?.total_labour ?? 0} Labour` : "Not Filed" },
+        { label: "SKILLED", value: dailyReport ? (dailyReport?.skilled_labour ?? 0) : "Not Filed" },
+        { label: "WEATHER", value: dailyReport ? (dailyReport?.weather || 'N/A') : "Not Filed" },
+        { label: "LOCATION", value: dailyReport ? (dailyReport?.site_location || "N/A") : "Not Filed" }
       ],
       onPDF: () => handleExportDailyPDF(),
       onExcel: () => handleExportDailyExcel(),
@@ -222,15 +294,17 @@ const ClientReportsPage = () => {
         setSelectedInsight({
           title: "Daily Report",
           level: "DAILY",
-          description: "Full summary of today's site operations — labour deployed, work completed, materials consumed, and any issues logged.",
+          description: dailyReport
+            ? (dailyReport.work_done || "Full summary of today's site operations — labour deployed, work completed, materials consumed, and any issues logged.")
+            : "Daily operations report has not yet been filed for this date.",
           size: "1.2 MB",
           time: "Today, 08:30 AM",
-          status: "VERIFIED / READY",
+          status: dailyReport ? "VERIFIED / READY" : "UNAVAILABLE",
           metrics: [
-            { label: "TOTAL LABOUR", value: `${dailyReport?.total_labour ?? 3} Labour`, color: "text-blue-600" },
-            { label: "SKILLED FORCE", value: dailyReport?.skilled_labour ?? 3 },
-            { label: "SITE WEATHER", value: dailyReport?.weather || 'Sunny' },
-            { label: "SITE LOCATION", value: dailyReport?.site_location || "Pune Station", color: "text-green-600" }
+            { label: "TOTAL LABOUR", value: dailyReport ? `${dailyReport?.total_labour ?? 0} Labour` : "0 Labour", color: "text-blue-600" },
+            { label: "SKILLED FORCE", value: dailyReport ? (dailyReport?.skilled_labour ?? 0) : 0 },
+            { label: "SITE WEATHER", value: dailyReport ? (dailyReport?.weather || 'N/A') : 'N/A' },
+            { label: "SITE LOCATION", value: dailyReport ? (dailyReport?.site_location || "N/A") : 'N/A', color: "text-green-600" }
           ]
         });
         setShowInsight(true);
@@ -298,10 +372,10 @@ const ClientReportsPage = () => {
       ),
       desc: "Workforce breakdown by skill category, attendance, overtime, and contractor-wise deployment summary.",
       stats: [
-        { label: "TOTAL LABOUR", value: labourSummary?.total_workers || dailyReport?.total_labour || 3 },
-        { label: "SKILLED LABOUR", value: labourSummary?.skilled_workers || dailyReport?.skilled_labour || 3 },
-        { label: "UNSKILLED LABOUR", value: labourSummary?.unskilled_workers || "0" },
-        { label: "CATEGORIES", value: labourSummary?.contractors_count || "1" }
+        { label: "TOTAL LABOUR",    value: labourSummary?.total_workers   ?? labourSummary?.total_labour   ?? dailyReport?.total_labour   ?? 0 },
+        { label: "SKILLED LABOUR",  value: labourSummary?.skilled_workers  ?? labourSummary?.skilled_labour  ?? dailyReport?.skilled_labour  ?? 0 },
+        { label: "UNSKILLED LABOUR", value: labourSummary?.unskilled_workers ?? labourSummary?.unskilled_labour ?? dailyReport?.unskilled_labour ?? 0 },
+        { label: "CATEGORIES",     value: labourSummary?.contractors_count ?? labourSummary?.categories_count ?? (labourSummary?.labour_summary?.length ?? 0) }
       ],
       onPDF: () => handleExportLabourPDF(),
       onExcel: () => handleExportLabourExcel(),
@@ -384,10 +458,10 @@ const ClientReportsPage = () => {
       ),
       desc: "Logged site issues, safety observations, delays, and their current resolution status and priority levels.",
       stats: [
-        { label: "OPEN ISSUES", value: issueSummary?.open || 0 },
-        { label: "CRITICAL", value: issueSummary?.critical || 0 },
-        { label: "RESOLVED", value: issueSummary?.closed || 0 },
-        { label: "TOTAL", value: issueSummary?.total || 0 }
+        { label: "OPEN ISSUES", value: issueSummary?.open ?? 0 },
+        { label: "CRITICAL", value: issueSummary?.critical ?? 0 },
+        { label: "RESOLVED", value: issueSummary?.closed ?? 0 },
+        { label: "TOTAL", value: issueSummary?.total ?? 0 }
       ],
       onPDF: () => handleExportIssuePDF(),
       onExcel: () => handleExportIssueExcel(),
@@ -400,10 +474,10 @@ const ClientReportsPage = () => {
           time: "5 Mins Ago",
           status: "ACTIVE / MONITORING",
           metrics: [
-            { label: "OPEN ISSUES", value: issueSummary?.open || 4, color: "text-red-600" },
-            { label: "CRITICAL", value: issueSummary?.critical || 1 },
-            { label: "RESOLVED", value: issueSummary?.closed || 2 },
-            { label: "TOTAL", value: issueSummary?.total || 18, color: "text-slate-800" }
+            { label: "OPEN ISSUES", value: issueSummary?.open ?? 4, color: "text-red-600" },
+            { label: "CRITICAL", value: issueSummary?.critical ?? 1 },
+            { label: "RESOLVED", value: issueSummary?.closed ?? 2 },
+            { label: "TOTAL", value: issueSummary?.total ?? 18, color: "text-slate-800" }
           ]
         });
         setShowInsight(true);
@@ -582,10 +656,10 @@ const ClientReportsPage = () => {
     try {
       toast.loading("Generating High-Fidelity PDF...", { id: "daily-pdf" });
       const daily = await reportService.getDailyReport(projectId, reportDate);
-      const dsr = daily.dsr || daily;
-
+      const dsr = daily ? (daily.dsr !== undefined ? daily.dsr : daily) : null;
+ 
       if (!dsr) {
-        toast.error("No data found for this date to generate PDF", { id: "daily-pdf" });
+        toast.error("No daily report found for this date to generate PDF", { id: "daily-pdf" });
         return;
       }
 
@@ -629,8 +703,17 @@ const ClientReportsPage = () => {
       });
     } catch (error) {
       console.error("DSR Excel export failed, falling back to CSV:", error);
-      const data = await reportService.getDailyReport(projectId, reportDate);
-      generateCSV(data?.dsr || data, `Daily_Report_${reportDate}.csv`);
+      try {
+        const data = await reportService.getDailyReport(projectId, reportDate);
+        const dsr = data ? (data.dsr !== undefined ? data.dsr : data) : null;
+        if (!dsr) {
+          toast.error("No daily report found for this date to export");
+          return;
+        }
+        generateCSV(dsr, `Daily_Report_${reportDate}.csv`);
+      } catch (err) {
+        toast.error("Failed to export daily report");
+      }
     }
   };
 
@@ -787,7 +870,7 @@ const ClientReportsPage = () => {
       toast.success("Excel downloaded successfully!", { id: toastId });
     } catch (error: any) { 
       console.error(error); 
-      toast.error(error.message || "Failed to download Material Excel", { id: toastId });
+      toast.error(error.message ?? "Failed to download Material Excel", { id: toastId });
     }
   };
 
@@ -796,9 +879,9 @@ const ClientReportsPage = () => {
     try {
       toast.loading("Generating Site Issues Report...", { id: "issue-pdf" });
       const issuesRes = await issueService.listIssuesByProject(projectId, { limit: 1000 });
-      const rawItems = (issuesRes as any).items || (issuesRes as any).data?.items || (Array.isArray(issuesRes) ? issuesRes : []);
-      const items = rawItems.filter((i: any) => Number(i.project_id) === Number(projectId));
-      const openCount = items.filter((i: any) => i.status !== 'Resolved').length;
+      const rawItems = (issuesRes as any).items ?? (issuesRes as any).data?.items ?? (Array.isArray(issuesRes) ? issuesRes : []);
+      const items = rawItems.filter((i: any) => !i.project_id || Number(i.project_id) === Number(projectId));
+      const openCount = items.filter((i: any) => i.status?.toLowerCase() !== 'resolved' && i.status?.toLowerCase() !== 'closed').length;
 
       generatePremiumPDF({
         title: "Site Issues Report",
@@ -807,16 +890,16 @@ const ClientReportsPage = () => {
           { label: "Total Issues", value: items.length.toString() },
           { label: "Open Issues", value: openCount.toString() },
           { label: "Resolved", value: (items.length - openCount).toString() },
-          { label: "Critical", value: items.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length.toString() },
+          { label: "Critical", value: items.filter((i: any) => i.priority?.toLowerCase() === 'high' || i.priority?.toLowerCase() === 'critical').length.toString() },
           { label: "Status", value: openCount > 5 ? "Critical" : "Stable" }
         ],
         tableHeaders: [["ID", "Issue Title/Description", "Status", "Priority", "Reported By"]],
         tableBody: items.map((i: any) => [
-          i.business_id || i.id || "-",
-          i.title || i.issue_name || "-",
-          i.status || "Open",
-          i.priority || "Medium",
-          i.reporter_role || i.source || "Site Engineer"
+          i.business_id ?? i.id ?? "-",
+          i.title ?? i.issue_name ?? "-",
+          i.status ?? "Open",
+          i.priority ?? "Medium",
+          i.reporter_role ?? i.source ?? "Site Engineer"
         ]),
         fileName: `Issues_Report_${new Date().toISOString().split('T')[0]}.pdf`
       });
@@ -1053,7 +1136,7 @@ const ClientReportsPage = () => {
           />
           <OverviewCard
             title="OPEN ISSUES"
-            value={issueSummary?.open || 10}
+            value={issueSummary?.open ?? 10}
             sub="High Priority Items"
             red
             active={activeTab === "issues"}

@@ -8,7 +8,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { useProject } from "../../context/ProjectContext";
 import { documentService } from "../../services/documentService";
-import type { Document } from "../../types/document";
+import type { Document, DocumentUpdateParams } from "../../types/document";
 import {
     Download, ChevronLeft, ChevronRight, Folder, FolderPlus,
     Upload, Trash2, X, FileImage, FileSpreadsheet, Filter,
@@ -53,7 +53,7 @@ const DOC_TYPES = ["Drawing", "Contract", "Report", "Specification", "Schedule",
 
 // ─── Page ────────────────────────────────────────────────────────────
 const ManagerDocumentsPage = () => {
-    const { selectedProjectId, selectedProject } = useProject();
+    const { selectedProjectId, selectedProject, assignedProjects, setSelectedProjectId } = useProject();
     const { tab } = useParams();
     const navigate = useNavigate();
 
@@ -70,6 +70,7 @@ const ManagerDocumentsPage = () => {
     const [typeFilter, setTypeFilter] = useState<TypeFilter>("All");
     const [categoryFilter, setCategoryFilter] = useState("");
     const [sortOrder, setSortOrder] = useState<SortOrder>("latest");
+    const [mainTab, setMainTab] = useState<"Drawings" | "Documents">("Drawings");
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -98,8 +99,9 @@ const ManagerDocumentsPage = () => {
 
     // Form
     const [uploadForm, setUploadForm] = useState({
-        title: "", document_type: "Drawing", remarks: ""
+        title: "", document_type: "Drawing", remarks: "", version: ""
     });
+    const [uploadProjectId, setUploadProjectId] = useState<number | null>(null);
     const [folderName, setFolderName] = useState("");
     const [folderParentId, setFolderParentId] = useState<string>("");
     const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -167,25 +169,36 @@ const ManagerDocumentsPage = () => {
     // ─── Actions ─────────────────────────────────────────────────────
     const handleUpload = async () => {
         if (!uploadFile || !uploadForm.title.trim()) {
-            toast.error("Title and file are required.");
+            toast.error("Drawing name and file are required.");
             return;
         }
-        if (!selectedProjectId) { toast.error("No project selected."); return; }
+        if (!uploadForm.version.trim()) {
+            toast.error("Version is required.");
+            return;
+        }
+        const targetProjectId = uploadProjectId || selectedProjectId;
+        if (!targetProjectId) { toast.error("Please select a project."); return; }
         setIsSubmitting(true);
         try {
             await documentService.uploadDocument({
-                project_id: selectedProjectId,
+                project_id: targetProjectId,
                 title: uploadForm.title,
                 document_type: uploadForm.document_type,
                 remarks: uploadForm.remarks,
+                version: uploadForm.version,
                 parent_id: currentParentId || undefined,
                 file: uploadFile,
             });
             toast.success("Document uploaded successfully!");
             setIsUploadModalOpen(false);
-            setUploadForm({ title: "", document_type: "Drawing", remarks: "" });
+            setUploadForm({ title: "", document_type: "Drawing", remarks: "", version: "" });
             setUploadFile(null);
-            fetchDocs();
+            if (targetProjectId !== selectedProjectId) {
+                setSelectedProjectId(targetProjectId);
+            }
+            setUploadProjectId(null);
+            // Small delay to allow backend to commit before re-fetching
+            setTimeout(() => fetchDocs(), 500);
         } catch {
             toast.error("Upload failed.");
         } finally {
@@ -327,7 +340,15 @@ const ManagerDocumentsPage = () => {
     const filtered = useMemo(() => {
         let data = docs;
 
-        // Tab filter: All, Documents (non-folders), Folders
+        // Main tab filter: Drawings vs Documents
+        if (mainTab === "Drawings") {
+            data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() === "drawing");
+        } else {
+            // Documents tab: show everything that is NOT a drawing (includes null/empty document_type)
+            data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() !== "drawing");
+        }
+
+        // Sub-tab filter: All, Documents (non-folders), Folders
         if (typeFilter === "Documents") {
             data = data.filter(d => !d.is_folder);
         } else if (typeFilter === "Folders") {
@@ -358,7 +379,7 @@ const ManagerDocumentsPage = () => {
             const timeB = new Date(b.uploaded_at || 0).getTime();
             return sortOrder === "latest" ? timeB - timeA : timeA - timeB;
         });
-    }, [docs, typeFilter, categoryFilter, searchTerm, sortOrder]);
+    }, [docs, mainTab, typeFilter, categoryFilter, searchTerm, sortOrder]);
 
     // Derive available category options from ALL docs (not filtered) so dropdown always shows full list
     const availableCategories = useMemo(() => {
@@ -433,13 +454,32 @@ const ManagerDocumentsPage = () => {
                             New Folder
                         </button>
                         <button
-                            onClick={() => { setUploadForm({ title: "", document_type: "Drawing", remarks: "" }); setUploadFile(null); setIsUploadModalOpen(true); }}
+                            onClick={() => {
+                                const type = mainTab === "Drawings" ? "Drawing" : "Document";
+                                setUploadForm({ title: "", document_type: type, remarks: "", version: "" });
+                                setUploadFile(null);
+                                setUploadProjectId(selectedProjectId);
+                                setIsUploadModalOpen(true);
+                            }}
                             className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                         >
                             <Upload className="w-4 h-4" />
-                            Upload Document
+                            {mainTab === "Drawings" ? "Upload Drawing" : "Upload Document"}
                         </button>
                     </div>
+                </div>
+
+                {/* Main Tabs — Drawings / Documents */}
+                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit mb-6">
+                    {(["Drawings", "Documents"] as const).map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => { setMainTab(tab); setCategoryFilter(""); setCurrentPage(1); }}
+                            className={`px-5 py-2 rounded-lg text-[11px] font-bold transition-all ${mainTab === tab ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Stats */}
@@ -689,7 +729,7 @@ const ManagerDocumentsPage = () => {
             <Modal
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
-                title="Upload Document"
+                title={mainTab === "Drawings" ? "Upload Drawing" : "Upload Document"}
                 maxWidth="max-w-lg"
                 footer={
                     <>
@@ -707,15 +747,39 @@ const ManagerDocumentsPage = () => {
             >
                 <div className="p-4 space-y-4">
                     <div>
-                        <label className={labelCls}>Document Title <span className="text-rose-500">*</span></label>
-                        <input value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
-                            placeholder="e.g. Foundation Drawing Rev-2" className={inputCls} />
+                        <label className={labelCls}>Project <span className="text-rose-500">*</span></label>
+                        <select
+                            value={uploadProjectId ?? ""}
+                            onChange={e => setUploadProjectId(e.target.value ? Number(e.target.value) : null)}
+                            className={inputCls}
+                        >
+                            <option value="">Select Project</option>
+                            {assignedProjects.map((p: any) => (
+                                <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
+                            ))}
+                        </select>
                     </div>
                     <div>
-                        <label className={labelCls}>Document Type</label>
-                        <select value={uploadForm.document_type} onChange={e => setUploadForm(p => ({ ...p, document_type: e.target.value }))} className={inputCls}>
-                            {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
-                        </select>
+                        <label className={labelCls}>{mainTab === "Drawings" ? "Drawing Name" : "Document Title"} <span className="text-rose-500">*</span></label>
+                        <input value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
+                            placeholder={mainTab === "Drawings" ? "e.g. Foundation Drawing Rev-2" : "e.g. Site Contract 2026"} className={inputCls} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className={labelCls}>Document Type</label>
+                            {mainTab === "Drawings" ? (
+                                <input value="Drawing" readOnly className={inputCls + " bg-slate-50 text-slate-400 cursor-not-allowed"} />
+                            ) : (
+                                <select value={uploadForm.document_type} onChange={e => setUploadForm(p => ({ ...p, document_type: e.target.value }))} className={inputCls}>
+                                    {DOC_TYPES.filter(t => t !== "Drawing").map(t => <option key={t}>{t}</option>)}
+                                </select>
+                            )}
+                        </div>
+                        <div>
+                            <label className={labelCls}>Version <span className="text-rose-500">*</span></label>
+                            <input value={uploadForm.version} onChange={e => setUploadForm(p => ({ ...p, version: e.target.value }))}
+                                placeholder="e.g. V1" className={inputCls} />
+                        </div>
                     </div>
                     <div>
                         <label className={labelCls}>Remarks</label>
