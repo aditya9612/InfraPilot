@@ -219,12 +219,12 @@ export const projectService = {
   },
 
   async exportProjectExcel(projectId: number) {
-    const response = await api.get(`projects/${projectId}/report/excel`, { responseType: 'blob' });
+    const response = await api.get(`reports/projects/excel`, { params: { project_id: projectId }, responseType: 'blob' });
     return response.data;
   },
 
   async exportProjectPdf(projectId: number) {
-    const response = await api.get(`projects/${projectId}/report/pdf`, { responseType: 'blob' });
+    const response = await api.get(`reports/projects/pdf`, { params: { project_id: projectId }, responseType: 'blob' });
     return response.data;
   },
 

@@ -10,9 +10,9 @@ import MilestoneTimeline from "../../components/projects/MilestoneTimeline";
 import TeamMembersList from "../../components/projects/TeamMembersList";
 import ProfitLossCard from "../../components/projects/ProfitLossCard";
 import ProjectExpensesTable from "../../components/projects/ProjectExpensesTable";
+import { generateProjectReport, generateProjectReportPDF } from "../../utils/reportGenerator";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
 import AssignMemberModal from "../../components/projects/AssignMemberModal";
-import { generateProjectReport } from "../../utils/reportGenerator";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import ScheduleProjectModal from "../../components/projects/ScheduleProjectModal";
@@ -458,26 +458,52 @@ const ProjectDetailsPage = () => {
             </button>
 
             <button
-              onClick={() => {
-                const toastId = toast.loading(
-                  "Generating comprehensive site report (CSV)...",
-                );
-                setTimeout(() => {
-                  generateProjectReport(
-                    project,
-                    members,
-                    milestones,
-                    expenses,
-                    tasks,
-                  );
-                  toast.success("Site Report downloaded successfully!", {
-                    id: toastId,
-                  });
-                }, 1000);
+              onClick={async () => {
+                const toastId = toast.loading("Generating Excel report...");
+                try {
+                  const blob = await projectService.exportProjectExcel(project.id);
+                  const url = window.URL.createObjectURL(new Blob([blob]));
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `SiteReport_${project.project_name.replace(/\s+/g, '_')}.xlsx`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.URL.revokeObjectURL(url);
+                  toast.success("Excel report downloaded!", { id: toastId });
+                } catch {
+                  generateProjectReport(project, members, milestones, expenses, tasks);
+                  toast.success("Excel report downloaded!", { id: toastId });
+                }
+              }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              Excel
+            </button>
+            <button
+              onClick={async () => {
+                const toastId = toast.loading("Generating PDF report...");
+                try {
+                  const blob = await projectService.exportProjectPdf(project.id);
+                  const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `SiteReport_${project.project_name.replace(/\s+/g, '_')}.pdf`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.URL.revokeObjectURL(url);
+                  toast.success("PDF report downloaded!", { id: toastId });
+                } catch {
+                  generateProjectReportPDF(project, members, milestones, expenses, tasks);
+                  toast.success("PDF report downloaded!", { id: toastId });
+                }
               }}
               className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
             >
-              Site Report (CSV)
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+              PDF
             </button>
           </div>
         </div>
@@ -503,14 +529,13 @@ const ProjectDetailsPage = () => {
         {/* Tab Content */}
         <div className="animate-in fade-in duration-500">
           {activeTab === "Overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-8">
-                {/* Basic Info Card */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: 2 cols — Site Schedule + Location */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Site Schedule & Monitoring */}
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                  <div className="flex items-center justify-between mb-8">
-                    <h3 className="font-bold text-slate-800">
-                      Site Schedule & Monitoring
-                    </h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-bold text-slate-800">Site Schedule & Monitoring</h3>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => setIsScheduleModalOpen(true)}
@@ -527,31 +552,21 @@ const ProjectDetailsPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
-                        Start Date
-                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
                       <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {new Date(
-                          schedule?.start_date || project.start_date,
-                        ).toLocaleDateString()}
+                        {new Date(schedule?.start_date || project.start_date).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
-                        End Date
-                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">End Date</p>
                       <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {new Date(
-                          schedule?.end_date || project.end_date,
-                        ).toLocaleDateString()}
+                        {new Date(schedule?.end_date || project.end_date).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
-                        Site Progress
-                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Site Progress</p>
                       <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
                         {displayProgress}% Calculated
                       </p>
@@ -561,9 +576,7 @@ const ProjectDetailsPage = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       <span>Task Completion Progress</span>
-                      <span className="text-slate-700 font-black">
-                        {displayProgress}%
-                      </span>
+                      <span className="text-slate-700 font-black">{displayProgress}%</span>
                     </div>
                     <div className="relative w-full h-3 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
                       <div
@@ -574,27 +587,23 @@ const ProjectDetailsPage = () => {
                   </div>
                 </div>
 
-                {/* Project Identity & Location Details */}
+                {/* Project Identity & Location */}
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                  <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                  <h3 className="font-bold text-slate-800 mb-5 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
                     Project Identity & Location
                   </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Project Type</p>
-                      <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 inline-block w-full text-center">
-                        {project.type || "N/A"}
-                      </p>
+                      <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 text-center">{project.type || "N/A"}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Location Category</p>
-                      <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 inline-block w-full text-center">
-                        {project.location_type || "N/A"}
-                      </p>
+                      <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 text-center">{project.location_type || "N/A"}</p>
                     </div>
-                    <div className="md:col-span-2 space-y-1">
+                    <div className="col-span-2 space-y-1">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Site Address</p>
                       <p className="text-sm font-medium text-slate-600 italic">
                         {project.site_address ? `${project.site_address}, ${project.city}, ${project.pincode}` : "Address not provided"}
@@ -602,7 +611,7 @@ const ProjectDetailsPage = () => {
                     </div>
                   </div>
 
-                  <div className="mt-6 pt-6 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="mt-5 pt-5 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex items-start gap-4">
                       <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" /><path d="m16.24 7.76-8.48 8.48" /><path d="m7.76 7.76 8.48 8.48" /></svg>
@@ -610,41 +619,32 @@ const ProjectDetailsPage = () => {
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">GPS Navigation</p>
                         <div className="flex gap-4 mt-1">
-                          <div>
-                            <span className="text-[9px] font-bold text-slate-300 uppercase block">Lat</span>
-                            <span className="text-sm font-mono font-bold text-slate-800">{project.latitude || "—"}</span>
-                          </div>
-                          <div>
-                            <span className="text-[9px] font-bold text-slate-300 uppercase block">Long</span>
-                            <span className="text-sm font-mono font-bold text-slate-800">{project.longitude || "—"}</span>
-                          </div>
+                          <div><span className="text-[9px] font-bold text-slate-300 uppercase block">Lat</span><span className="text-sm font-mono font-bold text-slate-800">{project.latitude || "—"}</span></div>
+                          <div><span className="text-[9px] font-bold text-slate-300 uppercase block">Long</span><span className="text-sm font-mono font-bold text-slate-800">{project.longitude || "—"}</span></div>
                         </div>
                       </div>
                     </div>
-
                     <div className="flex items-start gap-4">
                       <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase">Region</p>
-                        <p className="text-sm font-bold text-slate-700 mt-1">
-                          {project.state}, {project.country}
-                        </p>
+                        <p className="text-sm font-bold text-slate-700 mt-1">{project.state}, {project.country}</p>
                       </div>
                     </div>
                   </div>
                 </div>
-
-                {profitLoss && <ProfitLossCard data={profitLoss} />}
               </div>
 
-              <div className="space-y-8">
+              {/* Right: 1 col — Team Members + Financial Overview */}
+              <div className="space-y-6">
                 <TeamMembersList
                   members={members}
                   onAssignClick={() => setIsAssignModalOpen(true)}
                   onRemoveMember={handleRemoveMemberClick}
                 />
+                {profitLoss && <ProfitLossCard data={profitLoss} />}
               </div>
             </div>
           )}
