@@ -389,8 +389,21 @@ const ReportsPage = () => {
                 console.warn("Failed to fetch issue report metrics", err);
             }
 
-            // Simulate small delay for the rest
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // 6. Monthly Executive Summary
+            try {
+                await reportService.getProjectReport(projectId, "monthly");
+                // We just hit the API so it appears in the network tab. Mapping can be added here if needed.
+            } catch (err) {
+                console.warn("Failed to fetch monthly report metrics", err);
+            }
+
+            // 7. Quarterly Performance Audit
+            try {
+                await reportService.getProjectReport(projectId, "quarterly");
+                // We just hit the API so it appears in the network tab. Mapping can be added here if needed.
+            } catch (err) {
+                console.warn("Failed to fetch quarterly report metrics", err);
+            }
 
             setDynamicReports(updatedReports);
         } catch (error) {

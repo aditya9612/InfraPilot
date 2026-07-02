@@ -2345,8 +2345,8 @@ const TaskManagementPage = () => {
                                 {projectMembers
                                     .filter(m => (m.role || "").toLowerCase() === "labour")
                                     .map(m => (
-                                    <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
-                                ))}
+                                        <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
+                                    ))}
                             </select>
                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
                                 <ChevronDown className="w-4 h-4" />

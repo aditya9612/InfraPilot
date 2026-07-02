@@ -160,11 +160,11 @@ const EngineerDashboard = () => {
                 }));
 
                 const timeline = (apiData.timeline || []).map((m: any, idx: number) => ({
-                    id: m.phase_id || `phase_${idx}`,
-                    phase: m.phase_name || "Project Phase",
+                    id: m.id || m.phase_id || `phase_${idx}`,
+                    phase: m.title || m.phase_name || "Project Phase",
                     start: m.start_date || "TBD",
                     end: m.end_date || "TBD",
-                    status: m.status || "Upcoming",
+                    status: (m.status || "Upcoming").replace("MilestoneStatus.", ""),
                     progress: m.progress || 0
                 }));
 
@@ -180,15 +180,15 @@ const EngineerDashboard = () => {
                 const matStatus = apiData.vitals?.material_stock_status || [];
                 const materialStockStatus = {
                     added_materials: matStatus.length,
-                    purchased: 0,
-                    used: 0,
+                    purchased: matStatus.filter((m: any) => m.status === 'OK').length,
+                    used: matStatus.filter((m: any) => m.status === 'Low' || m.status === 'Out of Stock').length,
                     stock: 0
                 };
 
                 setDashboardData({
                     project_id: apiData.project_id || projectId,
                     project_name: apiData.project_name || projectName,
-                    status: apiData.status || "Active",
+                    status: (apiData.status || "Active").replace("ProjectStatus.", ""),
                     progress: apiData.progress || 0,
                     planned_progress: apiData.planned_progress || 0,
                     variance: apiData.variance || 0,
@@ -350,7 +350,7 @@ const EngineerDashboard = () => {
                             <StatCard
                                 title="Material Stock Status"
                                 value={(dashboardData.vitals?.material_stock_status?.added_materials || 0).toString()}
-                                sub={`${dashboardData.vitals?.material_stock_status?.purchased || 0} Purchased · ${dashboardData.vitals?.material_stock_status?.used || 0} Used`}
+                                sub={`${dashboardData.vitals?.material_stock_status?.purchased || 0} In Stock · ${dashboardData.vitals?.material_stock_status?.used || 0} Low/Out`}
                                 accent="text-emerald-500" />
                         </div>
                     </div>

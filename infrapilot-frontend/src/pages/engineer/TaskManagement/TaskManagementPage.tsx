@@ -129,6 +129,26 @@ const TaskManagementPage = () => {
     const [generateBoqId, setGenerateBoqId] = useState<number | "">("");
     const [generateMilestoneId, setGenerateMilestoneId] = useState<number | "">("");
     const [isGeneratingBoq, setIsGeneratingBoq] = useState(false);
+    
+    const [availableBoqs, setAvailableBoqs] = useState<any[]>([]);
+    const [isFetchingBoqs, setIsFetchingBoqs] = useState(false);
+
+    useEffect(() => {
+        if (isGenerateBoqModalOpen && projectId) {
+            setIsFetchingBoqs(true);
+            boqService.getBoqsByProject(projectId).then((boqs: any[]) => {
+                setAvailableBoqs(boqs);
+                if (boqs.length > 0) {
+                    setGenerateBoqId(boqs[0].id || boqs[0].boq_id || "");
+                }
+            }).catch(err => {
+                console.error("Failed to fetch BOQs", err);
+                setAvailableBoqs([]);
+            }).finally(() => {
+                setIsFetchingBoqs(false);
+            });
+        }
+    }, [isGenerateBoqModalOpen, projectId]);
 
     const handleGenerateBoqToTask = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -2444,14 +2464,22 @@ const TaskManagementPage = () => {
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-bold text-slate-800 mb-2">BOQ ID <span className="text-rose-500">*</span></label>
-                        <input
-                            type="number"
-                            value={generateBoqId}
-                            onChange={(e) => setGenerateBoqId(e.target.value ? Number(e.target.value) : "")}
-                            placeholder="Enter BOQ ID"
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                            required
-                        />
+                        <div className="relative">
+                            <select
+                                value={generateBoqId}
+                                onChange={(e) => setGenerateBoqId(e.target.value ? Number(e.target.value) : "")}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all"
+                                required
+                                disabled={isFetchingBoqs || availableBoqs.length === 0}
+                            >
+                                <option value="" disabled>{isFetchingBoqs ? "Loading..." : (availableBoqs.length === 0 ? "No BOQs available" : "Select a BOQ")}</option>
+                                {availableBoqs.map((boq) => (
+                                    <option key={boq.id || boq.boq_id} value={boq.id || boq.boq_id}>
+                                        {boq.name || boq.boq_name || boq.title || `BOQ #${boq.id || boq.boq_id}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-bold text-slate-800 mb-2">Milestone ID <span className="text-slate-400 font-normal">(Optional)</span></label>

@@ -540,9 +540,7 @@ const LaborDetailsPage = () => {
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Aadhaar Number</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Labour Name</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Mobile Number</th>
-                                        <th className="px-4 py-4 font-inter whitespace-nowrap">PAN Number</th>
-                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Address</th>
-                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Email</th>
+
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Profile Image</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Labour Type Name</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Skill Category</th>
@@ -575,18 +573,7 @@ const LaborDetailsPage = () => {
                                             <td className="px-4 py-4">
                                                 <span className="text-xs text-slate-600 font-inter">{labor.mobile_number || "—"}</span>
                                             </td>
-                                            {/* pan_number */}
-                                            <td className="px-4 py-4">
-                                                <span className="text-xs font-mono text-slate-600 font-inter">{labor.pan_number || "—"}</span>
-                                            </td>
-                                            {/* address */}
-                                            <td className="px-4 py-4">
-                                                <span className="text-xs text-slate-500 font-inter max-w-[120px] block truncate" title={labor.address || ""}>{labor.address || "—"}</span>
-                                            </td>
-                                            {/* email */}
-                                            <td className="px-4 py-4">
-                                                <span className="text-xs text-slate-500 font-inter">{labor.email || "—"}</span>
-                                            </td>
+
                                             {/* profile_image */}
                                             <td className="px-4 py-4">
                                                 {labor.profile_image ? (
