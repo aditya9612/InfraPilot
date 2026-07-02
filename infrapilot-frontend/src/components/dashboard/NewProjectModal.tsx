@@ -34,6 +34,7 @@ const NewProjectModal = ({
     shift_start_time: "09:00",
     shift_end_time: "18:00",
     grace_period_minutes: 15,
+    budget_amount: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -165,6 +166,7 @@ const NewProjectModal = ({
         latitude: formData.latitude ? Number(formData.latitude) : undefined,
         longitude: formData.longitude ? Number(formData.longitude) : undefined,
         grace_period_minutes: Number(formData.grace_period_minutes),
+        budget_amount: formData.budget_amount ? Number(formData.budget_amount) : 0,
       };
       if (onSubmit) await onSubmit(requestBody);
       onClose();
@@ -313,6 +315,24 @@ const NewProjectModal = ({
                   {errors.description}
                 </p>
               )}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 mb-1">
+                Budget Amount (₹)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">₹</span>
+                <input
+                  type="number"
+                  name="budget_amount"
+                  value={formData.budget_amount}
+                  onChange={handleChange}
+                  placeholder="e.g. 5000000"
+                  min="0"
+                  step="any"
+                  className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-300"
+                />
+              </div>
             </div>
           </div>
         </div>

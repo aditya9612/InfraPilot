@@ -1,5 +1,4 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { Camera, X } from "lucide-react";
 import Modal from "../common/Modal";
 import type { ActivityItem, DailyProgressRequest } from "../../types/workProgress";
 
@@ -8,7 +7,7 @@ interface LogProgressModalProps {
   onClose: () => void;
   onSubmit: (data: DailyProgressRequest) => Promise<void>;
   activity: ActivityItem | null;
-  activitiesList?: ActivityItem[]; // List for selection if activity is null
+  activitiesList?: ActivityItem[];
   engineerId: number;
 }
 
@@ -19,9 +18,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
     entry_date: new Date().toISOString().split("T")[0],
     today_progress: "" as any,
     remarks: "",
-    photos: [] as string[]
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -31,8 +28,8 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
         entry_date: new Date().toISOString().split("T")[0],
         today_progress: "" as any,
         remarks: "",
-        photos: []
       });
+      setErrors({});
     }
   }, [isOpen, activity]);
 
@@ -40,11 +37,9 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
     const errs: Record<string, string> = {};
     if (!formData.activity_id) errs.activity_id = "Activity selection is required";
     if (!formData.entry_date) errs.entry_date = "Date is required";
-
     if (!formData.today_progress || formData.today_progress <= 0) {
       errs.today_progress = "Executed quantity must be greater than 0";
     }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -60,7 +55,6 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
         today_progress: formData.today_progress,
         remarks: formData.remarks,
         created_by: engineerId,
-        photos: formData.photos
       });
       setErrors({});
     } catch (err) {
@@ -77,45 +71,15 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
       val = value === "" ? "" : Number(value);
       if (typeof val === "number" && val < 0) return;
     }
-
     setFormData(prev => ({ ...prev, [name]: val }));
     if (errors[name]) {
-      setErrors(prev => {
-        const { [name]: _, ...rest } = prev;
-        return rest;
-      });
+      setErrors(prev => { const { [name]: _, ...rest } = prev; return rest; });
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({
-          ...prev,
-          photos: [...(prev.photos || []), reader.result as string]
-        }));
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const removePhoto = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      photos: (prev.photos || []).filter((_, i) => i !== index)
-    }));
-  };
-
   const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
-  const inputClasses = (error?: string) => `
-    w-full px-4 py-2.5 bg-white border 
-    ${error ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} 
-    rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300 font-inter
-  `;
+  const inputClasses = (error?: string) =>
+    `w-full px-4 py-2.5 bg-white border ${error ? "border-rose-300 focus:ring-rose-200" : "border-slate-200 focus:ring-primary/20 focus:border-primary"} rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-300 font-inter`;
 
   const selectedActivity = activity || activitiesList.find(a => String(a.id) === formData.activity_id);
 
@@ -133,7 +97,7 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
         form="log-progress-form"
         type="submit"
         disabled={isSubmitting || !formData.activity_id}
-        className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+        className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSubmitting ? "opacity-70 cursor-not-allowed" : "active:scale-95"}`}
       >
         {isSubmitting ? "Syncing..." : "Add Daily Progress"}
       </button>
@@ -143,11 +107,10 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add Daily Progress" footer={modalFooter} maxWidth="max-w-2xl">
       <form id="log-progress-form" onSubmit={handleSubmit} className="space-y-6 p-2 font-inter">
-        {/* Context Section */}
+
+        {/* Basic Information */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Basic Information
-          </h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
           {activity ? (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Logging For</p>
@@ -159,97 +122,65 @@ const LogProgressModal = ({ isOpen, onClose, onSubmit, activity, activitiesList 
             </div>
           ) : (
             <div>
-              <label className={labelClasses}>Select Target Activity*</label>
+              <label className={labelClasses}>Select Target Activity *</label>
               <select
-                required
-                name="activity_id"
+                required name="activity_id"
                 className={inputClasses(errors.activity_id)}
-                value={formData.activity_id}
-                onChange={handleChange}
+                value={formData.activity_id} onChange={handleChange}
               >
                 <option value="">Select from project registry</option>
                 {activitiesList.map(a => (
                   <option key={a.id} value={a.id}>{a.activity_name}</option>
                 ))}
               </select>
-              {errors.activity_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.activity_id}</p>}
+              {errors.activity_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.activity_id}</p>}
             </div>
           )}
         </div>
 
-        {/* Execution Metrics */}
+        {/* Execution Details */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Execution Details
-          </h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Execution Details</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Entry Date <span className="text-rose-500">*</span></label>
               <input
-                required type="date" name="entry_date" className={inputClasses(errors.entry_date)}
+                required type="date" name="entry_date"
+                className={inputClasses(errors.entry_date)}
                 value={formData.entry_date} onChange={handleChange}
               />
-              {errors.entry_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entry_date}</p>}
+              {errors.entry_date && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.entry_date}</p>}
             </div>
             <div>
               <label className={labelClasses}>
-                Today Progress {selectedActivity ? `(${selectedActivity.unit}) (Planned: ${selectedActivity.planned_quantity || 0}, Remaining: ${selectedActivity.remaining_quantity || 0})` : ""} <span className="text-rose-500">*</span>
+                Today Progress{selectedActivity ? ` (${selectedActivity.unit}) — Remaining: ${selectedActivity.remaining_quantity || 0}` : ""} <span className="text-rose-500">*</span>
               </label>
               <input
                 required type="number" name="today_progress" min="0" step="any" placeholder="Enter quantity"
-                className={`${inputClasses(errors.today_progress)} ${selectedActivity && selectedActivity.remaining_quantity <= 0 ? 'bg-slate-50 cursor-not-allowed opacity-60' : ''}`}
+                className={`${inputClasses(errors.today_progress)} ${selectedActivity && selectedActivity.remaining_quantity <= 0 ? "bg-slate-50 cursor-not-allowed opacity-60" : ""}`}
                 value={formData.today_progress} onChange={handleChange}
-                disabled={selectedActivity ? selectedActivity.remaining_quantity <= 0 : false}
+                disabled={!!(selectedActivity && selectedActivity.remaining_quantity <= 0)}
               />
-              {errors.today_progress && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.today_progress}</p>}
+              {errors.today_progress && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.today_progress}</p>}
               {selectedActivity && selectedActivity.remaining_quantity <= 0 && (
-                  <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">Quantity fully utilized.</p>
+                <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">Quantity fully utilized.</p>
               )}
             </div>
           </div>
         </div>
 
-        {/* Narrative Section */}
+        {/* Additional Information */}
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">
-            Additional Information
-          </h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Additional Information</h3>
           <label className={labelClasses}>Remarks</label>
           <textarea
             name="remarks" rows={3} placeholder="Describe site conditions or progress..."
-            className={`${inputClasses(errors.remarks)} resize-none font-inter`}
+            className={`${inputClasses(errors.remarks)} resize-none`}
             value={formData.remarks} onChange={handleChange}
           />
-          {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.remarks}</p>}
+          {errors.remarks && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.remarks}</p>}
         </div>
 
-        {/* Evidence Section */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
-            <Camera className="w-4 h-4 text-primary" />
-            Visual Evidence
-          </h3>
-          <div className="grid grid-cols-4 gap-4 mb-4">
-            {formData.photos.map((p, i) => (
-              <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50">
-                <img src={p} alt="Site" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removePhoto(i)}
-                  className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-            <label className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all group">
-              <Camera className="w-6 h-6 text-slate-300 group-hover:text-primary transition-colors" />
-              <span className="text-[10px] font-bold text-slate-400 group-hover:text-primary uppercase tracking-widest">Add Photo</span>
-              <input type="file" multiple accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-            </label>
-          </div>
-          <p className="text-[10px] text-slate-400 font-medium italic">Upload site photos to verify the reported progress.</p>
-        </div>
       </form>
     </Modal>
   );

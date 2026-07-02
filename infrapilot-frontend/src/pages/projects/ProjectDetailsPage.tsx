@@ -11,6 +11,7 @@ import TeamMembersList from "../../components/projects/TeamMembersList";
 import ProfitLossCard from "../../components/projects/ProfitLossCard";
 import ProjectExpensesTable from "../../components/projects/ProjectExpensesTable";
 import { generateProjectReport, generateProjectReportPDF } from "../../utils/reportGenerator";
+import { reportService } from "../../services/reportService";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
 import AssignMemberModal from "../../components/projects/AssignMemberModal";
 import toast from "react-hot-toast";
@@ -20,6 +21,7 @@ import CreateTaskModal from "../../components/projects/CreateTaskModal";
 import TaskListView from "../../components/projects/TaskListView";
 import EditTaskModal from "../../components/projects/EditTaskModal";
 import TaskDetailsModal from "../../components/projects/TaskDetailsModal";
+import { LayoutGrid, List as ListIcon } from "lucide-react";
 
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -67,6 +69,7 @@ const ProjectDetailsPage = () => {
   const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
+  const [taskStatusFilter, setTaskStatusFilter] = useState("All");
 
   // Profit & Loss and Expenses (Still partially mock/local for and, but connected to stats)
   const [profitLoss, setProfitLoss] = useState<any>(null);
@@ -74,6 +77,9 @@ const ProjectDetailsPage = () => {
   const [photos, setPhotos] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [isLogsLoading, setIsLogsLoading] = useState(false);
+
+  const [photoViewMode, setPhotoViewMode] = useState<"grid" | "list">("grid");
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
 
   const fetchProjectData = useCallback(async () => {
     if (!projectId) return;
@@ -220,24 +226,34 @@ const ProjectDetailsPage = () => {
 
   const handleUpdateTask = async (updatedData: any) => {
     try {
-      const { task_id, project_id: _pid, ...cleanData } = updatedData;
+      let task_id;
+      let payload;
 
-      // Data scrubbing: Ensure we don't send IDs in the body as they are already in the URL
-      // This prevents payload bloat and potential 422/Network errors on strict backends
-      const payload = { ...cleanData };
-      delete (payload as any).task_id;
-      delete (payload as any).project_id;
+      if (updatedData instanceof FormData) {
+        task_id = Number(updatedData.get("task_id"));
+        updatedData.delete("task_id");
+        updatedData.delete("project_id");
+        payload = updatedData;
+      } else {
+        const { task_id: tId, project_id: _pid, ...cleanData } = updatedData;
+        task_id = tId || updatedData.id;
+        payload = { ...cleanData };
+        delete (payload as any).task_id;
+        delete (payload as any).project_id;
+      }
 
       // 1. Update core task info (title, description, etc)
       await projectService.updateTask(projectId, task_id, payload);
 
       // 2. Explicitly update progress history if percentage is provided.
-      if (payload.percentage !== undefined) {
+      const percentageStr = payload instanceof FormData ? payload.get("percentage") : payload.percentage;
+      if (percentageStr !== undefined && percentageStr !== null) {
+        const percentage = Number(percentageStr);
         await projectService
           .updateTaskProgress(projectId, task_id, {
             task_id: task_id,
-            percentage: payload.percentage,
-            completion_percentage: payload.percentage,
+            percentage: percentage,
+            completion_percentage: percentage,
             remarks: "Updated via edit modal",
           })
           .catch((err) =>
@@ -319,7 +335,7 @@ const ProjectDetailsPage = () => {
     if (!tasks || tasks.length === 0) return 0;
     const totalTasks = tasks.length;
     const completedTasksCount = tasks.filter(
-      (t) => t.status === "Completed",
+      (t) => t.status?.toLowerCase() === "completed",
     ).length;
     return Math.round((completedTasksCount / totalTasks) * 100);
   }, [tasks, project, progress]);
@@ -327,10 +343,10 @@ const ProjectDetailsPage = () => {
   // Timeline Phase Logic
   const currentPhase = useMemo(() => {
     if (!milestones || milestones.length === 0) return "Planning";
-    const inProgress = milestones.find((m) => m.status === "In Progress");
+    const inProgress = milestones.find((m) => m.status?.toLowerCase() === "in progress");
     if (inProgress) return inProgress.title;
     const completedCount = milestones.filter(
-      (m) => m.status === "Completed",
+      (m) => m.status?.toLowerCase() === "completed",
     ).length;
     if (completedCount === milestones.length) return "Handover";
     return milestones[completedCount]?.title || "Executing";
@@ -529,129 +545,128 @@ const ProjectDetailsPage = () => {
         {/* Tab Content */}
         <div className="animate-in fade-in duration-500">
           {activeTab === "Overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left: 2 cols — Site Schedule + Location */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Site Schedule & Monitoring */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-bold text-slate-800">Site Schedule & Monitoring</h3>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => setIsScheduleModalOpen(true)}
-                        className="px-3 py-1 text-[10px] font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-all border border-primary/10"
-                      >
-                        Update Schedule
-                      </button>
-                      <div className="flex items-center gap-2 px-3 py-1 bg-violet-50 border border-violet-100 rounded-lg">
-                        <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
-                        <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">
-                          Active Phase: {currentPhase}
-                        </span>
-                      </div>
+            <div className="space-y-6">
+              {/* Row 1: Schedule (full width) */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="font-bold text-slate-800">Site Schedule & Monitoring</h3>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setIsScheduleModalOpen(true)}
+                      className="px-3 py-1 text-[10px] font-bold text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-all border border-primary/10"
+                    >
+                      Update Schedule
+                    </button>
+                    <div className="flex items-center gap-2 px-3 py-1 bg-violet-50 border border-violet-100 rounded-lg">
+                      <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                      <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">
+                        Active Phase: {currentPhase}
+                      </span>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
-                      <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {new Date(schedule?.start_date || project.start_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">End Date</p>
-                      <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {new Date(schedule?.end_date || project.end_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 transition-all hover:bg-white hover:shadow-md group">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Site Progress</p>
-                      <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                        {displayProgress}% Calculated
-                      </p>
-                    </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                  <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 hover:bg-white hover:shadow-md transition-all group">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
+                    <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
+                      {new Date(schedule?.start_date || project.start_date).toLocaleDateString()}
+                    </p>
                   </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      <span>Task Completion Progress</span>
+                  <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 hover:bg-white hover:shadow-md transition-all group">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">End Date</p>
+                    <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
+                      {new Date(schedule?.end_date || project.end_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 hover:bg-white hover:shadow-md transition-all group">
+                    <p className="text-[10px] font-bold text-primary/60 uppercase mb-1">Site Progress</p>
+                    <p className="text-sm font-bold text-primary">{displayProgress}% Calculated</p>
+                  </div>
+                  <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 flex flex-col justify-center">
+                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                      <span>Task Completion</span>
                       <span className="text-slate-700 font-black">{displayProgress}%</span>
                     </div>
-                    <div className="relative w-full h-3 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+                    <div className="relative w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
-                        className="absolute top-0 left-0 h-full bg-primary transition-all duration-1000 shadow-[0_0_10px_rgba(37,99,235,0.4)]"
+                        className="absolute top-0 left-0 h-full bg-primary transition-all duration-1000 shadow-[0_0_8px_rgba(37,99,235,0.4)]"
                         style={{ width: `${displayProgress}%` }}
                       />
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Project Identity & Location */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                  <h3 className="font-bold text-slate-800 mb-5 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
-                    Project Identity & Location
-                  </h3>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Project Type</p>
-                      <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 text-center">{project.type || "N/A"}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Location Category</p>
-                      <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 text-center">{project.location_type || "N/A"}</p>
-                    </div>
-                    <div className="col-span-2 space-y-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Site Address</p>
-                      <p className="text-sm font-medium text-slate-600 italic">
-                        {project.site_address ? `${project.site_address}, ${project.city}, ${project.pincode}` : "Address not provided"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 pt-5 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" /><path d="m16.24 7.76-8.48 8.48" /><path d="m7.76 7.76 8.48 8.48" /></svg>
+              {/* Row 2: Left col (Location + Financial) | Right col (Team Members) */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                {/* Left: Location + Financial stacked */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Project Identity & Location */}
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                    <h3 className="font-bold text-slate-800 mb-5 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
+                      Project Identity & Location
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Project Type</p>
+                        <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 text-center">{project.type || "N/A"}</p>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">GPS Navigation</p>
-                        <div className="flex gap-4 mt-1">
-                          <div><span className="text-[9px] font-bold text-slate-300 uppercase block">Lat</span><span className="text-sm font-mono font-bold text-slate-800">{project.latitude || "—"}</span></div>
-                          <div><span className="text-[9px] font-bold text-slate-300 uppercase block">Long</span><span className="text-sm font-mono font-bold text-slate-800">{project.longitude || "—"}</span></div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Location Category</p>
+                        <p className="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100/50 text-center">{project.location_type || "N/A"}</p>
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Site Address</p>
+                        <p className="text-sm font-medium text-slate-600 italic">
+                          {project.site_address ? `${project.site_address}, ${project.city}, ${project.pincode}` : "Address not provided"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-4 border-t border-slate-50 grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <div className="p-2 bg-white rounded-lg border border-blue-100 flex-shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" /></svg>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">GPS Navigation</p>
+                          <div className="flex gap-3">
+                            <span className="text-xs font-mono font-bold text-slate-700">Lat: {project.latitude || "—"}</span>
+                            <span className="text-xs font-mono font-bold text-slate-700">Long: {project.longitude || "—"}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="p-2 bg-white rounded-lg border border-slate-100 flex-shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Region</p>
+                          <p className="text-xs font-bold text-slate-700">{project.state}, {project.country}</p>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Region</p>
-                        <p className="text-sm font-bold text-slate-700 mt-1">{project.state}, {project.country}</p>
-                      </div>
-                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Right: 1 col — Team Members + Financial Overview */}
-              <div className="space-y-6">
-                <TeamMembersList
-                  members={members}
-                  onAssignClick={() => setIsAssignModalOpen(true)}
-                  onRemoveMember={handleRemoveMemberClick}
-                />
-                {profitLoss && <ProfitLossCard data={profitLoss} />}
+                  {/* Financial Overview */}
+                  {profitLoss && <ProfitLossCard data={profitLoss} />}
+                </div>
+
+                {/* Right: Team Members */}
+                <div>
+                  <TeamMembersList
+                    members={members}
+                    onAssignClick={() => setIsAssignModalOpen(true)}
+                    onRemoveMember={handleRemoveMemberClick}
+                  />
+                </div>
               </div>
             </div>
           )}
 
           {activeTab === "Tasks" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Calculated Completion</p>
                   <p className="text-2xl font-black text-primary">{(progress?.completion_percentage || displayProgress).toFixed(2)}%</p>
@@ -659,6 +674,10 @@ const ProjectDetailsPage = () => {
                 <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status</p>
                   <p className="text-2xl font-black text-slate-700">{progress?.status || project.status}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Completed Tasks</p>
+                  <p className="text-2xl font-black text-emerald-600">{tasks.filter(t => t.status?.toLowerCase() === "completed").length}</p>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Tasks</p>
@@ -687,6 +706,18 @@ const ProjectDetailsPage = () => {
                         className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all w-48"
                       />
                     </div>
+                    <select
+                      value={taskStatusFilter}
+                      onChange={(e) => setTaskStatusFilter(e.target.value)}
+                      className="py-2 pl-3 pr-8 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer appearance-none"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center' }}
+                    >
+                      <option value="All">All Status</option>
+                      <option value="Planned">Planned</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
                     <button
                       onClick={() => setIsCreateTaskModalOpen(true)}
                       className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
@@ -696,11 +727,14 @@ const ProjectDetailsPage = () => {
                   </div>
                 </div>
                 <TaskListView
-                  tasks={tasks.filter(t =>
-                    !taskSearchQuery ||
-                    t.title?.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
-                    t.description?.toLowerCase().includes(taskSearchQuery.toLowerCase())
-                  )}
+                  tasks={tasks.filter(t => {
+                    const matchesSearch = !taskSearchQuery ||
+                      t.title?.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
+                      t.description?.toLowerCase().includes(taskSearchQuery.toLowerCase());
+                    const matchesStatus = taskStatusFilter === "All" ||
+                      t.status === taskStatusFilter;
+                    return matchesSearch && matchesStatus;
+                  })}
                   members={members}
                   projectName={project?.project_name}
                   onEdit={(task) => { setSelectedTask(task); setIsEditTaskModalOpen(true); }}
@@ -714,16 +748,17 @@ const ProjectDetailsPage = () => {
           {activeTab === "Milestones" && (
             <div className="space-y-6 w-full">
               {/* Milestone Count Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
-                  { label: "Total", value: milestones.length },
-                  { label: "In Progress", value: milestones.filter(m => m.status === "In Progress").length },
-                  { label: "Completed", value: milestones.filter(m => m.status === "Completed").length },
-                  { label: "Pending", value: milestones.filter(m => !m.status || m.status === "Pending" || m.status === "Not Started").length },
+                  { label: "Total", value: milestones.length, color: "text-slate-800" },
+                  { label: "Planned", value: milestones.filter(m => m.status?.toLowerCase() === "planned").length, color: "text-blue-600" },
+                  { label: "In Progress", value: milestones.filter(m => m.status?.toLowerCase() === "in progress").length, color: "text-primary" },
+                  { label: "Completed", value: milestones.filter(m => m.status?.toLowerCase() === "completed").length, color: "text-emerald-600" },
+                  { label: "Delayed", value: milestones.filter(m => m.status?.toLowerCase() === "delayed").length, color: "text-rose-600" },
                 ].map(s => (
                   <div key={s.label} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
-                    <p className="text-2xl font-black text-slate-800">{s.value}</p>
+                    <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
                   </div>
                 ))}
               </div>
@@ -751,6 +786,55 @@ const ProjectDetailsPage = () => {
                     <h4 className="text-2xl font-black">
                       Financial Ledger: {project.project_name}
                     </h4>
+                    {/* Download Buttons */}
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        onClick={async () => {
+                          const toastId = toast.loading("Generating Excel...");
+                          try {
+                            const blob = await reportService.exportProfitLossExcel(projectId);
+                            const url = window.URL.createObjectURL(new Blob([blob]));
+                            const link = document.createElement("a");
+                            link.href = url;
+                            link.setAttribute("download", `ProfitLoss_${project.project_name.replace(/\s+/g, '_')}.xlsx`);
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                            window.URL.revokeObjectURL(url);
+                            toast.success("Excel downloaded!", { id: toastId });
+                          } catch {
+                            toast.error("Failed to download Excel", { id: toastId });
+                          }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg transition-all active:scale-95 shadow-md"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        Excel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const toastId = toast.loading("Generating PDF...");
+                          try {
+                            const blob = await reportService.exportProfitLossPDF(projectId);
+                            const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+                            const link = document.createElement("a");
+                            link.href = url;
+                            link.setAttribute("download", `ProfitLoss_${project.project_name.replace(/\s+/g, '_')}.pdf`);
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                            window.URL.revokeObjectURL(url);
+                            toast.success("PDF downloaded!", { id: toastId });
+                          } catch {
+                            toast.error("Failed to download PDF", { id: toastId });
+                          }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-lg transition-all active:scale-95 border border-white/20"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                        PDF
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-4">
                     <div className="px-4 py-3 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
@@ -795,18 +879,81 @@ const ProjectDetailsPage = () => {
           )}
 
           {activeTab === "Photos" && (
-            <div className="w-full">
-              {/* Photo Gallery mapping placeholder */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {photos.map((photo) => (
-                  <div key={photo.id} className="aspect-square bg-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
-                    <img src={sitePhotoService.resolveUrl(photo.url) || ""} alt={photo.description} className="w-full h-full object-cover" />
-                  </div>
-                ))}
+            <div className="w-full space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-slate-800">Site Photos Gallery</h3>
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button
+                    onClick={() => setPhotoViewMode("grid")}
+                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center justify-center ${photoViewMode === "grid" ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-700"}`}
+                    title="Grid View"
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setPhotoViewMode("list")}
+                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center justify-center ${photoViewMode === "list" ? "bg-white shadow-sm text-primary" : "text-slate-500 hover:text-slate-700"}`}
+                    title="List View"
+                  >
+                    <ListIcon className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+
+              {photoViewMode === "grid" ? (
+                <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                  {photos.map((photo) => (
+                    <div
+                      key={photo.id}
+                      onClick={() => setViewingPhoto(sitePhotoService.resolveUrl(photo.url))}
+                      className="aspect-square bg-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                    >
+                      <img src={sitePhotoService.resolveUrl(photo.url) || ""} alt={photo.description} className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-100">
+                  {photos.map((photo) => (
+                    <div key={photo.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
+                      <div
+                        onClick={() => setViewingPhoto(sitePhotoService.resolveUrl(photo.url))}
+                        className="w-16 h-16 shrink-0 bg-slate-200 rounded-lg overflow-hidden shadow-sm hover:ring-2 hover:ring-primary/50 cursor-pointer"
+                      >
+                        <img src={sitePhotoService.resolveUrl(photo.url) || ""} alt={photo.description} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-sm text-slate-800">{photo.title || "Photo"}</p>
+                        <p className="text-xs text-slate-500 line-clamp-1">{photo.description || "No description provided."}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">{photo.created_at ? new Date(photo.created_at).toLocaleDateString() : 'N/A'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {photos.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-100 italic text-slate-400">
                   <p>No site photos uploaded yet.</p>
+                </div>
+              )}
+
+              {/* Fullscreen Photo Viewer Lightbox */}
+              {viewingPhoto && (
+                <div
+                  className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-200"
+                  onClick={() => setViewingPhoto(null)}
+                >
+                  <img
+                    src={viewingPhoto}
+                    alt="Enlarged"
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
+                  />
+                  <div className="absolute top-6 right-6 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white/50 hover:bg-white/20 hover:text-white transition-all cursor-pointer">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </div>
                 </div>
               )}
             </div>

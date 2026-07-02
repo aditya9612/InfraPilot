@@ -391,14 +391,23 @@ export const projectService = {
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
     try {
-      // Auto-detect: FormData → multipart (for file/audio uploads), plain object → JSON
-      const isFormData = taskData instanceof FormData;
+      // Backend requires multipart/form-data for this endpoint
+      // If plain object passed, convert it to FormData
+      let payload: FormData;
+      if (taskData instanceof FormData) {
+        payload = taskData;
+      } else {
+        payload = new FormData();
+        for (const [key, value] of Object.entries(taskData)) {
+          if (value !== undefined && value !== null) {
+            payload.append(key, String(value));
+          }
+        }
+      }
       const response = await api.put(
         `/projects/${projectId}/tasks/${taskId}`,
-        taskData,
-        isFormData
-          ? { headers: { "Content-Type": "multipart/form-data" } }
-          : { headers: { "Content-Type": "application/json" } }
+        payload,
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
       return response.data;
     } catch (error: any) {

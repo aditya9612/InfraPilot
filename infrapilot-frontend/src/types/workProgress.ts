@@ -67,5 +67,4 @@ export interface DailyProgressRequest {
   today_progress: number;
   remarks: string;
   created_by: number;
-  photos?: string[];
 }

@@ -26,7 +26,7 @@ const CreateTaskModal = ({
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    priority: 1,
+    priority: 4,
     status: "Planned" as TaskStatus,
     start_date: "",
     end_date: "",
@@ -232,7 +232,7 @@ const CreateTaskModal = ({
       setFormData({
         title: "",
         description: "",
-        priority: 1,
+        priority: 4,
         status: "Planned",
         start_date: "",
         end_date: "",
@@ -335,12 +335,30 @@ const CreateTaskModal = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Priority (1-5)</label>
-                    <input
-                      type="number" name="priority" min="1" max="5" value={formData.priority} onChange={handleChange}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium"
-                    />
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Priority</label>
+                    <select
+                      name="priority" value={formData.priority} onChange={handleChange}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium appearance-none"
+                    >
+                      <option value={4}>Low</option>
+                      <option value={3}>Medium</option>
+                      <option value={2}>High</option>
+                      <option value={1}>Critical</option>
+                    </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Status</label>
+                  <select
+                    name="status" value={formData.status} onChange={handleChange}
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all font-medium"
+                  >
+                    <option value="Planned">Planned</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
                 </div>
               </div>
             </div>

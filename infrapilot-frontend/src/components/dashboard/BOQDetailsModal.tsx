@@ -59,6 +59,19 @@ const BOQDetailsModal: React.FC<BOQDetailsModalProps> = ({
                 >
                   {boqItem.status}
                 </span>
+                {boqItem.approval_status && (
+                  <span
+                    className={`px-3 py-1 backdrop-blur-md border rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                      boqItem.approval_status === "Approved"
+                        ? "bg-emerald-500/30 border-emerald-400/30 text-emerald-200"
+                        : boqItem.approval_status === "Rejected"
+                        ? "bg-rose-500/30 border-rose-400/30 text-rose-200"
+                        : "bg-amber-500/30 border-amber-400/30 text-amber-200"
+                    }`}
+                  >
+                    {boqItem.approval_status}
+                  </span>
+                )}
               </div>
               <p className="text-white font-bold flex items-center justify-center md:justify-start gap-2">
                 Project: {projectName}
@@ -95,6 +108,17 @@ const BOQDetailsModal: React.FC<BOQDetailsModalProps> = ({
             <InfoItem label="Item Name" value={boqItem.item_name} />
             <InfoItem label="Description" value={boqItem.description} />
             <InfoItem label="Version Number" value={`v${boqItem.version_no}`} />
+            <InfoItem
+              label="Approval Status"
+              value={boqItem.approval_status || "—"}
+              valueClass={
+                boqItem.approval_status === "Approved"
+                  ? "text-emerald-600"
+                  : boqItem.approval_status === "Rejected"
+                  ? "text-rose-600"
+                  : "text-amber-600"
+              }
+            />
           </Section>
 
           {/* Quantity & Unit */}
