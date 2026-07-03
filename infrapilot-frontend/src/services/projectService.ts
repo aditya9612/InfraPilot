@@ -293,7 +293,7 @@ export const projectService = {
       }));
 
       if (Array.isArray(data)) return mappedItems;
-      
+
       return {
         ...data,
         items: mappedItems
@@ -585,9 +585,18 @@ export const projectService = {
 
     try {
       console.log(`[ProjectService] Refreshing assigned projects for user ${userId}...`);
-      // 1. Fetch projects (limit 100)
-      const pRes = await this.getProjects(100, 0);
-      const projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
+      // 1. Fetch ALL projects in chunks to bypass the backend 100-limit
+      let projectList: any[] = [];
+      let offset = 0;
+      const limit = 100;
+      while (true) {
+        const pRes = await this.getProjects(limit, undefined, "", "", offset);
+        const chunk = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
+        if (chunk.length === 0) break;
+        projectList = [...projectList, ...chunk];
+        if (chunk.length < limit || projectList.length >= 2000) break; // circuit breaker
+        offset += limit;
+      }
 
       if (projectList.length === 0) return [];
 

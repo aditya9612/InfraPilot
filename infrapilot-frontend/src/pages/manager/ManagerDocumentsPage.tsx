@@ -87,7 +87,7 @@ const ManagerDocumentsPage = () => {
     // Edit Modal State
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editForm, setEditForm] = useState({
-        id: 0, title: "", document_type: "", remarks: "", version: "", status: ""
+        id: 0, title: "", document_type: "", remarks: "", version: "", status: "", date: ""
     });
     const [editFile, setEditFile] = useState<File | null>(null);
     const editFileInputRef = React.useRef<HTMLInputElement>(null);
@@ -99,7 +99,7 @@ const ManagerDocumentsPage = () => {
 
     // Form
     const [uploadForm, setUploadForm] = useState({
-        title: "", document_type: "Drawing", remarks: "", version: ""
+        title: "", document_type: "Drawing", remarks: "", version: "", date: "", parent_id: null as number | null
     });
     const [uploadProjectId, setUploadProjectId] = useState<number | null>(null);
     const [folderName, setFolderName] = useState("");
@@ -168,13 +168,19 @@ const ManagerDocumentsPage = () => {
 
     // ─── Actions ─────────────────────────────────────────────────────
     const handleUpload = async () => {
-        if (!uploadFile || !uploadForm.title.trim()) {
-            toast.error("Drawing name and file are required.");
+        if (!uploadFile) {
+            toast.error("Please select a file.");
             return;
         }
-        if (!uploadForm.version.trim()) {
-            toast.error("Version is required.");
-            return;
+        if (mainTab === "Drawings") {
+            if (!uploadForm.title.trim()) {
+                toast.error("Drawing name is required.");
+                return;
+            }
+            if (!uploadForm.version.trim()) {
+                toast.error("Version is required.");
+                return;
+            }
         }
         const targetProjectId = uploadProjectId || selectedProjectId;
         if (!targetProjectId) { toast.error("Please select a project."); return; }
@@ -182,16 +188,17 @@ const ManagerDocumentsPage = () => {
         try {
             await documentService.uploadDocument({
                 project_id: targetProjectId,
-                title: uploadForm.title,
-                document_type: uploadForm.document_type,
-                remarks: uploadForm.remarks,
-                version: uploadForm.version,
-                parent_id: currentParentId || undefined,
+                title: uploadForm.title || undefined,
+                document_type: uploadForm.document_type || undefined,
+                remarks: uploadForm.remarks || undefined,
+                version: uploadForm.version || undefined,
+                date: uploadForm.date || undefined,
+                parent_id: uploadForm.parent_id ?? currentParentId ?? undefined,
                 file: uploadFile,
             });
             toast.success("Document uploaded successfully!");
             setIsUploadModalOpen(false);
-            setUploadForm({ title: "", document_type: "Drawing", remarks: "", version: "" });
+            setUploadForm({ title: "", document_type: "Drawing", remarks: "", version: "", date: "", parent_id: null });
             setUploadFile(null);
             if (targetProjectId !== selectedProjectId) {
                 setSelectedProjectId(targetProjectId);
@@ -249,6 +256,7 @@ const ManagerDocumentsPage = () => {
             remarks: doc.remarks || "",
             version: doc.version || "v1.0",
             status: doc.status || "PENDING",
+            date: (doc as any).date || "",
         });
         setEditFile(null);
         setIsEditModalOpen(true);
@@ -262,27 +270,37 @@ const ManagerDocumentsPage = () => {
         setIsSubmitting(true);
         const toastId = toast.loading("Updating metadata...");
         try {
-            let payload: DocumentUpdateParams | FormData;
-            if (editFile) {
-                const fd = new FormData();
-                fd.append("title", editForm.title);
-                fd.append("document_type", editForm.document_type);
-                fd.append("remarks", editForm.remarks);
-                fd.append("version", editForm.version);
-                fd.append("status", editForm.status);
-                fd.append("file", editFile);
-                payload = fd;
-            } else {
-                payload = {
-                    title: editForm.title,
-                    document_type: editForm.document_type,
-                    remarks: editForm.remarks,
+            if (mainTab === "Drawings") {
+                // PUT /api/v1/drawings/{id} — application/json
+                await drawingService.updateDrawing(editForm.id, {
+                    drawing_name: editForm.title,
                     version: editForm.version,
-                    status: editForm.status,
-                };
+                    date: editForm.date || null,
+                    remarks: editForm.remarks || null,
+                });
+            } else {
+                let payload: DocumentUpdateParams | FormData;
+                if (editFile) {
+                    const fd = new FormData();
+                    fd.append("title", editForm.title);
+                    fd.append("document_type", editForm.document_type);
+                    fd.append("remarks", editForm.remarks);
+                    fd.append("version", editForm.version);
+                    fd.append("status", editForm.status);
+                    fd.append("file", editFile);
+                    payload = fd;
+                } else {
+                    payload = {
+                        title: editForm.title,
+                        document_type: editForm.document_type,
+                        remarks: editForm.remarks,
+                        version: editForm.version,
+                        status: editForm.status,
+                    };
+                }
+                await documentService.updateDocument(editForm.id, payload);
             }
-            await documentService.updateDocument(editForm.id, payload);
-            toast.success("Document updated successfully!", { id: toastId });
+            toast.success("Updated successfully!", { id: toastId });
             setIsEditModalOpen(false);
             setEditFile(null);
             fetchDocs();
@@ -456,7 +474,7 @@ const ManagerDocumentsPage = () => {
                         <button
                             onClick={() => {
                                 const type = mainTab === "Drawings" ? "Drawing" : "Document";
-                                setUploadForm({ title: "", document_type: type, remarks: "", version: "" });
+                                setUploadForm({ title: "", document_type: type, remarks: "", version: "", date: "", parent_id: null });
                                 setUploadFile(null);
                                 setUploadProjectId(selectedProjectId);
                                 setIsUploadModalOpen(true);
@@ -523,7 +541,7 @@ const ManagerDocumentsPage = () => {
                                         onClick={() => { handleTabChange(tabName); setCategoryFilter(""); }}
                                         className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${typeFilter === tabName ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                                     >
-                                        {tabName}
+                                        {tabName === "Documents" && mainTab === "Drawings" ? "Drawings" : tabName}
                                     </button>
                                 ))}
                             </div>
@@ -574,8 +592,8 @@ const ManagerDocumentsPage = () => {
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
                                     <th className="px-6 py-4 w-14">Type</th>
-                                    <th className="px-6 py-4">Document Name</th>
-                                    <th className="px-6 py-4">Category</th>
+                                    <th className="px-6 py-4">{mainTab === "Drawings" ? "Drawing Name" : "Document Name"}</th>
+                                    <th className="px-6 py-4">{mainTab === "Drawings" ? "Drawing Type" : "Category"}</th>
                                     <th className="px-6 py-4">Status</th>
                                     <th className="px-6 py-4">Version</th>
                                     <th className="px-6 py-4">Uploaded</th>
@@ -759,33 +777,63 @@ const ManagerDocumentsPage = () => {
                             ))}
                         </select>
                     </div>
-                    <div>
-                        <label className={labelCls}>{mainTab === "Drawings" ? "Drawing Name" : "Document Title"} <span className="text-rose-500">*</span></label>
-                        <input value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
-                            placeholder={mainTab === "Drawings" ? "e.g. Foundation Drawing Rev-2" : "e.g. Site Contract 2026"} className={inputCls} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className={labelCls}>Document Type</label>
-                            {mainTab === "Drawings" ? (
-                                <input value="Drawing" readOnly className={inputCls + " bg-slate-50 text-slate-400 cursor-not-allowed"} />
-                            ) : (
+
+                    {mainTab === "Drawings" ? (
+                        // ── Drawings tab fields: drawing_name, version, date, remarks, file ──
+                        <>
+                            <div>
+                                <label className={labelCls}>Drawing Name <span className="text-rose-500">*</span></label>
+                                <input value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
+                                    placeholder="e.g. Foundation Drawing Rev-2" className={inputCls} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className={labelCls}>Version <span className="text-rose-500">*</span></label>
+                                    <input value={uploadForm.version} onChange={e => setUploadForm(p => ({ ...p, version: e.target.value }))}
+                                        placeholder="e.g. V1" className={inputCls} />
+                                </div>
+                                <div>
+                                    <label className={labelCls}>Date</label>
+                                    <input type="date" value={uploadForm.date}
+                                        onChange={e => setUploadForm(p => ({ ...p, date: e.target.value }))}
+                                        className={inputCls} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className={labelCls}>Remarks</label>
+                                <textarea value={uploadForm.remarks} onChange={e => setUploadForm(p => ({ ...p, remarks: e.target.value }))}
+                                    placeholder="Optional notes..." rows={2} className={inputCls + " resize-none"} />
+                            </div>
+                        </>
+                    ) : (
+                        // ── Documents tab fields: title, document_type, parent_id, remarks, file ──
+                        <>
+                            <div>
+                                <label className={labelCls}>Document Title</label>
+                                <input value={uploadForm.title} onChange={e => setUploadForm(p => ({ ...p, title: e.target.value }))}
+                                    placeholder="e.g. Site Contract 2026" className={inputCls} />
+                            </div>
+                            <div>
+                                <label className={labelCls}>Document Type</label>
                                 <select value={uploadForm.document_type} onChange={e => setUploadForm(p => ({ ...p, document_type: e.target.value }))} className={inputCls}>
+                                    <option value="">Select Type</option>
                                     {DOC_TYPES.filter(t => t !== "Drawing").map(t => <option key={t}>{t}</option>)}
                                 </select>
-                            )}
-                        </div>
-                        <div>
-                            <label className={labelCls}>Version <span className="text-rose-500">*</span></label>
-                            <input value={uploadForm.version} onChange={e => setUploadForm(p => ({ ...p, version: e.target.value }))}
-                                placeholder="e.g. V1" className={inputCls} />
-                        </div>
-                    </div>
-                    <div>
-                        <label className={labelCls}>Remarks</label>
-                        <textarea value={uploadForm.remarks} onChange={e => setUploadForm(p => ({ ...p, remarks: e.target.value }))}
-                            placeholder="Optional notes..." rows={2} className={inputCls + " resize-none"} />
-                    </div>
+                            </div>
+                            <div>
+                                <label className={labelCls}>Parent Folder ID</label>
+                                <input type="number" value={uploadForm.parent_id ?? ""}
+                                    onChange={e => setUploadForm(p => ({ ...p, parent_id: e.target.value ? Number(e.target.value) : null }))}
+                                    placeholder="Optional folder ID" className={inputCls} />
+                            </div>
+                            <div>
+                                <label className={labelCls}>Remarks</label>
+                                <textarea value={uploadForm.remarks} onChange={e => setUploadForm(p => ({ ...p, remarks: e.target.value }))}
+                                    placeholder="Optional notes..." rows={2} className={inputCls + " resize-none"} />
+                            </div>
+                        </>
+                    )}
+
                     <div>
                         <label className={labelCls}>File <span className="text-rose-500">*</span></label>
                         <div
@@ -934,7 +982,7 @@ const ManagerDocumentsPage = () => {
             <Modal
                 isOpen={isEditModalOpen}
                 onClose={() => { setIsEditModalOpen(false); setEditFile(null); }}
-                title="Edit Document Details"
+                title={mainTab === "Drawings" ? "Edit Drawing Details" : "Edit Document Details"}
                 maxWidth="max-w-lg"
                 footer={
                     <>
@@ -952,31 +1000,39 @@ const ManagerDocumentsPage = () => {
             >
                 <div className="p-4 space-y-4">
                     <div>
-                        <label className={labelCls}>Document Title <span className="text-rose-500">*</span></label>
+                        <label className={labelCls}>{mainTab === "Drawings" ? "Drawing Name" : "Document Title"} <span className="text-rose-500">*</span></label>
                         <input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))}
                             placeholder="e.g. Revised Drawing" className={inputCls} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className={labelCls}>Document Type</label>
-                            <select value={editForm.document_type} onChange={e => setEditForm(p => ({ ...p, document_type: e.target.value }))} className={inputCls}>
-                                {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
-                            </select>
-                        </div>
+                        {mainTab !== "Drawings" && (
+                            <div>
+                                <label className={labelCls}>Document Type</label>
+                                <select value={editForm.document_type} onChange={e => setEditForm(p => ({ ...p, document_type: e.target.value }))} className={inputCls}>
+                                    {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
+                                </select>
+                            </div>
+                        )}
                         <div>
                             <label className={labelCls}>Version</label>
                             <input value={editForm.version} onChange={e => setEditForm(p => ({ ...p, version: e.target.value }))}
                                 placeholder="v1.0" className={inputCls} />
                         </div>
+                        <div>
+                            <label className={labelCls}>Date</label>
+                            <input type="date" value={editForm.date} onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))} className={inputCls} />
+                        </div>
                     </div>
-                    <div>
-                        <label className={labelCls}>Status</label>
-                        <select value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
-                            <option value="PENDING">Pending</option>
-                            <option value="APPROVED">Approved</option>
-                            <option value="REJECTED">Rejected</option>
-                        </select>
-                    </div>
+                    {mainTab !== "Drawings" && (
+                        <div>
+                            <label className={labelCls}>Status</label>
+                            <select value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
+                                <option value="PENDING">Pending</option>
+                                <option value="APPROVED">Approved</option>
+                                <option value="REJECTED">Rejected</option>
+                            </select>
+                        </div>
+                    )}
                     <div>
                         <label className={labelCls}>Remarks</label>
                         <textarea value={editForm.remarks} onChange={e => setEditForm(p => ({ ...p, remarks: e.target.value }))}

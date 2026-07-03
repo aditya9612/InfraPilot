@@ -69,9 +69,18 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 setAssignedProjects([engineerProject]);
                 setSelectedProjectIdState(engineerProject.id);
             } else if (user.role === 'Admin') {
-                const res = await projectService.getProjects(100);
-                const projects = (res as any)?.items || (Array.isArray(res) ? res : []);
-                setAssignedProjects(projects);
+                let allAdminProjects: any[] = [];
+                let offset = 0;
+                const limit = 100;
+                while (true) {
+                    const res = await projectService.getProjects(limit, undefined, "", "", offset);
+                    const chunk = (res as any)?.items || (Array.isArray(res) ? res : []);
+                    if (chunk.length === 0) break;
+                    allAdminProjects = [...allAdminProjects, ...chunk];
+                    if (chunk.length < limit || allAdminProjects.length >= 2000) break;
+                    offset += limit;
+                }
+                setAssignedProjects(allAdminProjects);
             }
         } catch (error) {
             console.error('Failed to fetch assigned projects:', error);

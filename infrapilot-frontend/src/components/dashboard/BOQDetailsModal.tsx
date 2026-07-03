@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "../common/Modal";
+import { masterService } from "../../services/masterService";
 
 interface BOQDetailsModalProps {
   isOpen: boolean;
@@ -14,6 +15,30 @@ const BOQDetailsModal: React.FC<BOQDetailsModalProps> = ({
   boqItem,
   projectName,
 }) => {
+  const [activityTypeName, setActivityTypeName] = useState<string>("");
+
+  useEffect(() => {
+    const fetchActivityTypeName = async () => {
+      if (!boqItem?.activity_type_id) {
+        setActivityTypeName("");
+        return;
+      }
+      
+      try {
+        const types = await masterService.getEntities("activity-types");
+        const matchedType = types.find(t => Number(t.id) === Number(boqItem.activity_type_id));
+        setActivityTypeName(matchedType?.name || String(boqItem.activity_type_id));
+      } catch (error) {
+        console.error("Failed to fetch activity types:", error);
+        setActivityTypeName(String(boqItem.activity_type_id));
+      }
+    };
+
+    if (isOpen && boqItem) {
+      fetchActivityTypeName();
+    }
+  }, [isOpen, boqItem]);
+
   if (!boqItem) return null;
 
   const footer = (
@@ -108,6 +133,23 @@ const BOQDetailsModal: React.FC<BOQDetailsModalProps> = ({
             <InfoItem label="Item Name" value={boqItem.item_name} />
             <InfoItem label="Description" value={boqItem.description} />
             <InfoItem label="Version Number" value={`v${boqItem.version_no}`} />
+            <InfoItem
+              label="BOQ Group ID"
+              value={boqItem.boq_group_id ? String(boqItem.boq_group_id) : "—"}
+            />
+            <InfoItem
+              label="Activity Type"
+              value={activityTypeName || "—"}
+            />
+            <InfoItem
+              label="Completed"
+              value={boqItem.is_completed === true ? "Yes" : boqItem.is_completed === false ? "No" : "—"}
+              valueClass={
+                boqItem.is_completed === true
+                  ? "text-emerald-600"
+                  : "text-rose-500"
+              }
+            />
             <InfoItem
               label="Approval Status"
               value={boqItem.approval_status || "—"}

@@ -179,6 +179,10 @@ const TaskManagementPage = () => {
     const [progressPercentage, setProgressPercentage] = useState(0);
     const [progressRemark, setProgressRemark] = useState("");
 
+    // Image Viewer Modal State
+    const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+    const [viewImageSrc, setViewImageSrc] = useState<string | null>(null);
+
     // Pass Task Modal State
     const [isPassModalOpen, setIsPassModalOpen] = useState(false);
     const [selectedPassTask, setSelectedPassTask] = useState<FrontendTask | null>(null);
@@ -269,7 +273,11 @@ const TaskManagementPage = () => {
             }
 
             const mappedTasks: FrontendTask[] = (Array.isArray(fetchedTasks) ? fetchedTasks : (fetchedTasks.items || fetchedTasks.data || [])).map((t: Task & { audio_data?: string }) => {
-                const assignee = membersList.find(m => m.user_id === t.assigned_user_id);
+                const rawAssignedId = (t as any).assigned_user || t.assigned_user_id;
+                const actualAssignedId = (typeof rawAssignedId === 'object' && rawAssignedId !== null)
+                    ? (rawAssignedId.user_id || rawAssignedId.id)
+                    : rawAssignedId;
+                const assignee = membersList.find(m => m.user_id === actualAssignedId);
                 const assigner = { name: "System / Admin", role: "Manager" };
 
                 // Map the exact project name
@@ -283,8 +291,22 @@ const TaskManagementPage = () => {
                     else taskProjectName = "Project " + t.project_id;
                 }
 
-                const creator = membersList.find(m => m.user_id === (t as any).created_by_user_id);
-                const creatorName = creator ? creator.full_name : "Unknown";
+                let actualCreatedId = undefined;
+                if ((t as any).created_by) {
+                    actualCreatedId = (typeof (t as any).created_by === 'object' && (t as any).created_by !== null)
+                        ? (((t as any).created_by as any).user_id || ((t as any).created_by as any).id)
+                        : (t as any).created_by;
+                }
+                const creator = actualCreatedId ? membersList.find(m => m.user_id === actualCreatedId) : undefined;
+                if (creator) {
+                    assigner.name = creator.full_name || creator.name;
+                    assigner.role = creator.role || "Manager";
+                } else if (typeof (t as any).created_by === 'object' && (t as any).created_by !== null) {
+                    assigner.name = ((t as any).created_by as any).full_name || ((t as any).created_by as any).name || "Unknown";
+                    assigner.role = ((t as any).created_by as any).role || "Manager";
+                }
+
+                const creatorName = assigner.name;
 
                 const assignedNames = Array.isArray((t as any).assigned_users)
                     ? (t as any).assigned_users.map((id: any) => {
@@ -1058,7 +1080,6 @@ const TaskManagementPage = () => {
 
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Project</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Title</th>
-                                                    <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Description</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
                                                     <th className="p-4 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest text-slate-800">Start / End Date</th>
@@ -1082,7 +1103,6 @@ const TaskManagementPage = () => {
 
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.projectName || 'null'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs font-bold text-slate-800 block md:table-cell">{task.title}</td>
-                                                        <td className="p-4 text-xs text-slate-500 truncate max-w-[200px] block md:table-cell">{task.description}</td>
                                                         <td className="p-4 text-center block md:table-cell">
                                                             <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority] || 'bg-slate-500 text-white'}`}>
                                                                 {task.priority || 'LOW'}
@@ -1138,7 +1158,15 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {(task as any).instruction_image_url ? (
-                                                                <img src={String((task as any).instruction_image_url) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
+                                                                <img
+                                                                    src={String((task as any).instruction_image_url) || ''}
+                                                                    alt="Instruction"
+                                                                    className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer transition-opacity hover:opacity-80"
+                                                                    onClick={() => {
+                                                                        setViewImageSrc(String((task as any).instruction_image_url));
+                                                                        setIsImageModalOpen(true);
+                                                                    }}
+                                                                />
                                                             ) : 'null'}
                                                         </td>
 
@@ -1740,10 +1768,18 @@ const TaskManagementPage = () => {
                                                     </div>
                                                 )}
                                                 {(selectedTask as any).instruction_image_url && (
-                                                    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-                                                        <p className="text-xs font-bold text-slate-400 mb-3">Instruction Image</p>
-                                                        <div className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video max-w-sm">
-                                                            <img src={getFullUrl(String((selectedTask as any).instruction_image_url)) || ''} alt="Instruction" className="w-full h-full object-cover" />
+                                                    <div className="space-y-2">
+                                                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Instruction Image</span>
+                                                        <div className="h-24 w-24 rounded-lg overflow-hidden border border-slate-200">
+                                                            <img
+                                                                src={getFullUrl(String((selectedTask as any).instruction_image_url)) || ''}
+                                                                alt="Instruction"
+                                                                className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                                                onClick={() => {
+                                                                    setViewImageSrc(getFullUrl(String((selectedTask as any).instruction_image_url)));
+                                                                    setIsImageModalOpen(true);
+                                                                }}
+                                                            />
                                                         </div>
                                                     </div>
                                                 )}
@@ -2069,16 +2105,18 @@ const TaskManagementPage = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Priority
+                                        Priority <span className="text-rose-500">*</span>
                                     </label>
                                     <select
                                         name="priority"
-                                        defaultValue={selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : 3}
+                                        required
+                                        defaultValue={selectedEditTask?.priority === "HIGH" ? 1 : selectedEditTask?.priority === "MEDIUM" ? 2 : selectedEditTask?.priority === "LOW" ? 3 : 1}
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     >
-                                        <option value={1}>High</option>
-                                        <option value={2}>Medium</option>
-                                        <option value={3}>Low</option>
+                                        <option value={4}>Low</option>
+                                        <option value={3}>Medium</option>
+                                        <option value={2}>High</option>
+                                        <option value={1}>Critical</option>
                                     </select>
                                 </div>
 
@@ -2132,15 +2170,15 @@ const TaskManagementPage = () => {
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                                     >
                                         <option value="">Select User</option>
-                                        <option value="1">Suresh Chaudhari (1)</option>
-                                        <option value="2">Vishal Sathe (2)</option>
-                                        <option value="3">Amit Khare (3)</option>
+                                        {projectMembers.map((m: any) => (
+                                            <option key={m.user_id} value={m.user_id}>{m.full_name}</option>
+                                        ))}
                                     </select>
                                 </div>
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Activity Type ID
+                                        Activity Type
                                     </label>
                                     <select
                                         name="activity_type_id"
@@ -2156,7 +2194,7 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        Milestone ID
+                                        Milestone
                                     </label>
                                     <select
                                         name="milestone_id"
@@ -2172,7 +2210,7 @@ const TaskManagementPage = () => {
 
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                        BOQ ID
+                                        BOQ
                                     </label>
                                     <select
                                         name="boq_id"
@@ -2354,8 +2392,8 @@ const TaskManagementPage = () => {
                                 {projectMembers
                                     .filter(m => (m.role || "").toLowerCase() === "labour")
                                     .map(m => (
-                                    <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
-                                ))}
+                                        <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
+                                    ))}
                             </select>
                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
                                 <ChevronDown className="w-4 h-4" />
@@ -2373,6 +2411,37 @@ const TaskManagementPage = () => {
                             required
                         />
                     </div>
+                </div>
+            </Modal>
+
+            {/* Image Viewer Modal */}
+            <Modal
+                isOpen={isImageModalOpen}
+                onClose={() => {
+                    setIsImageModalOpen(false);
+                    setViewImageSrc(null);
+                }}
+                title="Instruction Image"
+            >
+                <div className="flex justify-center items-center overflow-hidden bg-slate-50 rounded-xl border border-slate-200 p-2">
+                    {viewImageSrc && (
+                        <img
+                            src={viewImageSrc}
+                            alt="Full Instruction"
+                            className="max-h-[70vh] max-w-full object-contain rounded-lg rounded-xl shadow-sm"
+                        />
+                    )}
+                </div>
+                <div className="flex justify-end pt-4 mt-4 border-t border-slate-200">
+                    <button
+                        onClick={() => {
+                            setIsImageModalOpen(false);
+                            setViewImageSrc(null);
+                        }}
+                        className="px-5 py-2 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+                    >
+                        Close
+                    </button>
                 </div>
             </Modal>
 

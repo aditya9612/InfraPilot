@@ -45,6 +45,10 @@ const ClientsPage = () => {
           mobile: u.mobile_number,
           project: u.address || "No Project Linked",
           status: u.is_active ? "Active" : "Inactive",
+          profile_image: (u as any).profile_image || (u as any).avatar || null,
+          pan_number: (u as any).pan_number || (u as any).pan || "—",
+          aadhar_number: (u as any).aadhar_number || (u as any).aadhar || "—",
+          joining_date: (u as any).joining_date || (u as any).created_at || null,
         }));
 
       setClients(clientList);
@@ -216,6 +220,9 @@ const ClientsPage = () => {
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                   <th className="px-6 py-4">Client & Company</th>
+                  <th className="px-6 py-4">PAN No.</th>
+                  <th className="px-6 py-4">Aadhar No.</th>
+                  <th className="px-6 py-4">Joining Date</th>
                   <th className="px-6 py-4">Linked Project</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -224,7 +231,7 @@ const ClientsPage = () => {
               <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
                         Loading clients...
@@ -233,7 +240,7 @@ const ClientsPage = () => {
                   </tr>
                 ) : filteredClients.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       No clients found.
                     </td>
                   </tr>
@@ -246,18 +253,33 @@ const ClientsPage = () => {
                       <td className="px-6 py-4">
                         <div
                           onClick={() => navigate(`/admin/clients/${c.id}`)}
-                          className="cursor-pointer group/link"
+                          className="cursor-pointer group/link flex items-center gap-3"
                         >
-                          <p className="font-bold text-slate-700 group-hover/link:text-primary transition-colors">
-                            {c.name}
-                          </p>
-                          <p className="text-slate-500 text-xs font-semibold">
-                            {c.company}
-                          </p>
-                          <p className="text-slate-400 text-[10px]">
-                            {c.mobile} | {c.email}
-                          </p>
+                          {/* Avatar */}
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden border border-slate-100">
+                            {c.profile_image ? (
+                              <img src={c.profile_image} alt={c.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-sm font-bold text-primary">{(c.name || "?")[0].toUpperCase()}</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-700 group-hover/link:text-primary transition-colors">
+                              {c.name}
+                            </p>
+                            <p className="text-slate-500 text-xs font-semibold">{c.company}</p>
+                            <p className="text-slate-400 text-[10px]">{c.mobile} | {c.email}</p>
+                          </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">
+                        {c.pan_number}
+                      </td>
+                      <td className="px-6 py-4 text-xs font-mono font-bold text-slate-700">
+                        {c.aadhar_number}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-600 font-semibold">
+                        {c.joining_date ? new Date(c.joining_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600 font-bold">
                         {c.project}

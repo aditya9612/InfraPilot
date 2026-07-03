@@ -13,6 +13,7 @@ import { documentService } from "../../services/documentService";
 import { financeService } from "../../services/financeService";
 import { quotationService } from "../../services/quotationService";
 import type { Document } from "../../types/document";
+import { getFullImageUrl } from "../../utils/imageUtils";
 
 
 // ─── Mocked data (to be replaced with API) ───────────────────────────────────
@@ -37,6 +38,13 @@ function OverviewTab({ client, onSaveNotes }: any) {
                 <InfoRow icon={<Building2 className="w-4 h-4" />} label="Company" value={client.company} />
                 <InfoRow icon={<User className="w-4 h-4" />} label="Address" value={client.address} />
                 <InfoRow icon={<ClipboardList className="w-4 h-4" />} label="GSTIN" value={client.gst} />
+                <InfoRow icon={<CreditCard className="w-4 h-4" />} label="PAN Number" value={client.pan_number || "—"} />
+                <InfoRow icon={<ClipboardList className="w-4 h-4" />} label="Aadhar Number" value={client.aadhar_number || "—"} />
+                <InfoRow
+                  icon={<Briefcase className="w-4 h-4" />}
+                  label="Joining Date"
+                  value={client.joining_date ? new Date(client.joining_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                />
             </div>
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Project & Status</h3>
@@ -239,50 +247,7 @@ function DocumentsTab({ client }: { client: any }) {
     const handleDownload = async (doc: Document) => {
         const toastId = toast.loading(`Preparing ${doc.title}...`);
         try {
-            // Use the file_url already present in the document object (same logic as previews)
-            let file_url = doc.file_url;
-
-            // Fallback only if missing
-            if (!file_url) {
-                const data = await documentService.getDownloadUrl(doc.id);
-                file_url = typeof data === 'string' ? data : (data as any)?.file_url;
-            }
-
-            if (!file_url) throw new Error("File path not available");
-
-            // Normalize path for web compatibility
-            const normalizedPath = file_url.replace(/\\/g, '/');
-
-            // Build full URL
-            let fullUrl = normalizedPath;
-            if (!normalizedPath.startsWith('http')) {
-                const path = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
-                fullUrl = path.startsWith('/uploads') ? path : `${import.meta.env.VITE_API_URL}${path}`;
-            }
-
-            // Extract extension from the path
-            const extension = normalizedPath.split('.').pop()?.split('?')[0] || '';
-            const downloadName = doc.title.toLowerCase().endsWith(`.${extension.toLowerCase()}`)
-                ? doc.title
-                : `${doc.title}.${extension}`;
-
-            const userString = localStorage.getItem("infrapilot_user");
-            const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
-
-            const response = await fetch(fullUrl, {
-                headers: token ? { Authorization: `Bearer ${token}` } : {},
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-            const blob = await response.blob();
-            const objectUrl = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = objectUrl;
-            link.download = downloadName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(objectUrl);
+            await documentService.downloadDocument(doc.id, doc.title);
             toast.success("Download started", { id: toastId });
         } catch (err: any) {
             toast.error(`Download failed: ${err.message}`, { id: toastId });
@@ -527,8 +492,12 @@ const ClientDetailPage = () => {
                     status: u.is_active ? "Active" : "Inactive",
                     address: u.address || "No Address Provided",
                     gst: u.pan_number || "—",
+                    profile_image: u.profile_image || null,
                     notes: "VIP client. Prefers WhatsApp updates.",
                     portalEnabled: u.is_active,
+                    pan_number: (u as any).pan_number || (u as any).pan || "—",
+                    aadhar_number: (u as any).aadhar_number || (u as any).aadhar || "—",
+                    joining_date: (u as any).joining_date || (u as any).created_at || null,
                     invoices: allLedgerRows,
                     documents: [],
                     communications: [],
@@ -585,8 +554,12 @@ const ClientDetailPage = () => {
                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
                         <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-400/10 rounded-full blur-2xl -ml-16 -mb-16" />
                         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                            <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-3xl font-black shrink-0">
-                                {client.name.charAt(0)}
+                            <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-3xl font-black shrink-0 overflow-hidden">
+                                {client.profile_image ? (
+                                    <img src={getFullImageUrl(client.profile_image)} alt={client.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    client.name.charAt(0)
+                                )}
                             </div>
                             <div className="text-center sm:text-left">
                                 <div className="flex flex-col sm:flex-row items-center gap-3 mb-1">

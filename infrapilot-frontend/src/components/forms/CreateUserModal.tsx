@@ -125,6 +125,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
       newErrors.email = "Enter a valid email address.";
 
+    if (!formData.role)
+      newErrors.role = "Role is required.";
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -398,7 +401,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             )}
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Role
+                Role <span className="text-rose-500">*</span>
               </label>
               <select
                 name="role"

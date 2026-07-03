@@ -24,24 +24,46 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
 
   // Resolved name state
   const [projectName, setProjectName] = useState<string>((task as any).projectName || "");
   const [milestoneName, setMilestoneName] = useState<string>((task as any).milestoneName || "");
   const [boqName, setBoqName] = useState<string>((task as any).boqName || "");
-  const [assignedNames, setAssignedNames] = useState<string>((task as any).assignedNames?.join(", ") || "");
+  const [creatorName, setCreatorName] = useState<string>((task as any).creatorName || "");
+  const [assignedNames, setAssignedNames] = useState<string>(() => {
+    // Safely resolve initial assignedNames — could be string[], object[], or string
+    const raw = (task as any).assignedNames;
+    if (!raw) return "";
+    if (Array.isArray(raw)) {
+      return raw.map((u: any) =>
+        typeof u === "object" ? (u.name || u.full_name || `User ${u.id || u.user_id}`) : String(u)
+      ).join(", ");
+    }
+    return String(raw);
+  });
 
   const fetchData = useCallback(async () => {
     setIsFetchingDetails(true);
     try {
-      const [tData, hData, cData] = await Promise.all([
+      const [tData, hData, cData, members] = await Promise.all([
         projectService.getTask(task.project_id, task.id),
         projectService.getTaskProgressHistory(task.project_id, task.id),
-        projectService.getTaskComments(task.project_id, task.id)
+        projectService.getTaskComments(task.project_id, task.id),
+        projectService.getProjectMembers(task.project_id).catch(() => [])
       ]);
       setTaskDetails(tData);
       setHistory(Array.isArray(hData) ? hData : (hData.items || hData.data || []));
       setComments(Array.isArray(cData) ? cData : (cData.items || cData.data || []));
+
+      const list = Array.isArray(members) ? members : (members.items || members.data || []);
+      const map: Record<string, string> = {};
+      list.forEach((m: any) => {
+        const id = String(m.user_id || m.id);
+        const name = m.full_name || m.name || m.first_name || m.username;
+        if (id && name) map[id] = name;
+      });
+      setUserMap(map);
 
       // Resolve names from IDs if not already set
       const t = tData as any;
@@ -71,26 +93,34 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
         try {
           const { boqService } = await import("../../services/boqService");
           const boqItem = await boqService.getBoqById(Number(boqId));
-          if (boqItem) setBoqName(boqItem.item_name || boqItem.name || `BOQ ${boqId}`);
+          if (boqItem) setBoqName(boqItem.item_name || boqItem.item_name || `BOQ ${boqId}`);
         } catch { /* ignore */ }
       }
 
-      // Assigned user names
-      if (!assignedNames) {
-        const users: any[] = t.assigned_users || [];
-        if (users.length > 0) {
-          const names = users.map((u: any) =>
-            typeof u === "object" ? (u.name || u.full_name || `User ${u.id || u.user_id}`) : `User ${u}`
-          );
-          setAssignedNames(names.join(", "));
-        } else if (t.assigned_user_id) {
-          try {
-            const members = await projectService.getProjectMembers(t.project_id);
-            const list = Array.isArray(members) ? members : (members.items || members.data || []);
-            const found = list.find((m: any) => m.user_id === t.assigned_user_id || m.id === t.assigned_user_id);
-            setAssignedNames(found ? found.full_name : `User ${t.assigned_user_id}`);
-          } catch { setAssignedNames(`User ${t.assigned_user_id}`); }
-        }
+      // Assigned user names — always re-resolve from fresh API data
+      const users: any[] = t.assigned_users || [];
+      if (users.length > 0) {
+        const names = users.map((u: any) =>
+          typeof u === "object" ? (u.name || u.full_name || `User ${u.id || u.user_id}`) : `User ${u}`
+        );
+        setAssignedNames(names.join(", "));
+      } else if (t.assigned_user_id) {
+        try {
+          const members = await projectService.getProjectMembers(t.project_id);
+          const mList = Array.isArray(members) ? members : (members.items || members.data || []);
+          const found = mList.find((m: any) => m.user_id === t.assigned_user_id || m.id === t.assigned_user_id);
+          setAssignedNames(found ? found.full_name : `User ${t.assigned_user_id}`);
+        } catch { setAssignedNames(`User ${t.assigned_user_id}`); }
+      }
+
+      // Creator name from created_by_user_id
+      if (t.created_by_user_id) {
+        try {
+          const members = await projectService.getProjectMembers(t.project_id);
+          const mList = Array.isArray(members) ? members : (members.items || members.data || []);
+          const found = mList.find((m: any) => m.user_id === t.created_by_user_id || m.id === t.created_by_user_id);
+          if (found) setCreatorName(found.full_name);
+        } catch { /* ignore */ }
       }
     } catch (error) {
       console.error("Failed to fetch task details:", error);
@@ -209,7 +239,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
                     <p className="text-sm font-bold text-slate-800">Assigned By</p>
                   </div>
                   <div className="pl-9">
-                    <p className="text-sm text-slate-600">{(selectedTask as any).creatorName || 'System / Admin'}</p>
+                    <p className="text-sm text-slate-600">{creatorName || (selectedTask as any).creatorName || 'System / Admin'}</p>
                     <p className="text-xs text-slate-400">Manager</p>
                   </div>
                 </div>
@@ -222,7 +252,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
                     <p className="text-sm font-bold text-slate-800">Assigned To</p>
                   </div>
                   <div className="pl-9">
-                    <p className="text-sm text-slate-600">{assignedNames || (selectedTask as any).assignedNames?.join(', ') || 'Unassigned'}</p>
+                    <p className="text-sm text-slate-600">{assignedNames || 'Unassigned'}</p>
                     <p className="text-xs text-slate-400">Labour</p>
                   </div>
                 </div>
@@ -404,10 +434,12 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
                     {comments.map((c: any, i) => (
                       <div key={i} className="flex flex-col bg-white border border-slate-200 rounded-xl p-3 shadow-sm w-max max-w-[80%]">
                         <span className="text-xs font-bold text-slate-800 mb-1">
-                          {c.author_name || (c.author_user_id === 1 ? 'Clients' : `User ${c.author_user_id}`)}
+                          {c.author_name || userMap[String(c.author_user_id)] || (c.author_user_id === 1 ? 'Clients' : `User ${c.author_user_id}`)}
                         </span>
                         <p className="text-sm text-slate-700 mb-2">{c.content || c.comment || c.text || ""}</p>
-                        <span className="text-[10px] text-slate-400">Just now</span>
+                        <span className="text-[10px] text-slate-400">
+                          {c.created_at ? new Date(c.created_at).toLocaleString() : 'Just now'}
+                        </span>
                       </div>
                     ))}
                   </div>

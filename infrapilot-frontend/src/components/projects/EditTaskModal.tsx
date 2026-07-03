@@ -400,17 +400,19 @@ const EditTaskModal = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                  Priority
+                  Priority <span className="text-rose-500">*</span>
                 </label>
                 <select
                   name="priority"
                   value={formData.priority}
                   onChange={handleChange}
+                  required
                   className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer"
                 >
-                  <option value={1}>High</option>
-                  <option value={2}>Medium</option>
-                  <option value={3}>Low</option>
+                  <option value={4}>Low</option>
+                  <option value={3}>Medium</option>
+                  <option value={2}>High</option>
+                  <option value={1}>Critical</option>
                 </select>
               </div>
 
