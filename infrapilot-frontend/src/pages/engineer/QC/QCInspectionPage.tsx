@@ -152,11 +152,12 @@ const QCInspectionPage = () => {
     const [isFetchingDeps, setIsFetchingDeps] = useState(false);
 
     useEffect(() => {
-        if ((isNewModalOpen || isEditModalOpen) && formData.project_id) {
+        const targetProjectId = isViewModalOpen ? selectedQc?.project_id : formData.project_id;
+        if ((isNewModalOpen || isEditModalOpen || isViewModalOpen) && targetProjectId) {
             setIsFetchingDeps(true);
             Promise.all([
-                projectService.getTasks(Number(formData.project_id)).catch(() => []),
-                dsrService.getDsrByProject(Number(formData.project_id)).catch(() => [])
+                projectService.getTasks(Number(targetProjectId)).catch(() => []),
+                dsrService.getDsrByProject(Number(targetProjectId)).catch(() => [])
             ]).then(([tasksRes, dsrsRes]: [any, any]) => {
                 const tasksList = Array.isArray(tasksRes) ? tasksRes : (tasksRes.data || tasksRes.items || []);
                 const dsrsList = Array.isArray(dsrsRes) ? dsrsRes : (dsrsRes.data || dsrsRes.items || []);
@@ -166,7 +167,19 @@ const QCInspectionPage = () => {
                 setIsFetchingDeps(false);
             });
         }
-    }, [formData.project_id, isNewModalOpen, isEditModalOpen]);
+    }, [formData.project_id, selectedQc?.project_id, isNewModalOpen, isEditModalOpen, isViewModalOpen]);
+
+    const getTaskName = (taskId: number | null | undefined) => {
+        if (!taskId) return "-";
+        const task = availableTasks.find(t => Number(t.id) === Number(taskId));
+        return task ? (task.title || `Task #${taskId}`) : `Task #${taskId}`;
+    };
+
+    const getDsrName = (dsrId: number | null | undefined) => {
+        if (!dsrId) return "-";
+        const dsr = availableDsrs.find(d => Number(d.id) === Number(dsrId));
+        return dsr ? (dsr.report_date || dsr.date || `DSR #${dsrId}`) : `DSR #${dsrId}`;
+    };
 
     // â”€â”€â”€ INITIALIZATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -1080,6 +1093,14 @@ const QCInspectionPage = () => {
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Standard Threshold</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.standard_value}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task Link</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getTaskName(selectedQc.task_id as number)}>{getTaskName(selectedQc.task_id as number)}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR Link</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getDsrName(selectedQc.dsr_id as number)}>{getDsrName(selectedQc.dsr_id as number)}</p>
                                     </div>
                                 </div>
                             </div>

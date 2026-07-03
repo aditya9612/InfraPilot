@@ -74,6 +74,7 @@ export const safetyService = {
         if (violation_type) {
             params.violation_type = violation_type;
         }
+        params.limit = 1000;
 
         let defaultItems = DEFAULT_INCIDENTS;
         if (project_id) {

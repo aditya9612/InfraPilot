@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
-import { Eye, Bell, CheckCheck } from "lucide-react";
+import { Eye, Bell, CheckCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import Modal from "../../components/common/Modal";
 import { notificationService, type Notification } from "../../services/notificationService";
 
@@ -11,15 +11,22 @@ const EngineerNotificationsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewingNotif, setViewingNotif] = useState<Notification | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<(number | string)[]>([]);
   const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Unread" | "Read" | "Approval">("All");
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeStatFilter]);
 
   useEffect(() => {
     fetchNotifications();
   }, []);
 
   const fetchNotifications = async () => {
-    const data = await notificationService.getNotifications("SiteEngineer");
+    const data = await notificationService.getNotifications();
     setNotifications(data);
   };
 
@@ -38,8 +45,10 @@ const EngineerNotificationsPage = () => {
     return true;
   });
 
+  const paginatedNotifs = filteredNotifs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   const handleMarkAllRead = async () => {
-    await notificationService.markAllAsRead("SiteEngineer");
+    await notificationService.markAllAsRead("SiteEngineer", notifications);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     setSelectedIds([]);
   };
@@ -64,7 +73,7 @@ const EngineerNotificationsPage = () => {
     }
   };
 
-  const handleToggleSelect = (id: number) => {
+  const handleToggleSelect = (id: number | string) => {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
@@ -182,7 +191,7 @@ const EngineerNotificationsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredNotifs.map((notif) => (
+                {paginatedNotifs.map((notif) => (
                   <tr key={notif.id} className={`hover:bg-slate-50/50 transition-colors group ${!notif.read ? "bg-primary/[0.02]" : ""}`}>
                     <td className="px-6 py-4 text-center">
                       <input 
@@ -229,6 +238,91 @@ const EngineerNotificationsPage = () => {
               </tbody>
             </table>
           </div>
+
+          {filteredNotifs.length > 0 && (
+            <div className="p-4 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+              {/* Left: Items per page */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Rows per page</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 appearance-none pr-8 cursor-pointer relative"
+                  style={{
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                      backgroundPosition: 'right 0.25rem center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '1.25em 1.25em'
+                  }}
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              {/* Middle: Current info */}
+              <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredNotifs.length)} of {filteredNotifs.length} records
+              </div>
+
+              {/* Right: Pagination */}
+              <div className="flex items-center gap-1.5">
+                  <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                  >
+                      <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  {(() => {
+                      const totalPages = Math.max(1, Math.ceil(filteredNotifs.length / itemsPerPage));
+                      const pages = [];
+                      if (totalPages <= 5) {
+                          for (let i = 1; i <= totalPages; i++) pages.push(i);
+                      } else {
+                          if (currentPage <= 3) {
+                              pages.push(1, 2, 3, 4, '...', totalPages);
+                          } else if (currentPage >= totalPages - 2) {
+                              pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                          } else {
+                              pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                          }
+                      }
+
+                      return pages.map((page, index) => {
+                          if (page === '...') {
+                              return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                          }
+                          const pageNum = page as number;
+                          const isActive = currentPage === pageNum;
+                          return (
+                              <button
+                                  key={`page-${pageNum}`}
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                      ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                      : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                      }`}
+                              >
+                                  {pageNum}
+                              </button>
+                          );
+                      });
+                  })()}
+
+                  <button
+                      onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredNotifs.length / itemsPerPage), prev + 1))}
+                      disabled={currentPage === Math.max(1, Math.ceil(filteredNotifs.length / itemsPerPage)) || filteredNotifs.length === 0}
+                      className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                  >
+                      <ChevronRight className="w-4 h-4" />
+                  </button>
+              </div>
+            </div>
+          )}
           {filteredNotifs.length === 0 && (
             <div className="p-20 text-center">
               <Bell className="w-12 h-12 text-slate-300 mx-auto mb-4" />

@@ -1034,6 +1034,10 @@ const SafetyManagementPage = () => {
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Project Link</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getProjectName(selectedIncident.project_id)}>{getProjectName(selectedIncident.project_id)}</p>
                                     </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task Link</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getTaskName(selectedIncident.task_id as number)}>{getTaskName(selectedIncident.task_id as number)}</p>
+                                    </div>
                                 </div>
                             </div>
 

@@ -21,7 +21,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Clock,
-    ChevronDown
+    ChevronDown,
+    Layers
 } from "lucide-react";
 import { approvalService } from "../../../services/approvalService";
 import type { CreateApprovalRequest } from "../../../services/approvalService";
@@ -89,6 +90,7 @@ const WorkApprovalPage = () => {
     // Filter state for StatCards
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject" | "Pending/Reject" | "Rate">("Select");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+    const [categoryFilter, setCategoryFilter] = useState("All");
 
     const resolveUserName = (id: string | number | null) => {
         if (!id) return null;
@@ -306,6 +308,11 @@ const WorkApprovalPage = () => {
             data = data.filter(a => a.status !== "Approved");
         }
 
+        // Apply Category Filter
+        if (categoryFilter !== "All") {
+            data = data.filter(a => a.entity_type.toLowerCase() === categoryFilter.toLowerCase());
+        }
+
         // Apply Sort Order
         data.sort((a, b) => {
             if (sortOrder === "latest") {
@@ -316,7 +323,7 @@ const WorkApprovalPage = () => {
         });
 
         return data;
-    }, [baseFilteredApprovals, activeFilter, sortOrder]);
+    }, [baseFilteredApprovals, activeFilter, sortOrder, categoryFilter]);
 
     const paginatedApprovals = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -325,7 +332,7 @@ const WorkApprovalPage = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, activeFilter]);
+    }, [searchTerm, activeFilter, categoryFilter]);
 
     const stats = {
         total: baseFilteredApprovals.length,
@@ -350,7 +357,7 @@ const WorkApprovalPage = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                            Work Authorizations
+                            Approvals
                         </h1>
                         <p className="text-slate-500 text-sm">
                             Technical clearance portal for critical site activities and execution milestones.
@@ -381,7 +388,7 @@ const WorkApprovalPage = () => {
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
                             <Plus className="w-4 h-4" />
-                            Log Request
+                            Approvals
                         </button>
                     </div>
                 </div>
@@ -475,6 +482,31 @@ const WorkApprovalPage = () => {
                                 >
                                     <option value="latest">Latest First</option>
                                     <option value="oldest">Oldest First</option>
+                                </select>
+                                <div className="absolute right-3 text-slate-400 pointer-events-none">
+                                    <ChevronDown className="w-4 h-4" />
+                                </div>
+                            </div>
+
+                            {/* Category Filter */}
+                            <div className="relative flex items-center">
+                                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                    <Layers className="w-4 h-4" />
+                                </div>
+                                <select
+                                    value={categoryFilter}
+                                    onChange={(e) => setCategoryFilter(e.target.value)}
+                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                                >
+                                    <option value="All">All Categories</option>
+                                    <option value="Labour">Labour</option>
+                                    <option value="Material">Material</option>
+                                    <option value="Equipment">Equipment</option>
+                                    <option value="Drawing">Drawing</option>
+                                    <option value="Documents">Documents</option>
+                                    <option value="BOQ">BOQ</option>
+                                    <option value="Measurement">Measurement</option>
+                                    <option value="Bills">Bills</option>
                                 </select>
                                 <div className="absolute right-3 text-slate-400 pointer-events-none">
                                     <ChevronDown className="w-4 h-4" />
