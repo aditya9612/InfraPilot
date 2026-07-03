@@ -75,7 +75,6 @@ const OwnerDetailsModal: React.FC<OwnerDetailsModalProps> = ({ isOpen, onClose, 
           <Section icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>} title="Identity Information">
             <InfoItem label="Full Legal Name" value={owner.name} />
             <InfoItem label="Internal Reference" value={owner.owner_code || 'GEN-01'} valueClass="font-mono" />
-            <InfoItem label="System Status" value="Authorized" valueClass="text-emerald-600" />
           </Section>
 
           {/* Communication Hub */}

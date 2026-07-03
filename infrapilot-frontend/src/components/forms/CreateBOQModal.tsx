@@ -86,17 +86,15 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
         else if (value.trim().length < 2) error = 'Item name must be at least 2 characters.';
         break;
       case 'description':
-        if (!value.trim()) error = 'Description is required.';
+        // Optional
         break;
       case 'quantity':
-        if (!value) error = 'Quantity is required.';
-        else if (isNaN(Number(value)) || Number(value) <= 0) error = 'Enter a valid quantity greater than 0.';
-        else if (!/^\d+$/.test(value.toString())) error = 'Quantity must be a whole number.';
+        if (value && isNaN(Number(value))) error = 'Enter a valid quantity.';
+        else if (value && !/^\d+$/.test(value.toString())) error = 'Quantity must be a whole number.';
         break;
       case 'unit_cost':
-        if (!value) error = 'Unit cost is required.';
-        else if (isNaN(Number(value)) || Number(value) <= 0) error = 'Enter a valid unit cost.';
-        else if (!/^\d+$/.test(value.toString())) error = 'Unit cost must be a whole number.';
+        if (value && isNaN(Number(value))) error = 'Enter a valid unit cost.';
+        else if (value && !/^\d+$/.test(value.toString())) error = 'Unit cost must be a whole number.';
         break;
       case 'activity_type_id':
         if (!value) error = 'Activity Type is required.';
@@ -156,9 +154,9 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
         const submissionData = {
           project_id: Number(formData.project_id),
           item_name: formData.item_name,
-          description: formData.description,
-          quantity: Number(formData.quantity),
-          unit_cost: Number(formData.unit_cost),
+          description: formData.description || undefined,
+          quantity: formData.quantity ? Number(formData.quantity) : undefined,
+          unit_cost: formData.unit_cost ? Number(formData.unit_cost) : undefined,
           status: formData.status,
           activity_type_id: Number(formData.activity_type_id),
         };
@@ -254,7 +252,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
 
 
           <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Description <span className="text-rose-500">*</span></label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Description</label>
             <textarea
               name="description"
               rows={2}
@@ -267,7 +265,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Quantity <span className="text-rose-500">*</span></label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Quantity</label>
             <input
               type="text"
               name="quantity"
@@ -281,7 +279,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
 
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit Cost (₹) <span className="text-rose-500">*</span></label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit Cost (₹)</label>
             <input
               type="text"
               name="unit_cost"

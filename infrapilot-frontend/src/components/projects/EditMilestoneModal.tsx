@@ -21,6 +21,8 @@ const EditMilestoneModal = ({
     description: "",
     start_date: "",
     end_date: "",
+    actual_start_date: "",
+    actual_end_date: "",
     status: "Planned" as string,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -33,6 +35,8 @@ const EditMilestoneModal = ({
         description: milestone.description,
         start_date: milestone.start_date,
         end_date: milestone.end_date,
+        actual_start_date: (milestone as any).actual_start_date || "",
+        actual_end_date: (milestone as any).actual_end_date || "",
         status: milestone.status || "Planned",
       });
     }
@@ -172,6 +176,20 @@ const EditMilestoneModal = ({
               />
               {errors.end_date && <p className="text-[10px] text-red-500 mt-1">{errors.end_date}</p>}
             </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Actual Start Date</label>
+              <input
+                type="date" name="actual_start_date" value={formData.actual_start_date} onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:ring-primary focus:border-primary rounded-lg text-sm outline-none transition-all text-slate-700"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Actual End Date</label>
+              <input
+                type="date" name="actual_end_date" value={formData.actual_end_date} onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:ring-primary focus:border-primary rounded-lg text-sm outline-none transition-all text-slate-700"
+              />
+            </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-slate-500 mb-1">Status</label>
               <select
@@ -181,9 +199,9 @@ const EditMilestoneModal = ({
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-primary focus:border-primary transition-all text-slate-700"
               >
                 <option value="Planned">Planned</option>
-                <option value="Pending">Pending</option>
                 <option value="In Progress">In Progress</option>
                 <option value="Completed">Completed</option>
+                <option value="Delayed">Delayed</option>
               </select>
             </div>
           </div>

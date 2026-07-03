@@ -165,18 +165,14 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
     }
   };
 
-  const downloadTemplate = () => {
-    const headers =
-      "Item Name,Category,Description,Quantity,Unit,Unit Cost\n" +
-      "Cement OPC 53 Grade,Material,UltraTech OPC cement,500,bags,380\n" +
-      "River Sand,Material,Fine aggregate,20,tons,1200\n" +
-      "Steel TMT Bars,Material,Fe500 grade steel,2000,kg,65";
-    const blob = new Blob([headers], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "boq_import_template.csv";
-    a.click();
+  const downloadTemplate = async () => {
+    const toastId = toast.loading("Downloading template...");
+    try {
+      await boqService.downloadTemplate();
+      toast.success("Template downloaded successfully", { id: toastId });
+    } catch (error) {
+      toast.error("Failed to download template. Please try again.", { id: toastId });
+    }
   };
 
   const reset = () => {

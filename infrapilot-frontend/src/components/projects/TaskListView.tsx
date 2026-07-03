@@ -29,13 +29,33 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
   }, [tasks, currentPage]);
 
   const getMemberName = (task: any) => {
+    // 1. Try direct name fields first
     const directName = task.assigned_to_name || task.engineer_name || task.assigned_user?.full_name || task.engineer?.full_name;
     if (directName) return directName;
+
+    // 2. assigned_users array — API returns [{id, name}] or [id]
+    if (Array.isArray(task.assigned_users) && task.assigned_users.length > 0) {
+      const names = task.assigned_users.map((entry: any) => {
+        if (typeof entry === 'object' && entry !== null) {
+          // API returns name directly on the object
+          if (entry.name || entry.full_name) return entry.name || entry.full_name;
+          // fallback: look up in members list by id
+          const id = entry.id || entry.user_id;
+          const member = members.find(m => (m as any).user_id == id || (m as any).id == id);
+          return member ? member.full_name : (id ? `User ${id}` : null);
+        }
+        // plain id — look up in members list
+        const member = members.find(m => (m as any).user_id == entry || (m as any).id == entry);
+        return member ? member.full_name : `User ${entry}`;
+      }).filter(Boolean);
+      if (names.length > 0) return names.join(', ');
+    }
+
+    // 3. Fallback: single assigned_user_id — look up in members list
     const id = task.assigned_user_id || task.assigned_to || task.engineer_id;
     if (!id) return "Unassigned";
     const member = members.find(m => (m as any).user_id == id || (m as any).id == id);
-    if (!member) return `User ${id}`;
-    return member.full_name;
+    return member ? member.full_name : `User ${id}`;
   };
 
   const priorityBadges: Record<any, string> = {

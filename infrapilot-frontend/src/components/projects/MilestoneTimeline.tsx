@@ -84,8 +84,8 @@ const MilestoneTimeline = ({
 
       <div className="relative pl-8 space-y-8 before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
         {milestones.map((milestone) => {
-          const isCompleted = milestone.status === "Completed";
-          const isInProgress = milestone.status === "In Progress";
+          const isCompleted = milestone.status?.toLowerCase() === "completed";
+          const isInProgress = milestone.status?.toLowerCase() === "in progress";
 
           return (
             <div key={milestone.id} className="relative group">

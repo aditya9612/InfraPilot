@@ -8,7 +8,7 @@ interface TeamMembersListProps {
 
 const TeamMembersList = ({ members, onAssignClick, onRemoveMember }: TeamMembersListProps) => {
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col h-full">
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
       <div className="flex items-center justify-between mb-6">
         <h3 className="font-bold text-slate-800">Team Members</h3>
         <button 
@@ -19,7 +19,7 @@ const TeamMembersList = ({ members, onAssignClick, onRemoveMember }: TeamMembers
         </button>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+      <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
         {members.map((member) => (
           <div key={member.user_id} className="flex items-center gap-4 p-3 rounded-xl bg-slate-50/50 border border-slate-50 hover:border-slate-100 transition-all group">
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">

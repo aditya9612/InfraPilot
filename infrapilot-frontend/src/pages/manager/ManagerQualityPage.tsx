@@ -92,9 +92,10 @@ const ManagerQualityPage = () => {
     // ── ACTIONS ───────────────────────────────────────────────────
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (!formData.engineer_name.trim()) { toast.error("Engineer name required"); return; }
-        if (formData.result === "") { toast.error("Enter observed value"); return; }
-        if (formData.standard_value === "") { toast.error("Enter standard threshold"); return; }
+        if (!formData.project_id) { toast.error("Project is required"); return; }
+        if (!formData.inspection_type) { toast.error("Inspection type is required"); return; }
+        if (!formData.test_type) { toast.error("Test type is required"); return; }
+        if (formData.result === "") { toast.error("Result is required"); return; }
 
         setIsSubmitting(true);
         try {
@@ -537,22 +538,30 @@ const ManagerQualityPage = () => {
                             </select>
                         </div>
                         <div>
-                            <label className={labelCls}>Observed Result <span className="text-rose-500">*</span></label>
+                            <label className={labelCls}>Result <span className="text-rose-500">*</span></label>
                             <input type="number" value={formData.result} onChange={e => setFormData(p => ({ ...p, result: e.target.value as any }))} placeholder="e.g. 28" className={inputCls} />
                         </div>
                         <div>
-                            <label className={labelCls}>Standard Threshold <span className="text-rose-500">*</span></label>
+                            <label className={labelCls}>Standard Threshold</label>
                             <input type="number" value={formData.standard_value} onChange={e => setFormData(p => ({ ...p, standard_value: e.target.value as any }))} placeholder="e.g. 25" className={inputCls} />
                         </div>
                         <div>
-                            <label className={labelCls}>Status <span className="text-rose-500">*</span></label>
+                            <label className={labelCls}>Task ID</label>
+                            <input type="number" value={formData.task_id ?? ""} onChange={e => setFormData(p => ({ ...p, task_id: e.target.value ? Number(e.target.value) : null }))} placeholder="Task ID (optional)" className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>DSR ID</label>
+                            <input type="number" value={formData.dsr_id ?? ""} onChange={e => setFormData(p => ({ ...p, dsr_id: e.target.value ? Number(e.target.value) : null }))} placeholder="DSR ID (optional)" className={inputCls} />
+                        </div>
+                        <div>
+                            <label className={labelCls}>Status</label>
                             <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} className={inputCls}>
                                 <option value="Pass">Pass</option>
                                 <option value="Fail">Fail</option>
                             </select>
                         </div>
                         <div>
-                            <label className={labelCls}>Engineer In-Charge <span className="text-rose-500">*</span></label>
+                            <label className={labelCls}>Engineer In-Charge</label>
                             <input type="text" value={formData.engineer_name} onChange={e => setFormData(p => ({ ...p, engineer_name: e.target.value }))} placeholder="Er. Full Name" className={inputCls} />
                         </div>
                         <div className="md:col-span-2">

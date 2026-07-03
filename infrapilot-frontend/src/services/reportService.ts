@@ -154,8 +154,9 @@ export const reportService = {
         return response.data;
     },
 
-    exportProfitLossPDF: async () => {
-        const response = await api.get(`/reports/profit-loss/export/pdf`, {
+    exportProfitLossPDF: async (projectId?: number) => {
+        const response = await api.get(`/reports/projects/pdf`, {
+            params: projectId ? { project_id: projectId } : {},
             responseType: 'blob'
         });
         return response.data;
@@ -304,8 +305,9 @@ export const reportService = {
         return response.data;
     },
 
-    exportProfitLossExcel: async () => {
-        const response = await api.get(`/reports/profit-loss/export/excel`, {
+    exportProfitLossExcel: async (projectId?: number) => {
+        const response = await api.get(`/reports/projects/excel`, {
+            params: projectId ? { project_id: projectId } : {},
             responseType: 'blob'
         });
         return response.data;

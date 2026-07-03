@@ -16,20 +16,32 @@ export interface QcItem {
 }
 
 export interface CreateQcRequest {
-    project_id: number;
-    inspection_type: string;
-    test_type: string;
-    result: number;
-    standard_value: number;
-    status: string;
-    engineer_name: string;
-    task_id?: number | null;
-    dsr_id?: number | null;
-    remarks?: string | null;
-    report_file?: File | string | null;
+    project_id: number;          // required
+    inspection_type: string;     // required
+    test_type: string;           // required
+    result: number;              // required
+    task_id?: number | null;     // optional
+    dsr_id?: number | null;      // optional
+    standard_value?: number | null; // optional
+    status?: string | null;      // optional
+    engineer_name?: string | null; // optional
+    remarks?: string | null;     // optional
+    report_file?: File | string | null; // optional
 }
 
-export type UpdateQcRequest = CreateQcRequest;
+export interface UpdateQcRequest {
+    project_id: number;          // required
+    inspection_type: string;     // required
+    test_type: string;           // required
+    result: number;              // required
+    task_id?: number | null;     // optional
+    dsr_id?: number | null;      // optional
+    standard_value?: number | null; // optional
+    status?: string | null;      // optional
+    engineer_name?: string | null; // optional
+    remarks?: string | null;     // optional
+    report_file?: File | string | null; // optional
+}
 
 export interface QcResponse {
     items: QcItem[];
@@ -62,18 +74,19 @@ export const qcService = {
     },
 
     createQc: async (data: CreateQcRequest): Promise<QcItem> => {
-        const payload = {
+        // POST /api/v1/qc — all fields as query params + optional file as multipart
+        const params: any = {
             project_id: data.project_id,
             inspection_type: data.inspection_type,
             test_type: data.test_type,
             result: data.result,
-            standard_value: data.standard_value,
-            status: data.status,
-            engineer_name: data.engineer_name,
-            task_id: data.task_id || null,
-            dsr_id: data.dsr_id || null,
-            remarks: data.remarks || null
         };
+        if (data.task_id != null) params.task_id = data.task_id;
+        if (data.dsr_id != null) params.dsr_id = data.dsr_id;
+        if (data.standard_value != null) params.standard_value = data.standard_value;
+        if (data.status) params.status = data.status;
+        if (data.engineer_name) params.engineer_name = data.engineer_name;
+        if (data.remarks) params.remarks = data.remarks;
 
         const formData = new FormData();
         if (data.report_file && typeof data.report_file !== 'string') {
@@ -81,35 +94,40 @@ export const qcService = {
         }
 
         const response = await api.post('/qc', formData, {
-            params: payload,
+            params,
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;
     },
 
     updateQc: async (qc_id: number, data: UpdateQcRequest): Promise<QcItem> => {
-        const payload = {
-            id: qc_id,
+        // PUT /api/v1/qc/{qc_id} — request body as application/json
+        const body: any = {
             project_id: data.project_id,
             inspection_type: data.inspection_type,
             test_type: data.test_type,
             result: data.result,
-            standard_value: data.standard_value,
-            status: data.status,
-            engineer_name: data.engineer_name,
-            task_id: data.task_id || null,
-            dsr_id: data.dsr_id || null,
-            remarks: data.remarks || null
+            task_id: data.task_id ?? null,
+            dsr_id: data.dsr_id ?? null,
+            standard_value: data.standard_value ?? null,
+            status: data.status ?? null,
+            engineer_name: data.engineer_name ?? null,
+            remarks: data.remarks ?? null,
         };
 
-        const formData = new FormData();
+        // If there's a new file, use multipart; otherwise send JSON
         if (data.report_file && typeof data.report_file !== 'string') {
+            const formData = new FormData();
             formData.append("report_file", data.report_file as Blob);
+            const response = await api.put(`/qc/${qc_id}`, formData, {
+                params: body,
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            return response.data;
         }
 
-        const response = await api.put(`/qc/${qc_id}`, formData, {
-            params: payload,
-            headers: { 'Content-Type': 'multipart/form-data' }
+        const response = await api.put(`/qc/${qc_id}`, body, {
+            headers: { 'Content-Type': 'application/json' }
         });
         return response.data;
     },

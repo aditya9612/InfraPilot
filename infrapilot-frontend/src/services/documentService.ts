@@ -46,6 +46,7 @@ export const documentService = {
         if (params.parent_id) formData.append("parent_id", params.parent_id.toString());
         if (params.remarks) formData.append("remarks", params.remarks);
         if (params.version) formData.append("version", params.version);
+        if (params.date) formData.append("date", params.date);
         formData.append("file", params.file);
 
         const response = await api.post("/documents", formData, {

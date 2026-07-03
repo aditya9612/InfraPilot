@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import type { ActivityItem } from "../../types/workProgress";
+import { projectService } from "../../services/projectService";
 
 interface ActivityDetailModalProps {
   isOpen: boolean;
@@ -16,6 +18,46 @@ const statusBadge: Record<string, string> = {
 };
 
 const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDetailModalProps) => {
+  const [engineerName, setEngineerName] = useState<string>("Unassigned");
+  const [isLoadingEngineer, setIsLoadingEngineer] = useState(false);
+
+  useEffect(() => {
+    if (activity && isOpen) {
+      if ((activity as any).engineer_name) {
+        setEngineerName((activity as any).engineer_name);
+        return;
+      }
+
+      const engineerId = activity.engineer_id || (activity as any).assigned_to;
+      if (engineerId && activity.project_id) {
+        setIsLoadingEngineer(true);
+        projectService.getProjectMembers(activity.project_id)
+          .then((response: any) => {
+            const rawMembers = Array.isArray(response) ? response : response.items || response.data || [];
+            const member = rawMembers.find((m: any) =>
+              m.user_id == engineerId ||
+              m.id == engineerId ||
+              m.user?.id == engineerId
+            );
+
+            if (member) {
+              setEngineerName(member.full_name || member.user?.full_name || member.user?.name || `Engineer ${engineerId}`);
+            } else {
+              setEngineerName(`Engineer ${engineerId} (External)`);
+            }
+          })
+          .catch(() => {
+            setEngineerName(`Engineer ${engineerId}`);
+          })
+          .finally(() => {
+            setIsLoadingEngineer(false);
+          });
+      } else {
+        setEngineerName("Unassigned");
+      }
+    }
+  }, [activity, isOpen]);
+
   if (!activity) return null;
 
   return (
@@ -48,7 +90,7 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Created At</p>
               <p className="text-sm font-bold text-slate-700">{activity.created_at ? new Date(activity.created_at).toLocaleString() : "-"}</p>
             </div>
-            
+
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Completed</p>
               <p className="text-sm font-bold text-slate-700">{activity.total_completed} {activity.unit}</p>
@@ -94,6 +136,15 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">End Date</p>
               <p className="text-sm font-bold text-slate-700">{activity.end_date}</p>
+            </div>
+
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Work Order ID</p>
+              <p className="text-sm font-bold text-slate-700">{activity.work_order_id || "-"}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Engineer Name</p>
+              <p className="text-sm font-bold text-slate-700">{isLoadingEngineer ? <span className="animate-pulse">Loading...</span> : engineerName}</p>
             </div>
           </div>
         </div>

@@ -36,7 +36,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     activity_name: "",
     boq_code: "" as any,
     planned_quantity: "" as any,
-    unit: "Cum",
+    unit: "CUM",
     start_date: "",
     end_date: "",
     status: "NOT_STARTED",
@@ -101,18 +101,22 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   useEffect(() => {
     const fetchSiteEngineers = async () => {
       try {
-        // Fetch all users and filter by SiteEngineer role
-        const res = await userService.getAllUsers(200, 0);
+        const projectIdToFetch = Number(formData.project_id) || projectId;
+        if (!projectIdToFetch) {
+          setSiteEngineers([]);
+          return;
+        }
+        const res = await projectService.getProjectMembers(projectIdToFetch);
         const allUsers = Array.isArray(res) ? res : (res.items || res.data || []);
         const engineers = allUsers
           .filter((u: any) => {
-            const role = typeof u.role === 'string' ? u.role : u.role?.name || '';
+            const role = typeof u.role === 'string' ? u.role : u.role?.name || u.user?.role || '';
             const normalizedRole = role.toLowerCase().replace(/\s/g, '');
-            return normalizedRole === 'siteengineer' || normalizedRole === 'engineer';
+            return normalizedRole === 'siteengineer' || normalizedRole === 'engineer' || normalizedRole === 'member';
           })
           .map((u: any) => ({
-            id: u.user_id || u.id,
-            name: u.full_name || u.name || `Engineer #${u.user_id || u.id}`
+            id: u.user_id || u.id || u.user?.id,
+            name: u.full_name || u.name || u.user?.full_name || u.user?.name || `Engineer #${u.user_id || u.id}`
           }));
         setSiteEngineers(uniqueById(engineers));
       } catch (err) {
@@ -124,7 +128,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
     if (isOpen) {
       fetchSiteEngineers();
     }
-  }, [isOpen]);
+  }, [isOpen, formData.project_id, projectId]);
 
   const displayedBoqs = allBoqs;
   const displayedWorkOrders = allWorkOrders;
@@ -180,7 +184,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         activity_name: "",
         boq_code: "",
         planned_quantity: "",
-        unit: "Cum",
+        unit: "CUM",
         start_date: "",
         end_date: "",
         status: "NOT_STARTED",
@@ -358,7 +362,10 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
               <label className={labelClasses}>Unit of Measure*</label>
               <select name="unit" className={inputClasses()} value={formData.unit} onChange={handleChange}>
                 <option value="">Select Unit</option>
-                {unitList.map(u => <option key={u.id || u.name} value={u.name}>{u.name}</option>)}
+                {unitList.map(u => {
+                  const unitCode = u.name?.match(/\(([^)]+)\)/)?.[1]?.toUpperCase() || u.name?.toUpperCase() || "";
+                  return <option key={u.id || u.unique_code || u.name} value={unitCode}>{u.name}</option>;
+                })}
               </select>
             </div>
           </div>

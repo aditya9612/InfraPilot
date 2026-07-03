@@ -234,8 +234,18 @@ const ManagerBOQPage = () => {
                 await boqService.updateBoqItem(editingItem.id, data);
                 toast.success("BOQ item updated successfully!");
             } else {
-                const newItem = await boqService.createBoq(data);
-                toast.success("BOQ item created successfully!");
+                // Use the group endpoint for adding items
+                // Find the first BOQ item's group_id for this project, or use the project_id as the group
+                const firstItem = boqData[0];
+                const groupId = firstItem?.boq_group_id || data.project_id;
+                
+                if (!groupId) {
+                    toast.error("Unable to determine BOQ group. Please ensure project is selected.");
+                    return;
+                }
+
+                const newItem = await boqService.addBoqItem(groupId, data);
+                toast.success("BOQ item added to group successfully!");
 
                 // Automatically request approval for new items
                 try {
@@ -254,7 +264,7 @@ const ManagerBOQPage = () => {
             setIsModalOpen(false);
             setEditingItem(null);
         } catch (error) {
-            toast.error(editingItem ? "Failed to update BOQ" : "Failed to create BOQ");
+            toast.error(editingItem ? "Failed to update BOQ" : "Failed to add BOQ item");
         }
     };
 
@@ -344,29 +354,34 @@ const ManagerBOQPage = () => {
             return;
         }
 
+        setIsExporting(true);
+        const dateStr = new Date().toISOString().split("T")[0];
+        const projectName = selectedProjectId ? projectMap[Number(selectedProjectId)] : "All_Projects";
+        const firstItem = boqData[0];
+        // Use the item's own id for /api/v1/boq/{boq_id}/export/{format}
+        const boqId = firstItem?.id;
+
+        if (!boqId) {
+            toast.error("Unable to determine BOQ ID for export");
+            setIsExporting(false);
+            return;
+        }
+
+        const filters = {
+            search: searchTerm || null,
+            status: statusFilter === "all" ? null : statusFilter,
+            category: categoryFilter === "all" ? null : categoryFilter,
+            version_no: selectedVersion === "latest" ? null : Number(selectedVersion),
+        };
+
+        toast.loading(`Preparing ${format.toUpperCase()}...`, { id: "export" });
+
         try {
-            setIsExporting(true);
-            const firstItem = boqData[0];
-            const isProjectLevel = !!selectedProjectId;
+            // Call: GET /api/v1/boq/{boq_id}/export/json|excel|pdf
+            const data = await boqService.exportBoq(boqId, format, filters);
 
-            const exportId = firstItem?.boq_group_id || (isProjectLevel ? Number(selectedProjectId) : firstItem?.id);
-            if (!exportId) {
-                toast.error("Unable to determine export context");
-                return;
-            }
-
-            const filters = {
-                search: searchTerm || null,
-                status: statusFilter === "all" ? null : statusFilter,
-                category: categoryFilter === "all" ? null : categoryFilter,
-                version_no: selectedVersion === "latest" ? null : Number(selectedVersion),
-            };
-
-            toast.loading(`Preparing ${format.toUpperCase()}...`, { id: "export" });
-            const data = await boqService.exportBoq(exportId, format, filters);
-            const fileName = isProjectLevel
-                ? `boq_project_${exportId}.${format === "json" ? "json" : format === "excel" ? "csv" : "pdf"}`
-                : `boq_export_${exportId}.${format === "json" ? "json" : format === "excel" ? "csv" : "pdf"}`;
+            const ext = format === "json" ? "json" : format === "excel" ? "xlsx" : "pdf";
+            const fileName = `BOQ_${projectName}_${dateStr}.${ext}`;
 
             if (format === "json") {
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -374,62 +389,81 @@ const ManagerBOQPage = () => {
                 const a = document.createElement("a");
                 a.href = url;
                 a.download = fileName;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
             } else {
-                const blob = new Blob([data], { type: format === "excel" ? "text/csv;charset=utf-8;" : "application/pdf" });
+                const mimeType = format === "excel"
+                    ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    : "application/pdf";
+                const blob = new Blob([data], { type: mimeType });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
                 a.download = fileName;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
             }
             toast.success(`${format.toUpperCase()} exported successfully!`, { id: "export" });
+
         } catch (apiError: any) {
-            console.warn("Backend export failed, falling back to client-side generation", apiError);
-            const dateStr = new Date().toISOString().split("T")[0];
-            const projectName = selectedProjectId ? projectMap[Number(selectedProjectId)] : "All_Projects";
+            // Backend endpoint not available — fall back to client-side generation
+            console.warn(`Backend /boq/${boqId}/export/${format} unavailable, using client-side fallback`);
 
-            if (format === "pdf") {
-                const doc = new jsPDF();
-                doc.setFontSize(18);
-                doc.text("BOQ Management Report (Manager)", 14, 22);
-                doc.setFontSize(11);
-                doc.text(`Project: ${projectName}`, 14, 30);
-                doc.text(`Date: ${new Date().toLocaleString()}`, 14, 37);
+            try {
+                if (format === "pdf") {
+                    const doc = new jsPDF();
+                    doc.setFontSize(18);
+                    doc.text("BOQ Management Report", 14, 22);
+                    doc.setFontSize(11);
+                    doc.text(`Project: ${projectName}`, 14, 30);
+                    doc.text(`Date: ${new Date().toLocaleString()}`, 14, 37);
+                    autoTable(doc, {
+                        startY: 45,
+                        head: [["Item Name", "Category", "Qty & Unit", "Unit Cost", "Est. Total", "Status"]],
+                        body: boqData.map((item) => [
+                            item.item_name,
+                            item.category,
+                            `${item.quantity} ${item.unit}`,
+                            `₹${Number(item.unit_cost).toLocaleString()}`,
+                            `₹${Number(item.total_cost || 0).toLocaleString()}`,
+                            item.status,
+                        ]),
+                        headStyles: { fillColor: [37, 99, 235] },
+                    });
+                    doc.save(`BOQ_${projectName}_${dateStr}.pdf`);
+                    toast.success("PDF generated successfully", { id: "export" });
 
-                const tableData = boqData.map((item) => [
-                    item.item_name,
-                    item.category,
-                    `${item.quantity} ${item.unit}`,
-                    `₹${Number(item.unit_cost).toLocaleString()}`,
-                    `₹${Number(item.total_cost || 0).toLocaleString()}`,
-                    item.status === "Ongoing" || item.status === "ACTIVE" ? "Ongoing" : item.status,
-                ]);
+                } else if (format === "excel") {
+                    exportToCSV(boqData, `BOQ_${projectName}_${dateStr}.csv`, {
+                        item_name: "Item Name",
+                        category: "Category",
+                        quantity: "Quantity",
+                        unit: "Unit",
+                        unit_cost: "Unit Cost",
+                        total_cost: "Total Cost",
+                        status: "Status",
+                    });
+                    toast.success("CSV exported successfully", { id: "export" });
 
-                autoTable(doc, {
-                    startY: 45,
-                    head: [["Item Name", "Category", "Qty & Unit", "Unit Cost", "Est. Total", "Status"]],
-                    body: tableData,
-                    headStyles: { fillColor: [37, 99, 235] },
-                });
-
-                doc.save(`BOQ_Report_Manager_${projectName}_${dateStr}.pdf`);
-                toast.success("PDF generated successfully", { id: "export" });
-            } else if (format === "excel") {
-                exportToCSV(boqData, `BOQ_Report_Manager_${projectName}_${dateStr}.csv`, {
-                    item_name: "Item Name",
-                    category: "Category",
-                    quantity: "Quantity",
-                    unit: "Unit",
-                    unit_cost: "Unit Cost",
-                    total_cost: "Total Cost",
-                    status: "Status",
-                });
-                toast.success("Excel/CSV generated successfully", { id: "export" });
-            } else {
-                toast.error(`Export failed: ${apiError.response?.data?.detail || "Connection error"}`, { id: "export" });
+                } else {
+                    const blob = new Blob([JSON.stringify(boqData, null, 2)], { type: "application/json" });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `BOQ_${projectName}_${dateStr}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    toast.success("JSON exported successfully", { id: "export" });
+                }
+            } catch (fallbackErr) {
+                console.error("Client-side export fallback failed:", fallbackErr);
+                toast.error("Export failed. Please try again.", { id: "export" });
             }
         } finally {
             setIsExporting(false);
@@ -460,7 +494,7 @@ const ManagerBOQPage = () => {
 
 
     const tabs = [
-        { id: "boq-list", label: "BOQ List", icon: <List className="w-4 h-4" /> },
+        { id: "boq-list", label: `BOQ List (${totalItems})`, icon: <List className="w-4 h-4" /> },
         { id: "cost-tracking", label: "Cost Tracking", icon: <TrendingUp className="w-4 h-4" /> },
     ];
 
@@ -750,10 +784,10 @@ const ManagerBOQPage = () => {
                                                                 <div className="flex items-center justify-end gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
                                                                     <button onClick={() => { setViewingItem(item); setIsViewModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-slate-900 transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
                                                                     <button onClick={() => openActualsModal(item)} className="p-1.5 text-slate-500 hover:text-emerald-600 transition-colors" title="Update Actuals"><TrendingUp className="w-4 h-4" /></button>
-                                                                    <button onClick={() => handleRequestApproval(item)} className="p-1.5 text-slate-500 hover:text-blue-600 transition-colors" title="Request Approval"><FileCheck className="w-4 h-4" /></button>
+                                                                    <button onClick={() => item.approval_status !== 'APPROVED' && handleRequestApproval(item)} disabled={item.approval_status === 'APPROVED'} className={`p-1.5 transition-colors ${item.approval_status === 'APPROVED' ? 'text-emerald-500 cursor-not-allowed' : 'text-slate-500 hover:text-blue-600'}`} title={item.approval_status === 'APPROVED' ? 'Already Approved' : 'Request Approval'}><FileCheck className="w-4 h-4" /></button>
                                                                     <button onClick={() => openHistoryModal(item)} className="p-1.5 text-slate-500 hover:text-violet-600 transition-colors" title="View History"><History className="w-4 h-4" /></button>
                                                                     <button onClick={() => handleEditClick(item)} className="p-1.5 text-slate-500 hover:text-amber-600 transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
-                                                                    <button onClick={() => handleDeleteClick(item.id)} className="p-1.5 text-slate-500 hover:text-rose-600 transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                                    <button onClick={() => handleDeleteClick(item.id)} disabled={item.approval_status === "Approved"} className={`p-1.5 transition-colors ${item.approval_status === "Approved" ? "text-slate-300 cursor-not-allowed" : "text-slate-500 hover:text-rose-600"}`} title={item.approval_status === "Approved" ? "Cannot delete an approved item" : "Delete"}><Trash2 className="w-4 h-4" /></button>
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -771,7 +805,7 @@ const ManagerBOQPage = () => {
                                 />
                             </div>
                         )}
-                        {activeTab === "cost-tracking" && <CostTrackingView items={boqData} isLoading={isLoading} />}
+                        {activeTab === "cost-tracking" && <CostTrackingView projectId={selectedProjectId !== null ? String(selectedProjectId) : null} selectedVersion={selectedVersion} />}
                     </motion.div>
                 </AnimatePresence>
             </PageTransition>
@@ -907,61 +941,118 @@ const BudgetView = ({ summary, items }: { summary: any; items: BoqItem[]; isLoad
 /* ═══════════════════════════════════════════════════════════════
    3. COST TRACKING VIEW
    ════════════════════════════════════════════════════════════ */
-const CostTrackingView = ({ items }: { items: BoqItem[]; isLoading: boolean }) => {
+const CostTrackingView = ({ projectId, selectedVersion }: { projectId: string | null; selectedVersion: number | "latest" }) => {
+    const [comparisonData, setComparisonData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
+    useEffect(() => {
+        if (!projectId) {
+            setComparisonData([]);
+            return;
+        }
+        const fetchComparison = async () => {
+            setLoading(true);
+            try {
+                const data = await boqService.getBoqComparison(Number(projectId), selectedVersion);
+                setComparisonData(data || []);
+            } catch (error) {
+                console.error("Failed to fetch comparison data", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchComparison();
+    }, [projectId, selectedVersion]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [projectId, selectedVersion]);
+
+    if (!projectId) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-100">
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Select a project to view cost tracking.</p>
+            </div>
+        );
+    }
+
+    const totalItems = comparisonData.length;
+    const paginatedData = comparisonData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
     return (
         <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-50">
+                <div className="p-6 border-b border-slate-50 flex justify-between items-center">
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Variance Analysis Report</h3>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                                <th className="px-6 py-4">Item Name</th>
-                                <th className="px-6 py-4 text-right">Estimated</th>
-                                <th className="px-6 py-4 text-right">Actual</th>
-                                <th className="px-6 py-4 text-right">Variance</th>
-                                <th className="px-6 py-4 text-center">Efficiency</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                            {items.map((item) => {
-                                const variance = (Number(item.total_cost || 0)) - (Number(item.actual_cost || 0));
-                                const efficiency = Number(item.actual_cost) > 0
-                                    ? (Number(item.total_cost || 0) / Number(item.actual_cost)) * 100
-                                    : 100;
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
+                        </div>
+                    ) : (
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                                    <th className="px-6 py-4">Item Name</th>
+                                    <th className="px-6 py-4 text-right">Estimated</th>
+                                    <th className="px-6 py-4 text-right">Actual</th>
+                                    <th className="px-6 py-4 text-right">Variance</th>
+                                    <th className="px-6 py-4 text-center">Efficiency</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {paginatedData.length === 0 ? (
+                                    <tr><td colSpan={5} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest relative">No items available.</td></tr>
+                                ) : (
+                                    paginatedData.map((item, idx) => {
+                                        const variance = Number(item.variance || 0);
+                                        const estimated = Number(item.estimated || 0);
+                                        const actual = Number(item.actual || 0);
+                                        const efficiency = actual > 0 ? (estimated / actual) * 100 : 100;
 
-                                return (
-                                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <span className="text-xs font-bold text-slate-800">{item.item_name}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className="text-xs font-bold text-slate-400">{formatCompactCurrency(Number(item.total_cost || 0))}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className="text-xs font-bold text-slate-600">{formatCompactCurrency(Number(item.actual_cost || 0))}</span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className={`text-xs font-black ${variance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                                {variance < 0 ? '-' : '+'}{formatCompactCurrency(Math.abs(variance))}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-col items-center gap-1">
-                                                <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div className={`h-full rounded-full ${efficiency < 100 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(efficiency, 100)}%` }} />
-                                                </div>
-                                                <span className="text-[9px] font-black text-slate-400">{efficiency.toFixed(1)}%</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                        return (
+                                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-bold text-slate-800">{item.item_name}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className="text-xs font-bold text-slate-400">{formatCompactCurrency(estimated)}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className="text-xs font-bold text-slate-600">{formatCompactCurrency(actual)}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={`text-xs font-black ${variance < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                        {variance < 0 ? '-' : '+'}{formatCompactCurrency(Math.abs(variance))}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                            <div className={`h-full rounded-full ${efficiency < 100 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(efficiency, 100)}%` }} />
+                                                        </div>
+                                                        <span className="text-[9px] font-black text-slate-400">{efficiency.toFixed(1)}%</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
+                {!loading && totalItems > 0 && (
+                    <Pagination
+                        currentPage={currentPage - 1}
+                        totalItems={totalItems}
+                        pageSize={itemsPerPage}
+                        onPageChange={(page) => setCurrentPage(page + 1)}
+                    />
+                )}
             </div>
         </div>
     );

@@ -293,7 +293,7 @@ export const projectService = {
       }));
 
       if (Array.isArray(data)) return mappedItems;
-      
+
       return {
         ...data,
         items: mappedItems
@@ -391,14 +391,23 @@ export const projectService = {
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
     try {
-      // Auto-detect: FormData → multipart (for file/audio uploads), plain object → JSON
-      const isFormData = taskData instanceof FormData;
+      // Backend requires multipart/form-data for this endpoint
+      // If plain object passed, convert it to FormData
+      let payload: FormData;
+      if (taskData instanceof FormData) {
+        payload = taskData;
+      } else {
+        payload = new FormData();
+        for (const [key, value] of Object.entries(taskData)) {
+          if (value !== undefined && value !== null) {
+            payload.append(key, String(value));
+          }
+        }
+      }
       const response = await api.put(
         `/projects/${projectId}/tasks/${taskId}`,
-        taskData,
-        isFormData
-          ? { headers: { "Content-Type": "multipart/form-data" } }
-          : { headers: { "Content-Type": "application/json" } }
+        payload,
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
       return response.data;
     } catch (error: any) {
@@ -576,9 +585,18 @@ export const projectService = {
 
     try {
       console.log(`[ProjectService] Refreshing assigned projects for user ${userId}...`);
-      // 1. Fetch projects (limit 100)
-      const pRes = await this.getProjects(100, 0);
-      const projectList = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
+      // 1. Fetch ALL projects in chunks to bypass the backend 100-limit
+      let projectList: any[] = [];
+      let offset = 0;
+      const limit = 100;
+      while (true) {
+        const pRes = await this.getProjects(limit, undefined, "", "", offset);
+        const chunk = Array.isArray(pRes) ? pRes : (pRes.items || pRes.data || []);
+        if (chunk.length === 0) break;
+        projectList = [...projectList, ...chunk];
+        if (chunk.length < limit || projectList.length >= 2000) break; // circuit breaker
+        offset += limit;
+      }
 
       if (projectList.length === 0) return [];
 
