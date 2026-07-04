@@ -145,8 +145,8 @@ export const reportService = {
         return response.data;
     },
     exportIssuePDF: async (projectId: number) => {
-        const url = `/reports/issues/export/pdf`;
-        console.log(`Calling Report Export: GET ${url} with project_id=${projectId}`);
+        // GET /api/v1/reports/issues/pdf — Export Issues Pdf
+        const url = `/reports/issues/pdf`;
         const response = await api.get(url, {
             params: { project_id: projectId },
             responseType: 'blob'
@@ -187,7 +187,8 @@ export const reportService = {
     },
 
     exportIssueExcel: async (projectId: number) => {
-        const response = await api.get(`/reports/issues/export/excel`, {
+        // GET /api/v1/reports/issues/excel — Export Issues Excel
+        const response = await api.get(`/reports/issues/excel`, {
             params: { project_id: projectId },
             responseType: 'blob'
         });
@@ -306,14 +307,128 @@ export const reportService = {
     },
 
     exportProfitLossExcel: async (projectId?: number) => {
-        const response = await api.get(`/reports/projects/excel`, {
+        // GET /api/v1/reports/profit-loss/excel
+        const response = await api.get(`/reports/profit-loss/excel`, {
             params: projectId ? { project_id: projectId } : {},
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportFinancialSummaryPDF: async (projectId: number) => {
+    exportProfitLossPdf: async (projectId?: number) => {
+        // GET /api/v1/reports/profit-loss/pdf
+        const response = await api.get(`/reports/profit-loss/pdf`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportFinanceExcel: async (projectId?: number) => {
+        // GET /api/v1/reports/finance/excel — Export Finance Excel
+        const response = await api.get(`/reports/finance/excel`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportFinancePdf: async (projectId?: number) => {
+        // GET /api/v1/reports/finance/pdf — Export Finance Pdf
+        const response = await api.get(`/reports/finance/pdf`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportEquipmentPdf: async () => {
+        // GET /api/v1/equipment/reports/pdf — Equipment Full Pdf Report
+        const response = await api.get(`/equipment/reports/pdf`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportEquipmentExcel: async () => {
+        // GET /api/v1/equipment/reports/excel — Equipment Excel Report
+        const response = await api.get(`/equipment/reports/excel`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportAssetsExcel: async (projectId?: number) => {
+        // GET /api/v1/reports/assets/excel — Export Assets Excel
+        const response = await api.get(`/reports/assets/excel`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportAssetsPdf: async (projectId?: number) => {
+        // GET /api/v1/reports/assets/pdf — Export Assets Pdf
+        const response = await api.get(`/reports/assets/pdf`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportMaterialPdf: async (projectId?: number) => {
+        // GET /api/v1/materials/reports/pdf — Export Pdf
+        const response = await api.get(`/materials/reports/pdf`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportMaterialExcelReport: async (projectId?: number) => {
+        // GET /api/v1/materials/reports/excel — Export Excel
+        const response = await api.get(`/materials/reports/excel`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportLabourDistributionExcel: async (projectId?: number) => {
+        // GET /api/v1/reports/labour-distribution/excel — Export Labour Distribution Excel
+        const response = await api.get(`/reports/labour-distribution/excel`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportLabourDistributionPdf: async (projectId?: number) => {
+        // GET /api/v1/reports/labour-distribution/pdf — Export Labour Distribution Pdf
+        const response = await api.get(`/reports/labour-distribution/pdf`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportIssuesExcel: async (projectId?: number) => {
+        // GET /api/v1/reports/issues/excel — Export Issues Excel
+        const response = await api.get(`/reports/issues/excel`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    exportIssuesPdf: async (projectId?: number) => {
+        // GET /api/v1/reports/issues/pdf — Export Issues Pdf
+        const response = await api.get(`/reports/issues/pdf`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },    exportFinancialSummaryPDF: async (projectId: number) => {
         const response = await api.get(`/reports/financial-summary/export/pdf`, {
             params: { project_id: projectId },
             responseType: 'blob'
