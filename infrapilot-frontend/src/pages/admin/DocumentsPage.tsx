@@ -102,21 +102,17 @@ const DocumentsPage = () => {
       const promises: Promise<any>[] = [
         documentService.listDocuments({
           search: query,
-          parent_id: folderId
+          parent_id: folderId,
+          ...(selectedProjectId ? { project_id: selectedProjectId } : {})
         }),
         documentService.getStats()
       ];
 
-      // At root level, fetch specialized drawings for selected project (or all projects if none selected)
+      // At root level, fetch specialized drawings for selected project. 
+      // Note: We deliberately do not fetch for ALL projects simultaneously to avoid N+1 API request flooding.
       if (folderId === null && mainTab === "Drawings") {
         if (selectedProjectId) {
           promises.push(drawingService.getVersions(selectedProjectId));
-        } else if (projects.length > 0) {
-          // Fetch drawings for all projects and flatten
-          promises.push(
-            Promise.all(projects.map((p: any) => drawingService.getVersions(p.id || p.project_id).catch(() => [])))
-              .then((results) => results.flat())
-          );
         }
       }
 
@@ -130,9 +126,10 @@ const DocumentsPage = () => {
         apiDrawings = results[2].value;
       }
 
-      // Map Documents (standard)
-      const mappedDocs = (docRes.items || [])
-        .filter((item: any) => item.parent_id === folderId)
+      const docItems = Array.isArray(docRes) ? docRes : (docRes.items || docRes.data || []);
+
+      // Map Documents (standard) — API already scopes by parent_id, no client-side re-filter needed
+      const mappedDocs = docItems
         .map((d: any) => ({
           ...d,
           type: d.is_folder ? "Folder" : "Document",
@@ -168,12 +165,12 @@ const DocumentsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentFolderId, selectedProjectId, typeFilter, projects]);
+  }, [currentFolderId, selectedProjectId, typeFilter, projects, mainTab]);
 
   useEffect(() => {
     fetchDocs(searchTerm);
     setCurrentPage(0);
-  }, [fetchDocs, searchTerm, currentFolderId, selectedProjectId, typeFilter]);
+  }, [fetchDocs, searchTerm, currentFolderId, selectedProjectId, typeFilter, mainTab]);
 
   useEffect(() => {
     if (!viewingDoc) {
@@ -461,7 +458,7 @@ const DocumentsPage = () => {
           {(["Drawings", "Documents"] as const).map(tab => (
             <button
               key={tab}
-              onClick={() => { setMainTab(tab); setCategoryFilter(""); setCurrentPage(0); }}
+              onClick={() => { setMainTab(tab); setCategoryFilter(""); setCurrentPage(0); setTypeFilter("All"); }}
               className={`px-5 py-2 rounded-lg text-[11px] font-bold transition-all ${mainTab === tab ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             >
               {tab}
@@ -502,7 +499,7 @@ const DocumentsPage = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search documents..."
+                  placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -526,29 +523,18 @@ const DocumentsPage = () => {
             </div>
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
               <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl whitespace-nowrap">
-                {(["All", "Documents", "Folders"] as TypeFilter[]).map(tabName => (
-                  <button
-                    key={tabName}
-                    onClick={() => { setTypeFilter(tabName); setCategoryFilter(""); }}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${typeFilter === tabName ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                  >
-                    {tabName}
-                  </button>
-                ))}
-              </div>
               <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${categoryFilter
-                  ? "bg-primary/10 border-primary/30 text-primary"
-                  : "bg-slate-50 border-slate-200 text-slate-600"
-                  }`}
+                value={typeFilter}
+                onChange={e => { setTypeFilter(e.target.value as TypeFilter); setCategoryFilter(""); }}
+                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${
+                  typeFilter !== "All"
+                    ? "bg-primary/10 border-primary/30 text-primary"
+                    : "bg-slate-50 border-slate-200 text-slate-600"
+                }`}
               >
-                <option value="">All Types</option>
-                {availableCategories.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                <option value="All">All</option>
+                <option value="Documents">{mainTab === "Drawings" ? "Drawings" : "Documents"}</option>
+                <option value="Folders">Folders</option>
               </select>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>

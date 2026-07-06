@@ -138,7 +138,7 @@ const CreateLabourModal: React.FC<CreateLabourModalProps> = ({
                                 onChange={(e) => setFormData({ ...formData, skill_category: e.target.value })}
                             >
                                 <option value="Unskilled">Unskilled</option>
-                                <option value="Semi-Skilled">Semi-Skilled</option>
+                                <option value="Semi Skilled">Semi Skilled</option>
                                 <option value="Skilled">Skilled</option>
                             </select>
                         </div>

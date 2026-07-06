@@ -108,6 +108,16 @@ export const reportService = {
         });
         return response.data;
     },
+
+    exportDailyExcel: async (projectId: number, reportDate: string) => {
+        const url = `/reports/daily/export/excel`;
+        console.log(`Calling Daily Excel Export: GET ${url} with project_id=${projectId}, report_date=${reportDate}`);
+        const response = await api.get(url, {
+            params: { project_id: projectId, report_date: reportDate },
+            responseType: 'blob'
+        });
+        return response.data;
+    },
     exportWeeklyPDF: async (projectId: number) => {
         const url = `/work-progress/reports/pdf`;
         console.log(`Calling Weekly Report Export: GET ${url} with project_id=${projectId}`);
@@ -357,19 +367,19 @@ export const reportService = {
         return response.data;
     },
 
-    exportAssetsExcel: async (projectId?: number) => {
+    exportAssetsExcel: async (projectId?: number, filters?: { start_date?: string | null; end_date?: string | null; min_value?: number | null; max_value?: number | null }) => {
         // GET /api/v1/reports/assets/excel — Export Assets Excel
         const response = await api.get(`/reports/assets/excel`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...filters },
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportAssetsPdf: async (projectId?: number) => {
+    exportAssetsPdf: async (projectId?: number, filters?: { start_date?: string | null; end_date?: string | null; min_value?: number | null; max_value?: number | null }) => {
         // GET /api/v1/reports/assets/pdf — Export Assets Pdf
         const response = await api.get(`/reports/assets/pdf`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...filters },
             responseType: 'blob'
         });
         return response.data;
@@ -411,19 +421,19 @@ export const reportService = {
         return response.data;
     },
 
-    exportIssuesExcel: async (projectId?: number) => {
+    exportIssuesExcel: async (projectId?: number, filters?: { status?: string | null; priority?: string | null; start_date?: string | null; end_date?: string | null }) => {
         // GET /api/v1/reports/issues/excel — Export Issues Excel
         const response = await api.get(`/reports/issues/excel`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...filters },
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportIssuesPdf: async (projectId?: number) => {
+    exportIssuesPdf: async (projectId?: number, filters?: { status?: string | null; priority?: string | null; start_date?: string | null; end_date?: string | null }) => {
         // GET /api/v1/reports/issues/pdf — Export Issues Pdf
         const response = await api.get(`/reports/issues/pdf`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...filters },
             responseType: 'blob'
         });
         return response.data;

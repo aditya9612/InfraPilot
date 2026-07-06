@@ -31,6 +31,7 @@ const MasterDataPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [showInactive, setShowInactive] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [unitsMap, setUnitsMap] = useState<Record<number, string>>({});
   const PAGE_SIZE = 10;
 
@@ -117,16 +118,47 @@ const MasterDataPage = () => {
   }, [activeTab, searchTerm, sortOrder]);
 
   const filteredAndSortedItems = useMemo(() => {
+    const tagMap: Record<string, string> = {
+      "Material": "MATERIAL",
+      "Labour": "LABOR",
+      "Activity": "ACTIVITY",
+      "Unit": "UNIT"
+    };
+
     let result = [...items];
+
+    // Filter by active tab (guard against stale data from previous tab)
+    if (activeTab !== "All" && tagMap[activeTab]) {
+      result = result.filter(item => item.system_tag === tagMap[activeTab]);
+    }
+
     if (!showInactive) {
       result = result.filter(item => (item as any).is_active !== false);
     }
-    return result.sort((a, b) => {
-      const aVal = a.id;
-      const bVal = b.id;
-      return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
-    });
-  }, [items, sortOrder, showInactive]);
+
+    // Active/Inactive filter dropdown
+    if (activeFilter === "active") {
+      result = result.filter(item => (item as any).is_active !== false);
+    } else if (activeFilter === "inactive") {
+      result = result.filter(item => (item as any).is_active === false);
+    }
+
+    // Client-side search
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(item =>
+        (item.name || "").toLowerCase().includes(term) ||
+        (item.unique_code || "").toLowerCase().includes(term) ||
+        (item.category || "").toLowerCase().includes(term)
+      );
+    }
+
+    // "latest" = preserve API order, "oldest" = reverse
+    if (sortOrder === "oldest") {
+      result.reverse();
+    }
+    return result;
+  }, [items, sortOrder, activeFilter, activeTab, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSortedItems.length / PAGE_SIZE));
   const pagedItems = filteredAndSortedItems.slice(
@@ -164,11 +196,12 @@ const MasterDataPage = () => {
       if (editingItem) {
         await masterService.updateEntity(entityType, editingItem.id, apiData);
         toast.success("Entity updated successfully!");
-        // If deactivated, automatically show inactive so it doesn't "disappear"
-        if (apiData.is_active === false) setShowInactive(true);
+        // If deactivated, switch to "all" so it doesn't "disappear"
+        if (apiData.is_active === false) setActiveFilter("all");
       } else {
         await masterService.createEntity(pluralType, apiData);
         toast.success("New entity added to master data!");
+        setSortOrder("latest"); // ensure new entry appears first
       }
       fetchMasterData();
       setIsModalOpen(false);
@@ -244,12 +277,6 @@ const MasterDataPage = () => {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={downloadSchema}
-              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
-            >
-              Download Schema
-            </button>
-            <button
               onClick={() => {
                 setEditingItem(null);
                 setIsModalOpen(true);
@@ -287,18 +314,15 @@ const MasterDataPage = () => {
                 />
               </div>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-                <input
-                  type="checkbox"
-                  id="show-inactive"
-                  checked={showInactive}
-                  onChange={(e) => setShowInactive(e.target.checked)}
-                  className="rounded border-slate-300 text-primary focus:ring-primary"
-                />
-                <label htmlFor="show-inactive" className="text-xs font-bold text-slate-500 cursor-pointer">
-                  Show Inactive
-                </label>
-              </div>
+              <select
+                value={activeFilter}
+                onChange={e => setActiveFilter(e.target.value as "all" | "active" | "inactive")}
+                className="px-3 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all cursor-pointer shadow-sm hover:border-slate-300 outline-none"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
             </div>
             <div className="flex gap-2">
               {["All", "Material", "Labour", "Activity", "Unit"].map((tab) => (

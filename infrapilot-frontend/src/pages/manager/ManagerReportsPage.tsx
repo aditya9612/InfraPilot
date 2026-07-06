@@ -158,7 +158,9 @@ const ManagerReportsPage = () => {
 
             switch (reportId) {
                 case "daily":
-                    blob = await reportService.exportDailyPDF(pid, effectiveEnd);
+                    blob = format === "PDF"
+                        ? await reportService.exportDailyPDF(pid, effectiveEnd)
+                        : await reportService.exportProjectReportExcel({ project_id: pid, type: "daily", report_date: effectiveEnd });
                     break;
                 case "weekly":
                     // Open period selection modal first
@@ -304,7 +306,7 @@ const ManagerReportsPage = () => {
                 month: selection.month ?? null,
                 year: selection.year ?? null,
                 quarter: selection.quarter ?? null,
-                report_date: selection.date ?? null,
+                report_date: selection.start_date ?? null,
                 start_date: selection.start_date ?? null,
                 end_date: selection.end_date ?? null,
             };
