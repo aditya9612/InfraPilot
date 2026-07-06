@@ -4,7 +4,7 @@ import Modal from "../../components/common/Modal";
 import { issueService } from "../../services/issueService";
 import { projectService } from "../../services/projectService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Search, Plus, ChevronDown, ChevronLeft, ChevronRight, Clock, CheckCircle2, History } from "lucide-react";
+import { Search, Plus, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 
 const ClientIssuesPage = () => {
@@ -399,106 +399,143 @@ const ClientIssuesPage = () => {
         </div>
       </div>
 
-      {/* View Detail Modal - High Fidelity */}
+      {/* View Detail Modal - Constraint Intelligence Insight */}
       <Modal
         isOpen={isViewModalOpen}
         onClose={() => {
           setIsViewModalOpen(false);
           setSelectedIssue(null);
         }}
-        title=""
-        maxWidth="max-w-2xl"
+        title="Constraint Intelligence Insight"
+        maxWidth="max-w-lg"
       >
-        <div className="pt-2 font-inter">
-          <div className="flex items-center justify-between mb-8 font-inter">
-            <h3 className="text-xl font-black text-slate-700 tracking-tight font-inter">Constraint Intelligence Overview</h3>
-          </div>
-
+        <div className="font-inter">
           {fetchingDetail ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-4 font-inter">
-              <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin font-inter" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Extracting Archive Intelligence...</p>
+            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+              <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loading...</p>
             </div>
           ) : selectedIssue && (
-            <div className="space-y-10 font-inter">
-              {/* Hero Header */}
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2rem] p-10 text-white relative overflow-hidden shadow-2xl font-inter">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl opacity-50 font-inter" />
-                <div className="relative z-10 font-inter">
-                  <div className="flex items-center gap-4 mb-4 font-inter">
-                    <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/20 font-inter">
-                      {selectedIssue.category?.toUpperCase() || 'GENERAL'}
-                    </span>
-                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border font-inter ${selectedIssue.priority?.toLowerCase() === 'critical' ? 'bg-red-600 text-white border-red-600 shadow-lg' : 'bg-white/10 border-white/20'
-                      }`}>
-                      {selectedIssue.priority?.toUpperCase()} PRIORITY
-                    </span>
+            <div className="space-y-6">
+              {/* Blue Hero Card */}
+              <div className="bg-blue-600 rounded-2xl p-6 text-white relative overflow-hidden">
+                <div className="flex items-start gap-4">
+                  {/* Avatar */}
+                  <div className="relative shrink-0">
+                    <div className="w-16 h-16 rounded-xl bg-blue-500/60 backdrop-blur flex items-center justify-center text-2xl font-black text-white">
+                      {(selectedIssue.title?.[0] || "I").toUpperCase()}
+                    </div>
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-blue-600" />
                   </div>
-                  <h2 className="text-3xl font-black tracking-tight leading-snug mb-6 font-inter">{selectedIssue.title}</h2>
-
-                  <div className="grid grid-cols-2 gap-8 border-t border-white/10 pt-8 font-inter">
-                    <div className="flex items-center gap-3 font-inter">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/50 font-inter">
-                        <Clock className="w-5 h-5 font-inter font-inter" />
-                      </div>
-                      <div className="font-inter">
-                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest font-inter">REPORTED ON</p>
-                        <p className="text-sm font-bold text-white font-inter">{selectedIssue.reported_date}</p>
-                      </div>
+                  {/* Title + meta */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h2 className="text-lg font-black leading-tight">{selectedIssue.title}</h2>
+                      <span className="px-2 py-0.5 bg-white/20 rounded-md text-[10px] font-black uppercase tracking-widest">
+                        {selectedIssue.status?.toUpperCase() || "OPEN"}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3 font-inter">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/50 font-inter font-inter">
-                        <CheckCircle2 className="w-5 h-5 font-inter font-inter" />
-                      </div>
-                      <div className="font-inter font-inter">
-                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest font-inter">VAULT ID</p>
-                        <p className="text-sm font-bold text-white font-inter">{selectedIssue.business_id || `ISS-${selectedIssue.id}`}</p>
-                      </div>
-                    </div>
+                    <p className="text-[11px] text-blue-200 font-bold uppercase tracking-widest mb-3">
+                      ✉ ISSUE.REF-#{selectedIssue.id}
+                    </p>
+                    <span className={`inline-block px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
+                      selectedIssue.priority?.toLowerCase() === 'high' || selectedIssue.priority?.toLowerCase() === 'critical'
+                        ? 'bg-white/20 border-white/30 text-white'
+                        : 'bg-white/10 border-white/20 text-white'
+                    }`}>
+                      PRIORITY: {selectedIssue.priority?.toUpperCase() || "MEDIUM"}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Description */}
-              <div className="space-y-4 px-2 font-inter">
-                <div className="flex items-center gap-3 font-inter">
-                  <History className="w-4 h-4 text-blue-500 font-inter" />
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-inter">Detailed Observation</h4>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-8 relative font-inter font-inter">
-                  <p className="text-base text-slate-600 font-bold italic leading-relaxed font-inter font-inter">
-                    "{selectedIssue.description}"
-                  </p>
-                </div>
-              </div>
-
-              {/* Resolution */}
-              {selectedIssue.resolution && (
-                <div className="space-y-4 px-2 font-inter">
-                  <div className="flex items-center gap-3 font-inter">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 font-inter" />
-                    <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest font-inter">Official Resolution Narrative</h4>
+              {/* Issue Parameters */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
                   </div>
-                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-8 font-inter font-inter">
-                    <p className="text-base font-black text-emerald-900 leading-relaxed font-inter font-inter">
-                      {selectedIssue.resolution}
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Issue Parameters</p>
+                </div>
+
+                {/* Project / Category / Priority row */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Project</p>
+                    <p className="text-sm font-black text-slate-800 uppercase">{projectName}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Category</p>
+                    <p className="text-sm font-black text-slate-800 uppercase">{selectedIssue.category || "General"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Priority</p>
+                    <p className={`text-sm font-black uppercase ${
+                      selectedIssue.priority?.toLowerCase() === 'high' || selectedIssue.priority?.toLowerCase() === 'critical'
+                        ? 'text-red-500'
+                        : selectedIssue.priority?.toLowerCase() === 'medium'
+                        ? 'text-orange-500'
+                        : 'text-slate-700'
+                    }`}>{selectedIssue.priority?.toUpperCase() || "MEDIUM"}</p>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Description</p>
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl px-5 py-4">
+                    <p className="text-sm text-slate-700 font-medium italic leading-relaxed">
+                      "{selectedIssue.description || "No description provided."}"
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Sequence Audit */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sequence Audit</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Reported</p>
+                    <p className="text-sm font-black text-slate-800">{selectedIssue.reported_date || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Reference</p>
+                    <p className="text-sm font-black text-slate-800">{selectedIssue.business_id || `ISS-#${selectedIssue.id}`}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resolution (if exists) */}
+              {selectedIssue.resolution && (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-5 py-4">
+                  <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-1">Resolution</p>
+                  <p className="text-sm text-emerald-800 font-bold leading-relaxed">{selectedIssue.resolution}</p>
+                </div>
               )}
 
-              <div className="pt-6 border-t border-slate-100 flex justify-end font-inter">
-                <button
-                  onClick={() => setIsViewModalOpen(false)}
-                  className="px-10 py-4 bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-slate-900 transition-all shadow-xl shadow-slate-900/10 active:scale-95 font-inter"
-                >
-                  Dismiss Archive
-                </button>
-              </div>
+              {/* DISMISS Button */}
+              <button
+                onClick={() => { setIsViewModalOpen(false); setSelectedIssue(null); }}
+                className="w-full py-4 bg-blue-600 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-500/20"
+              >
+                Dismiss
+              </button>
             </div>
           )}
         </div>
       </Modal>
+
 
       <Modal
         isOpen={isCreateModalOpen}

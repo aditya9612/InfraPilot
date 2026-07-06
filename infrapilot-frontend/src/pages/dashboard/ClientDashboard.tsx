@@ -164,35 +164,19 @@ const ClientDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
             { label: "Overall Progress", value: dashboardData ? `${Number(dashboardData.progress_percent).toFixed(2)}%` : "—", sub: "Progress Percent" },
-            { label: "Total Expense", value: dashboardData ? `₹${dashboardData.total_expense.toLocaleString("en-IN")}` : "—", sub: "Total Spent" },
-            { label: "Total Budget", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")}` : "—", sub: "Project Budget", smallText: true },
-            { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining", smallText: true },
+            { label: "Total Budget", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")}` : "—", sub: "Project Budget" },
+            { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining" },
             { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed} / ${dashboardData.milestones_total}` : "—", sub: "Completed / Total" },
             { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed} / ${dashboardData.tasks_total}` : "—", sub: "Completed / Total" },
-            {
-              label: "Project Dates",
-              value: dashboardData ? (
-                <div className="flex items-center gap-3 mt-2">
-                  <div className="flex flex-col">
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Start</span>
-                    <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.start_date)}</span>
-                  </div>
-                  <div className="text-slate-300 font-bold text-sm">→</div>
-                  <div className="flex flex-col">
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">End</span>
-                    <span className="text-[13px] font-black text-blue-600 uppercase tracking-tighter leading-none">{formatDate(dashboardData.end_date)}</span>
-                  </div>
-                </div>
-              ) : "—",
-              sub: "Project Duration"
-            },
+            { label: "Start Date", value: dashboardData ? formatDate(dashboardData.start_date) : "—", sub: "Project Start" },
+            { label: "End Date", value: dashboardData ? formatDate(dashboardData.end_date) : "—", sub: "Project End" },
             { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining}` : "—", sub: "Days Remaining" },
           ].map((card: any, i) => (
             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md group flex flex-col justify-between min-h-[140px]">
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{card.label}</p>
               <div className="flex-1 flex flex-col justify-center py-2">
                 {typeof card.value === "string" ? (
-                  <p className={`${card.smallText ? "text-lg" : "text-2xl"} font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words`}>{card.value}</p>
+                  <p className="text-lg font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words">{card.value}</p>
                 ) : (
                   card.value
                 )}

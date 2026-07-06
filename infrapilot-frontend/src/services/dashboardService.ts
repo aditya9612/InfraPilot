@@ -66,11 +66,28 @@ export interface AdminDashboardData {
 }
 
 export interface LabourDashboardResponse {
-  total_tasks: number;
-  completed_tasks: number;
-  pending_tasks: number;
-  earnings_current_month: number;
-  tasks: any[];
+  // Primary field names
+  total_tasks?: number;
+  completed_tasks?: number;
+  pending_tasks?: number;
+  earnings_current_month?: number;
+  tasks?: any[];
+  // Alternative field names the API may use
+  total?: number;
+  completed?: number;
+  pending?: number;
+  tasks_total?: number;
+  tasks_completed?: number;
+  tasks_pending?: number;
+  earnings?: number;
+  total_earnings?: number;
+  recent_tasks?: any[];
+  assigned_tasks?: any[];
+  // Recent activity (confirmed in API response)
+  recent_activity?: { title: string; description: string; time: string }[];
+  recent_activities?: { title: string; description: string; time: string }[];
+  // Allow additional properties
+  [key: string]: any;
 }
 
 // --------------- PM Command Center Types ---------------
@@ -176,10 +193,15 @@ export const dashboardService = {
 
   /**
    * Labour Dashboard
+   * GET /api/v1/dashboard/labour
    */
   async getLabourDashboard(): Promise<LabourDashboardResponse> {
-    const response = await api.get<LabourDashboardResponse>('dashboard/labour');
-    return response.data;
+    const response = await api.get<any>('dashboard/labour');
+    const raw = response.data;
+    console.log('GET /api/v1/dashboard/labour RAW Response:', JSON.stringify(raw, null, 2));
+    // Handle possible data wrapper from backend
+    const data = raw?.data || raw;
+    return data;
   },
 
   /**
@@ -197,6 +219,39 @@ export const dashboardService = {
    */
   async getPMSummary(): Promise<PMSummaryData> {
     const response = await api.get<PMSummaryData>('/dashboard/project-manager-summary');
+    return response.data;
+  },
+
+  /**
+   * Labour Payments
+   * GET /api/v1/dashboard/labour/payments
+   */
+  async getLabourPayments(params?: {
+    month?: number;
+    year?: number;
+    time_filter?: string;
+    page?: number;
+    page_size?: number;
+  }): Promise<any> {
+    const response = await api.get<any>('dashboard/labour/payments', { params });
+    const raw = response.data;
+    console.log('GET /api/v1/dashboard/labour/payments RAW Response:', JSON.stringify(raw, null, 2));
+    return raw?.data || raw;
+  },
+
+  /**
+   * Labour Payments Export
+   * GET /api/v1/dashboard/labour/payments/export/{format}
+   */
+  async exportLabourPayments(format: 'pdf' | 'excel', params?: {
+    month?: number;
+    year?: number;
+    time_filter?: string;
+  }): Promise<Blob> {
+    const response = await api.get(`/dashboard/labour/payments/export/${format}`, {
+      params,
+      responseType: 'blob',
+    });
     return response.data;
   },
 };

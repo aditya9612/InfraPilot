@@ -584,11 +584,9 @@ const ClientDocumentsPage = () => {
                               <button onClick={() => handleView(drawing)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View Details">
                                 <Eye className="w-4 h-4" />
                               </button>
-                              {!drawing.is_folder && (
-                                <button onClick={() => handleDownload(drawing)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Download File">
-                                  <Download className="w-4 h-4" />
-                                </button>
-                              )}
+                              <button onClick={() => handleDownload(drawing)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Download File">
+                                <Download className="w-4 h-4" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -722,18 +720,9 @@ const ClientDocumentsPage = () => {
                               <button onClick={() => handleView(drawing)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
                                 <Eye className="w-4 h-4" />
                               </button>
-                              {!drawing.is_folder && (
-                                <>
-                                  <button onClick={() => handleDownload(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
-                                    <Download className="w-4 h-4" />
-                                  </button>
-                                  <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
-                                    <button onClick={() => handleViewHistory(drawing)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="View approval history">
-                                      <History className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </>
-                              )}
+                                <button onClick={() => handleDownload(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
+                                  <Download className="w-4 h-4" />
+                                </button>
                             </div>
                           </td>
                         </tr>

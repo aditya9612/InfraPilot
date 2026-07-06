@@ -47,8 +47,7 @@ const MyTasksPage: React.FC = () => {
     const [totalTasks, setTotalTasks] = useState(0);
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
-    // Suppress unused variables warnings
-    const _unusedRefs = [selectedTask, setSelectedTask, isDetailModalOpen, setIsDetailModalOpen, handleUpdateStatus];
+
 
     const fetchTasks = async () => {
         setIsLoading(true);
@@ -518,7 +517,7 @@ return (
 
                                         <div className="flex items-center gap-3 py-2">
                                             <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-xs font-black text-slate-500 shadow-sm group-hover:shadow-indigo-100 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
-                                                {task.assignedTo.split(' ')[0][0]}
+                                                {typeof task.assignedTo === 'string' && task.assignedTo.length > 0 ? task.assignedTo.charAt(0).toUpperCase() : '?'}
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{task.assignedTo}</span>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
     Wallet,
     TrendingUp,
@@ -8,308 +8,316 @@ import {
     ChevronRight,
     FileSpreadsheet,
     FileMinus,
-    Calendar
+    Calendar,
+    Loader2,
+    Search
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 import toast from 'react-hot-toast';
+import { dashboardService } from '../../services/dashboardService';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const PaymentsPage: React.FC = () => {
     const { user } = useAuth();
     const [filterPeriod, setFilterPeriod] = useState("Daily Analysis");
-    const [startDate, setStartDate] = useState("2026-06-01");
-    const [endDate, setEndDate] = useState("2026-06-30");
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [recordsPerPage, setRecordsPerPage] = useState(20);
+    const [currentPage, setCurrentPage] = useState(1);
     const [showDateFilter, setShowDateFilter] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [payments, setPayments] = useState<any[]>([]);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [summaryStats, setSummaryStats] = useState({
+        total_payout: 0,
+        high_payouts: 0,
+        ot_intensive: 0,
+        advance_adjusted: 0
+    });
 
     const userName = user?.name || 'Gopal Yadav';
 
-    const basePayrollData = [
-        { id: 1, date: '2026-06-18', name: userName, skill: 'Mason', dailyWage: 800, otHours: 2, status: 'PAID', remarks: 'Standard Payout' },
-        { id: 2, date: '2026-06-17', name: userName, skill: 'Mason', dailyWage: 800, otHours: 4, status: 'PENDING', remarks: 'Bonus Pending' },
-        { id: 3, date: '2026-06-16', name: userName, skill: 'Mason', dailyWage: 800, otHours: 2, status: 'PAID', remarks: 'Full Month Payout' },
-        { id: 4, date: '2026-06-15', name: userName, skill: 'Mason', dailyWage: 800, otHours: 0, status: 'PENDING', remarks: 'Bank Verification' },
-        { id: 5, date: '2026-06-14', name: userName, skill: 'Mason', dailyWage: 800, otHours: 0, status: 'REJECTED', remarks: 'Incorrect Bank Info' },
-        { id: 6, date: '2026-06-07', name: userName, skill: 'Mason', dailyWage: 800, otHours: 1, status: 'PAID', remarks: 'Weekly Settlement' },
-    ];
+    const fetchPayments = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            // Map UI filter to API params
+            let time_filter = "";
+            switch (filterPeriod) {
+                case "Daily Analysis": time_filter = "today"; break;
+                case "Weekly Summary": time_filter = "this_week"; break;
+                case "Monthly Report": time_filter = "this_month"; break;
+                case "3 Months": time_filter = "last_3_months"; break;
+                case "6 Months": time_filter = "last_6_months"; break;
+                case "1 Year": time_filter = "last_year"; break;
+                default: time_filter = "this_month";
+            }
+
+            const params: any = {
+                page: currentPage,
+                page_size: recordsPerPage,
+                time_filter: time_filter
+            };
+
+            const data = await dashboardService.getLabourPayments(params);
+            if (data) {
+                const items = data.items || (Array.isArray(data) ? data : []);
+                setPayments(items);
+                setTotalRecords(data.meta?.total || items.length);
+                
+                setSummaryStats({
+                    total_payout: data.summary?.total_payout || items.reduce((acc: number, curr: any) => acc + (curr.total_earned || curr.amount || 0), 0),
+                    high_payouts: data.summary?.high_payouts || items.filter((i: any) => (i.total_earned || i.amount || 0) > 5000).length,
+                    ot_intensive: data.summary?.ot_intensive || items.filter((i: any) => (i.ot_hours || 0) > 2).length,
+                    advance_adjusted: data.summary?.advance_adjusted || 0
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching payments:', error);
+            toast.error('Failed to load payment data');
+            setPayments([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [filterPeriod, currentPage, recordsPerPage]);
+
+    useEffect(() => {
+        fetchPayments();
+    }, [fetchPayments]);
 
     const displayData = useMemo(() => {
-        if (filterPeriod === "Weekly Summary") {
-            return [
-                { period: 'Week 25 (Jun 15 - Jun 21)', skill: 'Mason', dailyWage: 800, otHours: 8, totalEarned: 3800, status: 'PAID', remarks: 'Weekly Aggregate' },
-                { period: 'Week 24 (Jun 08 - Jun 14)', skill: 'Mason', dailyWage: 800, otHours: 0, totalEarned: 800, status: 'PAID', remarks: 'Weekly Aggregate' },
-            ];
-        } else if (filterPeriod === "Monthly Report" || filterPeriod === "3 Months" || filterPeriod === "6 Months" || filterPeriod === "1 Year") {
-            const label = filterPeriod === "Monthly Report" ? 'June 2026' : filterPeriod;
-            return [
-                { period: label, skill: 'Mason', dailyWage: 800, otHours: 45, totalEarned: 24500, status: 'PAID', remarks: `${filterPeriod} Summary` },
-                { period: 'Previous Period', skill: 'Mason', dailyWage: 800, otHours: 32, totalEarned: 21000, status: 'PAID', remarks: 'Historical Data' },
-            ];
-        } else {
-            // Daily Analysis
-            return basePayrollData.filter(d => {
-                if (startDate && d.date < startDate) return false;
-                if (endDate && d.date > endDate) return false;
-                return true;
-            }).map(d => {
-                const dateObj = new Date(d.date);
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const month = months[dateObj.getMonth()];
-                return {
-                    period: `${day} ${month}`,
-                    ...d
-                };
-            });
+        return payments.map(d => {
+            const dateStr = d.date || d.created_at || new Date().toISOString();
+            const dateObj = new Date(dateStr);
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = months[dateObj.getMonth()];
+            
+            return {
+                period: d.period || `${day} ${month}`,
+                skill: d.skill || d.designation || 'Labour',
+                dailyWage: d.daily_wage || d.rate || 0,
+                otHours: d.ot_hours || 0,
+                totalEarned: d.total_earned || d.amount || 0,
+                remarks: d.remarks || d.description || '—',
+                status: d.status || 'Pending',
+                id: d.id
+            };
+        });
+    }, [payments]);
+
+    const generateFrontendPDF = (data: any[]) => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Header
+        doc.setFillColor(17, 24, 39); // #111827
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont('helvetica', 'bold');
+        doc.text("InfraPilot", 14, 25);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Fiscal Payroll Analysis Report", 14, 32);
+        
+        doc.setTextColor(31, 41, 55);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Labour Payments Summary", 14, 55);
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Report Period: ${filterPeriod}`, 14, 62);
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 67);
+
+        doc.setDrawColor(229, 231, 235);
+        doc.line(14, 75, pageWidth - 14, 75);
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text("TOTAL PAYOUT:", 14, 85);
+        doc.text(`₹${summaryStats.total_payout.toLocaleString()}`, 50, 85);
+        
+        const tableHeaders = [["Period", "Skill Type", "Wage", "OT Hours", "Total Earned", "Status"]];
+        const tableBody = data.map(item => [
+            item.period,
+            item.skill,
+            `₹${item.dailyWage}`,
+            `${item.otHours}h`,
+            `₹${item.totalEarned.toLocaleString()}`,
+            item.status
+        ]);
+
+        autoTable(doc, {
+            startY: 100,
+            head: tableHeaders,
+            body: tableBody,
+            theme: 'grid',
+            headStyles: { fillColor: [17, 24, 39], textColor: [255, 255, 255] },
+            styles: { fontSize: 8 },
+            alternateRowStyles: { fillColor: [249, 250, 251] }
+        });
+
+        doc.save(`Labour_Payments_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
+    const handleExport = async (format: 'excel' | 'pdf') => {
+        const loadingToast = toast.loading(`Preparing ${format.toUpperCase()}...`);
+        try {
+            let time_filter = "";
+            switch (filterPeriod) {
+                case "Daily Analysis": time_filter = "today"; break;
+                case "Weekly Summary": time_filter = "this_week"; break;
+                case "Monthly Report": time_filter = "this_month"; break;
+                default: time_filter = "this_month";
+            }
+
+            try {
+                const blob = await dashboardService.exportLabourPayments(format, { time_filter });
+                const isError = blob.type === 'application/json' || blob.size < 500;
+                
+                if (isError && format === 'pdf') {
+                    console.log("Server PDF looks invalid, falling back to local generation");
+                    generateFrontendPDF(displayData);
+                    toast.success("PDF generated successfully", { id: loadingToast });
+                    return;
+                }
+
+                const mimeType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                const file = new Blob([blob], { type: mimeType });
+                const url = window.URL.createObjectURL(file);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Labour_Payments_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success(`${format.toUpperCase()} exported successfully`, { id: loadingToast });
+            } catch (err) {
+                if (format === 'pdf') {
+                    generateFrontendPDF(displayData);
+                    toast.success("PDF generated locally", { id: loadingToast });
+                } else {
+                    throw err;
+                }
+            }
+        } catch (error: any) {
+            console.error(`Error exporting ${format}:`, error);
+            toast.error(`Failed to export ${format}`, { id: loadingToast });
         }
-    }, [filterPeriod, startDate, endDate, basePayrollData]);
+    };
 
     const getStatusStyles = (status: string) => {
+        if (!status) return 'bg-slate-50 text-slate-500';
         switch (status.toUpperCase()) {
-            case 'PAID':
-            case 'ACTIVE':
-                return 'bg-emerald-50 text-emerald-600';
-            case 'PENDING':
-                return 'bg-amber-50 text-amber-600';
-            case 'REJECTED':
-                return 'bg-rose-50 text-rose-600';
-            default:
-                return 'bg-slate-50 text-slate-500';
+            case 'PAID': case 'SUCCESS': case 'COMPLETED': return 'bg-emerald-50 text-emerald-600';
+            case 'PENDING': case 'PROCESSING': return 'bg-amber-50 text-amber-600';
+            case 'REJECTED': case 'FAILED': return 'bg-rose-50 text-rose-600';
+            default: return 'bg-slate-50 text-slate-500';
         }
     };
 
     const stats = [
-        { label: 'TOTAL PAYOUT', value: '₹0.00', sub: 'All Wage Items', icon: Wallet, color: 'text-indigo-600', borderColor: 'border-indigo-200' },
-        { label: 'HIGH PAYOUTS', value: '0', sub: 'Above ₹5k Threshold', icon: TrendingUp, color: 'text-emerald-500', borderColor: 'border-slate-100' },
-        { label: 'OT INTENSIVE', value: '0', sub: 'Shifts with Overtime', icon: Clock, color: 'text-amber-500', borderColor: 'border-slate-100' },
-        { label: 'ADVANCE ADJUSTED', value: '₹0.00', sub: 'Recovery Target', icon: CreditCard, color: 'text-rose-500', borderColor: 'border-slate-100' },
+        { label: 'TOTAL PAYOUT', value: `₹${summaryStats.total_payout.toLocaleString()}`, sub: 'All Wage Items', icon: Wallet, color: 'text-indigo-600', borderColor: 'border-indigo-200' },
+        { label: 'HIGH PAYOUTS', value: summaryStats.high_payouts.toString(), sub: 'Above ₹5k Threshold', icon: TrendingUp, color: 'text-emerald-500', borderColor: 'border-slate-100' },
+        { label: 'OT INTENSIVE', value: summaryStats.ot_intensive.toString(), sub: 'Shifts with Overtime', icon: Clock, color: 'text-amber-500', borderColor: 'border-slate-100' },
+        { label: 'ADVANCE ADJUSTED', value: `₹${summaryStats.advance_adjusted.toLocaleString()}`, sub: 'Recovery Target', icon: CreditCard, color: 'text-rose-500', borderColor: 'border-slate-100' },
     ];
 
     return (
         <>
-            <Navbar
-                title="Financial Intelligence"
-                breadcrumb={['Labour', 'Human Resources', 'Payroll Reports']}
-            />
+            <Navbar title="Financial Intelligence" breadcrumb={['Labour', 'Human Resources', 'Payroll Reports']} />
             <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen font-inter pb-32">
-
-                {/* Header Section */}
                 <div className="mb-10 flex flex-col md:flex-row md:items-start justify-between gap-6">
                     <div>
                         <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Fiscal Payroll Analysis</h1>
                         <p className="text-sm font-bold text-slate-400">Historical man-power costing and wage distribution trends.</p>
                     </div>
-                    <button
-                        onClick={() => toast.success("Downloading PDF Report...")}
-                        className="bg-[#111827] hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all active:scale-95"
-                    >
+                    <button onClick={() => handleExport('pdf')} className="bg-[#111827] hover:bg-slate-800 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all active:scale-95">
                         <FileMinus className="w-4 h-4" /> DOWNLOAD PDF
                     </button>
                 </div>
 
-                {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                     {stats.map((stat, i) => (
                         <div key={i} className={`bg-white p-8 rounded-[32px] border ${stat.borderColor} shadow-sm transition-all hover:shadow-md`}>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{stat.label}</p>
-                            <h3 className={`text-3xl font-black text-slate-800 mb-2 tracking-tight`}>{stat.value}</h3>
+                            <h3 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">{stat.value}</h3>
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{stat.sub}</p>
                         </div>
                     ))}
                 </div>
 
-                {/* Main Table Card */}
-                <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
-
-                    {/* Filters Bar */}
+                <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
                     <div className="p-8 border-b border-slate-50 flex flex-wrap items-center justify-between gap-6">
                         <div className="flex items-center gap-4">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">View Mode</span>
-                            <div className="flex items-center gap-2">
-                                <div className="relative">
-                                    <select
-                                        value={filterPeriod}
-                                        onChange={(e) => setFilterPeriod(e.target.value)}
-                                        className="appearance-none pl-6 pr-12 py-3 bg-white border border-slate-200 rounded-2xl text-[11px] font-black text-slate-700 uppercase tracking-widest focus:ring-2 focus:ring-indigo-500/20 outline-none cursor-pointer min-w-[200px]"
-                                    >
-                                        <option>Daily Analysis</option>
-                                        <option>Weekly Summary</option>
-                                        <option>Monthly Report</option>
-                                        <option>3 Months</option>
-                                        <option>6 Months</option>
-                                        <option>1 Year</option>
-                                    </select>
-                                    <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90" />
-                                </div>
+                            <div className="relative">
+                                <select value={filterPeriod} onChange={(e) => { setFilterPeriod(e.target.value); setCurrentPage(1); }} className="appearance-none pl-6 pr-12 py-3 bg-white border border-slate-200 rounded-2xl text-[11px] font-black text-slate-700 uppercase tracking-widest focus:ring-2 focus:ring-indigo-500/20 outline-none cursor-pointer min-w-[200px]">
+                                    <option>Daily Analysis</option>
+                                    <option>Weekly Summary</option>
+                                    <option>Monthly Report</option>
+                                    <option>3 Months</option>
+                                    <option>6 Months</option>
+                                    <option>1 Year</option>
+                                </select>
+                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90" />
                             </div>
                         </div>
-
-                        {/* Combined Date Filter Range */}
                         <div className="flex items-center gap-4 ml-auto">
-                            <button 
-                                onClick={() => setShowDateFilter(!showDateFilter)}
-                                className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showDateFilter ? 'bg-[#111827] text-white shadow-lg' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}
-                            >
-                                <Calendar className="w-4 h-4" />
-                                Date
+                            <button onClick={() => setShowDateFilter(!showDateFilter)} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showDateFilter ? 'bg-[#111827] text-white shadow-lg' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}>
+                                <Calendar className="w-4 h-4" /> Date
                             </button>
-
-                            {showDateFilter && (
-                                <div className="flex items-center gap-2 bg-slate-50 p-2 px-4 rounded-2xl border border-slate-100 animate-in fade-in slide-in-from-right-4 duration-300">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">FROM</span>
-                                    <div className="relative group">
-                                        <span className="text-[11px] font-black text-slate-600 pointer-events-none">
-                                            {(() => {
-                                                const d = new Date(startDate);
-                                                const day = String(d.getDate()).padStart(2, '0');
-                                                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                                                return `${day} ${months[d.getMonth()]}`;
-                                            })()}
-                                        </span>
-                                        <input
-                                            type="date"
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            className="absolute inset-0 opacity-0 cursor-pointer"
-                                        />
-                                    </div>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mx-1">TO</span>
-                                    <div className="relative group">
-                                        <span className="text-[11px] font-black text-slate-600 pointer-events-none">
-                                            {(() => {
-                                                const d = new Date(endDate);
-                                                const day = String(d.getDate()).padStart(2, '0');
-                                                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                                                return `${day} ${months[d.getMonth()]}`;
-                                            })()}
-                                        </span>
-                                        <input
-                                            type="date"
-                                            value={endDate}
-                                            onChange={(e) => setEndDate(e.target.value)}
-                                            className="absolute inset-0 opacity-0 cursor-pointer"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                            
-                            <button 
-                                onClick={() => toast.success("Exporting Excel...")}
-                                className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-100 transition-all"
-                            >
-                                <FileSpreadsheet className="w-4 h-4" />
-                                EXCEL
-                            </button>
-                            <button 
-                                onClick={() => toast.success("Exporting PDF...")}
-                                className="px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-rose-100 transition-all"
-                            >
-                                <FileMinus className="w-4 h-4" />
-                                PDF
+                            <button onClick={() => handleExport('excel')} className="px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-emerald-100 transition-all">
+                                <FileSpreadsheet className="w-4 h-4" /> EXCEL
                             </button>
                         </div>
                     </div>
 
-                    {/* Table Implementation */}
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto relative min-h-[300px]">
+                        {isLoading && (
+                            <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex items-center justify-center">
+                                <div className="flex flex-col items-center gap-3">
+                                    <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Synchronizing Accounts...</p>
+                                </div>
+                            </div>
+                        )}
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/30">
-                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                        {filterPeriod === 'Daily Analysis' ? 'Date' : 'Period'}
-                                    </th>
+                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Period</th>
                                     <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Skill Type</th>
-                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                        {filterPeriod === 'Daily Analysis' ? 'Daily Wage' : 'Avg. Wage'}
-                                    </th>
-                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">
-                                        {filterPeriod === 'Daily Analysis' ? 'OT Hours' : 'Total OT'}
-                                    </th>
+                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Wage</th>
+                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">OT Hours</th>
                                     <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Earned</th>
-                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</th>
                                     <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {displayData.map((row, idx) => {
-                                    const dailyWage = (row as any).dailyWage || 0;
-                                    const otHours = (row as any).otHours || 0;
-                                    const earned = (row as any).totalEarned || (dailyWage + (otHours * (dailyWage / 8)));
-
-                                    return (
-                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-10 py-6">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{row.period}</span>
-                                            </td>
-                                            <td className="px-10 py-6">
-                                                <span className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-bold tracking-tight">
-                                                    {row.skill}
-                                                </span>
-                                            </td>
-                                            <td className="px-10 py-6">
-                                                <span className="text-sm font-black text-slate-700">₹{dailyWage}</span>
-                                            </td>
-                                            <td className="px-10 py-6 text-center">
-                                                <span className="text-sm font-black text-slate-300">{otHours}h</span>
-                                            </td>
-                                            <td className="px-10 py-6">
-                                                <span className="text-sm font-black text-emerald-500">₹{earned.toLocaleString()}</span>
-                                            </td>
-                                            <td className="px-10 py-6">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{(row as any).remarks}</span>
-                                            </td>
-                                            <td className="px-10 py-6 text-left">
-                                                <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black tracking-widest ${getStatusStyles((row as any).status || '')}`}>
-                                                    {(row as any).status}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                {displayData.length === 0 && (
-                                    <tr>
-                                        <td colSpan={7} className="px-10 py-20 text-center text-slate-400 font-bold uppercase text-[10px] tracking-widest">
-                                            No records found
+                                {displayData.map((row, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="px-10 py-6"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{row.period}</span></td>
+                                        <td className="px-10 py-6"><span className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-bold tracking-tight">{row.skill}</span></td>
+                                        <td className="px-10 py-6"><span className="text-sm font-black text-slate-700">₹{row.dailyWage}</span></td>
+                                        <td className="px-10 py-6 text-center"><span className="text-sm font-black text-slate-300">{row.otHours}h</span></td>
+                                        <td className="px-10 py-6"><span className="text-sm font-black text-emerald-500">₹{row.totalEarned.toLocaleString()}</span></td>
+                                        <td className="px-10 py-6 text-left">
+                                            <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black tracking-widest ${getStatusStyles(row.status)}`}>
+                                                {row.status}
+                                            </span>
                                         </td>
                                     </tr>
+                                ))}
+                                {displayData.length === 0 && !isLoading && (
+                                    <tr><td colSpan={6} className="px-10 py-24 text-center"><p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">No payment records found</p></td></tr>
                                 )}
                             </tbody>
                         </table>
-                    </div>
-
-                    {/* Pagination Sidebar-style Footer */}
-                    <div className="p-8 bg-white border-t border-slate-50 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Records per page:</span>
-                            <div className="relative">
-                                <select
-                                    value={recordsPerPage}
-                                    onChange={(e) => setRecordsPerPage(Number(e.target.value))}
-                                    className="appearance-none pl-4 pr-10 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[11px] font-black text-slate-600 outline-none cursor-pointer"
-                                >
-                                    <option>20</option>
-                                    <option>50</option>
-                                    <option>100</option>
-                                </select>
-                                <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 rotate-90" />
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-6">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Showing {displayData.length} records</span>
-                            <div className="flex gap-2">
-                                <button className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-300 hover:text-indigo-600 transition-all">
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
-                                <button className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-[11px] font-black shadow-lg shadow-indigo-200">
-                                    1
-                                </button>
-                                <button className="w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center text-slate-300 hover:text-indigo-600 transition-all">
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </PageTransition>
