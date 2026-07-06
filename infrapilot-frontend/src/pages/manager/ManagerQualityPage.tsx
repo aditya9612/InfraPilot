@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PageTransition from "../../components/common/PageTransition";
 import Navbar from "../../components/common/Navbar";
@@ -9,11 +10,13 @@ import { useProject } from "../../context/ProjectContext";
 import {
     Plus, Search, Eye, Edit2, Trash2, Activity, User,
     ShieldCheck, RotateCcw,
-    ChevronLeft, ChevronRight
+    ChevronLeft, ChevronRight, ChevronDown
 } from "lucide-react";
 import ProjectSelector from "../../components/common/ProjectSelector";
 import { qcService } from "../../services/qcService";
 import type { QcItem } from "../../services/qcService";
+import { projectService } from "../../services/projectService";
+import { dsrService } from "../../services/dsrService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
 const TEST_TYPES = ["Visual Check", "Cube Test", "Slump Test", "Load Test", "Compression Test"];
@@ -28,6 +31,8 @@ const ManagerQualityPage = () => {
     const [qcList, setQcList] = useState<QcItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [tasks, setTasks] = useState<{ id: number; title: string }[]>([]);
+    const [dsrs, setDsrs] = useState<{ id: number; label: string }[]>([]);
 
     // ── UI States ─────────────────────────────────────────────────
     const [filterStatus, setFilterStatus] = useState("All");
@@ -88,6 +93,28 @@ const ManagerQualityPage = () => {
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { setCurrentPage(1); }, [searchTerm, filterType, filterStatus, activeStatFilter, sortOrder]);
+
+    // ── Fetch tasks for selected project ─────────────────────────
+    useEffect(() => {
+        const fetchTasks = async () => {
+            if (!selectedProjectId) { setTasks([]); setDsrs([]); return; }
+            try {
+                const res = await projectService.getTasks(selectedProjectId);
+                const items = Array.isArray(res) ? res : (res as any).items || (res as any).data || [];
+                setTasks(items.map((t: any) => ({ id: t.id, title: t.title || t.name || `Task #${t.id}` })));
+            } catch {
+                setTasks([]);
+            }
+            try {
+                const dsrRes = await dsrService.getDsrByProject(selectedProjectId);
+                const dsrItems = (dsrRes as any).items || (Array.isArray(dsrRes) ? dsrRes : []);
+                setDsrs(dsrItems.map((d: any) => ({ id: d.id, label: d.work_done ? `${d.work_done.substring(0, 40)}${d.work_done.length > 40 ? '...' : ''}` : `DSR #${d.id} — ${d.report_date || ""}` })));
+            } catch {
+                setDsrs([]);
+            }
+        };
+        fetchTasks();
+    }, [selectedProjectId]);
 
     // ── ACTIONS ───────────────────────────────────────────────────
     const handleCreateSubmit = async (e?: React.FormEvent) => {
@@ -546,12 +573,24 @@ const ManagerQualityPage = () => {
                             <input type="number" value={formData.standard_value} onChange={e => setFormData(p => ({ ...p, standard_value: e.target.value as any }))} placeholder="e.g. 25" className={inputCls} />
                         </div>
                         <div>
-                            <label className={labelCls}>Task ID</label>
-                            <input type="number" value={formData.task_id ?? ""} onChange={e => setFormData(p => ({ ...p, task_id: e.target.value ? Number(e.target.value) : null }))} placeholder="Task ID (optional)" className={inputCls} />
+                            <label className={labelCls}>Task Name</label>
+                            <CustomDropdown
+                                value={formData.task_id}
+                                onChange={val => setFormData(p => ({ ...p, task_id: val }))}
+                                options={tasks.map(t => ({ value: t.id, label: t.title }))}
+                                placeholder="Select Task (optional)"
+                                inputCls={inputCls}
+                            />
                         </div>
                         <div>
-                            <label className={labelCls}>DSR ID</label>
-                            <input type="number" value={formData.dsr_id ?? ""} onChange={e => setFormData(p => ({ ...p, dsr_id: e.target.value ? Number(e.target.value) : null }))} placeholder="DSR ID (optional)" className={inputCls} />
+                            <label className={labelCls}>DSR</label>
+                            <CustomDropdown
+                                value={formData.dsr_id}
+                                onChange={val => setFormData(p => ({ ...p, dsr_id: val }))}
+                                options={dsrs.map(d => ({ value: d.id, label: d.label }))}
+                                placeholder="Select DSR (optional)"
+                                inputCls={inputCls}
+                            />
                         </div>
                         <div>
                             <label className={labelCls}>Status</label>
@@ -606,6 +645,63 @@ const ManagerQualityPage = () => {
             <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteConfirm}
                 title="Delete QC Entry" message="This action cannot be undone." confirmText="Delete" type="danger" />
         </>
+    );
+};
+
+// ── Custom Dropdown (always opens downward) ───────────────────────────────────
+const CustomDropdown: React.FC<{
+    value: number | null;
+    onChange: (val: number | null) => void;
+    options: { value: number; label: string }[];
+    placeholder: string;
+    inputCls: string;
+}> = ({ value, onChange, options, placeholder, inputCls }) => {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    const selectedLabel = options.find(o => o.value === value)?.label || placeholder;
+
+    return (
+        <div ref={ref} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className={inputCls + " flex items-center justify-between text-left " + (value ? "text-slate-800" : "text-slate-400")}
+            >
+                <span className="truncate">{selectedLabel}</span>
+                <ChevronDown className={`w-4 h-4 shrink-0 ml-2 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+            </button>
+            {open && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    <div
+                        className="px-4 py-2.5 text-sm text-slate-400 hover:bg-slate-50 cursor-pointer"
+                        onClick={() => { onChange(null); setOpen(false); }}
+                    >
+                        {placeholder}
+                    </div>
+                    {options.map(o => (
+                        <div
+                            key={o.value}
+                            className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-primary/5 truncate ${value === o.value ? "bg-primary/10 text-primary font-bold" : "text-slate-700"}`}
+                            onClick={() => { onChange(o.value); setOpen(false); }}
+                        >
+                            {o.label}
+                        </div>
+                    ))}
+                    {options.length === 0 && (
+                        <div className="px-4 py-3 text-xs text-slate-400 text-center">No options available</div>
+                    )}
+                </div>
+            )}
+        </div>
     );
 };
 

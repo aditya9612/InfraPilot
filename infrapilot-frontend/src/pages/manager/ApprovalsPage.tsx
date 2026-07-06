@@ -4,11 +4,16 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import StatCard from "../../components/common/StatCard";
 import ApprovalDetailsModal from "../../components/dashboard/ApprovalDetailsModal";
+import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
-import { Eye, Check, X, Search, RotateCcw, Download } from "lucide-react";
+import { Eye, Check, X, Search, RotateCcw, Plus } from "lucide-react";
 import { approvalService } from "../../services/approvalService";
 import type { ApprovalItem } from "../../services/approvalService";
 import { useProject } from "../../context/ProjectContext";
+import { boqService } from "../../services/boqService";
+import { drawingService } from "../../services/drawingService";
+import { documentService } from "../../services/documentService";
+import { equipmentService } from "../../services/equipmentService";
 
 const ApprovalsPage = () => {
     const location = useLocation();
@@ -24,6 +29,95 @@ const ApprovalsPage = () => {
     const [viewingApproval, setViewingApproval] = useState<ApprovalItem | null>(null);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [usersMap, setUsersMap] = useState<Record<string, string>>({});
+
+    // Create approval modal state
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [createForm, setCreateForm] = useState({
+        entity_type: "boq",
+        entity_id: "",
+        remarks: "",
+    });
+
+    const ENTITY_TYPES = [
+        { value: "boq", label: "BOQ" },
+        { value: "drawing", label: "Drawing" },
+        { value: "document", label: "Document" },
+        { value: "equipment", label: "Equipment" },
+        { value: "bill", label: "Bill" },
+        { value: "measurement", label: "Measurement" },
+        { value: "material", label: "Material Request" },
+        { value: "expense", label: "Site Expense" },
+        { value: "labour", label: "Labour Salary" },
+    ];
+
+    // Entity items for dropdown — fetched based on selected entity type
+    const [entityItems, setEntityItems] = useState<{ id: number; label: string }[]>([]);
+    const [isLoadingEntities, setIsLoadingEntities] = useState(false);
+
+    useEffect(() => {
+        const fetchEntityItems = async () => {
+            if (!isCreateModalOpen) return;
+            setIsLoadingEntities(true);
+            setEntityItems([]);
+            setCreateForm(p => ({ ...p, entity_id: "" }));
+            try {
+                const pid = selectedProjectId || undefined;
+                let items: { id: number; label: string }[] = [];
+
+                switch (createForm.entity_type) {
+                    case "boq": {
+                        if (pid) {
+                            const data = await boqService.getBoqsByProject(pid);
+                            items = (Array.isArray(data) ? data : []).map((b: any) => ({
+                                id: b.id,
+                                label: `${b.item_name} (ID: ${b.id})`,
+                            }));
+                        }
+                        break;
+                    }
+                    case "drawing": {
+                        if (pid) {
+                            const data = await drawingService.getVersions(pid);
+                            items = (Array.isArray(data) ? data : []).map((d: any) => ({
+                                id: d.id,
+                                label: `${d.drawing_name || d.title || `Drawing #${d.id}`} (ID: ${d.id})`,
+                            }));
+                        }
+                        break;
+                    }
+                    case "document": {
+                        if (pid) {
+                            const res = await documentService.listDocuments({ project_id: pid, limit: 100 });
+                            const docs = Array.isArray(res) ? res : (res as any).items || [];
+                            items = docs.map((d: any) => ({
+                                id: d.id,
+                                label: `${d.title || `Document #${d.id}`} (ID: ${d.id})`,
+                            }));
+                        }
+                        break;
+                    }
+                    case "equipment": {
+                        const res = await equipmentService.listEquipment();
+                        const equips = Array.isArray(res) ? res : (res as any).items || [];
+                        items = equips.map((e: any) => ({
+                            id: e.id,
+                            label: `${e.name || e.equipment_name || `Equipment #${e.id}`} (ID: ${e.id})`,
+                        }));
+                        break;
+                    }
+                    default:
+                        items = [];
+                }
+                setEntityItems(items);
+            } catch {
+                setEntityItems([]);
+            } finally {
+                setIsLoadingEntities(false);
+            }
+        };
+        fetchEntityItems();
+    }, [createForm.entity_type, isCreateModalOpen, selectedProjectId]);
 
     const fetchApprovals = useCallback(async () => {
         setIsLoading(true);
@@ -119,6 +213,26 @@ const ApprovalsPage = () => {
         }
     };
 
+    const handleCreateApproval = async () => {
+        if (!createForm.entity_id.trim()) { toast.error("Entity ID is required"); return; }
+        setIsCreating(true);
+        try {
+            await approvalService.createApproval({
+                entity_type: createForm.entity_type,
+                entity_id: Number(createForm.entity_id),
+                remarks: createForm.remarks || `Approval request for ${createForm.entity_type} #${createForm.entity_id}`,
+            });
+            toast.success("Approval request created successfully!");
+            setIsCreateModalOpen(false);
+            setCreateForm({ entity_type: "boq", entity_id: "", remarks: "" });
+            fetchApprovals();
+        } catch {
+            toast.error("Failed to create approval request");
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
     const handleExport = () => {
         const headers = ["ID", "Entity Type", "Entity ID", "Status", "Requested By", "Approved By", "Remarks"];
         const csvData = filteredApprovals.map(a => [
@@ -155,10 +269,16 @@ const ApprovalsPage = () => {
                     </div>
                     <div className="flex gap-2">
                         <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        >
+                            <Plus className="w-4 h-4" /> Create Approval
+                        </button>
+                        <button
                             onClick={handleBulkApprove}
                             disabled={selectedIds.length === 0}
                             className={`px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${selectedIds.length > 0
-                                ? "bg-primary text-white shadow-primary/20 hover:bg-blue-600"
+                                ? "bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600"
                                 : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none"
                                 }`}
                         >
@@ -357,6 +477,83 @@ const ApprovalsPage = () => {
                 onApprove={handleApprove}
                 onReject={handleReject}
             />
+
+            {/* Create Approval Modal */}
+            <Modal
+                isOpen={isCreateModalOpen}
+                onClose={() => { setIsCreateModalOpen(false); setCreateForm({ entity_type: "boq", entity_id: "", remarks: "" }); }}
+                title="Create Approval Request"
+                maxWidth="max-w-md"
+                footer={
+                    <>
+                        <button
+                            onClick={() => { setIsCreateModalOpen(false); setCreateForm({ entity_type: "boq", entity_id: "", remarks: "" }); }}
+                            disabled={isCreating}
+                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleCreateApproval}
+                            disabled={isCreating}
+                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 disabled:opacity-70"
+                        >
+                            {isCreating ? "Creating..." : "Create Request"}
+                        </button>
+                    </>
+                }
+            >
+                <div className="p-4 space-y-4">
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Entity Type <span className="text-rose-500">*</span></label>
+                        <select
+                            value={createForm.entity_type}
+                            onChange={e => setCreateForm(p => ({ ...p, entity_type: e.target.value }))}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
+                        >
+                            {ENTITY_TYPES.map(et => (
+                                <option key={et.value} value={et.value}>{et.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                            {ENTITY_TYPES.find(e => e.value === createForm.entity_type)?.label || "Entity"} <span className="text-rose-500">*</span>
+                        </label>
+                        {isLoadingEntities ? (
+                            <div className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-400 flex items-center gap-2">
+                                <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                                Loading...
+                            </div>
+                        ) : (
+                            <select
+                                value={createForm.entity_id}
+                                onChange={e => setCreateForm(p => ({ ...p, entity_id: e.target.value }))}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
+                            >
+                                <option value="">
+                                    {entityItems.length === 0
+                                        ? `No ${createForm.entity_type} items found`
+                                        : `Select ${ENTITY_TYPES.find(e => e.value === createForm.entity_type)?.label}`}
+                                </option>
+                                {entityItems.map(item => (
+                                    <option key={item.id} value={item.id}>{item.label}</option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Remarks</label>
+                        <textarea
+                            value={createForm.remarks}
+                            onChange={e => setCreateForm(p => ({ ...p, remarks: e.target.value }))}
+                            placeholder="Reason for approval request..."
+                            rows={3}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                        />
+                    </div>
+                </div>
+            </Modal>
         </>
     );
 };

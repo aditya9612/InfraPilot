@@ -93,7 +93,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
         try {
           const { boqService } = await import("../../services/boqService");
           const boqItem = await boqService.getBoqById(Number(boqId));
-          if (boqItem) setBoqName(boqItem.item_name || boqItem.item_name || `BOQ ${boqId}`);
+          if (boqItem) setBoqName(boqItem.item_name || boqItem.name || `BOQ ${boqId}`);
         } catch { /* ignore */ }
       }
 
