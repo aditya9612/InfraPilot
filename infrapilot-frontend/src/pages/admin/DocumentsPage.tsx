@@ -108,7 +108,7 @@ const DocumentsPage = () => {
       ];
 
       // At root level, fetch specialized drawings for selected project (or all projects if none selected)
-      if (folderId === null && (typeFilter === "All" || typeFilter === "Drawings")) {
+      if (folderId === null && mainTab === "Drawings") {
         if (selectedProjectId) {
           promises.push(drawingService.getVersions(selectedProjectId));
         } else if (projects.length > 0) {
@@ -154,12 +154,9 @@ const DocumentsPage = () => {
 
       const combined = [...mappedDrawings, ...mappedDocs];
 
-      // Filter by type if needed (Standard documents already filtered by API search, but drawings might need manual search filter)
+      // Filter by search query only (type/tab filtering is handled in filteredDocuments useMemo)
       const filtered = combined.filter(item => {
         if (query && !item.display_name.toLowerCase().includes(query.toLowerCase())) return false;
-        if (typeFilter === "Drawings" && item.document_type !== "Drawing") return false;
-        if (typeFilter === "Contracts" && item.document_type !== "Contract") return false;
-        // ... add other filters as needed
         return true;
       });
 
