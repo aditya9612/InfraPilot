@@ -4,7 +4,8 @@ import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import {
-    RotateCcw
+    RotateCcw,
+    FileDown
 } from "lucide-react";
 
 import { dsrService } from "../../services/dsrService";
@@ -13,8 +14,6 @@ import { materialService } from "../../services/materialService";
 import { issueService } from "../../services/issueService";
 import { reportService } from "../../services/reportService";
 import api from "../../services/api";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -144,7 +143,7 @@ const reportTypes: ReportType[] = [
     },
     {
         id: "quarterly",
-        name: "Quarterly Performance Audit",
+        name: "Quarterly Progress",
         description: "High-level 90-day strategic review detailing contractor performance, total financial expenditure, and structural compliance.",
         icon: "🏢",
         badgeColor: "bg-cyan-50 text-cyan-600",
@@ -174,6 +173,29 @@ const ReportsPage = () => {
     const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
     const [projectId, setProjectId] = useState<number | null>(null);
+
+    // ─── Export Filter State ───────────────────────────────────────────────────
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportFilters, setExportFilters] = useState({ start_date: "", end_date: "", contractor_name: "" });
+    const [isExporting, setIsExporting] = useState(false);
+
+    // ─── Labour Export Filter State ─────────────────────────────────────────────
+    const [isLabourExportModalOpen, setIsLabourExportModalOpen] = useState(false);
+    const [labourExportType, setLabourExportType] = useState<"pdf" | "excel">("pdf");
+    const [labourExportFilters, setLabourExportFilters] = useState({ date: "", skill_category: "" });
+    const [isLabourExporting, setIsLabourExporting] = useState(false);
+
+    // ─── Issue Export Filter State ──────────────────────────────────────────────
+    const [isIssueExportModalOpen, setIsIssueExportModalOpen] = useState(false);
+    const [issueExportType, setIssueExportType] = useState<"pdf" | "excel">("pdf");
+    const [issueExportFilters, setIssueExportFilters] = useState({ status: "", priority: "", start_date: "", end_date: "" });
+    const [isIssueExporting, setIsIssueExporting] = useState(false);
+
+    // ─── Quarterly Export Filter State ──────────────────────────────────────────
+    const [isQuarterlyExportModalOpen, setIsQuarterlyExportModalOpen] = useState(false);
+    const [quarterlyExportType, setQuarterlyExportType] = useState<"pdf" | "excel">("pdf");
+    const [quarterlyExportFilters, setQuarterlyExportFilters] = useState({ report_date: "", start_date: "", end_date: "", month: "", year: "", quarter: "" });
+    const [isQuarterlyExporting, setIsQuarterlyExporting] = useState(false);
 
     // Resolve Project ID from session & listen for changes
     useEffect(() => {
@@ -214,8 +236,9 @@ const ReportsPage = () => {
             const updatedReports = [...reportTypes];
 
             // 1. Daily Report Mapping (DSR)
-            try {
-                const dailyRes = await dsrService.getDsrByProject(projectId, { start_date: startDate, end_date: endDate });
+            if (activeFilter === "daily") {
+                try {
+                    const dailyRes = await dsrService.getDsrByProject(projectId, { start_date: startDate, end_date: endDate });
                 const dailyIdx = updatedReports.findIndex(r => r.id === "daily");
                 if (dailyIdx !== -1) {
                     if (dailyRes && dailyRes.items && dailyRes.items.length > 0) {
@@ -246,13 +269,15 @@ const ReportsPage = () => {
                         };
                     }
                 }
-            } catch (err) {
-                console.warn("Failed to fetch DSR report metrics", err);
+                } catch (err) {
+                    console.warn("Failed to fetch DSR report metrics", err);
+                }
             }
 
             // 2. Weekly Progress Mapping (Work Progress)
-            try {
-                const summaryRes = await workProgressService.getProjectSummary(projectId);
+            if (activeFilter === "weekly") {
+                try {
+                    const summaryRes = await workProgressService.getProjectSummary(projectId);
                 const weeklyIdx = updatedReports.findIndex(r => r.id === "weekly");
                 if (weeklyIdx !== -1) {
                     if (summaryRes) {
@@ -282,14 +307,16 @@ const ReportsPage = () => {
                         };
                     }
                 }
-            } catch (err) {
-                console.warn("Failed to fetch weekly report metrics", err);
+                } catch (err) {
+                    console.warn("Failed to fetch weekly report metrics", err);
+                }
             }
 
             // 3. Labour Mapping — /api/v1/reports/labour
-            try {
-                const userStr = localStorage.getItem("infrapilot_user");
-                let token = "";
+            if (activeFilter === "daily") {
+                try {
+                    const userStr = localStorage.getItem("infrapilot_user");
+                    let token = "";
                 if (userStr) {
                     try {
                         const user = JSON.parse(userStr);
@@ -334,63 +361,126 @@ const ReportsPage = () => {
             } catch (err) {
                 console.warn("Failed to fetch labour report metrics", err);
             }
+            }
 
             // 4. Material Mapping
-            try {
-                const materialRes = await materialService.listMaterials(projectId, { start_date: startDate, end_date: endDate } as any);
-                const materialIdx = updatedReports.findIndex(r => r.id === "material");
-                if (materialIdx !== -1) {
-                    let totalStock = 0;
-                    let totalValue = 0;
-                    let numItems = 0;
-                    if (materialRes && materialRes.length > 0) {
-                        numItems = materialRes.length;
-                        materialRes.forEach((m: any) => {
-                            totalStock += Number(m.remaining_stock || 0);
-                            totalValue += Number(m.total_amount || m.total_value || 0);
-                        });
-                    }
+            if (activeFilter === "daily") {
+                try {
+                    const materialRes = await materialService.listMaterials(projectId, { start_date: startDate, end_date: endDate } as any);
+                    const materialIdx = updatedReports.findIndex(r => r.id === "material");
+                    if (materialIdx !== -1) {
+                        let totalStock = 0;
+                        let totalValue = 0;
+                        let numItems = 0;
+                        if (materialRes && materialRes.length > 0) {
+                            numItems = materialRes.length;
+                            materialRes.forEach((m: any) => {
+                                totalStock += Number(m.remaining_stock || 0);
+                                totalValue += Number(m.total_amount || m.total_value || 0);
+                            });
+                        }
 
-                    updatedReports[materialIdx] = {
-                        ...updatedReports[materialIdx],
-                        metrics: [
-                            { label: "Total Stock Items", value: numItems.toString(), accent: "text-rose-500" },
-                            { label: "Stock Qty", value: totalStock.toFixed(1) },
-                            { label: "Stock Value", value: `₹${(totalValue / 1000).toFixed(1)}k` },
-                            { label: "Status", value: numItems > 0 ? "Updated" : "No Data" },
-                        ]
-                    };
+                        updatedReports[materialIdx] = {
+                            ...updatedReports[materialIdx],
+                            metrics: [
+                                { label: "Total Stock Items", value: numItems.toString(), accent: "text-rose-500" },
+                                { label: "Stock Qty", value: totalStock.toFixed(1) },
+                                { label: "Stock Value", value: `₹${(totalValue / 1000).toFixed(1)}k` },
+                                { label: "Status", value: numItems > 0 ? "Updated" : "No Data" },
+                            ]
+                        };
+                    }
+                } catch (err) {
+                    console.warn("Failed to fetch material report metrics", err);
                 }
-            } catch (err) {
-                console.warn("Failed to fetch material report metrics", err);
             }
 
             // 5. Issues Mapping
-            try {
-                const issuesRes = await issueService.getIssues({ project_id: projectId, limit: 1000 });
-                const issueIdx = updatedReports.findIndex(r => r.id === "issue");
-                if (issueIdx !== -1 && issuesRes && issuesRes.items) {
-                    const allIssues = issuesRes.items;
-                    const openIssues = allIssues.filter((i: any) => i.status !== 'Resolved' && i.status !== 'Closed').length;
-                    const criticalIssues = allIssues.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length;
-                    const resolvedIssues = allIssues.filter((i: any) => i.status === 'Resolved' || i.status === 'Closed').length;
+            if (activeFilter === "daily") {
+                try {
+                    const issuesRes = await issueService.getIssues({ project_id: projectId, limit: 1000 });
+                    const issueIdx = updatedReports.findIndex(r => r.id === "issue");
+                    if (issueIdx !== -1 && issuesRes && issuesRes.items) {
+                        const allIssues = issuesRes.items;
+                        const openIssues = allIssues.filter((i: any) => i.status !== 'Resolved' && i.status !== 'Closed').length;
+                        const criticalIssues = allIssues.filter((i: any) => i.priority === 'High' || i.priority === 'Critical').length;
+                        const resolvedIssues = allIssues.filter((i: any) => i.status === 'Resolved' || i.status === 'Closed').length;
 
-                    updatedReports[issueIdx] = {
-                        ...updatedReports[issueIdx],
+                        updatedReports[issueIdx] = {
+                            ...updatedReports[issueIdx],
+                            metrics: [
+                                { label: "Open Issues", value: openIssues.toString(), accent: "text-rose-500" },
+                                { label: "Critical", value: criticalIssues.toString() },
+                                { label: "Resolved", value: resolvedIssues.toString() },
+                                { label: "Total", value: allIssues.length.toString() },
+                            ]
+                        };
+                    }
+                } catch (err) {
+                    console.warn("Failed to fetch issue report metrics", err);
+                }
+            }
+
+            // 6. Monthly Executive Summary
+            if (activeFilter === "monthly") {
+                try {
+                    const dateParts = startDate.split("-");
+                    const currentMonth = Number(dateParts[1]);
+                const currentYear = Number(dateParts[0]);
+
+                const monthlyRes = await api.get(`/reports/project`, {
+                    params: { project_id: projectId || 92, type: "monthly", month: currentMonth, year: currentYear }
+                });
+                
+                const data = monthlyRes.data;
+                const monthlyIdx = updatedReports.findIndex(r => r.id === "monthly");
+                if (monthlyIdx !== -1 && data) {
+                    updatedReports[monthlyIdx] = {
+                        ...updatedReports[monthlyIdx],
+                        lastGenerated: data.generated_at ? new Date(data.generated_at).toLocaleString() : "Recently",
                         metrics: [
-                            { label: "Open Issues", value: openIssues.toString(), accent: "text-rose-500" },
-                            { label: "Critical", value: criticalIssues.toString() },
-                            { label: "Resolved", value: resolvedIssues.toString() },
-                            { label: "Total", value: allIssues.length.toString() },
+                            { label: "Overall Progress", value: `${data.summary?.overall_progress || 0}%`, accent: "text-emerald-600" },
+                            { label: "Completed Tasks", value: `${data.summary?.completed_tasks || 0}` },
+                            { label: "Total Invoice", value: `₹${data.financials?.total_invoice?.toLocaleString() || 0}` },
+                            { label: "Profit", value: `₹${data.financials?.profit?.toLocaleString() || 0}`, accent: "text-emerald-600" },
                         ]
                     };
                 }
-            } catch (err) {
-                console.warn("Failed to fetch issue report metrics", err);
+                } catch (err) {
+                    console.warn("Failed to fetch monthly report metrics", err);
+                }
             }
 
-            // Simulate small delay for the rest
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // 7. Quarterly Performance Audit
+            if (activeFilter === "quarterly") {
+                try {
+                    const dateParts = startDate.split("-");
+                    const currentMonth = Number(dateParts[1]);
+                const currentYear = Number(dateParts[0]);
+                const currentQuarter = Math.ceil(currentMonth / 3);
+
+                const quarterlyRes = await api.get(`/reports/quarterly-audit-summary`, {
+                    params: { project_id: projectId || 92, year: currentYear, quarter: currentQuarter }
+                });
+
+                const data = quarterlyRes.data;
+                const quarterlyIdx = updatedReports.findIndex(r => r.id === "quarterly");
+                if (quarterlyIdx !== -1 && data) {
+                    updatedReports[quarterlyIdx] = {
+                        ...updatedReports[quarterlyIdx],
+                        lastGenerated: `Q${data.quarter || currentQuarter} ${data.year || currentYear}`,
+                        metrics: [
+                            { label: "Total Expense", value: `₹${data.total_expense?.toLocaleString() || 0}`, accent: "text-rose-500" },
+                            { label: "Total Invoice", value: `₹${data.total_invoice?.toLocaleString() || 0}`, accent: "text-emerald-600" },
+                            { label: "Completed Tasks", value: `${data.completed_tasks || 0}` },
+                            { label: "Delayed Tasks", value: `${data.delayed_tasks || 0}`, accent: "text-rose-500" },
+                        ]
+                    };
+                }
+                } catch (err) {
+                    console.warn("Failed to fetch quarterly report metrics", err);
+                }
+            }
 
             setDynamicReports(updatedReports);
         } catch (error) {
@@ -399,7 +489,7 @@ const ReportsPage = () => {
         } finally {
             setIsInitialLoading(false);
         }
-    }, [projectId, startDate, endDate]);
+    }, [projectId, startDate, endDate, activeFilter]);
 
     useEffect(() => {
         fetchReports();
@@ -560,51 +650,10 @@ const ReportsPage = () => {
             }
 
             if (report.id === "labour") {
-                const response = await api.get(`/reports/labour?project_id=${projectId || 92}`);
-                const data = response.data;
-                const summary = data.labour_summary || data.data?.labour_summary || [];
-
-                const doc = new jsPDF();
-                const pageWidth = doc.internal.pageSize.getWidth();
-
-                // --- HEADER ---
-                doc.setFontSize(22);
-                doc.setTextColor(15, 23, 42);
-                doc.setFont("helvetica", "bold");
-                doc.text("InfraPilot", 14, 20);
-
-                doc.setFontSize(14);
-                doc.setTextColor(71, 85, 105);
-                doc.setFont("helvetica", "normal");
-                doc.text("Labour Attendance Report", 14, 30);
-
-                // --- ORANGE DIVIDER ---
-                doc.setDrawColor(249, 115, 22);
-                doc.setLineWidth(1);
-                doc.line(14, 35, pageWidth - 14, 35);
-
-                const tableBody = summary.map((item: any) => [item.skill_type || "-", item.count?.toString() || "0"]);
-                const totalCount = summary.reduce((acc: number, curr: any) => acc + (curr.count || 0), 0);
-                tableBody.push(["TOTAL", totalCount.toString()]);
-
-                autoTable(doc, {
-                    startY: 45,
-                    head: [["Skill Type", "Labour Count"]],
-                    body: tableBody,
-                    theme: "grid",
-                    headStyles: { fillColor: [241, 245, 249], textColor: [71, 85, 105], fontStyle: "bold", fontSize: 11 },
-                    bodyStyles: { textColor: [30, 58, 138], fontStyle: "bold", fontSize: 13 },
-                    margin: { left: 14, right: 14 }
-                });
-
-                const finalY = (doc as any).lastAutoTable.finalY + 30;
-                doc.setFontSize(10);
-                doc.setTextColor(148, 163, 184);
-                doc.setFont("helvetica", "normal");
-                doc.text("Generated by InfraPilot Operational Intelligence", pageWidth / 2, finalY, { align: "center" });
-
-                doc.save(`Labour_Report_${new Date().toISOString().split("T")[0]}.pdf`);
-                toast.success(`${report.name} PDF generated!`, { id: `pdf-${report.id}` });
+                setLabourExportType("pdf");
+                setIsLabourExportModalOpen(true);
+                toast.dismiss(`pdf-${report.id}`);
+                setLoadingId(null);
                 return;
             }
 
@@ -636,6 +685,22 @@ const ReportsPage = () => {
                 return;
             }
 
+            if (report.id === "issue") {
+                setIssueExportType("pdf");
+                setIsIssueExportModalOpen(true);
+                toast.dismiss(`pdf-${report.id}`);
+                setLoadingId(null);
+                return;
+            }
+
+            if (report.id === "quarterly") {
+                setQuarterlyExportType("pdf");
+                setIsQuarterlyExportModalOpen(true);
+                toast.dismiss(`pdf-${report.id}`);
+                setLoadingId(null);
+                return;
+            }
+
             const today = new Date();
             const month = (today.getMonth() + 1).toString().padStart(2, '0');
             const year = today.getFullYear().toString();
@@ -660,6 +725,158 @@ const ReportsPage = () => {
             }
         } finally {
             setLoadingId(null);
+        }
+    };
+
+    const handleDSRExport = async () => {
+        setIsExporting(true);
+        const toastId = toast.loading("Generating Excel report...");
+        try {
+            const params: { start_date?: string; end_date?: string; contractor_name?: string } = {};
+            if (exportFilters.start_date) params.start_date = exportFilters.start_date;
+            if (exportFilters.end_date) params.end_date = exportFilters.end_date;
+            if (exportFilters.contractor_name.trim()) params.contractor_name = exportFilters.contractor_name.trim();
+            await dsrService.exportDsrExcel(projectId || 92, params);
+            toast.success("Excel report exported!", { id: toastId });
+            setIsExportModalOpen(false);
+        } catch (err: any) {
+            console.error("DSR Export failed:", err);
+            if (err.response?.status === 404) {
+                toast.error("No DSR records found for selected filters.", { id: toastId });
+            } else {
+                toast.error("Export failed", { id: toastId });
+            }
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleLabourExport = async () => {
+        setIsLabourExporting(true);
+        const toastId = toast.loading(`Generating Labour ${labourExportType === "pdf" ? "PDF" : "Excel"} report...`);
+        try {
+            const params: any = { project_id: projectId || 92 };
+            if (labourExportFilters.date) params.date = labourExportFilters.date;
+            if (labourExportFilters.skill_category) params.skill_category = labourExportFilters.skill_category;
+
+            let blob;
+            if (labourExportType === "pdf") {
+                blob = await reportService.exportLabourPDF(params);
+            } else {
+                blob = await reportService.exportLabourExcel(params);
+            }
+
+            if (blob.type === "application/json") {
+                const errorText = await blob.text();
+                throw new Error(errorText);
+            }
+
+            const ext = labourExportType === "pdf" ? "pdf" : "xlsx";
+            const mimeType = labourExportType === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            
+            const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `Labour_Report_${new Date().toISOString().split("T")[0]}.${ext}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success(`Labour ${labourExportType === "pdf" ? "PDF" : "Excel"} downloaded!`, { id: toastId });
+            setIsLabourExportModalOpen(false);
+        } catch (error: any) {
+            console.error(`Failed to generate Labour ${labourExportType}`, error);
+            toast.error(`Failed to generate Labour ${labourExportType === "pdf" ? "PDF" : "Excel"}`, { id: toastId });
+        } finally {
+            setIsLabourExporting(false);
+        }
+    };
+
+    const handleIssueExport = async () => {
+        setIsIssueExporting(true);
+        const toastId = toast.loading(`Generating Issue ${issueExportType === "pdf" ? "PDF" : "Excel"} report...`);
+        try {
+            const params: any = { project_id: projectId || 92 };
+            if (issueExportFilters.status) params.status = issueExportFilters.status;
+            if (issueExportFilters.priority) params.priority = issueExportFilters.priority;
+            if (issueExportFilters.start_date) params.start_date = issueExportFilters.start_date;
+            if (issueExportFilters.end_date) params.end_date = issueExportFilters.end_date;
+
+            let blob;
+            if (issueExportType === "pdf") {
+                blob = await reportService.exportIssuePDF(params);
+            } else {
+                blob = await reportService.exportIssueExcel(params);
+            }
+
+            if (blob.type === "application/json") {
+                const errorText = await blob.text();
+                throw new Error(errorText);
+            }
+
+            const ext = issueExportType === "pdf" ? "pdf" : "xlsx";
+            const mimeType = issueExportType === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            
+            const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `Issue_Report_${new Date().toISOString().split("T")[0]}.${ext}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success(`Issue ${issueExportType === "pdf" ? "PDF" : "Excel"} downloaded!`, { id: toastId });
+            setIsIssueExportModalOpen(false);
+        } catch (error: any) {
+            console.error(`Failed to generate Issue ${issueExportType}`, error);
+            toast.error(`Failed to generate Issue ${issueExportType === "pdf" ? "PDF" : "Excel"}`, { id: toastId });
+        } finally {
+            setIsIssueExporting(false);
+        }
+    };
+
+            const handleQuarterlyExport = async () => {
+        setIsQuarterlyExporting(true);
+        const toastId = toast.loading(`Generating Quarterly ${quarterlyExportType === "pdf" ? "PDF" : "Excel"} report...`);
+        try {
+            const params: any = { project_id: projectId || 92, type: "quarterly" };
+            if (quarterlyExportFilters.report_date) params.report_date = quarterlyExportFilters.report_date;
+            if (quarterlyExportFilters.start_date) params.start_date = quarterlyExportFilters.start_date;
+            if (quarterlyExportFilters.end_date) params.end_date = quarterlyExportFilters.end_date;
+            if (quarterlyExportFilters.month) params.month = parseInt(quarterlyExportFilters.month);
+            if (quarterlyExportFilters.year) params.year = parseInt(quarterlyExportFilters.year);
+            if (quarterlyExportFilters.quarter) params.quarter = parseInt(quarterlyExportFilters.quarter);
+
+            let blob;
+            if (quarterlyExportType === "pdf") {
+                blob = await reportService.exportProjectReportPDF(params);
+            } else {
+                blob = await reportService.exportProjectReportExcel(params);
+            }
+
+            if (blob.type === "application/json") {
+                const errorText = await blob.text();
+                throw new Error(errorText);
+            }
+
+            const ext = quarterlyExportType === "pdf" ? "pdf" : "xlsx";
+            const mimeType = quarterlyExportType === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            
+            const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `Quarterly_Report_${new Date().toISOString().split("T")[0]}.${ext}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success(`Quarterly ${quarterlyExportType === "pdf" ? "PDF" : "Excel"} downloaded!`, { id: toastId });
+            setIsQuarterlyExportModalOpen(false);
+        } catch (error: any) {
+            console.error(`Failed to generate Quarterly ${quarterlyExportType}`, error);
+            toast.error(`Failed to generate Quarterly ${quarterlyExportType === "pdf" ? "PDF" : "Excel"}`, { id: toastId });
+        } finally {
+            setIsQuarterlyExporting(false);
         }
     };
 
@@ -698,62 +915,52 @@ const ReportsPage = () => {
             if (report.id === "daily") {
                 if (report.lastGenerated === "Not Generated") {
                     toast.error("No daily report has been generated for this date.", { id: `exp-${report.id}` });
+                    setLoadingId(null);
                     return;
                 }
-
-                const response = await api.get(`/dsr/project/${projectId || 92}/export?start_date=${startDate}&end_date=${endDate}&contractor_name=&_t=${Date.now()}`, {
-                    responseType: "blob",
-                    headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream' }
-                });
-
-                if (response.data.type === "application/json") {
-                    const errorText = await response.data.text();
-                    console.error("DSR Excel Generate Error:", errorText);
-                    try {
-                        const errObj = JSON.parse(errorText);
-                        const msg = errObj.detail || errObj.message || errObj.error || "Could not generate DSR Excel.";
-                        toast.error(`Server error: ${msg}`, { id: `exp-${report.id}` });
-                    } catch (e) {
-                        toast.error("Server error: Could not generate DSR Excel.", { id: `exp-${report.id}` });
-                    }
-                    return;
-                }
-
-                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-                const link = document.createElement("a");
-                link.href = url;
-                link.setAttribute("download", `Daily_Report_${startDate}_to_${endDate}.xlsx`);
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                window.URL.revokeObjectURL(url);
-                toast.success(`${report.name} Excel downloaded!`, { id: `exp-${report.id}` });
+                setIsExportModalOpen(true);
+                toast.dismiss(`exp-${report.id}`);
+                setLoadingId(null);
                 return;
             }
 
             if (report.id === "issue") {
-                const response = await api.get(`/reports/issues/export/excel?project_id=${projectId || 92}&_t=${Date.now()}`, {
-                    responseType: "blob",
-                    headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream' }
+                setIssueExportType("excel");
+                setIsIssueExportModalOpen(true);
+                toast.dismiss(`exp-${report.id}`);
+                setLoadingId(null);
+                return;
+            }
+
+            if (report.id === "quarterly") {
+                setQuarterlyExportType("excel");
+                setIsQuarterlyExportModalOpen(true);
+                toast.dismiss(`exp-${report.id}`);
+                setLoadingId(null);
+                return;
+            }
+
+            if (report.id === "monthly") {
+                const dateParts = startDate.split("-");
+                const currentMonth = Number(dateParts[1]);
+                const currentYear = Number(dateParts[0]);
+
+                const blob = await reportService.exportProjectReportExcel({
+                    project_id: projectId || 92,
+                    type: report.id,
+                    month: currentMonth,
+                    year: currentYear
                 });
 
-                if (response.data.type === "application/json") {
-                    const errorText = await response.data.text();
-                    console.error("Issue Excel Generate Error:", errorText);
-                    try {
-                        const errObj = JSON.parse(errorText);
-                        const msg = errObj.detail || errObj.message || errObj.error || "Could not generate Issue Excel.";
-                        toast.error(`Server error: ${msg}`, { id: `exp-${report.id}` });
-                    } catch (e) {
-                        toast.error("Server error: Could not generate Issue Excel.", { id: `exp-${report.id}` });
-                    }
+                if (blob.type === "application/json") {
+                    toast.error(`Server error: Could not generate Excel.`, { id: `exp-${report.id}` });
                     return;
                 }
 
-                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+                const url = window.URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
                 const link = document.createElement("a");
                 link.href = url;
-                link.setAttribute("download", `Issues_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+                link.setAttribute("download", `${report.name}_${currentYear}.xlsx`);
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
@@ -763,29 +970,10 @@ const ReportsPage = () => {
             }
 
             if (report.id === "labour") {
-                const response = await api.get(`/reports/labour?project_id=${projectId || 92}`);
-                const data = response.data;
-                const summary = data.labour_summary || data.data?.labour_summary || [];
-
-                const csvRows = [["Skill Type", "Count"]];
-                let total = 0;
-                summary.forEach((item: any) => {
-                    csvRows.push([item.skill_type || "-", item.count || 0]);
-                    total += item.count || 0;
-                });
-                csvRows.push(["TOTAL", total.toString()]);
-
-                const csvContent = csvRows.map(row => row.join(",")).join("\n");
-                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.setAttribute("download", `Labour_Report_${new Date().toISOString().split("T")[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                window.URL.revokeObjectURL(url);
-                toast.success(`${report.name} Excel (CSV) downloaded!`, { id: `exp-${report.id}` });
+                setLabourExportType("excel");
+                setIsLabourExportModalOpen(true);
+                toast.dismiss(`exp-${report.id}`);
+                setLoadingId(null);
                 return;
             }
 
@@ -1290,6 +1478,365 @@ const ReportsPage = () => {
                     </div>
                 )}
             </Modal>
+            {/* ── Export Filter Modal ─────────────────────────────────────────── */}
+            {isExportModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">Export Daily to Excel</h2>
+                                <p className="text-xs text-slate-400 mt-0.5">Apply filters before downloading (all fields optional)</p>
+                            </div>
+                            <button
+                                onClick={() => setIsExportModalOpen(false)}
+                                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Start Date */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Start Date</label>
+                                <input
+                                    type="date"
+                                    value={exportFilters.start_date}
+                                    onChange={e => setExportFilters(f => ({ ...f, start_date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* End Date */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">End Date</label>
+                                <input
+                                    type="date"
+                                    value={exportFilters.end_date}
+                                    onChange={e => setExportFilters(f => ({ ...f, end_date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* Contractor Name */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Contractor Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Shree Construction"
+                                    value={exportFilters.contractor_name}
+                                    onChange={e => setExportFilters(f => ({ ...f, contractor_name: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all placeholder:text-slate-300"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setExportFilters({ start_date: "", end_date: "", contractor_name: "" });
+                                }}
+                                className="flex-1 px-4 py-2.5 text-sm font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors"
+                            >
+                                Clear Filters
+                            </button>
+                            <button
+                                onClick={handleDSRExport}
+                                disabled={isExporting}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-emerald-200"
+                            >
+                                <FileDown className="w-4 h-4" />
+                                {isExporting ? "Exporting..." : "Download Excel"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* ── Labour Export Filter Modal ────────────────────────────────────── */}
+            {isLabourExportModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">
+                                    Export Labour Report to {labourExportType === "pdf" ? "PDF" : "Excel"}
+                                </h2>
+                                <p className="text-xs text-slate-400 mt-0.5">Apply filters before downloading (all fields optional)</p>
+                            </div>
+                            <button
+                                onClick={() => setIsLabourExportModalOpen(false)}
+                                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Date */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Date</label>
+                                <input
+                                    type="date"
+                                    value={labourExportFilters.date}
+                                    onChange={e => setLabourExportFilters(f => ({ ...f, date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* Skill Category */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Skill Category</label>
+                                <select
+                                    value={labourExportFilters.skill_category}
+                                    onChange={e => setLabourExportFilters(f => ({ ...f, skill_category: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all appearance-none"
+                                >
+                                    <option value="">All Categories</option>
+                                    <option value="SKILLED">Skilled</option>
+                                    <option value="UNSKILLED">Unskilled</option>
+                                    <option value="SEMI_SKILLED">Semi Skilled</option>
+                                    <option value="SUPERVISOR">Supervisor</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setLabourExportFilters({ date: "", skill_category: "" });
+                                }}
+                                className="flex-1 px-4 py-2.5 text-sm font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors"
+                            >
+                                Clear Filters
+                            </button>
+                            <button
+                                onClick={handleLabourExport}
+                                disabled={isLabourExporting}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-blue-200"
+                            >
+                                <FileDown className="w-4 h-4" />
+                                {isLabourExporting ? "Exporting..." : `Download ${labourExportType === "pdf" ? "PDF" : "Excel"}`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Issue Export Filter Modal ─────────────────────────────────────── */}
+            {isIssueExportModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">
+                                    Export Issue Report to {issueExportType === "pdf" ? "PDF" : "Excel"}
+                                </h2>
+                                <p className="text-xs text-slate-400 mt-0.5">Apply filters before downloading (all fields optional)</p>
+                            </div>
+                            <button
+                                onClick={() => setIsIssueExportModalOpen(false)}
+                                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Status */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
+                                <select
+                                    value={issueExportFilters.status}
+                                    onChange={e => setIssueExportFilters(f => ({ ...f, status: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all appearance-none"
+                                >
+                                    <option value="">All Statuses</option>
+                                    <option value="Open">Open</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            </div>
+                            {/* Priority */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Priority</label>
+                                <select
+                                    value={issueExportFilters.priority}
+                                    onChange={e => setIssueExportFilters(f => ({ ...f, priority: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all appearance-none"
+                                >
+                                    <option value="">All Priorities</option>
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                    <option value="Critical">Critical</option>
+                                </select>
+                            </div>
+                            {/* Start Date */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Reported Start Date</label>
+                                <input
+                                    type="date"
+                                    value={issueExportFilters.start_date}
+                                    onChange={e => setIssueExportFilters(f => ({ ...f, start_date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* End Date */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Reported End Date</label>
+                                <input
+                                    type="date"
+                                    value={issueExportFilters.end_date}
+                                    onChange={e => setIssueExportFilters(f => ({ ...f, end_date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setIssueExportFilters({ status: "", priority: "", start_date: "", end_date: "" });
+                                }}
+                                className="flex-1 px-4 py-2.5 text-sm font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors"
+                            >
+                                Clear Filters
+                            </button>
+                            <button
+                                onClick={handleIssueExport}
+                                disabled={isIssueExporting}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-blue-200"
+                            >
+                                <FileDown className="w-4 h-4" />
+                                {isIssueExporting ? "Exporting..." : `Download ${issueExportType === "pdf" ? "PDF" : "Excel"}`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Quarterly Export Filter Modal ─────────────────────────────────── */}
+            {isQuarterlyExportModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto pt-20 pb-20">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">
+                                    Export Quarterly Progress to {quarterlyExportType === "pdf" ? "PDF" : "Excel"}
+                                </h2>
+                                <p className="text-xs text-slate-400 mt-0.5">Apply filters before downloading (all fields optional)</p>
+                            </div>
+                            <button
+                                onClick={() => setIsQuarterlyExportModalOpen(false)}
+                                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Report Date */}
+                            <div className="col-span-2 sm:col-span-1">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Report Date</label>
+                                <input
+                                    type="date"
+                                    value={quarterlyExportFilters.report_date}
+                                    onChange={e => setQuarterlyExportFilters(f => ({ ...f, report_date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* Empty space or filler */}
+                            <div className="hidden sm:block"></div>
+                            
+                            {/* Start Date */}
+                            <div className="col-span-2 sm:col-span-1">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Start Date</label>
+                                <input
+                                    type="date"
+                                    value={quarterlyExportFilters.start_date}
+                                    onChange={e => setQuarterlyExportFilters(f => ({ ...f, start_date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* End Date */}
+                            <div className="col-span-2 sm:col-span-1">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">End Date</label>
+                                <input
+                                    type="date"
+                                    value={quarterlyExportFilters.end_date}
+                                    onChange={e => setQuarterlyExportFilters(f => ({ ...f, end_date: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+
+                            {/* Month */}
+                            <div className="col-span-2 sm:col-span-1">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Month (1-12)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="12"
+                                    placeholder="e.g. 7"
+                                    value={quarterlyExportFilters.month}
+                                    onChange={e => setQuarterlyExportFilters(f => ({ ...f, month: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            {/* Year */}
+                            <div className="col-span-2 sm:col-span-1">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Year</label>
+                                <input
+                                    type="number"
+                                    placeholder="e.g. 2026"
+                                    value={quarterlyExportFilters.year}
+                                    onChange={e => setQuarterlyExportFilters(f => ({ ...f, year: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                            
+                            {/* Quarter */}
+                            <div className="col-span-2 sm:col-span-1">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Quarter (1-4)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="4"
+                                    placeholder="e.g. 2"
+                                    value={quarterlyExportFilters.quarter}
+                                    onChange={e => setQuarterlyExportFilters(f => ({ ...f, quarter: e.target.value }))}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300 transition-all"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    setQuarterlyExportFilters({ report_date: "", start_date: "", end_date: "", month: "", year: "", quarter: "" });
+                                }}
+                                className="flex-1 px-4 py-2.5 text-sm font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors"
+                            >
+                                Clear Filters
+                            </button>
+                            <button
+                                onClick={handleQuarterlyExport}
+                                disabled={isQuarterlyExporting}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-blue-200"
+                            >
+                                <FileDown className="w-4 h-4" />
+                                {isQuarterlyExporting ? "Exporting..." : `Download ${quarterlyExportType === "pdf" ? "PDF" : "Excel"}`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

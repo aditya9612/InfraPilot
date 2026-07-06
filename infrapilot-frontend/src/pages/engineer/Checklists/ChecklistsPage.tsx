@@ -18,7 +18,8 @@ import {
     ChevronRight,
     Edit3,
     Save,
-    X
+    X,
+    Eye
 } from "lucide-react";
 
 import { checklistService } from "../../../services/checklistService";
@@ -53,6 +54,7 @@ const ChecklistsPage = () => {
     const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
     const [isExecuteModalOpen, setIsExecuteModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isViewItemsModalOpen, setIsViewItemsModalOpen] = useState(false);
 
     // Selection / Form States
     const [selectedChecklist, setSelectedChecklist] = useState<ChecklistItem | null>(null);
@@ -204,6 +206,12 @@ const ChecklistsPage = () => {
     const openManageItemsModal = (cl: ChecklistItem) => {
         setSelectedChecklist(cl);
         setIsAddItemModalOpen(true);
+        fetchChecklistItems(cl.id);
+    };
+
+    const openViewItemsModal = (cl: ChecklistItem) => {
+        setSelectedChecklist(cl);
+        setIsViewItemsModalOpen(true);
         fetchChecklistItems(cl.id);
     };
 
@@ -612,6 +620,7 @@ const ChecklistsPage = () => {
                                         <th className="px-6 py-4 font-inter">Compliance Profile</th>
                                         <th className="px-6 py-4 font-inter">Intelligence Remarks</th>
                                         <th className="px-6 py-4 text-right font-inter">Audit Sequence</th>
+                                        <th className="px-6 py-4 text-center font-inter">View</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
@@ -648,12 +657,21 @@ const ChecklistsPage = () => {
                                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-inter">Timestamp</span>
                                                         </div>
                                                     </td>
+                                                    <td className="px-6 py-4 text-center font-inter">
+                                                        <button 
+                                                            onClick={() => openViewItemsModal(cl)}
+                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter inline-flex"
+                                                            title="View Items"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             );
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan={4} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                            <td colSpan={5} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                                 No checklists discovered in the project vault.
                                             </td>
                                         </tr>
@@ -937,6 +955,43 @@ const ChecklistsPage = () => {
                                                     <button onClick={() => handleDeleteItem(item.id)} disabled={isSubmitting} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete"><Trash2 className="w-4 h-4" /></button>
                                                 </>
                                             )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Modal 2.5: View Items */}
+            <Modal
+                isOpen={isViewItemsModalOpen}
+                onClose={() => setIsViewItemsModalOpen(false)}
+                title="View Verification Points"
+                maxWidth="max-w-2xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button onClick={() => setIsViewItemsModalOpen(false)} className="px-6 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Close</button>
+                    </div>
+                }
+            >
+                <div className="p-6 font-inter space-y-6">
+                    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                        <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Points for {selectedChecklist?.name}</h3>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                            {isFetchingItems ? (
+                                <div className="py-8 text-center text-slate-400 text-sm font-semibold">Loading points...</div>
+                            ) : currentChecklistItems.length === 0 ? (
+                                <div className="py-8 text-center text-slate-400 text-sm font-semibold">No points found.</div>
+                            ) : (
+                                currentChecklistItems.map((item, idx) => (
+                                    <div key={item.id} className="flex items-center p-3 bg-white border border-slate-100 rounded-xl font-inter hover:bg-slate-50 transition-all">
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <div className="w-6 h-6 bg-slate-100 text-slate-600 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0">{idx + 1}</div>
+                                            <span className="text-sm font-semibold text-slate-700">{item.item}</span>
                                         </div>
                                     </div>
                                 ))

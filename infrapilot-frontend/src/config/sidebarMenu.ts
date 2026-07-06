@@ -335,12 +335,12 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
     { label: "Drawings & Documents", path: "/engineer/drawings", icon: "folder" },
     { label: "Checklists", path: "/engineer/checklists", icon: "list" },
     {
-      label: "Approvals & Requests",
+      label: "Approvals",
       path: "/engineer/approvals",
       icon: "check-circle",
       subNav: [
-        { label: "Material Request", path: "/engineer/approvals/material", icon: "package" },
-        { label: "Work Approval", path: "/engineer/approvals/work", icon: "check-circle" },
+        { label: "Resources Request", path: "/engineer/approvals/material", icon: "package" },
+        { label: "Approvals", path: "/engineer/approvals/work", icon: "check-circle" },
       ],
     },
     { label: "Reports", path: "/engineer/reports", icon: "bar-chart" },

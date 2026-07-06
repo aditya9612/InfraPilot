@@ -21,10 +21,18 @@ import {
     ChevronLeft,
     ChevronRight,
     Clock,
-    ChevronDown
+    ChevronDown,
+    Layers
 } from "lucide-react";
 import { approvalService } from "../../../services/approvalService";
 import type { CreateApprovalRequest } from "../../../services/approvalService";
+import { materialService } from "../../../services/materialService";
+import { labourService } from "../../../services/labourService";
+import { equipmentService } from "../../../services/equipmentService";
+import { drawingService } from "../../../services/drawingService";
+import { documentService } from "../../../services/documentService";
+import { qcService } from "../../../services/qcService";
+import { safetyService } from "../../../services/safetyService";
 
 const statusColors: Record<string, string> = {
     'Approved': 'bg-emerald-600',
@@ -40,7 +48,7 @@ interface WorkApprovalRecord {
     entity_id: number | string;
     status: "Pending" | "Approved" | "Rejected" | "Hold" | string;
     requested_by: number | string;
-    approved_by: number | string | null;
+    approved_by?: number | string | null;
     remarks: string | null;
 }
 
@@ -82,6 +90,7 @@ const WorkApprovalPage = () => {
     // Filter state for StatCards
     const [activeFilter, setActiveFilter] = useState<"Select" | "Approved" | "Pending" | "Reject" | "Pending/Reject" | "Rate">("Select");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+    const [categoryFilter, setCategoryFilter] = useState("All");
 
     const resolveUserName = (id: string | number | null) => {
         if (!id) return null;
@@ -97,6 +106,78 @@ const WorkApprovalPage = () => {
         remarks: "",
         status: "Pending" as "Pending" | "Approved" | "Rejected" | string,
     });
+
+    const [availableEntities, setAvailableEntities] = useState<any[]>([]);
+    const [isFetchingEntities, setIsFetchingEntities] = useState(false);
+
+    // Fetch entity list when entity_type changes
+    useEffect(() => {
+        const fetchEntities = async () => {
+            if (!isFormModalOpen) return;
+            
+            const userStr = localStorage.getItem("infrapilot_user");
+            let pId = 92;
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    pId = Number(user?.project_id || user?.user?.project_id || 92);
+                } catch (e) {}
+            }
+
+            setIsFetchingEntities(true);
+            try {
+                let items: any[] = [];
+                if (formData.entity_type === 'material') {
+                    items = await materialService.listMaterials(pId);
+                } else if (formData.entity_type === 'labour') {
+                    const res: any = await labourService.getLabours();
+                    items = res.items || res.data || res || [];
+                } else if (formData.entity_type === 'equipment') {
+                    const res: any = await equipmentService.listEquipment({ project_id: pId });
+                    items = res.items || res || [];
+                } else if (formData.entity_type === 'drawing') {
+                    const res: any = await drawingService.getVersions(pId);
+                    items = Array.isArray(res) ? res : [];
+                } else if (formData.entity_type === 'documents') {
+                    const res: any = await documentService.listDocuments({ project_id: pId });
+                    items = res.data || res.items || res || [];
+                } else if (formData.entity_type === 'qc') {
+                    const res: any = await qcService.listQc(pId);
+                    items = res.items || res || [];
+                } else if (formData.entity_type === 'safety') {
+                    const res: any = await safetyService.listIncidents(pId);
+                    items = res.items || res || [];
+                }
+
+                if (!Array.isArray(items)) items = [];
+
+                const pendingItems = items.filter((item: any) => {
+                    if (!item) return false;
+                    const status = (item.status || "").toLowerCase();
+                    if (status === 'approved' || status === 'rejected' || status === 'hold') return false;
+                    return true;
+                });
+
+                setAvailableEntities(pendingItems);
+                
+                // If there are pending items and no entity_id is selected or the selected is not in the list, auto-select the first one
+                if (pendingItems.length > 0) {
+                    const firstId = pendingItems[0].id || pendingItems[0].labour_id || pendingItems[0].material_id || "";
+                    setFormData(prev => ({ ...prev, entity_id: firstId }));
+                } else {
+                    setFormData(prev => ({ ...prev, entity_id: "" }));
+                }
+            } catch (err) {
+                console.error("Failed to fetch entities", err);
+                setAvailableEntities([]);
+                setFormData(prev => ({ ...prev, entity_id: "" }));
+            } finally {
+                setIsFetchingEntities(false);
+            }
+        };
+
+        fetchEntities();
+    }, [formData.entity_type, isFormModalOpen]);
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -227,6 +308,11 @@ const WorkApprovalPage = () => {
             data = data.filter(a => a.status !== "Approved");
         }
 
+        // Apply Category Filter
+        if (categoryFilter !== "All") {
+            data = data.filter(a => a.entity_type.toLowerCase() === categoryFilter.toLowerCase());
+        }
+
         // Apply Sort Order
         data.sort((a, b) => {
             if (sortOrder === "latest") {
@@ -237,7 +323,7 @@ const WorkApprovalPage = () => {
         });
 
         return data;
-    }, [baseFilteredApprovals, activeFilter, sortOrder]);
+    }, [baseFilteredApprovals, activeFilter, sortOrder, categoryFilter]);
 
     const paginatedApprovals = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -246,7 +332,7 @@ const WorkApprovalPage = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, activeFilter]);
+    }, [searchTerm, activeFilter, categoryFilter]);
 
     const stats = {
         total: baseFilteredApprovals.length,
@@ -271,7 +357,7 @@ const WorkApprovalPage = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                            Work Authorizations
+                            Approvals
                         </h1>
                         <p className="text-slate-500 text-sm">
                             Technical clearance portal for critical site activities and execution milestones.
@@ -302,7 +388,7 @@ const WorkApprovalPage = () => {
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
                             <Plus className="w-4 h-4" />
-                            Log Request
+                            Approvals
                         </button>
                     </div>
                 </div>
@@ -396,6 +482,31 @@ const WorkApprovalPage = () => {
                                 >
                                     <option value="latest">Latest First</option>
                                     <option value="oldest">Oldest First</option>
+                                </select>
+                                <div className="absolute right-3 text-slate-400 pointer-events-none">
+                                    <ChevronDown className="w-4 h-4" />
+                                </div>
+                            </div>
+
+                            {/* Category Filter */}
+                            <div className="relative flex items-center">
+                                <div className="absolute left-3 text-slate-400 pointer-events-none">
+                                    <Layers className="w-4 h-4" />
+                                </div>
+                                <select
+                                    value={categoryFilter}
+                                    onChange={(e) => setCategoryFilter(e.target.value)}
+                                    className="appearance-none bg-white border border-primary rounded-full text-sm font-bold text-primary shadow-sm pl-9 pr-8 py-1.5 outline-none cursor-pointer"
+                                >
+                                    <option value="All">All Categories</option>
+                                    <option value="Labour">Labour</option>
+                                    <option value="Material">Material</option>
+                                    <option value="Equipment">Equipment</option>
+                                    <option value="Drawing">Drawing</option>
+                                    <option value="Documents">Documents</option>
+                                    <option value="BOQ">BOQ</option>
+                                    <option value="Measurement">Measurement</option>
+                                    <option value="Bills">Bills</option>
                                 </select>
                                 <div className="absolute right-3 text-slate-400 pointer-events-none">
                                     <ChevronDown className="w-4 h-4" />
@@ -715,12 +826,42 @@ const WorkApprovalPage = () => {
                                     <option value="material">Material</option>
                                     <option value="labour">Labour</option>
                                     <option value="equipment">Equipment</option>
+                                    <option value="drawing">Drawing</option>
+                                    <option value="documents">Documents</option>
+                                    <option value="qc">QC</option>
+                                    <option value="safety">Safety</option>
                                 </select>
                                 {errors.entity_type && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entity_type}</p>}
                             </div>
                             <div>
                                 <label className={labelClasses}>Entity ID <span className="text-rose-500">*</span></label>
-                                <input name="entity_id" type="number" min="0" value={formData.entity_id} onChange={handleInputChange} placeholder="e.g. 1" className={inputClasses(errors.entity_id)} />
+                                <div className="relative">
+                                    <select 
+                                        name="entity_id" 
+                                        value={formData.entity_id} 
+                                        onChange={handleInputChange} 
+                                        className={inputClasses(errors.entity_id)}
+                                        disabled={isFetchingEntities || availableEntities.length === 0}
+                                    >
+                                        <option value="">{isFetchingEntities ? "Loading..." : (availableEntities.length === 0 ? "No pending items" : "Select an item")}</option>
+                                        {availableEntities.map((item, idx) => {
+                                            const id = item.id || item.labour_id || item.material_id || item.equipment_id || item.drawing_id || item.document_id || item.qc_id || item.safety_id || item.incident_id || idx;
+                                            let name = item.name || item.title || item.drawing_name || item.material_name || item.labour_name || item.equipment_name || item.item_name || item.description || "";
+                                            if (formData.entity_type === 'qc') name = item.inspection_type || item.test_type || name;
+                                            if (formData.entity_type === 'safety') name = item.incident_type || item.description || name;
+                                            return (
+                                                <option key={id} value={id}>
+                                                    {name ? name : `#${id}`}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    {isFetchingEntities && (
+                                        <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                                            <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
                                 {errors.entity_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.entity_id}</p>}
                             </div>
                         </div>

@@ -19,7 +19,8 @@ import {
     History,
     ChevronLeft,
     ChevronRight,
-    Folder
+    Folder,
+    Trash2
 } from "lucide-react";
 import { drawingService } from "../../../services/drawingService";
 import { projectService } from "../../../services/projectService";
@@ -93,6 +94,9 @@ const DrawingsDocumentsPage = () => {
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [folderFormData, setFolderFormData] = useState({ project_id: 92, title: "", parent_id: "" as string | number });
 
+    const [isDrawingFolderModalOpen, setIsDrawingFolderModalOpen] = useState(false);
+    const [drawingFolderFormData, setDrawingFolderFormData] = useState({ project_id: 92, drawing_name: "", parent_id: 0 as string | number });
+
     const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
     const [viewingDoc, setViewingDoc] = useState<any>(null);
 
@@ -125,7 +129,7 @@ const DrawingsDocumentsPage = () => {
                 console.error("Failed to fetch projects", error);
             }
         };
-        
+
         let resolvedProjectId = 92;
         const userStr = localStorage.getItem("infrapilot_user");
         if (userStr) {
@@ -552,7 +556,7 @@ const DrawingsDocumentsPage = () => {
 
                 const userString = localStorage.getItem("infrapilot_user");
                 const token = userString ? JSON.parse(userString)?.token?.access_token || JSON.parse(userString)?.token : null;
-                
+
                 const response = await fetch(fullUrl, {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
@@ -592,6 +596,24 @@ const DrawingsDocumentsPage = () => {
             toast.dismiss(toastId);
         } catch (error) {
             toast.error("Failed to fetch history", { id: toastId });
+        }
+    };
+
+    const handleDeleteDocument = async (drawing: DrawingRecord) => {
+        const confirmDelete = window.confirm(`Are you sure you want to remove ${drawing.drawing_name || drawing.title || "this document"}?`);
+        if (!confirmDelete) return;
+
+        const toastId = toast.loading("Removing item...");
+        try {
+            if (drawing.type === "Document" || drawing.type === "Folder" || typeFilter === "Documents") {
+                await documentService.deleteDocument(Number(drawing.id));
+            } else {
+                await drawingService.deleteDrawing(drawing.id);
+            }
+            toast.success("Item removed successfully", { id: toastId });
+            fetchDrawings();
+        } catch (error) {
+            toast.error("Failed to remove item", { id: toastId });
         }
     };
 
@@ -684,6 +706,25 @@ const DrawingsDocumentsPage = () => {
         rounded-xl text-sm font-bold outline-none transition-all placeholder:text-slate-400 font-inter
     `;
 
+    const handleCreateDrawingFolder = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            await drawingService.createFolder(drawingFolderFormData.project_id, {
+                drawing_name: drawingFolderFormData.drawing_name,
+                parent_id: Number(drawingFolderFormData.parent_id) || 0
+            });
+            toast.success("Folder created successfully");
+            setIsDrawingFolderModalOpen(false);
+            setDrawingFolderFormData({ project_id: projectId, drawing_name: "", parent_id: currentParentId || 0 });
+            fetchDrawings();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to create folder");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <>
             <Navbar title="Drawings & Documents" breadcrumb={["Engineer", "Document Vault", "Blueprints"]} />
@@ -708,22 +749,22 @@ const DrawingsDocumentsPage = () => {
                             <>
                                 <button
                                     onClick={openFolderModal}
-                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95 font-inter"
+                                    className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                 >
-                                    <Folder className="w-4 h-4 text-primary" />
-                                    Folder
+                                    <Folder className="w-4 h-4" />
+                                    Create Folder
                                 </button>
                                 <button
-                                    onClick={() => { 
+                                    onClick={() => {
                                         setDocCreateFormData({
-                                            project_id: projectId || 92, 
-                                            title: "", 
-                                            document_type: "Other", 
-                                            parent_id: currentParentId || "", 
-                                            remarks: "", 
+                                            project_id: projectId || 92,
+                                            title: "",
+                                            document_type: "Other",
+                                            parent_id: currentParentId || "",
+                                            remarks: "",
                                             file: null
-                                        }); 
-                                        setIsDocCreateModalOpen(true); 
+                                        });
+                                        setIsDocCreateModalOpen(true);
                                     }}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                 >
@@ -732,13 +773,25 @@ const DrawingsDocumentsPage = () => {
                                 </button>
                             </>
                         ) : (
-                            <button
-                                onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
-                                className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Upload Drawing
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => {
+                                        setDrawingFolderFormData({ project_id: projectId, drawing_name: "", parent_id: currentParentId || 0 });
+                                        setIsDrawingFolderModalOpen(true);
+                                    }}
+                                    className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                                >
+                                    <Folder className="w-4 h-4" />
+                                    Create Folder
+                                </button>
+                                <button
+                                    onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
+                                    className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Upload Drawing
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -836,8 +889,8 @@ const DrawingsDocumentsPage = () => {
                     {/* Breadcrumbs for folder navigation */}
                     {folderPath.length > 0 && (
                         <div className="flex items-center gap-2 mt-4 px-4 pb-2">
-                            <button 
-                                onClick={() => handleBreadcrumbClick(folderPath.length - 2)} 
+                            <button
+                                onClick={() => handleBreadcrumbClick(folderPath.length - 2)}
                                 className="flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors mr-2 border border-slate-200 shadow-sm"
                             >
                                 <ChevronLeft className="w-3.5 h-3.5" />
@@ -953,7 +1006,8 @@ const DrawingsDocumentsPage = () => {
                                                 <tr key={`${drawing.type}_${drawing.id}_${index}`} className="hover:bg-slate-50/50 transition-colors group font-inter">
                                                     <td className="px-6 py-4 font-inter">
                                                         {(() => {
-                                                            if (drawing.is_folder || drawing.type === "Folder") {
+                                                            const isFolderRecord = drawing.is_folder === true || String(drawing.is_folder) === "true" || drawing.type === "Folder";
+                                                            if (isFolderRecord) {
                                                                 return (
                                                                     <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center justify-center gap-0.5 font-inter">
                                                                         <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest leading-none">DIR</span>
@@ -1009,7 +1063,7 @@ const DrawingsDocumentsPage = () => {
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">
                                                         <div className="flex flex-col font-inter">
-                                                            {(drawing.is_folder || drawing.type === "Folder") ? (
+                                                            {(drawing.is_folder === true || String(drawing.is_folder) === "true" || drawing.type === "Folder") ? (
                                                                 <button
                                                                     onClick={() => handleFolderClick(drawing)}
                                                                     className="text-sm font-bold text-indigo-600 hover:text-indigo-800 text-left hover:underline font-inter w-fit"
@@ -1020,7 +1074,7 @@ const DrawingsDocumentsPage = () => {
                                                                 <span className="text-sm font-bold text-slate-800 font-inter">{drawing.drawing_name}</span>
                                                             )}
                                                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">
-                                                                {drawing.file_url || drawing.upload_file || ((drawing.is_folder || drawing.type === "Folder") ? "Directory" : "Cloud Sync")}
+                                                                {drawing.file_url || drawing.upload_file || ((drawing.is_folder === true || String(drawing.is_folder) === "true" || drawing.type === "Folder") ? "Directory" : "Cloud Sync")}
                                                             </span>
                                                         </div>
                                                     </td>
@@ -1044,14 +1098,21 @@ const DrawingsDocumentsPage = () => {
                                                     </td>
                                                     <td className="px-6 py-4 text-right font-inter">
                                                         <div className="flex items-center justify-end gap-1.5 font-inter">
-                                                            <button onClick={() => handleViewDocument(drawing)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
-                                                                <Eye className="w-4 h-4" />
-                                                            </button>
+                                                            {!(drawing.is_folder === true || String(drawing.is_folder) === "true" || drawing.type === "Folder") && (
+                                                                <button onClick={() => handleViewDocument(drawing)} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter" title="View Details">
+                                                                    <Eye className="w-4 h-4" />
+                                                                </button>
+                                                            )}
                                                             <button onClick={() => handleEditClick(drawing)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Edit Asset">
                                                                 <Edit2 className="w-4 h-4" />
                                                             </button>
-                                                            <button onClick={() => handleDownloadDocument(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
-                                                                <Download className="w-4 h-4" />
+                                                            {!(drawing.is_folder === true || String(drawing.is_folder) === "true" || drawing.type === "Folder") && (
+                                                                <button onClick={() => handleDownloadDocument(drawing)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="Download File">
+                                                                    <Download className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                            <button onClick={() => handleDeleteDocument(drawing)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Remove Asset">
+                                                                <Trash2 className="w-4 h-4" />
                                                             </button>
                                                             {drawing.type !== "Document" && drawing.type !== "Folder" && (
                                                                 <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
@@ -1525,74 +1586,75 @@ const DrawingsDocumentsPage = () => {
             </Modal>
 
             {/* ── Folder Modal ────────────────────────────────────────────────────────── */}
-            <Modal 
-                isOpen={isFolderModalOpen} 
-                onClose={() => setIsFolderModalOpen(false)} 
+            <Modal
+                isOpen={isFolderModalOpen}
+                onClose={() => setIsFolderModalOpen(false)}
                 title="Create Folder"
-                maxWidth="max-w-2xl"
+                maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
                         <button
                             type="button"
                             onClick={() => setIsFolderModalOpen(false)}
-                            className="flex-1 py-3 bg-slate-50 text-slate-600 border-none rounded-xl text-sm font-bold hover:bg-slate-100 transition-all font-inter"
+                            className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter disabled:opacity-50"
                         >
                             Cancel
                         </button>
                         <button
                             form="folder-form"
                             type="submit"
-                            disabled={isSubmitting}
-                            className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-xl shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
+                            disabled={isSubmitting || !folderFormData.title}
+                            className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter flex items-center justify-center gap-2"
                         >
-                            {isSubmitting ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Creating...
-                                </>
-                            ) : "Create Folder"}
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Folder"}
                         </button>
                     </div>
                 }
             >
                 <form id="folder-form" onSubmit={handleCreateFolder} className="p-6 space-y-8 font-inter">
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6 font-inter">
-                        <div>
-                            <label className={labelClasses}>PROJECT ID * REQUIRED</label>
-                            <select
-                                required
-                                value={folderFormData.project_id}
-                                onChange={(e) => setFolderFormData({ ...folderFormData, project_id: Number(e.target.value) })}
-                                className={inputClasses()}
-                            >
-                                <option value="">Select Project</option>
-                                {projects.map(p => (
-                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>
-                                        {p.name || p.project_name || `Project #${p.id || p.project_id}`}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={labelClasses}>TITLE * REQUIRED</label>
-                            <input
-                                type="text"
-                                required
-                                value={folderFormData.title}
-                                onChange={(e) => setFolderFormData({ ...folderFormData, title: e.target.value })}
-                                className={inputClasses()}
-                                placeholder="title"
-                            />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>PARENT ID</label>
-                            <input
-                                type="number"
-                                value={folderFormData.parent_id}
-                                onChange={(e) => setFolderFormData({ ...folderFormData, parent_id: e.target.value ? Number(e.target.value) : "" })}
-                                className={inputClasses()}
-                                placeholder="parent_id"
-                            />
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <Folder className="w-4 h-4 text-primary" />
+                            Core Folder Identity
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
+                                <select
+                                    required
+                                    value={folderFormData.project_id}
+                                    onChange={(e) => setFolderFormData({ ...folderFormData, project_id: Number(e.target.value) })}
+                                    className={inputClasses()}
+                                >
+                                    <option value="">Select Project</option>
+                                    {projects.map(p => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="font-inter md:col-span-1">
+                                <label className={labelClasses}>Descriptive Folder Name <span className="text-rose-500">*</span></label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={folderFormData.title}
+                                    onChange={(e) => setFolderFormData({ ...folderFormData, title: e.target.value })}
+                                    className={inputClasses()}
+                                    placeholder="e.g. Contract Documents"
+                                />
+                            </div>
+                            <div className="font-inter md:col-span-1">
+                                <label className={labelClasses}>Parent ID</label>
+                                <input
+                                    type="number"
+                                    value={folderFormData.parent_id}
+                                    onChange={(e) => setFolderFormData({ ...folderFormData, parent_id: e.target.value ? Number(e.target.value) : "" })}
+                                    className={inputClasses()}
+                                    placeholder="Optional parent folder ID"
+                                />
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -1637,22 +1699,15 @@ const DrawingsDocumentsPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Document Title <span className="text-rose-500">*</span></label>
-                                <input type="text" className={inputClasses()} value={docEditFormData.title} onChange={e => setDocEditFormData({...docEditFormData, title: e.target.value})} required />
+                                <input type="text" className={inputClasses()} value={docEditFormData.title} onChange={e => setDocEditFormData({ ...docEditFormData, title: e.target.value })} required />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Type</label>
-                                <select className={inputClasses()} value={docEditFormData.document_type} onChange={e => setDocEditFormData({...docEditFormData, document_type: e.target.value})}>
-                                    <option value="General">General</option>
-                                    <option value="Drawing">Drawing</option>
-                                    <option value="Contract">Contract</option>
-                                    <option value="Invoice">Invoice</option>
-                                    <option value="Report">Report</option>
-                                    <option value="Blueprint">Blueprint</option>
-                                </select>
+                                <input type="text" className={inputClasses()} placeholder="e.g. Blueprint, Contract..." value={docEditFormData.document_type} onChange={e => setDocEditFormData({ ...docEditFormData, document_type: e.target.value })} />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Status</label>
-                                <select className={inputClasses()} value={docEditFormData.status} onChange={e => setDocEditFormData({...docEditFormData, status: e.target.value})}>
+                                <select className={inputClasses()} value={docEditFormData.status} onChange={e => setDocEditFormData({ ...docEditFormData, status: e.target.value })}>
                                     <option value="PENDING">PENDING</option>
                                     <option value="APPROVED">APPROVED</option>
                                     <option value="REJECTED">REJECTED</option>
@@ -1660,11 +1715,11 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Version</label>
-                                <input type="text" className={inputClasses()} value={docEditFormData.version} onChange={e => setDocEditFormData({...docEditFormData, version: e.target.value})} />
+                                <input type="text" className={inputClasses()} value={docEditFormData.version} onChange={e => setDocEditFormData({ ...docEditFormData, version: e.target.value })} />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Update File</label>
-                                <input type="file" className={inputClasses()} onChange={e => setDocEditFormData({...docEditFormData, file: e.target.files?.[0] || null})} />
+                                <input type="file" className={inputClasses()} onChange={e => setDocEditFormData({ ...docEditFormData, file: e.target.files?.[0] || null })} />
                             </div>
                         </div>
                     </div>
@@ -1675,7 +1730,7 @@ const DrawingsDocumentsPage = () => {
                         </h3>
                         <div className="font-inter">
                             <label className={labelClasses}>Remarks</label>
-                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docEditFormData.remarks} onChange={e => setDocEditFormData({...docEditFormData, remarks: e.target.value})} />
+                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docEditFormData.remarks} onChange={e => setDocEditFormData({ ...docEditFormData, remarks: e.target.value })} />
                         </div>
                     </div>
                 </form>
@@ -1701,7 +1756,7 @@ const DrawingsDocumentsPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
                             <div className="font-inter md:col-span-2">
                                 <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
-                                <select required className={inputClasses()} value={docCreateFormData.project_id} onChange={e => setDocCreateFormData({...docCreateFormData, project_id: Number(e.target.value)})}>
+                                <select required className={inputClasses()} value={docCreateFormData.project_id} onChange={e => setDocCreateFormData({ ...docCreateFormData, project_id: Number(e.target.value) })}>
                                     <option value="">Select Project</option>
                                     {projects.map((p: any) => (
                                         <option key={p.id || p.project_id} value={p.id || p.project_id}>
@@ -1712,26 +1767,19 @@ const DrawingsDocumentsPage = () => {
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Title <span className="text-rose-500">*</span></label>
-                                <input type="text" className={inputClasses()} value={docCreateFormData.title} onChange={e => setDocCreateFormData({...docCreateFormData, title: e.target.value})} required />
+                                <input type="text" className={inputClasses()} value={docCreateFormData.title} onChange={e => setDocCreateFormData({ ...docCreateFormData, title: e.target.value })} required />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Document Type</label>
-                                <select className={inputClasses()} value={docCreateFormData.document_type} onChange={e => setDocCreateFormData({...docCreateFormData, document_type: e.target.value})}>
-                                    <option value="General">General</option>
-                                    <option value="Drawing">Drawing</option>
-                                    <option value="Contract">Contract</option>
-                                    <option value="Invoice">Invoice</option>
-                                    <option value="Report">Report</option>
-                                    <option value="Blueprint">Blueprint</option>
-                                </select>
+                                <input type="text" className={inputClasses()} placeholder="e.g. Blueprint, Contract..." value={docCreateFormData.document_type} onChange={e => setDocCreateFormData({ ...docCreateFormData, document_type: e.target.value })} />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>Parent ID</label>
-                                <input type="number" className={inputClasses()} value={docCreateFormData.parent_id} onChange={e => setDocCreateFormData({...docCreateFormData, parent_id: e.target.value ? Number(e.target.value) : ""})} />
+                                <input type="number" className={inputClasses()} value={docCreateFormData.parent_id} onChange={e => setDocCreateFormData({ ...docCreateFormData, parent_id: e.target.value ? Number(e.target.value) : "" })} />
                             </div>
                             <div className="font-inter">
                                 <label className={labelClasses}>File <span className="text-rose-500">*</span></label>
-                                <input type="file" className={inputClasses()} onChange={e => setDocCreateFormData({...docCreateFormData, file: e.target.files?.[0] || null})} required />
+                                <input type="file" className={inputClasses()} onChange={e => setDocCreateFormData({ ...docCreateFormData, file: e.target.files?.[0] || null })} required />
                             </div>
                         </div>
                     </div>
@@ -1742,7 +1790,50 @@ const DrawingsDocumentsPage = () => {
                         </h3>
                         <div className="font-inter">
                             <label className={labelClasses}>Remarks</label>
-                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docCreateFormData.remarks} onChange={e => setDocCreateFormData({...docCreateFormData, remarks: e.target.value})} />
+                            <textarea rows={3} className={`${inputClasses()} resize-none`} value={docCreateFormData.remarks} onChange={e => setDocCreateFormData({ ...docCreateFormData, remarks: e.target.value })} />
+                        </div>
+                    </div>
+                </form>
+            </Modal>
+            {/* ── Drawing Folder Modal ────────────────────────────────────────── */}
+            <Modal
+                isOpen={isDrawingFolderModalOpen}
+                onClose={() => setIsDrawingFolderModalOpen(false)}
+                title="Create Folder"
+                maxWidth="max-w-4xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button type="button" onClick={() => setIsDrawingFolderModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">
+                            Cancel
+                        </button>
+                        <button type="submit" form="drawing-folder-form" disabled={isSubmitting} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter">
+                            {isSubmitting ? "Syncing..." : "Create Folder"}
+                        </button>
+                    </div>
+                }
+            >
+                <form id="drawing-folder-form" onSubmit={handleCreateDrawingFolder} className="p-6 space-y-8 font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <Folder className="w-4 h-4 text-primary" />
+                            Core Folder Identity
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
+                                <select required className={inputClasses()} value={drawingFolderFormData.project_id} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, project_id: Number(e.target.value) })}>
+                                    <option value="">Select Project</option>
+                                    {projects.map((p: any) => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Descriptive Folder Name <span className="text-rose-500">*</span></label>
+                                <input type="text" placeholder="e.g. Foundation Blueprints" className={inputClasses()} value={drawingFolderFormData.drawing_name} onChange={e => setDrawingFolderFormData({ ...drawingFolderFormData, drawing_name: e.target.value })} required />
+                            </div>
                         </div>
                     </div>
                 </form>

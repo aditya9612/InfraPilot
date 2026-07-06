@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import labourService from '../../../services/labourService';
 import CheckInModal from '../../../components/attendance/CheckInModal';
+import BulkCheckInModal from '../../../components/attendance/BulkCheckInModal';
 import CheckOutModal from '../../../components/attendance/CheckOutModal';
 import { useProject } from '../../../context/ProjectContext';
 
@@ -50,7 +51,7 @@ export const calculateRunningHours = (inTimeStr: string) => {
         } else {
             const match = inTimeStr.match(/(\d+):(\d+)(?::(\d+))?\s*(AM|PM)?/i);
             if (match) {
-                let [ , h, m, s, ampm ] = match;
+                let [, h, m, s, ampm] = match;
                 let hours = parseInt(h);
                 if (ampm) {
                     if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
@@ -107,6 +108,8 @@ const LabourAttendancePage: React.FC = () => {
 
     // Modals State
     const [isCheckInModalOpen] = useState(false);
+    const [isBulkCheckInOpen, setIsBulkCheckInOpen] = useState(false);
+    const [checkInUserIds, setCheckInUserIds] = useState<number[]>([]);
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
 
     // Camera State - Check In
@@ -467,6 +470,10 @@ const LabourAttendancePage: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-3 font-inter">
                         <button
                             disabled={!isCheckInEnabled}
+                            onClick={() => {
+                                setCheckInUserIds(selectedLabourIds);
+                                setIsBulkCheckInOpen(true);
+                            }}
                             className={`flex items-center justify-center gap-2 px-6 py-2 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 font-inter w-fit ${isCheckInEnabled ? 'bg-primary text-white hover:bg-primary/90' : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'}`}
                         >
                             <LogIn className="w-4 h-4" />
@@ -621,8 +628,8 @@ const LabourAttendancePage: React.FC = () => {
                             <thead>
                                 <tr className="bg-slate-50/50 text-slate-800 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
                                     <th className="px-6 py-4 w-12">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
                                             checked={
                                                 (() => {
@@ -665,13 +672,13 @@ const LabourAttendancePage: React.FC = () => {
                                         <tr key={index} className={`hover:bg-slate-50/50 transition-colors ${selectedLabourIds.includes(lab.id || lab.labour_id) ? 'bg-primary/5' : ''}`}>
                                             <td className="px-6 py-4 w-12">
                                                 {!(lab.in_time && lab.in_time !== "--:--" && lab.out_time && lab.out_time !== "--:--") && (
-                                                    <input 
-                                                        type="checkbox" 
+                                                    <input
+                                                        type="checkbox"
                                                         className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
                                                         checked={selectedLabourIds.includes(lab.id || lab.labour_id)}
                                                         onChange={() => {
                                                             const id = lab.id || lab.labour_id;
-                                                            setSelectedLabourIds(prev => 
+                                                            setSelectedLabourIds(prev =>
                                                                 prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
                                                             );
                                                         }}
@@ -772,8 +779,8 @@ const LabourAttendancePage: React.FC = () => {
                                                     {!lab.in_time || lab.in_time === "--:--" ? (
                                                         <button
                                                             onClick={() => {
-                                                                setSelectedLabour(lab);
-                                                                setIsLabourCheckInFormOpen(true);
+                                                                setCheckInUserIds([lab.id || lab.labour_id]);
+                                                                setIsBulkCheckInOpen(true);
                                                             }}
                                                             className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-100 active:scale-95 flex items-center justify-center font-inter"
                                                             title="Check In"
@@ -800,7 +807,7 @@ const LabourAttendancePage: React.FC = () => {
                                                                 const detailedLabour = attendanceData && attendanceData.attendance
                                                                     ? attendanceData.attendance
                                                                     : {};
-                                                                setSelectedLabour({ ...lab, ...detailedLabour });
+                                                                setSelectedLabour({ ...lab, ...detailedLabour, rawAttendance: attendanceData || {} });
                                                                 toast.dismiss("fetchDetails");
                                                                 setIsViewModalOpen(true);
                                                             } catch (err) {
@@ -849,6 +856,18 @@ const LabourAttendancePage: React.FC = () => {
                     projectId={getActiveProjectId()}
                 />
             )}
+
+            <BulkCheckInModal
+                isOpen={isBulkCheckInOpen}
+                onClose={() => setIsBulkCheckInOpen(false)}
+                onSuccess={() => {
+                    fetchLabourAttendances();
+                    setSelectedLabourIds([]);
+                }}
+                initialSelectedUserIds={checkInUserIds}
+                initialProjectId={getActiveProjectId()}
+                alreadyCheckedInIds={labourAttendances.filter(l => l.in_time && l.in_time !== "--:--").map(l => l.id || l.labour_id)}
+            />
 
             {isLabourCheckOutFormOpen && selectedLabour && (
                 <CheckOutModal
@@ -914,91 +933,48 @@ const LabourAttendancePage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Details Grid - matching list columns */}
+                        {/* Details Grid - exact API response structure */}
                         <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4 border-b border-slate-100">
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">checked_in</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.checked_in ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">checked_out</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.checked_out ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">running_hours</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.running_hours ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">date</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.date ?? '-'}</p></div>
+                            <div className="col-span-2 mt-2 mb-1"><h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider border-b border-slate-200 pb-1">Attendance Details</h4></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">user_name</p><p className="text-xs font-bold text-slate-800">{selectedLabour.labour_name || "Unknown Worker"}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">project_name</p><p className="text-xs font-bold text-slate-800">{selectedLabour.project_name || "-"}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">attendance_date</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.attendance_date ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">status</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.status ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">in_time</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.in_time ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">out_time</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.out_time ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">working_hours</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.working_hours ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">overtime_hours</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.overtime_hours ?? '-'}</p></div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Date</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.attendance_date || "N/A"}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contractor Name</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.contractor_name || "-"}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Department</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.department || "-"}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Online Status</p>
-                                <div className="flex items-center gap-1.5">
-                                    <div className={`w-2 h-2 rounded-full ${selectedLabour.in_time && !selectedLabour.out_time ? 'bg-emerald-500' : !selectedLabour.in_time ? 'bg-amber-400' : 'bg-slate-400'}`} />
-                                    <span className="text-xs font-bold text-slate-800">{selectedLabour.in_time && !selectedLabour.out_time ? 'Online' : !selectedLabour.in_time ? 'Not Checked In' : 'Checked Out'}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Check In / Check Out with Images */}
-                        <div className="px-6 py-5 border-b border-slate-100">
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="flex flex-col items-center gap-2">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check In</p>
-                                    {selectedLabour.in_time && selectedLabour.check_in_image ? (
-                                        <div
-                                            className="w-12 h-12 rounded-full border-2 border-emerald-400 overflow-hidden bg-emerald-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                            onClick={() => setPreviewImage({ url: selectedLabour.check_in_image, title: "Check-In Image - " + selectedLabour.labour_name })}
-                                        >
-                                            <img src={selectedLabour.check_in_image} alt="Check-In" className="w-full h-full object-cover" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-12 h-12 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-4 h-4" /></div>
-                                    )}
-                                    <span className={`text-xs font-bold ${selectedLabour.in_time ? 'text-emerald-600' : 'text-slate-400'} flex items-center gap-1`}><LogIn className="w-3 h-3" /> {selectedLabour.in_time || "-"}</span>
-                                </div>
-                                <div className="flex flex-col items-center gap-2">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check Out</p>
-                                    {selectedLabour.out_time && selectedLabour.check_out_image ? (
-                                        <div
-                                            className="w-12 h-12 rounded-full border-2 border-rose-400 overflow-hidden bg-rose-50 cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                            onClick={() => setPreviewImage({ url: selectedLabour.check_out_image, title: "Check-Out Image - " + selectedLabour.labour_name })}
-                                        >
-                                            <img src={selectedLabour.check_out_image} alt="Check-Out" className="w-full h-full object-cover" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-12 h-12 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-4 h-4" /></div>
-                                    )}
-                                    <span className={`text-xs font-bold ${selectedLabour.out_time ? 'text-rose-600' : 'text-slate-400'} flex items-center gap-1`}><LogOut className="w-3 h-3" /> {selectedLabour.out_time || "-"}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Remaining Details */}
-                        <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4 border-b border-slate-100">
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Working Hours</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.working_hours ? `${selectedLabour.working_hours} hrs` : '-'}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">check_in_image</p>
+                                {selectedLabour.rawAttendance?.attendance?.check_in_image ? (
+                                    <img src={selectedLabour.rawAttendance.attendance.check_in_image} alt="Check In" className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm" />
+                                ) : (
+                                    <p className="text-xs font-bold text-slate-800">-</p>
+                                )}
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Overtime</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.overtime_hours ? `${selectedLabour.overtime_hours} hrs` : '-'}</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">check_out_image</p>
+                                {selectedLabour.rawAttendance?.attendance?.check_out_image ? (
+                                    <img src={selectedLabour.rawAttendance.attendance.check_out_image} alt="Check Out" className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm" />
+                                ) : (
+                                    <p className="text-xs font-bold text-slate-800">-</p>
+                                )}
                             </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Wage</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.total_wage ? `₹${selectedLabour.total_wage}` : '-'}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Check-in Location</p>
-                                <p className="text-xs font-bold text-blue-500 flex items-center gap-1"><MapPin className="w-3 h-3" /> {selectedLabour.check_in_address || '-'}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status</p>
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-50 text-slate-500 border border-slate-200 uppercase`}>
-                                    {selectedLabour.status || '-'}
-                                </span>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Work Summary</p>
-                                <p className="text-xs font-bold text-slate-800 line-clamp-2" title={selectedLabour.task_description || selectedLabour.remarks}>{selectedLabour.task_description || selectedLabour.remarks || '-'}</p>
-                            </div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">check_in_address</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.check_in_address ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">check_out_address</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.check_out_address ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">task_description</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.task_description ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">remarks</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.remarks ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">work_location_type</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.work_location_type ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">is_approved</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.attendance?.is_approved ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">is_outside_geofence</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.attendance?.is_outside_geofence ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">is_late</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.attendance?.is_late ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">late_minutes</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.late_minutes ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">is_early_departure</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.attendance?.is_early_departure ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">early_minutes</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.early_minutes ?? '-'}</p></div>
                         </div>
 
                         {/* Footer Button */}

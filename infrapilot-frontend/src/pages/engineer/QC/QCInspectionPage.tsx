@@ -16,15 +16,13 @@ import {
     Briefcase,
     Mail,
     RotateCcw,
-    CheckCircle2,
-    Image as ImageIcon,
-    Camera,
     ChevronLeft,
     ChevronRight
 } from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
+import { dsrService } from "../../../services/dsrService";
 import type { QcItem } from "../../../services/qcService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
@@ -148,6 +146,40 @@ const QCInspectionPage = () => {
             fetchProjects();
         }
     }, [isNewModalOpen, isEditModalOpen]);
+
+    const [availableTasks, setAvailableTasks] = useState<any[]>([]);
+    const [availableDsrs, setAvailableDsrs] = useState<any[]>([]);
+    const [isFetchingDeps, setIsFetchingDeps] = useState(false);
+
+    useEffect(() => {
+        const targetProjectId = isViewModalOpen ? selectedQc?.project_id : formData.project_id;
+        if ((isNewModalOpen || isEditModalOpen || isViewModalOpen) && targetProjectId) {
+            setIsFetchingDeps(true);
+            Promise.all([
+                projectService.getTasks(Number(targetProjectId)).catch(() => []),
+                dsrService.getDsrByProject(Number(targetProjectId)).catch(() => [])
+            ]).then(([tasksRes, dsrsRes]: [any, any]) => {
+                const tasksList = Array.isArray(tasksRes) ? tasksRes : (tasksRes.data || tasksRes.items || []);
+                const dsrsList = Array.isArray(dsrsRes) ? dsrsRes : (dsrsRes.data || dsrsRes.items || []);
+                setAvailableTasks(tasksList);
+                setAvailableDsrs(dsrsList);
+            }).finally(() => {
+                setIsFetchingDeps(false);
+            });
+        }
+    }, [formData.project_id, selectedQc?.project_id, isNewModalOpen, isEditModalOpen, isViewModalOpen]);
+
+    const getTaskName = (taskId: number | null | undefined) => {
+        if (!taskId) return "-";
+        const task = availableTasks.find(t => Number(t.id) === Number(taskId));
+        return task ? (task.title || `Task #${taskId}`) : `Task #${taskId}`;
+    };
+
+    const getDsrName = (dsrId: number | null | undefined) => {
+        if (!dsrId) return "-";
+        const dsr = availableDsrs.find(d => Number(d.id) === Number(dsrId));
+        return dsr ? (dsr.report_date || dsr.date || `DSR #${dsrId}`) : `DSR #${dsrId}`;
+    };
 
     // â”€â”€â”€ INITIALIZATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -816,73 +848,16 @@ const QCInspectionPage = () => {
                     </>
                 }
             >
-                <div className="p-6 space-y-6 bg-slate-50/30 font-inter max-h-[70vh] overflow-y-auto scrollbar-thin">
+                <div className="p-6 bg-slate-50/30 font-inter max-h-[70vh] overflow-y-auto scrollbar-thin">
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
-                            <Camera className="w-3.5 h-3.5 text-primary" />
-                            file upload
-                        </h3>
-                        <div className="space-y-4 font-inter">
-                            <div className="group relative border-2 border-dashed border-slate-200 hover:border-primary/50 rounded-2xl p-8 transition-all bg-slate-50/50 hover:bg-blue-50/30 flex flex-col items-center justify-center cursor-pointer overflow-hidden font-inter">
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                            toast.success(`Selected: ${file.name}`);
-                                            setSelectedFile(file);
-                                            setFormData({ ...formData, report_file: file.name });
-                                        }
-                                    }}
-                                />
-                                <div className="p-4 bg-white rounded-2xl shadow-sm mb-3 group-hover:scale-110 transition-transform font-inter">
-                                    <ImageIcon className="w-8 h-8 text-primary" />
-                                </div>
-                                <div className="text-center font-inter">
-                                    <p className="text-xs font-bold text-slate-700 mb-1 font-inter">file upload</p>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-inter">PNG, JPG or PDF up to 10MB</p>
-                                </div>
-                            </div>
-                            {formData.report_file && (
-                                <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-xl font-inter">
-                                    <div className="flex items-center gap-3 font-inter">
-                                        <div className="p-2 bg-white rounded-lg font-inter">
-                                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                                        </div>
-                                        <div className="font-inter">
-                                            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest leading-none mb-1 font-inter">Ready for Sync</p>
-                                            <p className="text-[11px] font-bold text-slate-600 truncate max-w-[200px] font-inter">{formData.report_file}</p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedFile(null);
-                                            setFormData({ ...formData, report_file: "" });
-                                        }}
-                                        className="p-2 hover:bg-emerald-100 rounded-lg transition-colors text-emerald-600 font-inter"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
-                            <Briefcase className="w-3.5 h-3.5 text-primary" />
-                            Audit Intelligence
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Inspection Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project_id *</label>
                                 <select
                                     value={formData.project_id}
                                     onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
                                     required
                                 >
                                     <option value="">-- Select project --</option>
@@ -893,48 +868,63 @@ const QCInspectionPage = () => {
                                     ))}
                                 </select>
                             </div>
+
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">task_id</label>
+                                <select
+                                    value={formData.task_id || ""}
+                                    onChange={(e) => setFormData({ ...formData, task_id: e.target.value ? Number(e.target.value) : null })}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    disabled={isFetchingDeps}
+                                >
+                                    <option value="">-- Select task --</option>
+                                    {availableTasks.map(t => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.title || t.name || `Task #${t.id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">dsr_id</label>
+                                <select
+                                    value={formData.dsr_id || ""}
+                                    onChange={(e) => setFormData({ ...formData, dsr_id: e.target.value ? Number(e.target.value) : null })}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    disabled={isFetchingDeps}
+                                >
+                                    <option value="">-- Select DSR --</option>
+                                    {availableDsrs.map(d => (
+                                        <option key={d.id} value={d.id}>
+                                            {d.title || d.dsr_name || d.name || `DSR #${d.id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">inspection_type *</label>
                                 <select
                                     value={formData.inspection_type}
                                     onChange={(e) => setFormData({ ...formData, inspection_type: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
                                 >
                                     {INSPECTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
+
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">test_type *</label>
                                 <select
                                     value={formData.test_type}
                                     onChange={(e) => setFormData({ ...formData, test_type: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
                                 >
                                     {TEST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer_name *</label>
-                                <input
-                                    type="text"
-                                    placeholder="Enter auditor name..."
-                                    value={formData.engineer_name}
-                                    onChange={(e) => {
-                                        const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
-                                        setFormData({ ...formData, engineer_name: val });
-                                    }}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
-                                />
-                            </div>
-                        </div>
-                    </div>
 
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
-                            <Activity className="w-3.5 h-3.5 text-primary" />
-                            Measurement Analysis
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">result *</label>
                                 <input
@@ -946,9 +936,10 @@ const QCInspectionPage = () => {
                                         const val = e.target.value;
                                         setFormData({ ...formData, result: val === "" ? "" : Number(val) });
                                     }}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
+
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">standard_value *</label>
                                 <input
@@ -960,39 +951,84 @@ const QCInspectionPage = () => {
                                         const val = e.target.value;
                                         setFormData({ ...formData, standard_value: val === "" ? "" : Number(val) });
                                     }}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter"
                                 />
                             </div>
+
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">status *</label>
                                 <select
                                     value={formData.status}
                                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                    className={`w-full px-4 py-2.5 border rounded-xl text-sm font-bold outline-none transition-all font-inter cursor-pointer ${formData.status === 'Pass' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}
+                                    className={`w-full px-4 py-2.5 border rounded-xl text-sm font-bold outline-none transition-all font-inter cursor-pointer focus:ring-2 ${formData.status === 'Pass' ? 'bg-emerald-50 border-emerald-100 text-emerald-700 focus:ring-emerald-500/20' : 'bg-rose-50 border-rose-100 text-rose-700 focus:ring-rose-500/20'}`}
                                 >
                                     <option value="Pass">Pass</option>
                                     <option value="Fail">Fail</option>
                                 </select>
                             </div>
-                        </div>
-                    </div>
 
-                    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-                        <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-[0.1em] mb-4 border-b border-slate-50 pb-2 flex items-center gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-                            Technical Narrative
-                        </h3>
-                        <div>
-                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                                remark <span className="normal-case text-slate-300">(optional)</span>
-                            </label>
-                            <textarea
-                                rows={3}
-                                placeholder="Describe observations, deviations or site notes for the ledger..."
-                                value={formData.remarks || ""}
-                                onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none font-inter placeholder:text-slate-300"
-                            />
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer_name *</label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter auditor name..."
+                                    value={formData.engineer_name}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                                        setFormData({ ...formData, engineer_name: val });
+                                    }}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter"
+                                />
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">remarks</label>
+                                <textarea
+                                    rows={3}
+                                    placeholder="remarks"
+                                    value={formData.remarks || ""}
+                                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none font-inter"
+                                />
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 mb-2">report_file</label>
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="file"
+                                        id="report_file"
+                                        accept="image/*,application/pdf"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                toast.success(`Selected: ${file.name}`);
+                                                setSelectedFile(file);
+                                                setFormData({ ...formData, report_file: file.name });
+                                            }
+                                        }}
+                                    />
+                                    <label htmlFor="report_file" className="px-4 py-2.5 bg-white text-slate-700 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
+                                        Choose File
+                                    </label>
+                                    <span className="text-sm text-slate-500 font-medium truncate max-w-[200px] font-inter">
+                                        {formData.report_file || "No file chosen"}
+                                    </span>
+                                    {formData.report_file && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedFile(null);
+                                                setFormData({ ...formData, report_file: "" });
+                                            }}
+                                            className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-600 ml-2"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1057,6 +1093,14 @@ const QCInspectionPage = () => {
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Standard Threshold</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.standard_value}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task Link</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getTaskName(selectedQc.task_id as number)}>{getTaskName(selectedQc.task_id as number)}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR Link</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getDsrName(selectedQc.dsr_id as number)}>{getDsrName(selectedQc.dsr_id as number)}</p>
                                     </div>
                                 </div>
                             </div>

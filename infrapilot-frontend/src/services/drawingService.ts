@@ -51,6 +51,21 @@ export const drawingService = {
     },
 
     /**
+     * Create a new drawing folder
+     * POST /api/v1/drawings/folders
+     */
+    async createFolder(projectId: number | string, data: { drawing_name: string, parent_id: number }) {
+        try {
+            console.log(`POST /api/v1/drawings/folders?project_id=${projectId}`);
+            const response = await api.post(`/drawings/folders`, data, { params: { project_id: projectId } });
+            return response.data;
+        } catch (error: any) {
+            console.error("Create Drawing Folder API Error:", error.message);
+            throw error;
+        }
+    },
+
+    /**
      * Upload a new drawing
      * POST /api/v1/drawings/upload
      * Body: multipart/form-data

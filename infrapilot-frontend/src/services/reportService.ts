@@ -126,11 +126,11 @@ export const reportService = {
         });
         return response.data;
     },
-    exportLabourPDF: async (projectId: number) => {
-        const url = `/reports/labour/export/pdf`;
-        console.log(`Calling Report Export: GET ${url} with project_id=${projectId}`);
+    exportLabourPDF: async (params: any) => {
+        const url = `/reports/labour-distribution/pdf`;
+        console.log(`Calling Report Export: GET ${url} with params=`, params);
         const response = await api.get(url, {
-            params: { project_id: projectId },
+            params,
             responseType: 'blob'
         });
         return response.data;
@@ -144,11 +144,11 @@ export const reportService = {
         });
         return response.data;
     },
-    exportIssuePDF: async (projectId: number) => {
-        // GET /api/v1/reports/issues/pdf — Export Issues Pdf
+    exportIssuePDF: async (params: any) => {
         const url = `/reports/issues/pdf`;
+        console.log(`Calling Report Export: GET ${url} with params=`, params);
         const response = await api.get(url, {
-            params: { project_id: projectId },
+            params,
             responseType: 'blob'
         });
         return response.data;
@@ -169,9 +169,9 @@ export const reportService = {
         return response.data;
     },
 
-    exportLabourExcel: async (projectId: number) => {
-        const response = await api.get(`/reports/labour/export/excel`, {
-            params: { project_id: projectId },
+    exportLabourExcel: async (params: any) => {
+        const response = await api.get(`/reports/labour-distribution/excel`, {
+            params,
             responseType: 'blob'
         });
         return response.data;
@@ -186,10 +186,9 @@ export const reportService = {
         return response.data;
     },
 
-    exportIssueExcel: async (projectId: number) => {
-        // GET /api/v1/reports/issues/excel — Export Issues Excel
+    exportIssueExcel: async (params: any) => {
         const response = await api.get(`/reports/issues/excel`, {
-            params: { project_id: projectId },
+            params,
             responseType: 'blob'
         });
         return response.data;
@@ -428,7 +427,7 @@ export const reportService = {
             responseType: 'blob'
         });
         return response.data;
-    },    exportFinancialSummaryPDF: async (projectId: number) => {
+    }, exportFinancialSummaryPDF: async (projectId: number) => {
         const response = await api.get(`/reports/financial-summary/export/pdf`, {
             params: { project_id: projectId },
             responseType: 'blob'
