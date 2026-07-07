@@ -638,17 +638,6 @@ const AttendancePage: React.FC = () => {
                                                                     : {};
 
                                                                 let fetchedLabourName = rec.user_name || "Worker";
-                                                                try {
-                                                                    const lId = rec.labour_id || detailedLabour.labour_id || rec.user_id;
-                                                                    if (lId) {
-                                                                        const labourInfo = await labourService.getLabourById(lId);
-                                                                        if (labourInfo && labourInfo.labour_name) {
-                                                                            fetchedLabourName = labourInfo.labour_name;
-                                                                        }
-                                                                    }
-                                                                } catch (err) {
-                                                                    console.warn("Could not fetch labour info", err);
-                                                                }
 
                                                                 const mappedData = {
                                                                     ...rec,
@@ -671,7 +660,8 @@ const AttendancePage: React.FC = () => {
                                                                     isOutsideGeofence: detailedLabour.is_outside_geofence !== undefined ? String(detailedLabour.is_outside_geofence) : (rec.is_outside_geofence !== undefined ? String(rec.is_outside_geofence) : '-'),
                                                                     lateMinutes: detailedLabour.late_minutes || rec.late_minutes || '-',
                                                                     earlyMinutes: detailedLabour.early_minutes || rec.early_minutes || '-',
-                                                                    projectName: rec.project_name || detailedLabour.project_name || (user ? user.project_name : null) || '-'
+                                                                    projectName: rec.project_name || detailedLabour.project_name || (user ? user.project_name : null) || '-',
+                                                                    rawAttendance: attendanceData || {}
                                                                 };
 
                                                                 setSelectedLabour(mappedData);
@@ -949,66 +939,31 @@ const AttendancePage: React.FC = () => {
 
                         {/* Details Grid */}
                         <div className="px-6 py-5 grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4 border-b border-slate-100">
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">PROJECT NAME</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.projectName}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">LABOUR NAME</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.name}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.contractor}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">DEPARTMENT</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.department}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">WORK LOCATION</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.workLocation}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CHECK-IN TIME</p>
-                                <p className="text-xs font-bold text-emerald-600">{selectedLabour.checkIn}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">CHECK-OUT TIME</p>
-                                <p className="text-xs font-bold text-slate-500">{selectedLabour.checkOut}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">TOTAL HOURS</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.hours}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">ATTENDANCE STATUS</p>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-500 border border-emerald-100">{selectedLabour.attendanceStatus}</span>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">TASK DESCRIPTION</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.taskDescription}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">REMARKS</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.remarks}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">APPROVED?</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.isApproved}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">OUTSIDE GEOFENCE?</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.isOutsideGeofence}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">LATE MINS</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.lateMinutes}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">EARLY MINS</p>
-                                <p className="text-xs font-bold text-slate-800">{selectedLabour.earlyMinutes}</p>
-                            </div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">checked_in</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.checked_in ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">checked_out</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.checked_out ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">running_hours</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.running_hours ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">date</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.date ?? '-'}</p></div>
+                            <div className="col-span-2 md:col-span-3 mt-2 mb-1"><h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider border-b border-slate-200 pb-1">Attendance Details</h4></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">user_name</p><p className="text-xs font-bold text-slate-800">{selectedLabour.name || "Unknown Worker"}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">project_name</p><p className="text-xs font-bold text-slate-800">{selectedLabour.projectName || "-"}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">attendance_date</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.attendance_date ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">status</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.status ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">in_time</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.in_time ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">out_time</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.out_time ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">working_hours</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.working_hours ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">overtime_hours</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.overtime_hours ?? '-'}</p></div>
+
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">check_in_address</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.check_in_address ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">check_out_address</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.check_out_address ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">task_description</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.task_description ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">remarks</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.remarks ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">work_location_type</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.work_location_type ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">is_approved</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.attendance?.is_approved ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">is_outside_geofence</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.attendance?.is_outside_geofence ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">is_late</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.attendance?.is_late ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">late_minutes</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.late_minutes ?? '-'}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">is_early_departure</p><p className="text-xs font-bold text-slate-800">{String(selectedLabour.rawAttendance?.attendance?.is_early_departure ?? '-')}</p></div>
+                            <div><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">early_minutes</p><p className="text-xs font-bold text-slate-800">{selectedLabour.rawAttendance?.attendance?.early_minutes ?? '-'}</p></div>
                         </div>
 
                         {/* Footer Button */}

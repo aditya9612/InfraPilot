@@ -34,11 +34,12 @@ export interface DocumentListResponse {
 
 export interface DocumentUploadParams {
     project_id: number;
-    title: string;
-    document_type: string;
+    title?: string;
+    document_type?: string;
     parent_id?: number | null;
     remarks?: string;
     version?: string;
+    date?: string;
     file: File;
 }
 

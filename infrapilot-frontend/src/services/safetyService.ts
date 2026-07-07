@@ -67,13 +67,17 @@ const DEFAULT_INCIDENTS: IncidentItem[] = [
 
 export const safetyService = {
     listIncidents: async (project_id?: number, violation_type?: string): Promise<IncidentResponse> => {
-        const params: Record<string, any> = {};
+        const params: Record<string, any> = {
+            limit: 1000,  // fetch all records — backend default is 20
+            offset: 0,
+        };
         if (project_id) {
             params.project_id = project_id;
         }
         if (violation_type) {
             params.violation_type = violation_type;
         }
+        params.limit = 1000;
 
         let defaultItems = DEFAULT_INCIDENTS;
         if (project_id) {

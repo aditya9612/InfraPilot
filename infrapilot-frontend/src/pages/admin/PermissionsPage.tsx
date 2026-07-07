@@ -20,7 +20,7 @@ interface PermissionCategory {
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-const ROLES: UserRole[] = ["Admin", "ProjectManager", "SiteEngineer", "Accountant"];
+const ROLES: UserRole[] = ["Admin", "ProjectManager", "SiteEngineer", "Accountant", "Client", "Labour"];
 
 const INITIAL_CATEGORIES: PermissionCategory[] = [
   {

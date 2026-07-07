@@ -169,8 +169,7 @@ const EditTaskModal = ({
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.title.trim()) newErrors.title = "Title is required.";
-    if (!formData.description.trim()) newErrors.description = "Description is required.";
+    if (!formData.title || !formData.title.trim()) newErrors.title = "Title is required.";
     if (!formData.start_date) newErrors.start_date = "Start date is required.";
     if (!formData.end_date) newErrors.end_date = "End date is required.";
     if (!formData.assigned_user_id) newErrors.assigned_user_id = "Assigned user is required.";
@@ -188,40 +187,64 @@ const EditTaskModal = ({
 
     setIsLoading(true);
     try {
-      const form = new FormData();
-      form.append("task_id", String(task.id));
-      form.append("project_id", String(task.project_id));
-      form.append("title", formData.title);
-      form.append("description", formData.description);
-      form.append("priority", String(formData.priority));
-      form.append("status", formData.status);
-      form.append("start_date", formData.start_date);
-      form.append("end_date", formData.end_date);
-      form.append("assigned_user_id", String(formData.assigned_user_id));
-      form.append("completion_percentage", String(formData.completion_percentage));
-      form.append("percentage", String(formData.completion_percentage));
+      let submitData: any;
+      const hasFiles = audioBlob || audioFile || instructionImage;
 
-      if (formData.boq_id) form.append("boq_id", String(formData.boq_id));
-      if (formData.milestone_id) form.append("milestone_id", String(formData.milestone_id));
-      if (formData.activity_type_id) form.append("activity_type_id", String(formData.activity_type_id));
+      if (hasFiles) {
+        const form = new FormData();
+        form.append("task_id", String(task.id));
+        form.append("project_id", String(task.project_id));
+        form.append("title", formData.title);
+        form.append("description", formData.description);
+        form.append("priority", String(formData.priority));
+        form.append("status", formData.status);
+        form.append("start_date", formData.start_date);
+        form.append("end_date", formData.end_date);
+        form.append("assigned_user_id", String(formData.assigned_user_id));
+        form.append("assigned_users", JSON.stringify([formData.assigned_user_id]));
+        form.append("completion_percentage", String(formData.completion_percentage));
+        form.append("percentage", String(formData.completion_percentage));
 
-      if (audioBlob) {
-        form.append("audio_file", audioBlob, "recording.webm");
-      } else if (audioFile) {
-        form.append("audio_file", audioFile);
+        if (formData.boq_id) form.append("boq_id", String(formData.boq_id));
+        if (formData.milestone_id) form.append("milestone_id", String(formData.milestone_id));
+        if (formData.activity_type_id) form.append("activity_type_id", String(formData.activity_type_id));
+
+        if (audioBlob) form.append("audio_file", audioBlob, "recording.webm");
+        else if (audioFile) form.append("audio_file", audioFile);
+
+        if (instructionImage) form.append("instruction_image", instructionImage);
+
+        form.append("activity_name", formData.title);
+        form.append("engineer_id", String(formData.assigned_user_id));
+        form.append("assigned_to", String(formData.assigned_user_id));
+        form.append("user_id", String(formData.assigned_user_id));
+        submitData = form;
+      } else {
+        submitData = {
+          task_id: task.id,
+          project_id: task.project_id,
+          title: formData.title,
+          description: formData.description,
+          priority: Number(formData.priority),
+          status: formData.status,
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          assigned_user_id: Number(formData.assigned_user_id),
+          assigned_users: [Number(formData.assigned_user_id)],
+          completion_percentage: Number(formData.completion_percentage),
+          percentage: Number(formData.completion_percentage),
+          boq_id: formData.boq_id ? Number(formData.boq_id) : null,
+          milestone_id: formData.milestone_id ? Number(formData.milestone_id) : null,
+          activity_type_id: formData.activity_type_id ? Number(formData.activity_type_id) : null,
+          activity_name: formData.title,
+          engineer_id: Number(formData.assigned_user_id),
+          assigned_to: Number(formData.assigned_user_id),
+          user_id: Number(formData.assigned_user_id),
+        };
       }
-
-      if (instructionImage) {
-        form.append("instruction_image", instructionImage);
-      }
-
-      form.append("activity_name", formData.title);
-      form.append("engineer_id", String(formData.assigned_user_id));
-      form.append("assigned_to", String(formData.assigned_user_id));
-      form.append("user_id", String(formData.assigned_user_id));
 
       if (onSubmit) {
-        await onSubmit(form);
+        await onSubmit(submitData);
       }
 
       toast.success("Task updated successfully!");
@@ -377,17 +400,19 @@ const EditTaskModal = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                  Priority
+                  Priority <span className="text-rose-500">*</span>
                 </label>
                 <select
                   name="priority"
                   value={formData.priority}
                   onChange={handleChange}
+                  required
                   className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer"
                 >
-                  <option value={1}>High</option>
-                  <option value={2}>Medium</option>
-                  <option value={3}>Low</option>
+                  <option value={4}>Low</option>
+                  <option value={3}>Medium</option>
+                  <option value={2}>High</option>
+                  <option value={1}>Critical</option>
                 </select>
               </div>
 

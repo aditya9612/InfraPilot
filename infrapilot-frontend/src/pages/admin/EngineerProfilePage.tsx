@@ -268,16 +268,130 @@ const EngineerProfilePage: React.FC = () => {
     }
 
     const handleExport = async () => {
-        if (!activeProjectId) {
+        if (!engineer || !activeProjectId) {
             toast.error("No active project selected to export report.");
             return;
         }
         const toastId = toast.loading("Compiling Site Report...");
         try {
+            // Try the backend DSR export API first
             await dsrService.exportDsrExcel(activeProjectId);
             toast.success("Site Report Downloaded!", { id: toastId });
-        } catch {
-            toast.error("Failed to export site report.", { id: toastId });
+        } catch (apiErr: any) {
+            // API not available — fall back to client-side PDF generation
+            console.warn("DSR export API unavailable, generating PDF locally:", apiErr?.message);
+            try {
+                const { jsPDF } = await import("jspdf");
+                const autoTable = (await import("jspdf-autotable")).default;
+
+                const doc = new jsPDF();
+                const primaryColor: [number, number, number] = [37, 99, 235];
+                const pageWidth = doc.internal.pageSize.getWidth();
+
+                // ── Header ──────────────────────────────────────────────
+                doc.setFillColor(...primaryColor);
+                doc.rect(0, 0, pageWidth, 38, "F");
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(18);
+                doc.setFont("helvetica", "bold");
+                doc.text("SITE ENGINEER REPORT", 14, 16);
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Generated: ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, 14, 24);
+                doc.text(`Project: ${engineer.activeProjectName}`, 14, 31);
+
+                // ── Engineer Info ────────────────────────────────────────
+                doc.setTextColor(30, 41, 59);
+                doc.setFontSize(12);
+                doc.setFont("helvetica", "bold");
+                doc.text("Engineer Profile", 14, 50);
+
+                autoTable(doc, {
+                    startY: 55,
+                    body: [
+                        ["Name", engineer.name, "Role", engineer.specialization],
+                        ["Mobile", engineer.mobile || "—", "Email", engineer.email || "—"],
+                        ["Status", engineer.status, "Joining Date", engineer.joiningDate || "—"],
+                        ["PAN", engineer.pan_number || "—", "Aadhaar", engineer.aadhaar_number || "—"],
+                        ["Projects", engineer.projects || "—", "Performance", engineer.performance || "—"],
+                    ],
+                    theme: "grid",
+                    styles: { fontSize: 9, cellPadding: 3 },
+                    columnStyles: {
+                        0: { fontStyle: "bold", fillColor: [241, 245, 249], cellWidth: 35 },
+                        2: { fontStyle: "bold", fillColor: [241, 245, 249], cellWidth: 35 },
+                    },
+                });
+
+                // ── Site Vitals ──────────────────────────────────────────
+                const afterProfile = (doc as any).lastAutoTable.finalY + 10;
+                doc.setFontSize(12);
+                doc.setFont("helvetica", "bold");
+                doc.text("Site Vitals", 14, afterProfile);
+
+                autoTable(doc, {
+                    startY: afterProfile + 5,
+                    head: [["Metric", "Value"]],
+                    body: [
+                        ["Total Labour Today", String(vitals.total_labour_today)],
+                        ["Skilled Labour", String(vitals.skilled_labour)],
+                        ["Unskilled Labour", String(vitals.unskilled_labour)],
+                        ["Active Activities", String(vitals.active_activities)],
+                        ["Open Issues", String(vitals.open_issues?.total || 0)],
+                        ["High Priority Issues", String(vitals.open_issues?.high_priority || 0)],
+                        ["Total Expenses", `₹${(vitals.total_expenses || 0).toLocaleString("en-IN")}`],
+                        ["Progress", `${vitals.progress || 0}%`],
+                        ["Weather", engineer.weather || "—"],
+                    ],
+                    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 9 },
+                    styles: { fontSize: 9, cellPadding: 3 },
+                    columnStyles: {
+                        0: { fontStyle: "bold", fillColor: [241, 245, 249], cellWidth: 70 },
+                    },
+                });
+
+                // ── DSR Logs ─────────────────────────────────────────────
+                if (dsrData.length > 0) {
+                    const afterVitals = (doc as any).lastAutoTable.finalY + 10;
+                    doc.setFontSize(12);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Recent DSR Logs", 14, afterVitals);
+
+                    autoTable(doc, {
+                        startY: afterVitals + 5,
+                        head: [["Date", "Weather", "Work Done", "Labour Count"]],
+                        body: dsrData.slice(0, 10).map((d: any) => [
+                            d.report_date || d.date || "—",
+                            d.weather || "—",
+                            (d.work_done || d.activities_summary || "—").substring(0, 60),
+                            String(d.total_labour || d.labour_count || "—"),
+                        ]),
+                        headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 9 },
+                        styles: { fontSize: 8, cellPadding: 2, overflow: "ellipsize" },
+                    });
+                }
+
+                // ── Footer ───────────────────────────────────────────────
+                const pageCount = (doc.internal as any).getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setTextColor(148, 163, 184);
+                    doc.text(
+                        `InfraPilot — Confidential Site Report | Page ${i} of ${pageCount}`,
+                        pageWidth / 2,
+                        doc.internal.pageSize.getHeight() - 8,
+                        { align: "center" }
+                    );
+                }
+
+                const safeName = (engineer.name || "engineer").replace(/\s+/g, "_");
+                doc.save(`Site_Report_${safeName}_${new Date().toISOString().split("T")[0]}.pdf`);
+                toast.success("Site Report Downloaded!", { id: toastId });
+            } catch (pdfErr) {
+                console.error("Export failed:", pdfErr);
+                toast.error("Failed to export site report.", { id: toastId });
+            }
         }
     };
 
@@ -483,14 +597,7 @@ const EngineerProfilePage: React.FC = () => {
                                     </div>
 
                                     {mirrorFilter === "dsr" && (
-                                        <button
-                                            onClick={handleExportProjectDsrExcel}
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ml-4"
-                                            title="Export Excel Registry"
-                                        >
-                                            <FileDown className="w-3.5 h-3.5" />
-                                            Export Registry
-                                        </button>
+                                        <></>
                                     )}
 
                                     {assignedProjects.length > 1 && (

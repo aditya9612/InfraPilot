@@ -160,12 +160,23 @@ export default function AgreementUploadPage() {
   };
 
   const sortedAgreements = useMemo(() => {
-    return [...agreements].sort((a, b) => {
+    const term = searchTerm.toLowerCase().trim();
+    const filtered = term
+      ? agreements.filter(a =>
+          (a.document_id || "").toLowerCase().includes(term) ||
+          (a.owner_name || "").toLowerCase().includes(term) ||
+          (a.project_name || "").toLowerCase().includes(term) ||
+          (a.type || "").toLowerCase().includes(term) ||
+          (a.status || "").toLowerCase().includes(term)
+        )
+      : agreements;
+
+    return [...filtered].sort((a, b) => {
       const aDate = new Date(a.uploaded_at || 0).getTime();
       const bDate = new Date(b.uploaded_at || 0).getTime();
       return sortOrder === "latest" ? bDate - aDate : aDate - bDate;
     });
-  }, [agreements, sortOrder]);
+  }, [agreements, sortOrder, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(sortedAgreements.length / PAGE_SIZE));
   const pagedAgreements = sortedAgreements.slice(
@@ -260,6 +271,8 @@ export default function AgreementUploadPage() {
                       <th className="px-6 py-4">Linked Project</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Type</th>
+                      <th className="px-6 py-4">Uploaded At</th>
+                      <th className="px-6 py-4">File URL</th>
                       <th className="px-6 py-4 text-center">Action</th>
                     </tr>
                   </thead>
@@ -294,6 +307,29 @@ export default function AgreementUploadPage() {
                             </span>
                           </td>
                           <td className="px-6 py-4">
+                            <p className="text-xs text-slate-500 whitespace-nowrap">
+                              {agr.uploaded_at ? new Date(agr.uploaded_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              {agr.uploaded_at ? new Date(agr.uploaded_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4 max-w-[180px]">
+                            {agr.file_url ? (
+                              <a
+                                href={buildFileUrl(agr.file_url)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-primary font-bold truncate block hover:underline"
+                                title={agr.file_url}
+                              >
+                                {agr.file_url.split("/").pop() || agr.file_url}
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
                             <div className="flex items-center justify-center gap-2 transition-all">
                               <button
                                 onClick={() => handleView(agr)}
@@ -320,7 +356,7 @@ export default function AgreementUploadPage() {
                       ))
                     ) : !isLoading ? (
                       <tr>
-                        <td colSpan={6} className="py-20 text-center">
+                        <td colSpan={8} className="py-20 text-center">
                           <div className="flex flex-col items-center">
                             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                               <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">

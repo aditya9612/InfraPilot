@@ -275,14 +275,14 @@ const MaterialRequestPage = () => {
 
     return (
         <>
-            <Navbar title="Material Requests" breadcrumb={["Engineer", "Approvals", "Material Requisition"]} />
+            <Navbar title="Resources Requests" breadcrumb={["Engineer", "Approvals", "Material Requisition"]} />
 
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter">
                 {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                            Material Request
+                            Resources Request
                         </h1>
                         <p className="text-slate-500 text-sm">
                             Formal procurement requests for structural and consumable site resources.
@@ -311,7 +311,7 @@ const MaterialRequestPage = () => {
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
                             <Plus className="w-4 h-4" />
-                            New Material Entry
+                            New Entry
                         </button>
                     </div>
                 </div>
@@ -708,6 +708,7 @@ const MaterialRequestPage = () => {
                                 >
                                     <option value="Material">Material</option>
                                     <option value="Equipment">Equipment</option>
+                                    <option value="Labour">Labour</option>
                                 </select>
                                 {errors.request_type && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.request_type}</p>}
                             </div>

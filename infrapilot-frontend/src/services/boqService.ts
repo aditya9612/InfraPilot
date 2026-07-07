@@ -11,6 +11,29 @@ import type {
 
 export const boqService = {
   /**
+   * Download BOQ Template
+   * GET /api/v1/boq/template/excel
+   */
+  async downloadTemplate(): Promise<void> {
+    try {
+      const response = await api.get('/boq/template/excel', {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'BOQ_Template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error("Download Template Error:", error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
    * List Boq items with pagination and filters
    * GET /api/v1/boq
    */
@@ -350,10 +373,14 @@ export const boqService = {
       });
       return response.data;
     } catch (error: any) {
-      console.error(
-        `Export Boq ${boqId} as ${format} Error:`,
-        error.response?.data || error.message,
-      );
+      const status = error.response?.status;
+      // Suppress 404 — endpoint may not be implemented on backend yet
+      if (status !== 404) {
+        console.error(
+          `Export Boq ${boqId} as ${format} Error:`,
+          error.response?.data || error.message,
+        );
+      }
       throw error;
     }
   },

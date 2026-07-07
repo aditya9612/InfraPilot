@@ -576,6 +576,7 @@ const SafetyManagementPage = () => {
                                         <th className="px-6 py-4 font-inter">Task</th>
                                         <th className="px-6 py-4 font-inter">Incident Summary</th>
                                         <th className="px-6 py-4 font-inter">Violation Type</th>
+                                        <th className="px-6 py-4 font-inter">Status</th>
                                         <th className="px-6 py-4 font-inter">Resources</th>
                                         <th className="px-6 py-4 text-right font-inter">Actions</th>
                                     </tr>
@@ -614,6 +615,16 @@ const SafetyManagementPage = () => {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
+                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
+                                                        item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
+                                                        item.safety_checklist_status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
+                                                        item.safety_checklist_status === 'rejected' || item.safety_checklist_status === 'unsafe' ? 'bg-rose-50 text-rose-600 border border-rose-200/50' :
+                                                        'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                        {item.safety_checklist_status || "pending"}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
                                                     <div className="flex flex-col font-inter">
                                                         <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{item.responsible_person}</p>
                                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter truncate max-w-[150px]">ACTION: {item.action_taken}</p>
@@ -641,7 +652,7 @@ const SafetyManagementPage = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                            <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
                                                 No matching records found in the project vault.
                                             </td>
                                         </tr>
@@ -1022,6 +1033,10 @@ const SafetyManagementPage = () => {
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Project Link</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getProjectName(selectedIncident.project_id)}>{getProjectName(selectedIncident.project_id)}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task Link</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getTaskName(selectedIncident.task_id as number)}>{getTaskName(selectedIncident.task_id as number)}</p>
                                     </div>
                                 </div>
                             </div>

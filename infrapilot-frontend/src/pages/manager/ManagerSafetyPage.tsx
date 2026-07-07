@@ -46,6 +46,7 @@ const ManagerSafetyPage = () => {
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [filterViolationType, setFilterViolationType] = useState("");
   const [filterProjectId, setFilterProjectId] = useState<number | "">("");
+  const [filterChecklistStatus, setFilterChecklistStatus] = useState("");
 
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -128,7 +129,7 @@ const ManagerSafetyPage = () => {
   }, [selectedProjectId, filterViolationType, filterProjectId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterViolationType, filterProjectId, activeStatFilter, sortOrder]);
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, filterViolationType, filterProjectId, filterChecklistStatus, activeStatFilter, sortOrder]);
   useEffect(() => { setActiveStatFilter("All"); }, [activeTab]);
   useEffect(() => {
     const pid = Number(formData.project_id);
@@ -173,7 +174,8 @@ const ManagerSafetyPage = () => {
       (!term || i.description.toLowerCase().includes(term) ||
         i.responsible_person.toLowerCase().includes(term) ||
         i.violation_type.toLowerCase().includes(term)) &&
-      (!filterViolationType || i.violation_type === filterViolationType)
+      (!filterViolationType || i.violation_type === filterViolationType) &&
+      (!filterChecklistStatus || (i.safety_checklist_status || "pending") === filterChecklistStatus)
     );
 
     if (activeStatFilter === "HighRisk") data = data.filter(i => i.violation_type === "Electrical Hazard" || i.violation_type === "Fire Hazard");
@@ -189,7 +191,7 @@ const ManagerSafetyPage = () => {
     }
 
     return data.sort((a, b) => sortOrder === "latest" ? Number(b.id) - Number(a.id) : Number(a.id) - Number(b.id));
-  }, [incidentList, searchTerm, filterViolationType, activeStatFilter, sortOrder]);
+  }, [incidentList, searchTerm, filterViolationType, filterChecklistStatus, activeStatFilter, sortOrder]);
 
   const breakdown = useMemo(() => {
     const groups: Record<string, { total: number; resolved: number; unresolved: number }> = {};
@@ -372,6 +374,12 @@ const ManagerSafetyPage = () => {
                   <option value="">All Violations</option>
                   {VIOLATION_TYPES.map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
+                <select value={filterChecklistStatus} onChange={e => setFilterChecklistStatus(e.target.value)}
+                  className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm">
+                  <option value="">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                </select>
                 {activeStatFilter !== "All" && (
                   <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 bg-white border border-slate-200 rounded-xl shadow-sm">
                     <RotateCcw className="w-4 h-4" />
@@ -400,6 +408,7 @@ const ManagerSafetyPage = () => {
                       <th className="px-6 py-4">Task</th>
                       <th className="px-6 py-4">Incident Summary</th>
                       <th className="px-6 py-4">Violation Type</th>
+                      <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Resources</th>
                       <th className="px-6 py-4 text-right">Actions</th>
                     </tr>
@@ -431,6 +440,15 @@ const ManagerSafetyPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
+                            (item.safety_checklist_status || "pending") === "completed"
+                              ? "bg-emerald-100 text-emerald-600"
+                              : "bg-amber-100 text-amber-600"
+                          }`}>
+                            {item.safety_checklist_status || "pending"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
                           <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">{item.responsible_person}</p>
                           <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[140px]">POC: {item.action_taken}</p>
                         </td>
@@ -450,7 +468,7 @@ const ManagerSafetyPage = () => {
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                        <td colSpan={8} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                           No safety records found.
                         </td>
                       </tr>

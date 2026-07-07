@@ -114,7 +114,7 @@ const MilestoneDetailsModal = ({
                             </div>
 
                             {/* Dates */}
-                            <div className="flex items-center gap-6 text-sm font-bold text-slate-600">
+                            <div className="flex flex-wrap items-center gap-4 text-sm font-bold text-slate-600">
                                 <div className="flex items-center gap-1.5">
                                     <Calendar className="w-4 h-4 text-slate-400" />
                                     <span className="text-slate-400 font-bold uppercase text-[10px]">Start:</span>
@@ -131,6 +131,24 @@ const MilestoneDetailsModal = ({
                                         {milestone.end_date
                                             ? new Date(milestone.end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                                             : "N/A"}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <Calendar className="w-4 h-4 text-slate-400" />
+                                    <span className="text-slate-400 font-bold uppercase text-[10px]">Actual Start:</span>
+                                    <span>
+                                        {(milestone as any).actual_start_date
+                                            ? new Date((milestone as any).actual_start_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                                            : "—"}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <Calendar className="w-4 h-4 text-slate-400" />
+                                    <span className="text-slate-400 font-bold uppercase text-[10px]">Actual End:</span>
+                                    <span>
+                                        {(milestone as any).actual_end_date
+                                            ? new Date((milestone as any).actual_end_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                                            : "—"}
                                     </span>
                                 </div>
                             </div>

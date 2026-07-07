@@ -93,18 +93,20 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     }, [isOpen]);
 
     useEffect(() => {
-        if (isOpen && projectId) {
+        if (isOpen && targetProjectId) {
             fetchMembers();
+        } else {
+            setEmployees([]);
         }
-    }, [isOpen, projectId]);
+    }, [isOpen, targetProjectId]);
 
     const fetchMembers = async () => {
-        if (!projectId) return;
+        if (!targetProjectId) return;
         try {
-            const data = await labourService.getLabours(projectId, { limit: 100 });
-            setEmployees(data.items || []);
+            const data = await projectService.getProjectMembers(targetProjectId);
+            setEmployees(Array.isArray(data) ? data : data.items || []);
         } catch (error) {
-            console.error("Failed to load labours", error);
+            console.error("Failed to load members", error);
         }
     };
 
@@ -127,12 +129,12 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
     const filteredEmployees = employees.filter((emp: any) => {
         const s = userSearchQuery.toLowerCase();
-        return (emp.labour_name || emp.name || '').toLowerCase().includes(s) ||
-            (emp.worker_code || '').toLowerCase().includes(s) ||
-            (emp.skill_type || '').toLowerCase().includes(s);
+        return (emp.full_name || emp.name || '').toLowerCase().includes(s) ||
+            (emp.email || '').toLowerCase().includes(s) ||
+            (emp.role || '').toLowerCase().includes(s);
     });
 
-    const isAllVisibleSelected = filteredEmployees.length > 0 && filteredEmployees.every((emp: any) => selectedEmployees.includes(emp.id));
+    const isAllVisibleSelected = filteredEmployees.length > 0 && filteredEmployees.every((emp: any) => selectedEmployees.includes(emp.user_id || emp.id));
 
     const toggleEmployee = (id: number) => {
         setSelectedEmployees(prev => prev.includes(id) ? prev.filter(eId => eId !== id) : [...prev, id]);
@@ -140,11 +142,12 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
 
     const toggleAllVisible = () => {
         if (isAllVisibleSelected) {
-            setSelectedEmployees(prev => prev.filter(id => !filteredEmployees.find((e: any) => e.id === id)));
+            setSelectedEmployees(prev => prev.filter(id => !filteredEmployees.find((e: any) => (e.user_id || e.id) === id)));
         } else {
             const newSelected = [...selectedEmployees];
             filteredEmployees.forEach((emp: any) => {
-                if (!newSelected.includes(emp.id)) newSelected.push(emp.id);
+                const eid = emp.user_id || emp.id;
+                if (!newSelected.includes(eid)) newSelected.push(eid);
             });
             setSelectedEmployees(newSelected);
         }
@@ -565,18 +568,18 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                         </label>
 
                                         {filteredEmployees.map((emp: any) => (
-                                            <label key={emp.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group">
-                                                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedEmployees.includes(emp.id) ? 'bg-primary border-primary' : 'border-slate-300'}`}>
-                                                    {selectedEmployees.includes(emp.id) && <Check className="w-3 h-3 text-white" />}
+                                            <label key={emp.user_id || emp.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group">
+                                                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedEmployees.includes(emp.user_id || emp.id) ? 'bg-primary border-primary' : 'border-slate-300'}`}>
+                                                    {selectedEmployees.includes(emp.user_id || emp.id) && <Check className="w-3 h-3 text-white" />}
                                                 </div>
                                                 <div className="flex-1">
-                                                    <p className="text-sm font-bold text-slate-800">{emp.labour_name || emp.name}</p>
-                                                    <p className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded w-fit mt-0.5 border border-slate-200">{emp.worker_code}</p>
+                                                    <p className="text-sm font-bold text-slate-800">{emp.full_name || emp.name}</p>
+                                                    <p className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded w-fit mt-0.5 border border-slate-200 truncate max-w-[120px]">{emp.email || 'No email'}</p>
                                                 </div>
                                                 <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 bg-slate-50 px-2 py-1 rounded-md group-hover:bg-white transition-colors border border-slate-200 group-hover:border-slate-300 shadow-sm">
-                                                    {emp.skill_type || 'GENERAL'}
+                                                    {emp.role || 'USER'}
                                                 </span>
-                                                <input type="checkbox" className="hidden" checked={selectedEmployees.includes(emp.id)} onChange={() => toggleEmployee(emp.id)} />
+                                                <input type="checkbox" className="hidden" checked={selectedEmployees.includes(emp.user_id || emp.id)} onChange={() => toggleEmployee(emp.user_id || emp.id)} />
                                             </label>
                                         ))}
 

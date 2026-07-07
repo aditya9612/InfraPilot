@@ -68,7 +68,7 @@ const MaterialReceiptPage = () => {
             try {
                 const res = await projectService.getProjects(100, 0);
                 setProjectsList(Array.isArray(res) ? res : (res.items || res.data || []));
-            } catch (err) {}
+            } catch (err) { }
         };
         fetchProjects();
 
@@ -76,7 +76,7 @@ const MaterialReceiptPage = () => {
             try {
                 const res = await masterService.getEntities("units");
                 setMasterUnits(Array.isArray(res) ? res : ((res as any).items || (res as any).data || []));
-            } catch (err) {}
+            } catch (err) { }
         };
         fetchUnits();
     }, []);
@@ -124,10 +124,10 @@ const MaterialReceiptPage = () => {
     // Fetch Methods
     const fetchMaterials = async (pId: number = projectId) => {
         setIsLoading(true);
-        try { 
-            const data = await materialService.listMaterials(pId, 0, 500); 
+        try {
+            const data = await materialService.listMaterials(pId, 0, 500);
             // Sort by id descending so newest is first
-            setMaterials(data.sort((a: any, b: any) => (b.id || b.material_id || 0) - (a.id || a.material_id || 0))); 
+            setMaterials(data.sort((a: any, b: any) => (b.id || b.material_id || 0) - (a.id || a.material_id || 0)));
         }
         catch (e) { toast.error("Failed to load materials"); }
         finally { setIsLoading(false); }
@@ -206,8 +206,8 @@ const MaterialReceiptPage = () => {
     };
 
     const handleSupplierSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); 
-        
+        e.preventDefault();
+
         // Front-end validations
         const nameRegex = /^[a-zA-Z\s]+$/;
         if (!nameRegex.test(supplierForm.name || "")) {
@@ -240,11 +240,11 @@ const MaterialReceiptPage = () => {
                 await materialService.createSupplier(payload);
             }
             toast.success(selectedSupplier ? "Supplier updated!" : "Supplier added!");
-            setIsSupplierModalOpen(false); 
+            setIsSupplierModalOpen(false);
             fetchSuppliers();
-        } catch (error: any) { 
+        } catch (error: any) {
             console.error("Supplier submit error:", error.response?.data || error.message);
-            toast.error(error.response?.data?.detail?.[0]?.msg || error.response?.data?.message || "Operation failed"); 
+            toast.error(error.response?.data?.detail?.[0]?.msg || error.response?.data?.message || "Operation failed");
         }
         finally { setIsSubmitting(false); }
     };
@@ -357,7 +357,7 @@ const MaterialReceiptPage = () => {
                             </button>
                         ))}
                     </div>
-                    
+
                     {/* Project Filter */}
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-slate-500">Project:</span>
@@ -418,21 +418,21 @@ const MaterialReceiptPage = () => {
                             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">Alerts</h2>
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-500" /> Material Alerts</h3>
-                            {isLoading ? <p className="text-sm text-slate-400">Loading...</p> : alerts.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {alerts.map(a => (
-                                        <div key={a.id} className="p-4 rounded-xl border border-rose-100 bg-rose-50/50 flex items-start justify-between">
-                                            <div>
-                                                <p className="font-bold text-slate-800">{a.material_name} <span className="text-xs text-slate-400 font-normal">({a.material_code})</span></p>
-                                                <p className="text-sm text-slate-600 mt-1">Stock: {a.remaining_stock} {a.unit}</p>
+                                {isLoading ? <p className="text-sm text-slate-400">Loading...</p> : alerts.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {alerts.map(a => (
+                                            <div key={a.id} className="p-4 rounded-xl border border-rose-100 bg-rose-50/50 flex items-start justify-between">
+                                                <div>
+                                                    <p className="font-bold text-slate-800">{a.material_name} <span className="text-xs text-slate-400 font-normal">({a.material_code})</span></p>
+                                                    <p className="text-sm text-slate-600 mt-1">Stock: {a.remaining_stock} {a.unit}</p>
+                                                </div>
+                                                <span className="px-2 py-1 bg-rose-100 text-rose-700 text-[10px] font-bold uppercase rounded-lg border border-rose-200">
+                                                    {a.alert_type.replace(/_/g, ' ')}
+                                                </span>
                                             </div>
-                                            <span className="px-2 py-1 bg-rose-100 text-rose-700 text-[10px] font-bold uppercase rounded-lg border border-rose-200">
-                                                {a.alert_type.replace(/_/g, ' ')}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : <p className="text-sm text-slate-400">No active alerts.</p>}
+                                        ))}
+                                    </div>
+                                ) : <p className="text-sm text-slate-400">No active alerts.</p>}
                             </div>
                         </div>
                     </div>
@@ -444,142 +444,142 @@ const MaterialReceiptPage = () => {
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Data Register</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
                             <div className="p-4 border-b border-slate-50 flex items-center gap-4">
-                            <div className="relative flex-1 max-w-md">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                <div className="relative flex-1 max-w-md">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
+                                    <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                </div>
+                                <button onClick={() => activeTab === "Materials" ? fetchMaterials(projectId) : activeTab === "Suppliers" ? fetchSuppliers(projectId) : fetchPOs(projectId)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                             </div>
-                            <button onClick={() => activeTab === "Materials" ? fetchMaterials(projectId) : activeTab === "Suppliers" ? fetchSuppliers(projectId) : fetchPOs(projectId)} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                            <div className="flex-1 overflow-auto scrollbar-thin">
+                                <table className="w-full text-left whitespace-nowrap">
+                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
+                                        {activeTab === "Materials" && (
+                                            <tr>
+                                                <th className="px-6 py-4">Name</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Unit</th>
+                                                <th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-center">Min Level</th><th className="px-6 py-4 text-right">Rate</th>
+                                                <th className="px-6 py-4">Alert</th><th className="px-6 py-4">Supplier</th><th className="px-6 py-4 text-right">Actions</th>
+                                            </tr>
+                                        )}
+                                        {activeTab === "Suppliers" && (
+                                            <tr>
+                                                <th className="px-6 py-4">Supplier Name</th><th className="px-6 py-4">Contact Person</th>
+                                                <th className="px-6 py-4">Phone/Email</th><th className="px-6 py-4">GST Number</th><th className="px-6 py-4">Address</th><th className="px-6 py-4 text-right">Actions</th>
+                                            </tr>
+                                        )}
+                                        {activeTab === "Purchase Orders" && (
+                                            <tr>
+                                                <th className="px-6 py-4">Material</th>
+                                                <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Total</th>
+                                                <th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Actions</th>
+                                            </tr>
+                                        )}
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {isLoading ? <tr><td colSpan={10} className="p-8 text-center text-slate-400">Loading...</td></tr> :
+                                            activeTab === "Materials" ? paginatedMaterials.map(m => (
+                                                <tr key={m.id} className="hover:bg-slate-50/50">
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{m.material_name}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{m.category}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{m.unit}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{m.remaining_stock}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-500 text-center">{m.minimum_stock_level}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(m.purchase_rate)}</td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${m.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : m.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{m.alert_type.replace(/_/g, ' ')}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{m.supplier_name}</td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex justify-end gap-1">
+                                                            <button onClick={async () => {
+                                                                try {
+                                                                    const fullM = await materialService.getMaterial(m.id);
+                                                                    setSelectedMaterial(fullM);
+                                                                    setIsViewMaterialOpen(true);
+                                                                } catch (e) { toast.error("Failed to load details"); }
+                                                            }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View"><Eye className="w-4 h-4" /></button>
+                                                            <button onClick={async () => {
+                                                                try {
+                                                                    const fullM = await materialService.getMaterial(m.id);
+                                                                    setSelectedMaterial(fullM);
+                                                                    setMaterialForm(fullM);
+                                                                    setIsMaterialModalOpen(true);
+                                                                } catch (e) { toast.error("Failed to load details"); }
+                                                            }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                                                            <button onClick={() => { setSelectedMaterial(m); setPurchaseForm({ quantity: 0, rate: m.purchase_rate, amount_paid: 0, project_id: projectId, issue_type: "SYSTEM" }); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
+                                                            <button onClick={async () => {
+                                                                try {
+                                                                    setSelectedMaterial(m);
+                                                                    const res = await materialService.getTransactions(m.id);
+                                                                    setTransactions(res || []);
+                                                                    setIsTransactionsOpen(true);
+                                                                } catch (e) { toast.error("Failed to load transactions"); }
+                                                            }} className="p-1.5 text-slate-400 hover:text-purple-600 rounded-lg" title="Transactions"><Activity className="w-4 h-4" /></button>
+                                                            <button onClick={async () => {
+                                                                try {
+                                                                    setSelectedMaterial(m);
+                                                                    const res = await materialService.getPriceHistory(m.id);
+                                                                    setPriceHistory(res || []);
+                                                                    setIsPriceHistoryOpen(true);
+                                                                } catch (e) { toast.error("Failed to load price history"); }
+                                                            }} className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg" title="Price History"><TrendingUp className="w-4 h-4" /></button>
+                                                            <button onClick={() => { setDeleteTarget({ type: 'material', id: m.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )) : activeTab === "Suppliers" ? paginatedSuppliers.map(s => (
+                                                <tr key={s.id} className="hover:bg-slate-50/50">
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{s.name}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{s.contactPerson}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{s.contact}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{s.gst || '-'}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-600">{s.address || '-'}</td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex justify-end gap-1">
+                                                            <button onClick={async () => {
+                                                                try {
+                                                                    const fullS = await materialService.getSupplier(s.id);
+                                                                    setSelectedSupplier(fullS);
+                                                                    const mats = await materialService.getSupplierMaterials(fullS.id);
+                                                                    setSupplierMaterials(mats || []);
+                                                                    setIsViewSupplierOpen(true);
+                                                                } catch (e) { toast.error("Failed to load supplier details"); }
+                                                            }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View Supplier"><Eye className="w-4 h-4" /></button>
+                                                            <button onClick={() => { setSelectedSupplier(s); setSupplierForm(s); setIsSupplierModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
+                                                            <button onClick={() => { setDeleteTarget({ type: 'supplier', id: s.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )) : paginatedPOs.map(p => (
+                                                <tr key={p.id} className="hover:bg-slate-50/50">
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{p.material_name}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{p.quantity}</td>
+                                                    <td className="px-6 py-4 text-sm text-slate-800 text-right">{formatINR(p.rate)}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(p.total_amount)}</td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${p.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p.status === 'CREATED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{p.status}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex justify-end gap-1">
+                                                            <button onClick={async () => {
+                                                                try {
+                                                                    const fullPO = await materialService.getPurchaseOrder(p.id);
+                                                                    setSelectedPO(fullPO);
+                                                                    setIsViewPOOpen(true);
+                                                                } catch (e) { toast.error("Failed to load PO details"); }
+                                                            }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View PO"><Eye className="w-4 h-4" /></button>
+                                                            <button onClick={() => { setSelectedPO(p); setPoForm(p); setIsPOModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
+                                                            <button onClick={() => { setDeleteTarget({ type: 'po', id: p.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            {renderPagination(activeTab === "Materials" ? filteredMaterials.length : activeTab === "Suppliers" ? filteredSuppliers.length : filteredPOs.length)}
                         </div>
-                        <div className="flex-1 overflow-auto scrollbar-thin">
-                            <table className="w-full text-left whitespace-nowrap">
-                                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                    {activeTab === "Materials" && (
-                                        <tr>
-                                            <th className="px-6 py-4">Name</th><th className="px-6 py-4">Category</th><th className="px-6 py-4">Unit</th>
-                                            <th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-center">Min Level</th><th className="px-6 py-4 text-right">Rate</th>
-                                            <th className="px-6 py-4">Alert</th><th className="px-6 py-4">Supplier</th><th className="px-6 py-4 text-right">Actions</th>
-                                        </tr>
-                                    )}
-                                    {activeTab === "Suppliers" && (
-                                        <tr>
-                                            <th className="px-6 py-4">Supplier Name</th><th className="px-6 py-4">Contact Person</th>
-                                            <th className="px-6 py-4">Phone/Email</th><th className="px-6 py-4">GST Number</th><th className="px-6 py-4">Address</th><th className="px-6 py-4 text-right">Actions</th>
-                                        </tr>
-                                    )}
-                                    {activeTab === "Purchase Orders" && (
-                                        <tr>
-                                            <th className="px-6 py-4">Material</th>
-                                            <th className="px-6 py-4 text-center">Qty</th><th className="px-6 py-4 text-right">Rate</th><th className="px-6 py-4 text-right">Total</th>
-                                            <th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Actions</th>
-                                        </tr>
-                                    )}
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {isLoading ? <tr><td colSpan={10} className="p-8 text-center text-slate-400">Loading...</td></tr> :
-                                        activeTab === "Materials" ? paginatedMaterials.map(m => (
-                                            <tr key={m.id} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{m.material_name}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{m.category}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{m.unit}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{m.remaining_stock}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-500 text-center">{m.minimum_stock_level}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(m.purchase_rate)}</td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${m.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : m.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{m.alert_type.replace(/_/g, ' ')}</span>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{m.supplier_name}</td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <button onClick={async () => {
-                                                            try {
-                                                                const fullM = await materialService.getMaterial(m.id);
-                                                                setSelectedMaterial(fullM);
-                                                                setIsViewMaterialOpen(true);
-                                                            } catch (e) { toast.error("Failed to load details"); }
-                                                        }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View"><Eye className="w-4 h-4" /></button>
-                                                        <button onClick={async () => {
-                                                            try {
-                                                                const fullM = await materialService.getMaterial(m.id);
-                                                                setSelectedMaterial(fullM);
-                                                                setMaterialForm(fullM);
-                                                                setIsMaterialModalOpen(true);
-                                                            } catch (e) { toast.error("Failed to load details"); }
-                                                        }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                                        <button onClick={() => { setSelectedMaterial(m); setPurchaseForm({ quantity: 0, rate: m.purchase_rate, amount_paid: 0, project_id: projectId, issue_type: "SYSTEM" }); setIsPurchaseModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg" title="Purchase"><ShoppingCart className="w-4 h-4" /></button>
-                                                        <button onClick={async () => {
-                                                            try {
-                                                                setSelectedMaterial(m);
-                                                                const res = await materialService.getTransactions(m.id);
-                                                                setTransactions(res || []);
-                                                                setIsTransactionsOpen(true);
-                                                            } catch (e) { toast.error("Failed to load transactions"); }
-                                                        }} className="p-1.5 text-slate-400 hover:text-purple-600 rounded-lg" title="Transactions"><Activity className="w-4 h-4" /></button>
-                                                        <button onClick={async () => {
-                                                            try {
-                                                                setSelectedMaterial(m);
-                                                                const res = await materialService.getPriceHistory(m.id);
-                                                                setPriceHistory(res || []);
-                                                                setIsPriceHistoryOpen(true);
-                                                            } catch (e) { toast.error("Failed to load price history"); }
-                                                        }} className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg" title="Price History"><TrendingUp className="w-4 h-4" /></button>
-                                                        <button onClick={() => { setDeleteTarget({ type: 'material', id: m.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )) : activeTab === "Suppliers" ? paginatedSuppliers.map(s => (
-                                            <tr key={s.id} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{s.name}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{s.contactPerson}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{s.contact}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{s.gst || '-'}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{s.address || '-'}</td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <button onClick={async () => {
-                                                            try {
-                                                                const fullS = await materialService.getSupplier(s.id);
-                                                                setSelectedSupplier(fullS);
-                                                                const mats = await materialService.getSupplierMaterials(fullS.id);
-                                                                setSupplierMaterials(mats || []);
-                                                                setIsViewSupplierOpen(true);
-                                                            } catch (e) { toast.error("Failed to load supplier details"); }
-                                                        }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View Supplier"><Eye className="w-4 h-4" /></button>
-                                                        <button onClick={() => { setSelectedSupplier(s); setSupplierForm(s); setIsSupplierModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
-                                                        <button onClick={() => { setDeleteTarget({ type: 'supplier', id: s.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )) : paginatedPOs.map(p => (
-                                            <tr key={p.id} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{p.material_name}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-center">{p.quantity}</td>
-                                                <td className="px-6 py-4 text-sm text-slate-800 text-right">{formatINR(p.rate)}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(p.total_amount)}</td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${p.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p.status === 'CREATED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{p.status}</span>
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="flex justify-end gap-1">
-                                                        <button onClick={async () => {
-                                                            try {
-                                                                const fullPO = await materialService.getPurchaseOrder(p.id);
-                                                                setSelectedPO(fullPO);
-                                                                setIsViewPOOpen(true);
-                                                            } catch (e) { toast.error("Failed to load PO details"); }
-                                                        }} className="p-1.5 text-slate-400 hover:text-primary rounded-lg" title="View PO"><Eye className="w-4 h-4" /></button>
-                                                        <button onClick={() => { setSelectedPO(p); setPoForm(p); setIsPOModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"><Edit2 className="w-4 h-4" /></button>
-                                                        <button onClick={() => { setDeleteTarget({ type: 'po', id: p.id }); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                        {renderPagination(activeTab === "Materials" ? filteredMaterials.length : activeTab === "Suppliers" ? filteredSuppliers.length : filteredPOs.length)}
                     </div>
-                </div>
                 )}
             </PageTransition>
 
@@ -760,18 +760,18 @@ const MaterialReceiptPage = () => {
                             <div><label className={labelClasses}>Supplier *</label><select required value={poForm.supplier_id || ""} onChange={e => setPoForm({ ...poForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
                             <div>
                                 <label className={labelClasses}>Material *</label>
-                                <select 
-                                    required 
-                                    value={poForm.material_id || ""} 
+                                <select
+                                    required
+                                    value={poForm.material_id || ""}
                                     onChange={e => {
                                         const materialId = Number(e.target.value);
                                         const selectedMat = materials.find(m => m.id === materialId);
-                                        setPoForm({ 
-                                            ...poForm, 
+                                        setPoForm({
+                                            ...poForm,
                                             material_id: materialId,
                                             rate: selectedMat ? selectedMat.purchase_rate : poForm.rate
                                         });
-                                    }} 
+                                    }}
                                     className={inputClasses}
                                 >
                                     <option value="">Select Material</option>
@@ -783,7 +783,7 @@ const MaterialReceiptPage = () => {
                             </div>
                             <div><label className={labelClasses}>Quantity *</label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>Rate *</label><input type="number" required value={poForm.rate || ""} onChange={e => setPoForm({ ...poForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            
+
                             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex justify-between items-center md:col-span-2">
                                 <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">Total Amount</span>
                                 <span className="font-black text-2xl text-purple-600">{formatINR((poForm.quantity || 0) * (poForm.rate || 0))}</span>

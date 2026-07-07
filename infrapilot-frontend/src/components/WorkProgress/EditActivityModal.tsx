@@ -27,7 +27,7 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
   const [formData, setFormData] = useState<UpdateActivityRequest>({
     activity_name: "",
     planned_quantity: 0,
-    unit: "Cum",
+    unit: "CUM",
     start_date: "",
     end_date: "",
     status: "NOT_STARTED",
@@ -201,7 +201,10 @@ const EditActivityModal = ({ isOpen, onClose, onSubmit, activity }: EditActivity
               <label className={labelClasses}>Unit of Measure*</label>
               <select name="unit" className={inputClasses()} value={formData.unit} onChange={handleChange}>
                 <option value="">Select Unit</option>
-                {unitList.map(u => <option key={u.id || u.name} value={u.name}>{u.name}</option>)}
+                {unitList.map(u => {
+                  const unitCode = u.name?.match(/\(([^)]+)\)/)?.[1]?.toUpperCase() || u.name?.toUpperCase() || "";
+                  return <option key={u.id || u.unique_code || u.name} value={unitCode}>{u.name}</option>;
+                })}
               </select>
             </div>
           </div>

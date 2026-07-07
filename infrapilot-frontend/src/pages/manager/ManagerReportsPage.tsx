@@ -8,6 +8,8 @@ import { useProject } from "../../context/ProjectContext";
 import ReportPreviewModal from "../../components/dashboard/ReportPreviewModal";
 import ShareReportModal from "../../components/dashboard/ShareReportModal";
 import ReportDateModal from "../../components/dashboard/ReportDateModal";
+import ReportPeriodModal from "../../components/dashboard/ReportPeriodModal";
+import type { ReportPeriodSelection } from "../../components/dashboard/ReportPeriodModal";
 import toast from "react-hot-toast";
 import {
     FileText,
@@ -27,7 +29,7 @@ import {
 } from "lucide-react";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
 
-type ReportCategory = "Operations" | "Resources" | "Financials" | "Performance";
+type ReportCategory = "Operations" | "Resources" | "Financials";
 
 interface ReportType {
     id: string;
@@ -43,22 +45,20 @@ interface ReportType {
 const REPORT_TYPES: ReportType[] = [
     // Operations
     { id: "daily", name: "Daily Progress Report", category: "Operations", description: "Detailed site activities, weather conditions, and work completed per shift.", icon: <FileText size={20} className="text-blue-500" />, exportType: "PDF", requiresDate: true },
-    { id: "weekly", name: "Weekly Performance Hub", category: "Operations", description: "Aggregated site velocity and weekly milestone achievement tracking.", icon: <BarChart3 size={20} className="text-indigo-500" />, exportType: "Both" },
-    { id: "work-summary", name: "Execution Summary", category: "Operations", description: "Category-wise execution efficiency and completion status.", icon: <TrendingUp size={20} className="text-emerald-500" />, exportType: "Both" },
-    { id: "issues", name: "Bottleneck Analysis", category: "Operations", description: "Analysis of open site issues, delay causes, and resolution trends.", icon: <AlertCircle size={20} className="text-rose-500" />, exportType: "Both" },
+    { id: "weekly", name: "Project Report", category: "Operations", description: "Weekly, monthly, or quarterly project progress and performance report.", icon: <BarChart3 size={20} className="text-indigo-500" />, exportType: "Both" },
+    { id: "issues", name: "Issue Analysis", category: "Operations", description: "Analysis of open site issues, delay causes, and resolution trends.", icon: <AlertCircle size={20} className="text-rose-500" />, exportType: "Both" },
 
     // Resources
     { id: "labour", name: "Workforce Analytics", category: "Resources", description: "Labour deployment trends, skill-mix distribution, and attendance.", icon: <Users size={20} className="text-amber-500" />, exportType: "Both" },
     { id: "material", name: "Material Lifecycle", category: "Resources", description: "Tracking material inflows, consumption rates, and wastage analysis.", icon: <Building2 size={20} className="text-cyan-500" />, exportType: "Both" },
+    { id: "equipment", name: "Equipment Reports", category: "Resources", description: "Full equipment utilization, maintenance status, and deployment analytics.", icon: <Building2 size={20} className="text-orange-500" />, exportType: "Both" },
+    { id: "assets", name: "Asset Reports", category: "Resources", description: "Fixed assets tracking, depreciation analysis, and asset utilization overview.", icon: <FileText size={20} className="text-violet-500" />, exportType: "Both" },
 
     // Financials
-    { id: "cost-comparison", name: "Budget vs Actual", category: "Financials", description: "Real-time comparison of estimated costs vs actual expenditure.", icon: <DollarSign size={20} className="text-emerald-600" />, exportType: "Excel" },
+    { id: "cost-comparison", name: "Budget vs Actual", category: "Financials", description: "Real-time comparison of estimated costs vs actual expenditure.", icon: <DollarSign size={20} className="text-emerald-600" />, exportType: "Both" },
     { id: "financial-summary", name: "Project Financial Health", category: "Financials", description: "Overview of billing status, expenses, and pending payments.", icon: <TrendingUp size={20} className="text-blue-600" />, exportType: "Both" },
     { id: "procurement", name: "Procurement Efficiency", category: "Financials", description: "Purchase order status and vendor payment reconciliation.", icon: <Building2 size={20} className="text-purple-500" />, exportType: "Both" },
-
-    // Performance
-    { id: "contractor-performance", name: "Contractor Efficiency", category: "Performance", description: "Rating contractors based on speed, quality, and compliance.", icon: <PieChart size={20} className="text-pink-500" />, exportType: "Both" },
-    { id: "project-report", name: "Manager Executive Summary", category: "Performance", description: "High-level consolidated report for executive review.", icon: <FileText size={20} className="text-slate-700" />, exportType: "Both" },
+    { id: "profit-loss", name: "Profit & Loss", category: "Financials", description: "Comprehensive income, expenses, and net profit/loss breakdown for the project.", icon: <PieChart size={20} className="text-rose-500" />, exportType: "Both" },
 ];
 
 const ManagerReportsPage = () => {
@@ -83,6 +83,12 @@ const ManagerReportsPage = () => {
         format: "PDF" | "Excel";
         isRange: boolean;
         action?: "export" | "view";
+    } | null>(null);
+
+    // Period selection modal (for weekly report)
+    const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
+    const [periodModalConfig, setPeriodModalConfig] = useState<{
+        format: "PDF" | "Excel";
     } | null>(null);
 
     const [stats, setStats] = useState({
@@ -152,33 +158,55 @@ const ManagerReportsPage = () => {
 
             switch (reportId) {
                 case "daily":
-                    blob = await reportService.exportDailyPDF(pid, effectiveEnd);
+                    blob = format === "PDF"
+                        ? await reportService.exportDailyPDF(pid, effectiveEnd)
+                        : await reportService.exportProjectReportExcel({ project_id: pid, type: "daily", report_date: effectiveEnd });
                     break;
                 case "weekly":
-                    blob = format === "PDF"
-                        ? await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd)
-                        : await reportService.exportProjectReportExcel({ project_id: pid, type: "monthly" });
-                    break;
-                case "cost-comparison":
-                    const comparisonData = await boqService.getBoqComparison(pid);
-                    // Helper to generate CSV from JSON data
-                    generateCSV(comparisonData, `Cost_Comparison_${pid}`);
-                    toast.success("Comparison data exported", { id: toastId });
+                    // Open period selection modal first
+                    toast.dismiss(toastId);
+                    setPeriodModalConfig({ format });
+                    setIsPeriodModalOpen(true);
                     return;
+                case "cost-comparison":
+                    blob = format === "PDF"
+                        ? await reportService.exportFinancePdf(pid)
+                        : await reportService.exportFinanceExcel(pid);
+                    break;
                 case "labour":
                     blob = format === "PDF"
-                        ? await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd)
-                        : await reportService.exportLabourExcel(pid);
+                        ? await reportService.exportLabourDistributionPdf(pid)
+                        : await reportService.exportLabourDistributionExcel(pid);
                     break;
                 case "material":
                     blob = format === "PDF"
-                        ? await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd)
+                        ? await reportService.exportMaterialPDF(pid)
                         : await reportService.exportMaterialExcel(pid);
                     break;
                 case "project-report":
                     blob = format === "PDF"
                         ? await reportService.exportProjectReportPDF({ project_id: pid, type: "monthly" })
                         : await reportService.exportProjectReportExcel({ project_id: pid, type: "monthly" });
+                    break;
+                case "profit-loss":
+                    blob = format === "PDF"
+                        ? await reportService.exportProfitLossPdf(pid)
+                        : await reportService.exportProfitLossExcel(pid);
+                    break;
+                case "equipment":
+                    blob = format === "PDF"
+                        ? await reportService.exportEquipmentPdf()
+                        : await reportService.exportEquipmentExcel();
+                    break;
+                case "issues":
+                    blob = format === "PDF"
+                        ? await reportService.exportIssuePDF(pid)
+                        : await reportService.exportIssueExcel(pid);
+                    break;
+                case "assets":
+                    blob = format === "PDF"
+                        ? await reportService.exportAssetsPdf(pid)
+                        : await reportService.exportAssetsExcel(pid);
                     break;
                 default:
                     blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
@@ -252,6 +280,7 @@ const ManagerReportsPage = () => {
                 case "project-report": data = await reportService.getProjectReport(pid); break;
                 case "labour": data = await reportService.getLabourReport(pid); break;
                 case "material": data = await reportService.getMaterialReport(pid); break;
+                case "profit-loss": data = await reportService.getProfitLoss(); break;
                 default: data = { message: "Advanced summary metrics are being calculated." };
             }
 
@@ -260,6 +289,46 @@ const ManagerReportsPage = () => {
             toast.success("Summary loaded", { id: toastId });
         } catch (error) {
             toast.error("Failed to load summary", { id: toastId });
+        }
+    };
+
+    // Handle period modal confirmation
+    const handlePeriodConfirm = async (selection: ReportPeriodSelection) => {
+        if (!selectedProjectId || !periodModalConfig) return;
+        const { format } = periodModalConfig;
+        const toastId = toast.loading(`Generating ${format} report...`);
+        try {
+            const pid = selectedProjectId;
+            let blob: Blob | null = null;
+            const params = {
+                project_id: pid,
+                type: selection.type,
+                month: selection.month ?? null,
+                year: selection.year ?? null,
+                quarter: selection.quarter ?? null,
+                report_date: selection.start_date ?? null,
+                start_date: selection.start_date ?? null,
+                end_date: selection.end_date ?? null,
+            };
+            blob = format === "PDF"
+                ? await reportService.exportProjectReportPDF(params)
+                : await reportService.exportProjectReportExcel(params);
+
+            if (blob && !blob.type.includes("json")) {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.setAttribute("download", `weekly_report_${selection.type}_${selection.year}.${format === "PDF" ? "pdf" : "xlsx"}`);
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success("Report exported successfully", { id: toastId });
+            } else {
+                throw new Error("Invalid response");
+            }
+        } catch {
+            toast.error("Export failed", { id: toastId });
         }
     };
 
@@ -344,7 +413,7 @@ const ManagerReportsPage = () => {
                 {/* Categories & Search */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
                     <div className="flex bg-white/50 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200 w-fit">
-                        {(["Operations", "Resources", "Financials", "Performance"] as ReportCategory[]).map(cat => (
+                        {(["Operations", "Resources", "Financials"] as ReportCategory[]).map(cat => (
                             <button
                                 key={cat}
                                 onClick={() => setActiveCategory(cat)}
@@ -488,6 +557,14 @@ const ManagerReportsPage = () => {
                         handleExport(dateModalConfig.id, dateModalConfig.format, start, end);
                     }
                 }}
+            />
+
+            <ReportPeriodModal
+                isOpen={isPeriodModalOpen}
+                onClose={() => { setIsPeriodModalOpen(false); setPeriodModalConfig(null); }}
+                reportName="Project Report"
+                format={periodModalConfig?.format || "PDF"}
+                onConfirm={handlePeriodConfirm}
             />
         </>
     );
