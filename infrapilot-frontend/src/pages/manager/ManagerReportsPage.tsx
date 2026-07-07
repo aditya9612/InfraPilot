@@ -504,6 +504,7 @@ const ManagerReportsPage = () => {
                 onClose={() => setIsPreviewOpen(false)}
                 reportName={viewingReport?.name || ""}
                 data={viewingReport?.data}
+                reportId={viewingReport?.id}
                 exportType={viewingReport?.exportType || "Excel"}
                 onExport={(format: "PDF" | "Excel") => viewingReport && handleExport(viewingReport.id, format)}
                 onShare={() => {

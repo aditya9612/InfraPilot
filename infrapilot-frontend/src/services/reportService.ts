@@ -315,37 +315,37 @@ export const reportService = {
         return response.data;
     },
 
-    exportProfitLossExcel: async (projectId?: number) => {
+    exportProfitLossExcel: async (projectId?: number, filters?: { year?: number | null; quarter?: number | null; start_date?: string | null; end_date?: string | null }) => {
         // GET /api/v1/reports/profit-loss/excel
         const response = await api.get(`/reports/profit-loss/excel`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...filters },
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportProfitLossPdf: async (projectId?: number) => {
+    exportProfitLossPdf: async (projectId?: number, filters?: { year?: number | null; quarter?: number | null; start_date?: string | null; end_date?: string | null }) => {
         // GET /api/v1/reports/profit-loss/pdf
         const response = await api.get(`/reports/profit-loss/pdf`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...filters },
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportFinanceExcel: async (projectId?: number) => {
+    exportFinanceExcel: async (projectId?: number, startDate?: string | null, endDate?: string | null) => {
         // GET /api/v1/reports/finance/excel — Export Finance Excel
         const response = await api.get(`/reports/finance/excel`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...(startDate ? { start_date: startDate } : {}), ...(endDate ? { end_date: endDate } : {}) },
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportFinancePdf: async (projectId?: number) => {
+    exportFinancePdf: async (projectId?: number, startDate?: string | null, endDate?: string | null) => {
         // GET /api/v1/reports/finance/pdf — Export Finance Pdf
         const response = await api.get(`/reports/finance/pdf`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...(startDate ? { start_date: startDate } : {}), ...(endDate ? { end_date: endDate } : {}) },
             responseType: 'blob'
         });
         return response.data;
@@ -403,19 +403,19 @@ export const reportService = {
         return response.data;
     },
 
-    exportLabourDistributionExcel: async (projectId?: number) => {
+    exportLabourDistributionExcel: async (projectId?: number, filters?: { date?: string | null; skill_category?: string | null }) => {
         // GET /api/v1/reports/labour-distribution/excel — Export Labour Distribution Excel
         const response = await api.get(`/reports/labour-distribution/excel`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...filters },
             responseType: 'blob'
         });
         return response.data;
     },
 
-    exportLabourDistributionPdf: async (projectId?: number) => {
+    exportLabourDistributionPdf: async (projectId?: number, filters?: { date?: string | null; skill_category?: string | null }) => {
         // GET /api/v1/reports/labour-distribution/pdf — Export Labour Distribution Pdf
         const response = await api.get(`/reports/labour-distribution/pdf`, {
-            params: projectId ? { project_id: projectId } : {},
+            params: { ...(projectId ? { project_id: projectId } : {}), ...filters },
             responseType: 'blob'
         });
         return response.data;

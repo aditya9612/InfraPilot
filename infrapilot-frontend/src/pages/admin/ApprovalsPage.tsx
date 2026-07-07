@@ -201,12 +201,6 @@ const ApprovalsPage = () => {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={handleExport}
-              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all"
-            >
-              Export Report
-            </button>
-            <button
               onClick={handleBulkApprove}
               disabled={selectedIds.length === 0}
               className={`px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${selectedIds.length > 0
@@ -264,9 +258,13 @@ const ApprovalsPage = () => {
                 className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold text-slate-700 cursor-pointer hover:bg-slate-100 pr-8"
               >
                 <option value="all">Every Type</option>
-                {Array.from(new Set(approvals.map(a => a.entity_type?.toUpperCase()).filter(Boolean))).sort().map(type => (
-                  <option key={type} value={type?.toLowerCase()}>{type}</option>
-                ))}
+                <option value="all">Every Type</option>
+                <option value="boq">BOQ</option>
+                <option value="ra bill">RA Bill</option>
+                <option value="final measurement">Final Measurement</option>
+                <option value="purchase order">Purchase Order</option>
+                <option value="document">Document</option>
+                <option value="drawing">Drawing</option>
               </select>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
               <select
