@@ -327,9 +327,6 @@ export const projectService = {
 
   async updateTask(projectId: number, taskId: number, taskData: any) {
     try {
-<<<<<<< HEAD
-      const isFormData = taskData instanceof FormData;
-=======
       // Backend requires multipart/form-data for this endpoint
       // If plain object passed, convert it to FormData
       let payload: FormData;
@@ -343,7 +340,6 @@ export const projectService = {
           }
         }
       }
->>>>>>> testing
       const response = await api.put(
         `/projects/${projectId}/tasks/${taskId}`,
         payload,
@@ -505,11 +501,6 @@ export const projectService = {
 
     try {
       console.log(`[ProjectService] Refreshing assigned projects for user ${userId}...`);
-<<<<<<< HEAD
-      // 1. Fetch projects (limit 100)
-      const pRes = await projectService.getProjects(100, 0);
-      const projectList = Array.isArray(pRes) ? pRes : (pRes?.items || pRes?.data || []);
-=======
       // 1. Fetch ALL projects in chunks to bypass the backend 100-limit
       let projectList: any[] = [];
       let offset = 0;
@@ -522,7 +513,6 @@ export const projectService = {
         if (chunk.length < limit || projectList.length >= 2000) break; // circuit breaker
         offset += limit;
       }
->>>>>>> testing
 
       if (projectList.length === 0) return [];
 
