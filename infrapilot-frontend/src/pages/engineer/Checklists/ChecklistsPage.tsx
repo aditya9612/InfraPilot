@@ -51,6 +51,7 @@ const ChecklistsPage = () => {
 
     // Modal Visibility States
     const [isNewModalOpen, setIsNewModalOpen] = useState(false);
+    const [isEditChecklistModalOpen, setIsEditChecklistModalOpen] = useState(false);
     const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
     const [isExecuteModalOpen, setIsExecuteModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -61,6 +62,10 @@ const ChecklistsPage = () => {
     const [newChecklistName, setNewChecklistName] = useState("");
     const [newChecklistType, setNewChecklistType] = useState("Daily Checklist");
     const [newChecklistProjectId, setNewChecklistProjectId] = useState("");
+    const [editChecklistName, setEditChecklistName] = useState("");
+    const [editChecklistDescription, setEditChecklistDescription] = useState("");
+    const [editChecklistProjectId, setEditChecklistProjectId] = useState("");
+    const [editChecklistIsActive, setEditChecklistIsActive] = useState(true);
     const [projects, setProjects] = useState<any[]>([]);
     const [newChecklistItems, setNewChecklistItems] = useState<string[]>([]);
     const [tempItemText, setTempItemText] = useState("");
@@ -185,6 +190,64 @@ const ChecklistsPage = () => {
             setNewChecklistItems([]);
         } catch (err) {
             toast.error("Failed to create checklist");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const openEditModal = (cl: any) => {
+        setSelectedChecklist(cl);
+        setEditChecklistName(cl.name);
+        setEditChecklistDescription(cl.description || "");
+        setEditChecklistProjectId(cl.project_id?.toString() || projectId.toString());
+        setEditChecklistIsActive(cl.is_active !== undefined ? cl.is_active : true);
+        setIsEditChecklistModalOpen(true);
+    };
+
+    const handleUpdateChecklist = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedChecklist) return;
+        if (!editChecklistName.trim()) {
+            toast.error("Name is required");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await checklistService.updateChecklist(selectedChecklist.id, {
+                name: editChecklistName,
+                description: editChecklistDescription,
+                project_id: Number(editChecklistProjectId),
+                is_active: editChecklistIsActive
+            });
+
+            // Update in localStorage if exists
+            try {
+                const localSaved = localStorage.getItem("created_checklists");
+                if (localSaved) {
+                    const localChecklists = JSON.parse(localSaved);
+                    const index = localChecklists.findIndex((c: any) => c.id === selectedChecklist.id);
+                    if (index !== -1) {
+                        localChecklists[index] = { 
+                            ...localChecklists[index], 
+                            name: editChecklistName, 
+                            description: editChecklistDescription,
+                            project_id: Number(editChecklistProjectId),
+                            is_active: editChecklistIsActive
+                        };
+                        localStorage.setItem("created_checklists", JSON.stringify(localChecklists));
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to update localStorage", err);
+            }
+
+            toast.success("Checklist updated successfully!");
+            await fetchData();
+            setIsEditChecklistModalOpen(false);
+            setSelectedChecklist(null);
+        } catch (err) {
+            toast.error("Failed to update checklist");
         } finally {
             setIsSubmitting(false);
         }
@@ -620,7 +683,7 @@ const ChecklistsPage = () => {
                                         <th className="px-6 py-4 font-inter">Compliance Profile</th>
                                         <th className="px-6 py-4 font-inter">Intelligence Remarks</th>
                                         <th className="px-6 py-4 text-right font-inter">Audit Sequence</th>
-                                        <th className="px-6 py-4 text-center font-inter">View</th>
+                                        <th className="px-6 py-4 text-center font-inter">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 font-inter">
@@ -658,13 +721,29 @@ const ChecklistsPage = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 text-center font-inter">
-                                                        <button 
-                                                            onClick={() => openViewItemsModal(cl)}
-                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter inline-flex"
-                                                            title="View Items"
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                        </button>
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <button 
+                                                                onClick={() => openViewItemsModal(cl)}
+                                                                className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter inline-flex"
+                                                                title="View Items"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => openEditModal(cl)}
+                                                                className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter inline-flex"
+                                                                title="Edit Checklist"
+                                                            >
+                                                                <Edit3 className="w-4 h-4" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => { setDeleteId(cl.id); setIsDeleteModalOpen(true); }}
+                                                                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter inline-flex"
+                                                                title="Delete Checklist"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -873,6 +952,83 @@ const ChecklistsPage = () => {
                                     <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">No verification points added. Minimum 1 required.</p>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Modal 1.5: Edit Checklist */}
+            <Modal
+                isOpen={isEditChecklistModalOpen}
+                onClose={() => setIsEditChecklistModalOpen(false)}
+                title="Update Technical Protocol"
+                maxWidth="max-w-xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button onClick={() => setIsEditChecklistModalOpen(false)} className="flex-1 py-3 bg-white text-slate-600 border border-slate-200 rounded-xl font-bold hover:bg-slate-50 transition-all font-inter">Cancel</button>
+                        <button
+                            onClick={handleUpdateChecklist}
+                            disabled={isSubmitting}
+                            className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 font-inter"
+                        >
+                            {isSubmitting ? "Syncing..." : "Update Protocol"}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="p-6 space-y-8 font-inter">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm font-inter">
+                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3 flex items-center gap-2 font-inter">
+                            <Edit3 className="w-4 h-4 text-primary" />
+                            Update Intelligence Profile
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-inter">
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Project Context <span className="text-rose-500">*</span></label>
+                                <select
+                                    value={editChecklistProjectId}
+                                    onChange={(e) => setEditChecklistProjectId(e.target.value)}
+                                    className={inputClasses}
+                                >
+                                    <option value="">Select Project</option>
+                                    {projects.map(p => (
+                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                            {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Descriptive Title <span className="text-rose-500">*</span></label>
+                                <input
+                                    type="text"
+                                    value={editChecklistName}
+                                    onChange={(e) => setEditChecklistName(e.target.value)}
+                                    placeholder="e.g. Foundation Pouring Protocol"
+                                    className={inputClasses}
+                                />
+                            </div>
+                            <div className="font-inter md:col-span-2">
+                                <label className={labelClasses}>Description</label>
+                                <textarea
+                                    rows={3}
+                                    value={editChecklistDescription}
+                                    onChange={(e) => setEditChecklistDescription(e.target.value)}
+                                    placeholder="e.g. Verification steps for the foundation..."
+                                    className={inputClasses + " resize-none"}
+                                />
+                            </div>
+                            <div className="font-inter">
+                                <label className={labelClasses}>Status</label>
+                                <select
+                                    value={editChecklistIsActive ? "true" : "false"}
+                                    onChange={(e) => setEditChecklistIsActive(e.target.value === "true")}
+                                    className={inputClasses}
+                                >
+                                    <option value="true">Active</option>
+                                    <option value="false">Inactive</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>

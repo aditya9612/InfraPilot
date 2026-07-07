@@ -344,8 +344,8 @@ export const projectService = {
 
   async getTaskRequests(params?: { project_id?: number; status?: string; priority?: string; skip?: number; limit?: number }) {
     try {
-      // Trying the simple API URL '/task-requests' as requested
-      const response = await api.get('task-requests', { params });
+      // Trying the API URL 'projects/task-requests'
+      const response = await api.get('projects/task-requests', { params });
       const data = response.data;
       return Array.isArray(data) ? data : (data.items || data.data || []);
     } catch (error) {

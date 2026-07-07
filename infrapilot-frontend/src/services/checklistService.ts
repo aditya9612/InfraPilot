@@ -97,6 +97,11 @@ export const checklistService = {
         return response.data;
     },
 
+    updateChecklist: async (id: number, data: any): Promise<ChecklistItem> => {
+        const response = await api.put(`/checklists/${id}`, data);
+        return response.data;
+    },
+
     deleteChecklist: async (id: number): Promise<{ message: string }> => {
         const response = await api.delete(`/checklists/${id}`);
         return response.data;

@@ -5,7 +5,8 @@ import { chatService } from "../../services/chatService";
 import type { ChatMessage, Conversation } from "../../types/chat";
 import {
     Search, Send, Paperclip, MoreVertical, Smile, Pin, Check, X,
-    User, Shield, Info, Archive, BellOff, CheckCheck, Users, Phone
+    User, Shield, Info, Archive, BellOff, CheckCheck, Users, Phone,
+    Plus, Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -118,7 +119,6 @@ const ChatView: React.FC = () => {
         setInputText(val);
 
         // Mention detection
-        const lastChar = val.slice(-1);
         const lastWord = val.split(" ").pop() || "";
 
         if (lastWord.startsWith("@")) {
@@ -392,6 +392,7 @@ const ChatView: React.FC = () => {
                     <button onClick={() => setShowSearch(s => !s)} className={`p-2.5 rounded-xl transition-all ${showSearch ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-50 hover:text-primary"}`}>
                         <Search className="w-4 h-4" />
                     </button>
+
                     <button
                         onClick={loadPinned}
                         className={`p-2.5 rounded-xl transition-all ${showPinned ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-50 hover:text-primary"}`}>
@@ -1002,10 +1003,27 @@ const ChatView: React.FC = () => {
                                 {/* Group members list */}
                                 {selectedProfile.isGroup && (
                                     <div>
-                                        <div className="px-5 py-3 border-b border-slate-50">
+                                        <div className="px-5 py-3 border-b border-slate-50 flex items-center justify-between">
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                                                 <Users className="w-3.5 h-3.5" /> Members
                                             </p>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!activeChatId) return;
+                                                    const id = window.prompt("Enter User ID to add to this group:");
+                                                    if (id) {
+                                                        try {
+                                                            await chatService.addMember(activeChatId, parseInt(id, 10));
+                                                            toast.success("Member added!");
+                                                            document.getElementById('view-info-button')?.click();
+                                                        } catch { toast.error("Failed to add member"); }
+                                                    }
+                                                }}
+                                                className="text-primary hover:bg-primary/10 p-1 rounded-md transition-colors"
+                                                title="Add Member"
+                                            >
+                                                <Plus className="w-3.5 h-3.5" />
+                                            </button>
                                         </div>
 
                                         {isLoadingMembers ? (
@@ -1037,6 +1055,22 @@ const ChatView: React.FC = () => {
                                                                 Admin
                                                             </span>
                                                         )}
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (!activeChatId) return;
+                                                                if (window.confirm("Remove this member?")) {
+                                                                    try {
+                                                                        await chatService.removeMember(activeChatId, member.user_id);
+                                                                        toast.success("Member removed!");
+                                                                        document.getElementById('view-info-button')?.click();
+                                                                    } catch { toast.error("Failed to remove member"); }
+                                                                }
+                                                            }}
+                                                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors ml-1 shrink-0"
+                                                            title="Remove Member"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
                                                     </div>
                                                 ))}
                                             </div>

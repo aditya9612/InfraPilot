@@ -110,7 +110,7 @@ const TaskManagementPage = () => {
 
     const [activeTab, setActiveTab] = useState("All Tasks"); // "All Tasks", "Project Tasks", "Task Requests"
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-    
+
     // Task Requests State
     const [taskRequests, setTaskRequests] = useState<any[]>([]);
     const [isFetchingTaskRequests, setIsFetchingTaskRequests] = useState(false);
@@ -138,7 +138,7 @@ const TaskManagementPage = () => {
     const [generateBoqId, setGenerateBoqId] = useState<number | "">("");
     const [generateMilestoneId, setGenerateMilestoneId] = useState<number | "">("");
     const [isGeneratingBoq, setIsGeneratingBoq] = useState(false);
-    
+
     const [availableBoqs, setAvailableBoqs] = useState<any[]>([]);
     const [isFetchingBoqs, setIsFetchingBoqs] = useState(false);
 
@@ -416,7 +416,7 @@ const TaskManagementPage = () => {
         if (activeTab === "Task Requests") {
             setIsFetchingTaskRequests(true);
             const params: any = { limit: 100, skip: 0 };
-            
+
             if (taskReqProjectFilter !== "All") {
                 params.project_id = taskReqProjectFilter;
             }
@@ -1062,7 +1062,7 @@ const TaskManagementPage = () => {
 
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-black text-slate-800 mb-1">Filter</span>
-                                        <select 
+                                        <select
                                             value={taskTypeFilter}
                                             onChange={(e) => setTaskTypeFilter(e.target.value)}
                                             className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
@@ -1298,10 +1298,10 @@ const TaskManagementPage = () => {
                                                         </td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
                                                             {(task as any).instruction_image_url ? (
-                                                                <img 
-                                                                    src={String((task as any).instruction_image_url) || ''} 
-                                                                    alt="Instruction" 
-                                                                    className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity" 
+                                                                <img
+                                                                    src={String((task as any).instruction_image_url) || ''}
+                                                                    alt="Instruction"
+                                                                    className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
                                                                     onClick={() => setSelectedImage(String((task as any).instruction_image_url) || '')}
                                                                 />
                                                             ) : 'null'}
@@ -1739,7 +1739,7 @@ const TaskManagementPage = () => {
                                             {taskRequests.map((req, idx) => {
                                                 const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
                                                 const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
-                                                
+
                                                 return (
                                                     <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
                                                         <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
@@ -2018,7 +2018,7 @@ const TaskManagementPage = () => {
                                                 {(selectedTask as any).instruction_image_url && (
                                                     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                                         <p className="text-xs font-bold text-slate-400 mb-3">Instruction Image</p>
-                                                        <div 
+                                                        <div
                                                             className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video max-w-sm cursor-pointer hover:opacity-90 transition-opacity"
                                                             onClick={() => setSelectedImage(getFullUrl(String((selectedTask as any).instruction_image_url)) || '')}
                                                         >
