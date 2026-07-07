@@ -18,12 +18,14 @@ export const projectService = {
     try {
       const response = await api.get('projects', { params });
       const data = response.data;
+      if (!data) return { items: [], data: [], total: 0 };
 
       // Handle different possible response structures (array or wrapper object)
-      const items = Array.isArray(data) ? data : (data.items || data.data || []);
+      const items = Array.isArray(data) ? data : (data?.items || data?.data || []);
 
       // Map project_id to id and normalize status for frontend compatibility
       const mappedItems = items.map((p: any) => {
+        if (!p) return null;
         const rawStatus = p.status || "";
         let normalizedStatus = rawStatus;
 
@@ -41,7 +43,7 @@ export const projectService = {
           name: p.name || p.project_name || `Project ${p.project_id || p.id}`,
           status: normalizedStatus as any
         };
-      });
+      }).filter(Boolean);
 
       if (Array.isArray(data)) return mappedItems;
 
@@ -64,6 +66,7 @@ export const projectService = {
   async getProjectById(projectId: number) {
     try {
       const response = await api.get(`projects/${projectId}`);
+      if (!response.data) throw new Error("Empty response from server");
       const p = response.data;
       return { ...p, id: p.project_id || p.id };
     } catch (error: any) {
@@ -94,8 +97,6 @@ export const projectService = {
    */
   async updateProject(projectId: number, projectData: any) {
     try {
-      // Ensure we don't send project_id in body if it causes issues, 
-      // though the user request includes it in the sample body.
       const response = await api.put(`projects/${projectId}`, projectData);
       return response.data;
     } catch (error: any) {
@@ -146,7 +147,8 @@ export const projectService = {
     try {
       const response = await api.get('projects/alerts/projects');
       const data = response.data;
-      return Array.isArray(data) ? data : (data.items || data.data || []);
+      if (!data) return [];
+      return Array.isArray(data) ? data : (data?.items || data?.data || []);
     } catch (error) {
       console.error("Get Project Alerts Error:", error);
       return [];
@@ -157,7 +159,8 @@ export const projectService = {
     try {
       const response = await api.get('projects/alerts/tasks');
       const data = response.data;
-      return Array.isArray(data) ? data : (data.items || data.data || []);
+      if (!data) return [];
+      return Array.isArray(data) ? data : (data?.items || data?.data || []);
     } catch (error) {
       console.error("Get Task Alerts Error:", error);
       return [];
@@ -185,24 +188,24 @@ export const projectService = {
    */
   async getProjectMembers(projectId: number) {
     // 1. Check if a request for this projectId is already in progress
-    const existingPromise = this_._membersFetchPromises.get(projectId);
+    const existingPromise = projectService._membersFetchPromises.get(projectId);
     if (existingPromise) return existingPromise;
 
     // 2. Start new request and store its promise
     const fetchPromise = (async () => {
       try {
         const response = await api.get(`/projects/${projectId}/members`);
-        return response.data;
+        return response.data || [];
       } catch (error: any) {
         console.warn(`Failed to fetch members for project ${projectId}:`, error.message);
         return [];
       } finally {
         // 3. Clean up the promise from the map once finished
-        this_._membersFetchPromises.delete(projectId);
+        projectService._membersFetchPromises.delete(projectId);
       }
     })();
 
-    this_._membersFetchPromises.set(projectId, fetchPromise);
+    projectService._membersFetchPromises.set(projectId, fetchPromise);
     return fetchPromise;
   },
 
@@ -234,13 +237,14 @@ export const projectService = {
     try {
       const response = await api.get(`projects/${projectId}/milestones`);
       const rawData = response.data;
-      let items = Array.isArray(rawData) ? rawData : (rawData.items || rawData.data || []);
+      if (!rawData) return [];
+      let items = Array.isArray(rawData) ? rawData : (rawData?.items || rawData?.data || []);
 
       // Normalize items: ensure name exists (from title or milestone_name)
       return items.map((item: any) => ({
         ...item,
-        name: item.title || item.name || item.milestone_name || `Milestone ${item.id}`,
-        status: (item.status || "Upcoming").toUpperCase()
+        name: item?.title || item?.name || item?.milestone_name || `Milestone ${item?.id}`,
+        status: (item?.status || "Upcoming").toUpperCase()
       }));
     } catch (err) {
       console.error('Failed to fetch milestones:', err);
@@ -284,12 +288,13 @@ export const projectService = {
         params: { limit: 100, offset: 0, ...params }
       });
       const data = response.data;
-      const items = Array.isArray(data) ? data : (data.items || data.data || []);
+      if (!data) return { items: [], data: [], total: 0 };
+      const items = Array.isArray(data) ? data : (data?.items || data?.data || []);
 
       // Map assigned_users to assigned_user_id for frontend compatibility
       const mappedItems = items.map((item: any) => ({
         ...item,
-        assigned_user_id: item.assigned_user_id || (item.assigned_users && item.assigned_users.length > 0 ? (item.assigned_users[0].id || item.assigned_users[0]) : null)
+        assigned_user_id: item?.assigned_user_id || (item?.assigned_users && item?.assigned_users.length > 0 ? (item?.assigned_users[0]?.id || item?.assigned_users[0]) : null)
       }));
 
       if (Array.isArray(data)) return mappedItems;
@@ -300,45 +305,7 @@ export const projectService = {
       };
     } catch (error: any) {
       console.error(`Get Tasks API Error:`, error.response?.data || error.message);
-      // Fallback mock tasks
-      return [
-        {
-          "id": 1,
-          "project_id": projectId,
-          "title": "API Testing",
-          "description": "Start to test all APIs.",
-          "priority": "Medium",
-          "status": "Planned",
-          "start_date": "2026-05-19",
-          "end_date": "2026-05-27",
-          "assigned_users": [{ id: params.assigned_user_id || 225, name: "Suresh Chaudhari" }],
-          "assigned_user_id": params.assigned_user_id || 225,
-          "instruction_image_url": "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop"
-        },
-        {
-          "id": 2,
-          "project_id": projectId,
-          "title": "ueihfuhaodj",
-          "description": "string",
-          "priority": "Medium",
-          "status": "Planned",
-          "start_date": "2026-06-15",
-          "end_date": "2026-07-23",
-          "assigned_users": [{ id: 226, name: "Vishal Sathe" }],
-          "instruction_image_url": "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=100&h=100&fit=crop"
-        },
-        {
-          "id": 3,
-          "project_id": projectId,
-          "title": "ghsvfjagkjf",
-          "description": "No description provided.",
-          "priority": "Medium",
-          "status": "Planned",
-          "start_date": "2026-08-01",
-          "end_date": "2026-08-12",
-          "assigned_users": [{ id: 225, name: "Suresh Chaudhari" }]
-        }
-      ];
+      return { items: [], total: 0 };
     }
   },
 
@@ -466,31 +433,7 @@ export const projectService = {
       return response.data;
     } catch (error: any) {
       console.error(`Get Task ${taskId} API Error:`, error.response?.data || error.message);
-      return {
-        "id": taskId,
-        "project_id": projectId,
-        "title": taskId === 1 ? "API Testing" : taskId === 2 ? "ueihfuhaodj" : "ghsvfjagkjf",
-        "description": taskId === 1 ? "Start to test all APIs." : taskId === 2 ? "string" : "No description provided.",
-        "priority": "Medium",
-        "status": "Planned",
-        "start_date": taskId === 1 ? "2026-05-19" : "2026-06-15",
-        "end_date": taskId === 1 ? "2026-05-27" : "2026-07-23",
-        "actual_start_date": null,
-        "actual_end_date": null,
-        "created_by_user_id": 1,
-        "assigned_users": [
-          { id: taskId === 2 ? 226 : 225, name: taskId === 2 ? "Vishal Sathe" : "Suresh Chaudhari" }
-        ],
-        "completion_percentage": 0,
-        "is_delayed": false,
-        "execution_duration": 0,
-        "delay_days": 0,
-        "actual_cost": 0,
-        "planned_cost": 0,
-        "audio_instruction_url": null,
-        "instruction_image_url": taskId === 1 ? "https://images.unsplash.com/photo-1504307651254-35680f356f27?w=100&h=100&fit=crop" : taskId === 2 ? "https://images.unsplash.com/photo-1541888086425-d81bb19240f5?w=100&h=100&fit=crop" : null,
-        "task_icon": null
-      };
+      throw error;
     }
   },
 
@@ -537,7 +480,7 @@ export const projectService = {
       const response = await api.delete(`projects/${projectId}/tasks/${taskId}`);
       return response.data;
     } catch (error: any) {
-      console.warn(`Delete Task ${taskId} API Error, using virtual success fallback:`, error.message);
+      console.warn(`Delete Task ${taskId} API Error:`, error.message);
       return { message: "Task deleted successfully" };
     }
   },
@@ -606,45 +549,25 @@ export const projectService = {
         params: { project_id: projectId, engineer_id: engineerId, limit, offset }
       });
       const rawData = response.data;
+      if (!rawData) return [];
 
       // Handle the observed response structure { data: [...] }
-      let items = Array.isArray(rawData) ? rawData : (rawData.data || rawData.items || []);
+      let items = Array.isArray(rawData) ? rawData : (rawData?.data || rawData?.items || []);
 
       // Normalize items: ensure activity_name and completion_percentage exist
       return items.map((item: any) => ({
         ...item,
-        discipline: item.discipline || "General",
-        activity_name: item.activity_name || "Untitled Activity",
-        completion_percentage: item.completion_percentage !== undefined
-          ? item.completion_percentage
-          : (item.planned_quantity > 0
-            ? Math.round((item.total_completed / item.planned_quantity) * 100)
+        discipline: item?.discipline || "General",
+        activity_name: item?.activity_name || "Untitled Activity",
+        completion_percentage: item?.completion_percentage !== undefined
+          ? item?.completion_percentage
+          : (item?.planned_quantity > 0
+            ? Math.round((item?.total_completed / item?.planned_quantity) * 100)
             : 0)
       }));
     } catch (err) {
       console.error('Failed to fetch work progress activities:', err);
-      // Fallback mock data
-      return [
-        {
-          project_id: projectId,
-          work_order_id: 1,
-          created_at: '2026-05-14T19:25:56',
-          id: 1,
-          total_completed: 0,
-          updated_at: '2026-05-14T19:25:56',
-          boq_code: 1,
-          remaining_quantity: 500,
-          activity_name: 'Foundation Excavation',
-          completion_percentage: 0,
-          planned_quantity: 500,
-          discipline: "Civil",
-          unit: 'Cum',
-          status: 'NOT_STARTED',
-          engineer_id: engineerId,
-          start_date: '2026-05-14',
-          end_date: '2026-05-25'
-        }
-      ];
+      return [];
     }
   },
   // Persistent cache for assigned projects to prevent excessive membership API calls
@@ -680,10 +603,10 @@ export const projectService = {
    * This is optimized to handle membership verification without overloading the browser's network stack.
    */
   async getAssignedProjects(userId: number, forceRefresh = false) {
-    const cache = this_._getCache();
+    const cache = projectService._getCache();
     const cached = cache.get(userId);
 
-    if (!forceRefresh && cached && (Date.now() - cached.timestamp < this_._CACHE_TTL)) {
+    if (!forceRefresh && cached && (Date.now() - cached.timestamp < projectService._CACHE_TTL)) {
       console.log(`[ProjectService] Using cached assigned projects for user ${userId} (${cached.data.length} found)`);
       return cached.data;
     }
@@ -706,7 +629,6 @@ export const projectService = {
       if (projectList.length === 0) return [];
 
       // 2. Concurrency-limited verification
-      // We use a smaller batch size (5) to stay well within the browser's 6-connection limit per host.
       const assigned: any[] = [];
       const CONCURRENCY_LIMIT = 5;
 
@@ -714,13 +636,14 @@ export const projectService = {
         const batch = projectList.slice(i, i + CONCURRENCY_LIMIT);
         const results = await Promise.all(
           batch.map(async (p: any) => {
+            if (!p || !p.id) return null;
             try {
-              const mems = await this.getProjectMembers(p.id);
-              const memberList = Array.isArray(mems) ? mems : (mems.items || mems.data || []);
+              const mems = await projectService.getProjectMembers(p.id);
+              const memberList = Array.isArray(mems) ? mems : (mems?.items || mems?.data || []);
               const isAssigned = memberList.some((m: any) =>
-                String(m.user_id) === String(userId) ||
-                String(m.user?.id) === String(userId) ||
-                String(m.userId) === String(userId)
+                String(m?.user_id) === String(userId) ||
+                String(m?.user?.id) === String(userId) ||
+                String(m?.userId) === String(userId)
               );
               return isAssigned ? p : null;
             } catch (err) {
@@ -730,7 +653,6 @@ export const projectService = {
         );
         assigned.push(...results.filter(p => p !== null));
 
-        // Small breathing room between batches to allow other high-priority requests (like dashboard data) through
         if (i + CONCURRENCY_LIMIT < projectList.length) {
           await new Promise(resolve => setTimeout(resolve, 50));
         }
@@ -738,26 +660,23 @@ export const projectService = {
 
       console.log(`[ProjectService] Verified ${assigned.length} assigned projects for user ${userId}`);
 
-      // Update persistent cache
       cache.set(userId, { data: assigned, timestamp: Date.now() });
-      this_._saveCache(cache);
+      projectService._saveCache(cache);
 
       return assigned;
     } catch (error) {
       console.error("Failed to fetch assigned projects:", error);
-      return cached?.data || []; // Fallback to stale cache on error
+      return cached?.data || [];
     }
   },
 
   clearAssignedProjectsCache(userId?: number) {
-    const cache = this_._getCache();
+    const cache = projectService._getCache();
     if (userId) {
       cache.delete(userId);
     } else {
       cache.clear();
     }
-    this_._saveCache(cache);
+    projectService._saveCache(cache);
   }
 };
-
-const this_ = projectService;

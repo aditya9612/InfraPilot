@@ -287,7 +287,7 @@ const ClientDSRSummaryPage = () => {
                         <div className="flex items-center gap-1.5 text-slate-400">
                           <MapPin className="w-3 h-3" />
                           <p className="text-[10px] font-bold uppercase tracking-tight truncate max-w-xs">
-                            {report.contractor_name ? `${report.contractor_name} · ` : ""}{report.site_location || report.site_address || report.project_location || "Pune Site"}
+                            {report.contractor_name ? `${report.contractor_name} · ` : ""}{report.site_location || ""}
                           </p>
                         </div>
                       </div>
@@ -404,233 +404,234 @@ const ClientDSRSummaryPage = () => {
         </div>
       </div>
 
-      {/* View Intelligence Intelligence Insights Modal */}
+      {/* View Intelligence Insights Modal - DSR Intelligence Insight */}
       {selectedReportForView && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-[#1e293b]/70 backdrop-blur-md p-4 animate-in fade-in transition-all"
           onClick={() => setSelectedReportForView(null)}
         >
-          <div 
-            className="bg-white max-w-2xl w-full rounded-[2.5rem] shadow-2xl p-0 overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col max-h-[92vh] font-inter"
+          <div
+            className="bg-white max-w-lg w-full rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] font-inter"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="px-10 py-8 flex items-center justify-between border-b border-slate-50 shrink-0 font-inter">
-               <h3 className="text-xl font-black text-slate-700 tracking-tight font-inter">DSR Intelligence Insight</h3>
-               <button 
+            <div className="px-6 py-5 flex items-center justify-between border-b border-slate-100 shrink-0">
+              <h3 className="text-base font-black text-slate-800 tracking-tight">DSR Intelligence Insight</h3>
+              <button
                 onClick={() => setSelectedReportForView(null)}
-                className="text-slate-300 hover:text-slate-600 transition-colors font-inter"
-               >
-                 <X className="w-6 h-6" />
-               </button>
+                className="text-slate-300 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto p-10 font-inter space-y-12 pb-16 custom-scrollbar">
-               
-               {/* Hero Summary Card */}
-               <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-[2rem] p-10 text-white relative overflow-hidden shadow-2xl shadow-blue-500/20 font-inter">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl font-inter" />
-                  
-                  <div className="flex items-start gap-8 relative z-10 font-inter">
-                     <div className="w-24 h-24 rounded-[1.5rem] bg-slate-900 border-4 border-white/20 overflow-hidden shrink-0 relative group font-inter">
-                        <img 
-                            src={selectedReportForView.gallery?.[0]?.url || ""} 
-                            className="w-full h-full object-cover font-inter" 
-                            alt="Logo" 
-                        />
-                        <div className="absolute bottom-2 right-2 w-4 h-4 bg-orange-500 rounded-full border-2 border-slate-900 shadow-sm font-inter" />
-                     </div>
-                     
-                     <div className="flex-1 font-inter">
-                        <div className="flex items-center gap-4 mb-4 font-inter">
-                            <h2 className="text-3xl font-black tracking-tight font-inter">{selectedReportForView.business_id || `DSR0${selectedReportForView.id}`}</h2>
-                            <span className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/20 font-inter">
-                                {selectedReportForView.status || 'SUBMITTED'}
-                            </span>
-                        </div>
-                        
-                        <div className="space-y-3 font-inter">
-                           <div className="flex items-center gap-2 text-white/70 font-inter">
-                              <Calendar className="w-4 h-4 font-inter" />
-                              <p className="text-sm font-bold font-inter">{selectedReportForView.formattedDate}</p>
-                           </div>
-                           <div className="flex items-start gap-2 text-white/70 font-inter">
-                              <MapPin className="w-4 h-4 mt-0.5 shrink-0 font-inter" />
-                              <p className="text-xs font-bold leading-relaxed font-inter">
-                                {selectedReportForView.contractor_name ? `${selectedReportForView.contractor_name} · ` : ""}
-                                {selectedReportForView.site_location || selectedReportForView.site_address || selectedReportForView.project_location || "Pune Site"}
-                              </p>
-                           </div>
-                        </div>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <div className="p-6 space-y-6">
 
-                        <div className="mt-8 font-inter">
-                           <span className="px-6 py-2.5 bg-white/10 backdrop-blur-md rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-white/20 shadow-lg font-inter">
-                              WEATHER: {selectedReportForView.weather?.toUpperCase() || 'SUNNY'}
-                           </span>
-                        </div>
-                     </div>
+                {/* Blue Hero Card */}
+                <div className="bg-blue-600 rounded-2xl p-5 text-white relative overflow-hidden">
+                  <div className="flex items-start gap-4">
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
+                      <div className="w-16 h-16 rounded-xl bg-blue-500/50 flex items-center justify-center text-2xl font-black text-white overflow-hidden">
+                        {selectedReportForView.gallery?.[0]?.url
+                          ? <img src={selectedReportForView.gallery[0].url} className="w-full h-full object-cover" alt="" />
+                          : (selectedReportForView.business_id?.[0] || "D").toUpperCase()
+                        }
+                      </div>
+                      <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-orange-400 border-2 border-blue-600" />
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h2 className="text-lg font-black leading-tight">
+                          {selectedReportForView.business_id || `DSR0${selectedReportForView.id}`}
+                        </h2>
+                        <span className="px-2 py-0.5 bg-white/20 rounded-md text-[9px] font-black uppercase tracking-widest">
+                          {selectedReportForView.status?.toUpperCase() || "SUBMITTED"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-blue-200 text-xs font-bold mb-3">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {selectedReportForView.report_date || selectedReportForView.formattedDate || "N/A"}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {selectedReportForView.site_location || ""}
+                        </span>
+                      </div>
+                      <span className="inline-block px-4 py-1.5 bg-white/20 border border-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                        WEATHER: {selectedReportForView.weather?.toUpperCase() || "SUNNY"}
+                      </span>
+                    </div>
                   </div>
-               </div>
+                </div>
 
-               {/* Site Documentation Section */}
-               <div className="space-y-6 font-inter">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">SITE DOCUMENTATION ({selectedReportForView.gallery?.length || 0})</h4>
-                  <div className="rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm bg-slate-50 group font-inter">
+                {/* Site Documentation - kept as-is */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                    SITE DOCUMENTATION ({selectedReportForView.gallery?.length || 0})
+                  </h4>
+                  <div className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 group">
                     {selectedReportForView.gallery?.[0] ? (
-                        <div className="aspect-[4/2.5] relative font-inter">
-                            <img src={selectedReportForView.gallery[0].url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 font-inter" alt="Primary Site View font-inter" />
-                            <div className="absolute inset-0 bg-slate-900/10 font-inter" />
-                        </div>
+                      <div className="aspect-[4/2.5] relative">
+                        <img src={selectedReportForView.gallery[0].url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="Primary Site View" />
+                        <div className="absolute inset-0 bg-slate-900/10" />
+                      </div>
                     ) : (
-                        <div className="aspect-[4/2] flex flex-col items-center justify-center text-slate-300 gap-4 font-inter">
-                           <ImageIcon className="w-12 h-12 stroke-[1.5] font-inter" />
-                           <p className="text-xs font-black uppercase tracking-widest font-inter">No primary imagery available</p>
-                        </div>
+                      <div className="aspect-[4/2] flex flex-col items-center justify-center text-slate-300 gap-4">
+                        <ImageIcon className="w-10 h-10 stroke-[1.5]" />
+                        <p className="text-xs font-black uppercase tracking-widest">No primary imagery available</p>
+                      </div>
                     )}
                   </div>
-               </div>
+                </div>
 
-               {/* Operational Intelligence Section */}
-               <div className="space-y-8 font-inter font-inter">
-                  <div className="flex items-center gap-3 font-inter">
-                     <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 shadow-sm font-inter">
-                        <RefreshCw className="w-4 h-4 font-inter" />
-                     </div>
-                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] font-inter">OPERATIONAL INTELLIGENCE</h4>
+                {/* Operational Intelligence */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Operational Intelligence</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-x-12 gap-y-10 px-2 font-inter">
-                     <div className="font-inter">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter font-inter">WEATHER CONDITION</p>
-                        <p className="text-sm font-black text-slate-800 tracking-tight font-inter">{selectedReportForView.weather || 'Sunny'}</p>
-                     </div>
-                     <div className="font-inter font-inter">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">TOTAL PERSONNEL</p>
-                        <p className="text-sm font-black text-slate-800 tracking-tight font-inter">{selectedReportForView.total_labour || 0} Units</p>
-                        <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tight font-inter">{selectedReportForView.skilled_labour || 0} Skilled • {selectedReportForView.unskilled_labour || 0} Unskilled</p>
-                     </div>
-                     <div className="font-inter font-inter">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 font-inter">REGISTRY ID</p>
-                        <p className="text-sm font-black text-slate-800 tracking-tight font-inter">{selectedReportForView.business_id || `DSR0${selectedReportForView.id}`}</p>
-                     </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Weather Condition</p>
+                      <p className="text-sm font-black text-slate-800">{selectedReportForView.weather || "Sunny"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Contractor</p>
+                      <p className="text-sm font-black text-blue-600">{selectedReportForView.contractor_name || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Created By</p>
+                      <p className="text-sm font-black text-slate-800">{selectedReportForView.created_by || selectedReportForView.engineer_name || "—"}</p>
+                    </div>
                   </div>
-               </div>
 
-                {/* Work Narrative & Future Planning Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-10 font-inter">
-                   <div className="space-y-6">
-                      <div className="flex items-center gap-3">
-                         <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-500 shadow-sm">
-                            <FileText className="w-4 h-4" />
-                         </div>
-                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">WORK COMPLETED</h4>
-                      </div>
-                      <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-6 h-full">
-                         <p className="text-sm text-slate-600 font-bold italic leading-relaxed">
-                            "{selectedReportForView.work_done || "No work activity recorded for this shift."}"
-                         </p>
-                      </div>
-                   </div>
-
-                   <div className="space-y-6">
-                      <div className="flex items-center gap-3">
-                         <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 shadow-sm">
-                            <Calendar className="w-4 h-4" />
-                         </div>
-                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">FUTURE PLANNING</h4>
-                      </div>
-                      <div className="bg-amber-50/20 border border-amber-100/50 rounded-2xl p-6 h-full">
-                         <p className="text-sm text-amber-900/70 font-bold italic leading-relaxed">
-                            {selectedReportForView.work_planned || "No future activities documented yet."}
-                         </p>
-                      </div>
-                   </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Personnel</p>
+                    <p className="text-2xl font-black text-slate-800">{selectedReportForView.total_labour || 0}</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                      {selectedReportForView.skilled_labour || 0} Skilled • {selectedReportForView.unskilled_labour || 0} Unskilled
+                    </p>
+                  </div>
                 </div>
 
-                {/* Resource Logistics Section */}
-                <div className="space-y-8 font-inter">
-                   <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 shadow-sm">
-                         <Package className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">RESOURCE LOGISTICS</h4>
-                   </div>
+                {/* Work Narrative */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Narrative</p>
+                  </div>
 
-                   <div className="grid grid-cols-2 md:grid-cols-3 gap-10 px-2">
-                      <div>
-                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MATERIAL RECEIVED</p>
-                         <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed">{selectedReportForView.material_received || "None reported"}</p>
-                      </div>
-                      <div>
-                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MATERIAL CONSUMED</p>
-                         <p className="text-sm font-black text-emerald-600 tracking-tight leading-relaxed">{selectedReportForView.material_used || "None reported"}</p>
-                      </div>
-                      <div>
-                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MACHINERY LOG</p>
-                         <p className="text-sm font-black text-slate-800 tracking-tight leading-relaxed">{selectedReportForView.machinery_used || "Standard maintenance"}</p>
-                      </div>
-                   </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Work Completed Today</p>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
+                      <p className="text-sm text-slate-700 font-medium italic">
+                        "{selectedReportForView.work_done || "No work activity recorded."}"
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Work Planned</p>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3">
+                      <p className="text-sm text-slate-700 font-medium italic">
+                        "{selectedReportForView.work_planned || "No future plan documented."}"
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Safety & Compliance Section */}
-                {(selectedReportForView.safety_observations || selectedReportForView.remarks) && (
-                   <div className="space-y-8 font-inter">
-                      <div className="flex items-center gap-3">
-                         <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-100 shadow-sm">
-                            <Search className="w-3.5 h-3.5" />
-                         </div>
-                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">SITE REMARKS & SAFETY</h4>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 px-2">
-                         {selectedReportForView.safety_observations && (
-                            <div>
-                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">SAFETY OBSERVATIONS</p>
-                               <p className="text-xs font-bold text-slate-600 leading-relaxed font-inter">{selectedReportForView.safety_observations}</p>
-                            </div>
-                         )}
-                         {selectedReportForView.remarks && (
-                            <div>
-                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">MANAGER REMARKS</p>
-                               <p className="text-xs font-bold text-slate-600 leading-relaxed font-inter italic">"{selectedReportForView.remarks}"</p>
-                            </div>
-                         )}
-                      </div>
-                   </div>
-                )}
+                {/* Resource Logistics */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Resource Logistics</p>
+                  </div>
 
-                {/* Constraints & Observations Section */}
-                <div className="space-y-8 font-inter">
-                   <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500 shadow-sm">
-                         <AlertCircle className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em]">CONSTRAINTS & OBSERVATIONS</h4>
-                   </div>
-                   
-                   <div className="px-2">
-                      <div className="bg-rose-50/30 border border-rose-100/50 rounded-2xl p-6">
-                         <p className="text-sm text-rose-600 font-bold leading-relaxed">
-                            {selectedReportForView.issues || selectedReportForView.constraints || "No critical constraints documented."}
-                         </p>
-                      </div>
-                   </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Material Received</p>
+                      <p className="text-sm font-black text-slate-800">{selectedReportForView.material_received || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Material Used</p>
+                      <p className="text-sm font-black text-slate-800">{selectedReportForView.material_used || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Machinery Used</p>
+                      <p className="text-sm font-black text-slate-800">{selectedReportForView.machinery_used || "—"}</p>
+                    </div>
+                  </div>
                 </div>
 
-               {/* Dismiss Button */}
-               <div className="pt-10 font-inter">
-                  <button 
-                    onClick={() => setSelectedReportForView(null)}
-                    className="w-full py-5 bg-blue-600 text-white rounded-2xl text-sm font-black tracking-widest shadow-2xl shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-[0.98] font-inter font-inter"
-                  >
-                    Dismiss Report
-                  </button>
-               </div>
+                {/* Constraints & Observations */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center">
+                      <AlertCircle className="w-4 h-4 text-rose-500" />
+                    </div>
+                    <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Constraints & Observations</p>
+                  </div>
 
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Issues</p>
+                    <div className="bg-rose-50 border border-rose-100 rounded-xl px-4 py-3">
+                      <p className="text-sm text-rose-500 font-medium">
+                        {selectedReportForView.issues || selectedReportForView.constraints || "no issue found"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedReportForView.safety_observations && (
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Safety Observations</p>
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                        <p className="text-sm text-amber-600 font-medium">{selectedReportForView.safety_observations}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Remarks</p>
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                      <p className="text-sm text-blue-600 font-medium">
+                        {selectedReportForView.remarks || "NO remark found"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dismiss Button */}
+                <button
+                  onClick={() => setSelectedReportForView(null)}
+                  className="w-full py-4 bg-blue-600 text-white text-sm font-black tracking-widest rounded-2xl hover:bg-blue-700 transition-all active:scale-[0.98] shadow-lg shadow-blue-500/20"
+                >
+                  Dismiss Report
+                </button>
+
+              </div>
             </div>
           </div>
         </div>
       )}
+
 
       {/* Lightbox Modal */}
       {selectedPhoto && (

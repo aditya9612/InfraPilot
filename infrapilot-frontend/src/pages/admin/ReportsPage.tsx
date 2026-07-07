@@ -8,6 +8,16 @@ import { documentService } from "../../services/documentService";
 import ReportPreviewModal from "../../components/dashboard/ReportPreviewModal";
 import ShareReportModal from "../../components/dashboard/ShareReportModal";
 import ReportDateModal from "../../components/dashboard/ReportDateModal";
+import ReportPeriodModal from "../../components/dashboard/ReportPeriodModal";
+import type { ReportPeriodSelection } from "../../components/dashboard/ReportPeriodModal";
+import IssueFilterModal from "../../components/dashboard/IssueFilterModal";
+import type { IssueFilterSelection } from "../../components/dashboard/IssueFilterModal";
+import AssetFilterModal from "../../components/dashboard/AssetFilterModal";
+import type { AssetFilterSelection } from "../../components/dashboard/AssetFilterModal";
+import QuarterlyAuditModal from "../../components/dashboard/QuarterlyAuditModal";
+import type { QuarterlyAuditSelection } from "../../components/dashboard/QuarterlyAuditModal";
+import LabourFilterModal from "../../components/dashboard/LabourFilterModal";
+import type { LabourFilterSelection } from "../../components/dashboard/LabourFilterModal";
 import toast from "react-hot-toast";
 import {
   FileText,
@@ -39,10 +49,10 @@ interface ReportType {
 }
 
 const REPORT_TYPES: ReportType[] = [
-  { id: "daily", name: "Daily Progress Report", category: "Operations", description: "Comprehensive summary of daily site activities, issues, and planned work.", icon: <FileText size={18} />, exportType: "PDF", requiresDate: true },
-  { id: "weekly", name: "Weekly Progress Summary", category: "Operations", description: "Aggregated progress percentage and task completion metrics for the week.", icon: <BarChart3 size={18} />, exportType: "Both" },
-  { id: "work-summary", name: "Work Category Summary", category: "Operations", description: "Efficiency analysis and status breakdown by work category.", icon: <TrendingUp size={18} />, exportType: "Both" },
-  { id: "issues", name: "Site Issues Report", category: "Operations", description: "Critical analysis of open vs closed site issues and bottlenecks.", icon: <AlertCircle size={18} />, exportType: "Both" },
+  { id: "daily", name: "Daily Progress Report", category: "Operations", description: "Comprehensive summary of daily site activities, issues, and planned work.", icon: <FileText size={18} />, exportType: "Both", requiresDate: true },
+  { id: "weekly", name: "Project Report", category: "Operations", description: "Weekly, monthly, or quarterly project progress and performance report.", icon: <BarChart3 size={18} />, exportType: "Both" },
+  { id: "work-summary", name: "Work Progress Summary", category: "Operations", description: "Efficiency analysis and status breakdown by work category.", icon: <TrendingUp size={18} />, exportType: "Both" },
+  { id: "issues", name: "Issue Analysis", category: "Operations", description: "Analysis of open site issues, delay causes, and resolution trends.", icon: <AlertCircle size={18} />, exportType: "Both" },
 
   { id: "labour", name: "Labour Distribution", category: "Resources", description: "Statistical breakdown of skilled and unskilled manpower allocation.", icon: <PieChart size={18} />, exportType: "Both" },
   { id: "material", name: "Material Consumption", category: "Resources", description: "Tracking purchased vs used materials and remaining stock levels.", icon: <Building2 size={18} />, exportType: "Both" },
@@ -102,6 +112,33 @@ const ReportsPage = () => {
     isRange: boolean;
     action?: "export" | "view";
   } | null>(null);
+
+  // Period selection modal (weekly/monthly/quarterly)
+  const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
+  const [periodModalConfig, setPeriodModalConfig] = useState<{ format: "PDF" | "Excel" } | null>(null);
+
+  // Profit & Loss period modal
+  const [isPLPeriodModalOpen, setIsPLPeriodModalOpen] = useState(false);
+  const [plPeriodFormat, setPlPeriodFormat] = useState<"PDF" | "Excel">("PDF");
+
+  // Combined export period modal
+  const [isCombinedPeriodModalOpen, setIsCombinedPeriodModalOpen] = useState(false);
+  const [combinedExportFormat, setCombinedExportFormat] = useState<"PDF" | "Excel">("PDF");
+
+  // Issue filter modal
+  const [isIssueFilterOpen, setIsIssueFilterOpen] = useState(false);
+  const [issueFilterFormat, setIssueFilterFormat] = useState<"PDF" | "Excel">("PDF");
+
+  // Asset filter modal
+  const [isAssetFilterOpen, setIsAssetFilterOpen] = useState(false);
+  const [assetFilterFormat, setAssetFilterFormat] = useState<"PDF" | "Excel">("PDF");
+
+  // Quarterly audit modal (for View Summary)
+  const [isQuarterlyModalOpen, setIsQuarterlyModalOpen] = useState(false);
+
+  // Labour filter modal
+  const [isLabourFilterOpen, setIsLabourFilterOpen] = useState(false);
+  const [labourFilterFormat, setLabourFilterFormat] = useState<"PDF" | "Excel">("PDF");
 
   const [stats, setStats] = useState({
     totalExpense: 0,
@@ -248,73 +285,71 @@ const ReportsPage = () => {
 
       switch (reportId) {
         case "daily":
-          blob = await reportService.exportDailyPDF(pid, effectiveEnd);
+          blob = format === "PDF"
+            ? await reportService.exportDailyPDF(pid, effectiveEnd)
+            : await reportService.exportProjectReportExcel({ project_id: pid, type: "daily", report_date: effectiveEnd });
           break;
         case "weekly": {
-          if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
-          } else {
-            const data = await reportService.getWeeklyProgress(pid);
-            generateCSV(data, "weekly_progress");
-            return;
-          }
-          break;
+          // Open period selection modal first
+          toast.dismiss(toastId);
+          setPeriodModalConfig({ format });
+          setIsPeriodModalOpen(true);
+          return;
         }
         case "labour":
-          blob = format === "PDF"
-            ? await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd)
-            : await reportService.exportLabourExcel(pid);
+          // Open filter modal before export
+          toast.dismiss(toastId);
+          setLabourFilterFormat(format);
+          setIsLabourFilterOpen(true);
+          return;
           break;
         case "material":
           blob = format === "PDF"
-            ? await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd)
+            ? await reportService.exportMaterialPDF(pid)
             : await reportService.exportMaterialExcel(pid);
           break;
-        case "assets": {
-          if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
-          } else {
-            const data = await reportService.getAssetReport(pid);
-            generateCSV(data, "assets_report");
-            return;
-          }
-          break;
-        }
+        case "assets":
+          // Open filter modal before export
+          toast.dismiss(toastId);
+          setAssetFilterFormat(format);
+          setIsAssetFilterOpen(true);
+          return;
         case "issues":
+          // Open filter modal before export
+          toast.dismiss(toastId);
+          setIssueFilterFormat(format);
+          setIsIssueFilterOpen(true);
+          return;
+        case "work-summary":
           blob = format === "PDF"
-            ? await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd)
-            : await reportService.exportIssueExcel(pid);
+            ? await reportService.exportWeeklyPDF(pid)
+            : await reportService.exportWeeklyExcel(pid);
           break;
-        case "work-summary": {
-          if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
-          } else {
-            const data = await reportService.getWorkSummary(pid);
-            generateCSV(data, "work_summary");
-            return;
-          }
-          break;
-        }
         case "financial-summary": {
-          if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
-          } else {
-            const data = await reportService.getFinancialSummary(pid);
-            generateCSV(data, "financial_summary");
+          // Ask for date range first via existing date modal
+          if (!dateModalConfig) {
+            toast.dismiss(toastId);
+            setDateModalConfig({
+              id: "financial-summary",
+              name: "Financial Health Summary",
+              format,
+              isRange: true,
+              action: "export"
+            });
+            setIsDateSelectionOpen(true);
             return;
           }
+          blob = format === "PDF"
+            ? await reportService.exportFinancePdf(pid, effectiveStart, effectiveEnd)
+            : await reportService.exportFinanceExcel(pid, effectiveStart, effectiveEnd);
           break;
         }
-        case "profit-loss": {
-          if (format === "PDF") {
-            blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
-          } else {
-            const data = await reportService.getProfitLoss();
-            generateCSV(data, "profit_loss");
-            return;
-          }
-          break;
-        }
+        case "profit-loss":
+          // Open period modal to pick year/quarter/dates
+          toast.dismiss(toastId);
+          setPlPeriodFormat(format);
+          setIsPLPeriodModalOpen(true);
+          return;
         case "cashflow": {
           if (format === "PDF") {
             blob = await reportService.downloadCombinedReport(pid, effectiveStart, effectiveEnd);
@@ -382,70 +417,10 @@ const ReportsPage = () => {
     }
   };
 
-  const handleExportCombined = async (format: "PDF" | "Excel", customStart?: string, customEnd?: string) => {
-    const pid = parseInt(selectedProjectId);
-    if (isNaN(pid)) {
-      toast.error("Please select a project first");
-      return;
-    }
-
-    const toastId = toast.loading(`Preparing Combined ${format}...`);
-    try {
-      const effectiveStart = customStart || startDate;
-      const effectiveEnd = customEnd || endDate;
-
-      if (!dateModalConfig) {
-        toast.dismiss(toastId);
-        setDateModalConfig({
-          id: "combined",
-          name: "Combined Project Intelligence",
-          format: format,
-          isRange: true
-        });
-        setIsDateSelectionOpen(true);
-        return;
-      }
-
-      const dateObj = new Date(effectiveEnd);
-      const month = dateObj.getMonth() + 1;
-      const year = dateObj.getFullYear();
-
-      let blob: Blob;
-
-      if (format === "PDF") {
-        blob = await reportService.exportProjectReportPDF({
-          project_id: pid,
-          type: "monthly",
-          month,
-          year,
-          start_date: effectiveStart,
-          end_date: effectiveEnd
-        });
-      } else {
-        blob = await reportService.exportProjectReportExcel({
-          project_id: pid,
-          type: "monthly",
-          month,
-          year,
-          start_date: effectiveStart,
-          end_date: effectiveEnd
-        });
-      }
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const extension = format.toLowerCase() === "pdf" ? "pdf" : "xlsx";
-      link.setAttribute('download', `Project_Report_${month}_${year}.${extension}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast.success(`Project ${format} exported`, { id: toastId });
-    } catch (error) {
-      toast.error("Export failed", { id: toastId });
-    }
+  const handleExportCombined = (format: "PDF" | "Excel") => {
+    // No project check — supports all-project download
+    setCombinedExportFormat(format);
+    setIsCombinedPeriodModalOpen(true);
   };
 
   const handleShareCombined = async (type: "email" | "whatsapp", target: string) => {
@@ -515,11 +490,10 @@ const ReportsPage = () => {
         case "assets": data = await reportService.getAssetReport(pid); break;
         case "financial-summary": data = await reportService.getFinancialSummary(pid); break;
         case "quarterly-audit": {
-          const now = new Date();
-          const currentYear = now.getFullYear();
-          const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
-          data = await reportService.getQuarterlyAuditSummary(pid, currentYear, currentQuarter);
-          break;
+          // Open modal to pick year and quarter
+          toast.dismiss(toastId);
+          setIsQuarterlyModalOpen(true);
+          return;
         }
         default: data = { message: "Detailed summary view coming soon for this report type." };
       }
@@ -529,6 +503,205 @@ const ReportsPage = () => {
       toast.success("Summary loaded", { id: toastId });
     } catch (error) {
       toast.error("Failed to load report summary", { id: toastId });
+    }
+  };
+
+  const handleAssetFilterConfirm = async (filters: AssetFilterSelection) => {
+    const pid = parseInt(selectedProjectId);
+    const toastId = toast.loading(`Generating ${assetFilterFormat} report...`);
+    try {
+      const blob = assetFilterFormat === "PDF"
+        ? await reportService.exportAssetsPdf(pid, filters)
+        : await reportService.exportAssetsExcel(pid, filters);
+
+      if (blob && !blob.type?.includes("json")) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.setAttribute("download", `fixed_assets_report.${assetFilterFormat === "PDF" ? "pdf" : "xlsx"}`);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Report exported successfully", { id: toastId });
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch {
+      toast.error("Export failed", { id: toastId });
+    }
+  };
+
+  const handleLabourFilterConfirm = async (filters: LabourFilterSelection) => {
+    const pid = parseInt(selectedProjectId);
+    const toastId = toast.loading(`Generating ${labourFilterFormat} report...`);
+    try {
+      const blob = labourFilterFormat === "PDF"
+        ? await reportService.exportLabourDistributionPdf(pid, filters)
+        : await reportService.exportLabourDistributionExcel(pid, filters);
+
+      if (blob && !blob.type?.includes("json")) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.setAttribute("download", `labour_distribution.${labourFilterFormat === "PDF" ? "pdf" : "xlsx"}`);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Report exported successfully", { id: toastId });
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch {
+      toast.error("Export failed", { id: toastId });
+    }
+  };
+
+  const handleQuarterlyAuditConfirm = async (selection: QuarterlyAuditSelection) => {
+    const pid = parseInt(selectedProjectId);
+    const toastId = toast.loading("Loading Quarterly Audit Summary...");
+    try {
+      const data = await reportService.getQuarterlyAuditSummary(pid, selection.year, selection.quarter);
+      const report = REPORT_TYPES.find(r => r.id === "quarterly-audit");
+      setViewingReport({ name: report?.name || "Quarterly Audit Summary", data, id: "quarterly-audit", exportType: "PDF" });
+      setIsPreviewOpen(true);
+      toast.success("Summary loaded", { id: toastId });
+    } catch {
+      toast.error("Failed to load summary", { id: toastId });
+    }
+  };
+
+  const handleCombinedPeriodConfirm = async (selection: ReportPeriodSelection) => {
+    const pid = parseInt(selectedProjectId);
+    const toastId = toast.loading(`Generating Combined ${combinedExportFormat}...`);
+    try {
+      // project_id is optional — if none selected, downloads all projects
+      const params = {
+        project_id: isNaN(pid) ? undefined : pid,
+        type: selection.type,
+        month: selection.month ?? null,
+        year: selection.year ?? null,
+        quarter: selection.quarter ?? null,
+        report_date: null,
+        start_date: selection.start_date ?? null,
+        end_date: selection.end_date ?? null,
+      };
+      const blob = combinedExportFormat === "PDF"
+        ? await reportService.exportProjectReportPDF(params as any)
+        : await reportService.exportProjectReportExcel(params as any);
+
+      if (blob && !blob.type?.includes("json")) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.setAttribute("download", `combined_report_${selection.type}_${selection.year}.${combinedExportFormat === "PDF" ? "pdf" : "xlsx"}`);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Report exported successfully", { id: toastId });
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch {
+      toast.error("Export failed", { id: toastId });
+    }
+  };
+
+  const handlePLPeriodConfirm = async (selection: ReportPeriodSelection) => {
+    const pid = parseInt(selectedProjectId);
+    const toastId = toast.loading(`Generating ${plPeriodFormat} report...`);
+    try {
+      const filters = {
+        year: selection.year ?? null,
+        quarter: selection.type === "quarterly" ? (selection.quarter ?? null) : null,
+        start_date: selection.start_date ?? null,
+        end_date: selection.end_date ?? null,
+      };
+      const blob = plPeriodFormat === "PDF"
+        ? await reportService.exportProfitLossPdf(pid, filters)
+        : await reportService.exportProfitLossExcel(pid, filters);
+
+      if (blob && !blob.type?.includes("json")) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.setAttribute("download", `profit_loss_${selection.type}_${selection.year}.${plPeriodFormat === "PDF" ? "pdf" : "xlsx"}`);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Report exported successfully", { id: toastId });
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch {
+      toast.error("Export failed", { id: toastId });
+    }
+  };
+
+  const handlePeriodConfirm = async (selection: ReportPeriodSelection) => {
+    if (!periodModalConfig) return;
+    const { format } = periodModalConfig;
+    const pid = parseInt(selectedProjectId);
+    const toastId = toast.loading(`Generating ${format} report...`);
+    try {
+      const params = {
+        project_id: pid,
+        type: selection.type,
+        month: selection.month ?? null,
+        year: selection.year ?? null,
+        quarter: selection.quarter ?? null,
+        report_date: null,
+        start_date: selection.start_date ?? null,
+        end_date: selection.end_date ?? null,
+      };
+      const blob = format === "PDF"
+        ? await reportService.exportProjectReportPDF(params)
+        : await reportService.exportProjectReportExcel(params);
+
+      if (blob && !blob.type?.includes("json")) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.setAttribute("download", `weekly_report_${selection.type}_${selection.year}.${format === "PDF" ? "pdf" : "xlsx"}`);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Report exported successfully", { id: toastId });
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch {
+      toast.error("Export failed", { id: toastId });
+    }
+  };
+
+  const handleIssueFilterConfirm = async (filters: IssueFilterSelection) => {
+    const pid = parseInt(selectedProjectId);
+    const toastId = toast.loading(`Generating ${issueFilterFormat} report...`);
+    try {
+      const blob = issueFilterFormat === "PDF"
+        ? await reportService.exportIssuesPdf(pid, filters)
+        : await reportService.exportIssuesExcel(pid, filters);
+
+      if (blob && !blob.type?.includes("json")) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.setAttribute("download", `site_issues_report.${issueFilterFormat === "PDF" ? "pdf" : "xlsx"}`);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Report exported successfully", { id: toastId });
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch {
+      toast.error("Export failed", { id: toastId });
     }
   };
 
@@ -745,6 +918,7 @@ const ReportsPage = () => {
         onClose={() => setIsPreviewOpen(false)}
         reportName={viewingReport?.name || ""}
         data={viewingReport?.data}
+        reportId={viewingReport?.id}
         exportType={viewingReport?.exportType || "Excel"}
         onExport={(format: "PDF" | "Excel") => viewingReport && handleExport(viewingReport.id, format)}
         onShare={() => {
@@ -774,14 +948,87 @@ const ReportsPage = () => {
         onConfirm={async (start, end) => {
           setStartDate(start);
           setEndDate(end);
-          if (dateModalConfig?.id === "combined") {
-            handleExportCombined(dateModalConfig.format, start, end);
-          } else if (dateModalConfig?.action === "view") {
+          if (dateModalConfig?.action === "view") {
             const report = REPORT_TYPES.find(r => r.id === dateModalConfig.id);
             if (report) await handleViewSummary(report, dateModalConfig.isRange ? start : end);
           } else if (dateModalConfig) {
             handleExport(dateModalConfig.id, dateModalConfig.format, start, end);
           }
+        }}
+      />
+
+      <ReportPeriodModal
+        isOpen={isPeriodModalOpen}
+        onClose={() => {
+          setIsPeriodModalOpen(false);
+          setPeriodModalConfig(null);
+        }}
+        reportName="Project Report"
+        format={periodModalConfig?.format || "PDF"}
+        onConfirm={(selection: ReportPeriodSelection) => {
+          setIsPeriodModalOpen(false);
+          handlePeriodConfirm(selection);
+        }}
+      />
+
+      <ReportPeriodModal
+        isOpen={isPLPeriodModalOpen}
+        onClose={() => setIsPLPeriodModalOpen(false)}
+        reportName="Profit & Loss Statement"
+        format={plPeriodFormat}
+        onConfirm={(selection: ReportPeriodSelection) => {
+          setIsPLPeriodModalOpen(false);
+          handlePLPeriodConfirm(selection);
+        }}
+      />
+
+      <IssueFilterModal
+        isOpen={isIssueFilterOpen}
+        onClose={() => setIsIssueFilterOpen(false)}
+        format={issueFilterFormat}
+        onConfirm={(filters: IssueFilterSelection) => {
+          setIsIssueFilterOpen(false);
+          handleIssueFilterConfirm(filters);
+        }}
+      />
+
+      <AssetFilterModal
+        isOpen={isAssetFilterOpen}
+        onClose={() => setIsAssetFilterOpen(false)}
+        format={assetFilterFormat}
+        onConfirm={(filters: AssetFilterSelection) => {
+          setIsAssetFilterOpen(false);
+          handleAssetFilterConfirm(filters);
+        }}
+      />
+
+      <QuarterlyAuditModal
+        isOpen={isQuarterlyModalOpen}
+        onClose={() => setIsQuarterlyModalOpen(false)}
+        onConfirm={(selection: QuarterlyAuditSelection) => {
+          setIsQuarterlyModalOpen(false);
+          handleQuarterlyAuditConfirm(selection);
+        }}
+      />
+
+      <LabourFilterModal
+        isOpen={isLabourFilterOpen}
+        onClose={() => setIsLabourFilterOpen(false)}
+        format={labourFilterFormat}
+        onConfirm={(filters: LabourFilterSelection) => {
+          setIsLabourFilterOpen(false);
+          handleLabourFilterConfirm(filters);
+        }}
+      />
+
+      <ReportPeriodModal
+        isOpen={isCombinedPeriodModalOpen}
+        onClose={() => setIsCombinedPeriodModalOpen(false)}
+        reportName="Combined Project Report"
+        format={combinedExportFormat}
+        onConfirm={(selection: ReportPeriodSelection) => {
+          setIsCombinedPeriodModalOpen(false);
+          handleCombinedPeriodConfirm(selection);
         }}
       />
     </>

@@ -35,17 +35,28 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem("infrapilot_user");
-    if (stored) return JSON.parse(stored);
+    try {
+      const stored = localStorage.getItem("infrapilot_user");
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.warn("AuthContext: Corrupted user data in localStorage, clearing...", e);
+      localStorage.removeItem("infrapilot_user");
+    }
     return null;
   });
 
   useEffect(() => {
     const handleStorageChange = () => {
-      const stored = localStorage.getItem("infrapilot_user");
-      if (stored) {
-        setUser(JSON.parse(stored));
-      } else {
+      try {
+        const stored = localStorage.getItem("infrapilot_user");
+        if (stored) {
+          setUser(JSON.parse(stored));
+        } else {
+          setUser(null);
+        }
+      } catch (e) {
+        console.warn("AuthContext: Corrupted user data in storage event, clearing...", e);
+        localStorage.removeItem("infrapilot_user");
         setUser(null);
       }
     };

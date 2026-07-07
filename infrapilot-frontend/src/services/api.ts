@@ -61,7 +61,8 @@ api.interceptors.response.use(
         url.includes("/chats") ||
         url.includes("/chat") ||
         url.includes("/settings") ||
-        url.includes("/notifications");
+        url.includes("/notifications") ||
+        url.includes("/dashboard");
 
       if (!isIgnored) {
         const path = window.location.pathname;

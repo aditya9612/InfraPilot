@@ -41,7 +41,7 @@ const AttendanceCard: React.FC<AttendanceCardProps> = ({
                         }`}
                 >
                     <MapPin className="w-3 h-3" />
-                    Check In
+                    Checked In
                 </button>
             )}
         </div>

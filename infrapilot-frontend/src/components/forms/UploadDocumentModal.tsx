@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Upload, FileText, CheckCircle2, Layers } from "lucide-react";
+import { X, Upload, FileText, CheckCircle2, Layers, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { projectService } from "../../services/projectService";
 
@@ -21,6 +21,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
     const [projects, setProjects] = useState<any[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
     const [formData, setFormData] = useState({
         project_id: "",
         title: "",
@@ -31,11 +32,13 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            setFormData(prev => ({
-                ...prev,
+            setFormData({
+                project_id: "",
+                title: "",
                 document_type: preSelectedType,
+                remarks: "",
                 parent_id: parentId ? parentId.toString() : "",
-            }));
+            });
             const fetchProjects = async () => {
                 try {
                     const response = await projectService.getProjects(100);
@@ -52,7 +55,8 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
+            const file = e.target.files[0];
+            setSelectedFile(file);
             if (!formData.title) {
                 const fileName = e.target.files[0].name.split('.').slice(0, -1).join('.');
                 setFormData(prev => ({ ...prev, title: fileName }));
@@ -63,11 +67,15 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedFile) {
-            toast.error("Please select a file to upload.");
+            toast.error("Please select a file.");
             return;
         }
         if (!formData.project_id) {
             toast.error("Please select a project.");
+            return;
+        }
+        if (formData.document_type === "Drawing" && !formData.title.trim()) {
+            toast.error("Drawing name is required.");
             return;
         }
 
@@ -100,15 +108,15 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 scale-in-center">
-                <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 flex-shrink-0">
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 scale-in-center">
+                <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center text-white flex-shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center text-white">
                             <Upload size={20} strokeWidth={2.5} />
                         </div>
                         <div>
                             <h2 className="text-lg font-black text-slate-800 tracking-tight">
-                                Upload {formData.document_type === "Drawing" ? "Drawing" : "Document"}
+                                {formData.document_type === "Drawing" ? "Upload Drawing" : "Upload Document"}
                             </h2>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 flex items-center gap-1">
                                 <CheckCircle2 size={12} className="text-emerald-500" />
@@ -118,7 +126,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 hover:bg-slate-200/50 rounded-2xl transition-all text-slate-400 hover:text-slate-600 flex-shrink-0"
+                        className="p-2 hover:bg-slate-200/50 rounded-2xl transition-all text-slate-400 hover:text-slate-650"
                     >
                         <X size={20} strokeWidth={2.5} />
                     </button>
@@ -235,23 +243,21 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                             type="button"
                             disabled={isSubmitting}
                             onClick={onClose}
-                            className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50"
+                            className="flex-1 px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting || !selectedFile || !formData.project_id || !formData.title}
-                            className="flex-[2] px-6 py-3 bg-slate-800 text-white rounded-2xl text-sm font-black shadow-xl hover:bg-slate-900 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                            disabled={isSubmitting || !selectedFile || !formData.project_id || (formData.document_type === "Drawing" && !formData.title.trim())}
+                            className="flex-1 px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                         >
                             {isSubmitting ? (
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                <Loader2 className="w-4 h-4 animate-spin text-white" />
                             ) : (
-                                <>
-                                    <Upload size={16} strokeWidth={3} />
-                                    Initiate Upload
-                                </>
+                                <Upload className="w-4 h-4 text-white" />
                             )}
+                            {isSubmitting ? "Uploading..." : "Upload"}
                         </button>
                     </div>
                 </form>

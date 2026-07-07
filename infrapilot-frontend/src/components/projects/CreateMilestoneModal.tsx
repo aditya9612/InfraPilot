@@ -175,9 +175,9 @@ const CreateMilestoneModal = ({
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-primary focus:border-primary transition-all text-slate-700"
               >
                 <option value="Planned">Planned</option>
-                <option value="Pending">Pending</option>
                 <option value="In Progress">In Progress</option>
                 <option value="Completed">Completed</option>
+                <option value="Delayed">Delayed</option>
               </select>
             </div>
           </div>

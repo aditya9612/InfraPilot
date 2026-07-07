@@ -316,7 +316,7 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
                       setIsNotificationOpen(false);
                       const target = user?.role === "Admin" ? "/admin/notifications" :
                         user?.role === "SiteEngineer" ? "/engineer/notifications" :
-                          user?.role === "Client" ? "/client/communication/announcements" : 
+                          user?.role === "Client" ? "/client/notifications" : 
                           user?.role === "Labour" ? "/labour/notifications" : "/";
                       navigate(target);
                     }}

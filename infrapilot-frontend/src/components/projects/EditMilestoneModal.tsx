@@ -78,12 +78,14 @@ const EditMilestoneModal = ({
     if (!validate() || !milestone) return;
 
     setIsLoading(true);
-    // Simulate API call based on USER provided documentation
     setTimeout(() => {
       const requestBody = {
         project_id: milestone.project_id,
         milestone_id: milestone.id,
         ...formData,
+        // Send null instead of empty string for optional date fields
+        actual_start_date: formData.actual_start_date || null,
+        actual_end_date: formData.actual_end_date || null,
       };
 
       console.log("Updating Milestone (Request Body):", requestBody);

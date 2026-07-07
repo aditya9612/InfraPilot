@@ -529,24 +529,25 @@ const ClientPaymentPage = () => {
                         </div>
                     ) : activeTab === "quotation" ? (
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                            <table className="w-full text-left border-collapse table-fixed">
                                 <thead>
                                     <tr className="bg-slate-50/30">
-                                        <th className="px-6 py-5 w-12 text-center">
+                                        <th className="px-6 py-5 w-[6%] text-center">
                                             <input type="checkbox" className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
                                         </th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">QUOTATION ID</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">REQUESTED BY</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">REMARKS / DETAILS</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">STATUS</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">APPROVED BY</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right pr-10">ACTIONS</th>
+                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[14%]">QUOTATION ID</th>
+                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[16%]">COMPANY NAME</th>
+                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[16%]">PROJECT NAME</th>
+                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[14%]">DATE</th>
+                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center w-[12%]">STATUS</th>
+                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center w-[12%]">APPROVED BY</th>
+                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right pr-10 w-[10%]">ACTIONS</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {filteredQuotations.length === 0 ? (
                                         <tr>
-                                            <td colSpan={7} className="py-24 text-center">
+                                            <td colSpan={8} className="py-24 text-center">
                                                 <div className="flex flex-col items-center opacity-40">
                                                    <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                    <p className="font-bold uppercase tracking-widest text-xs">No records matching your search</p>
@@ -563,10 +564,13 @@ const ClientPaymentPage = () => {
                                                     <p className="text-xs font-black text-slate-800 tracking-tight">{q.entity_id_display || q.id}</p>
                                                 </td>
                                                 <td className="px-6 py-6 font-bold text-[12px] text-slate-700">
-                                                    {q.requested_by_name}
+                                                    {q.company_name || q.client_name || q.requested_by_name || '-'}
                                                 </td>
                                                 <td className="px-6 py-6 text-xs text-slate-500 font-medium max-w-xs truncate">
                                                     {q.remarks_details}
+                                                </td>
+                                                <td className="px-6 py-6 text-xs text-slate-500 font-bold">
+                                                    {q.created_at ? new Date(q.created_at).toLocaleDateString('en-GB') : '-'}
                                                 </td>
                                                 <td className="px-6 py-6 text-center">
                                                     <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${

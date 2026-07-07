@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
+import Modal from '../../components/common/Modal';
 import {
     Clock,
     Calendar,
@@ -44,6 +45,7 @@ const AttendancePage: React.FC = () => {
     const [dateTo, setDateTo] = useState('');
     const [selectedRecordForLocation, setSelectedRecordForLocation] = useState<AttendanceRecord | null>(null);
     const [selectedRecordForDetail, setSelectedRecordForDetail] = useState<AttendanceRecord | null>(null);
+    const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -536,8 +538,8 @@ const AttendancePage: React.FC = () => {
                                         <tr>
                                             {[
                                                 'DATE', 'LABOUR NAME', 'DEPARTMENT',
-                                                'ONLINE STATUS', 'CHECK IN', 'CHECK OUT', 'HOURS',
-                                                'LOCATION', 'STATUS', 'ACTION'
+                                                'ONLINE STATUS', 'CHECK IN', 'CHECK OUT', 'WORKING HOURS',
+                                                'OVERTIME HOURS', 'LOCATION', 'STATUS', 'ACTION'
                                             ].map(head => (
                                                 <th key={head} className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 whitespace-nowrap">
                                                     {head}
@@ -575,7 +577,10 @@ const AttendancePage: React.FC = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="w-10 h-10 rounded-full bg-blue-50/50 border border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden group/img relative">
+                                                        <div 
+                                                            onClick={() => record.check_in_image && setPreviewImage({ url: record.check_in_image, title: "Check-In Image - " + (record.full_name || user?.name || "Labour") })}
+                                                            className={`w-10 h-10 rounded-full bg-blue-50/50 border border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden group/img relative transition-all ${record.check_in_image ? 'cursor-pointer hover:scale-105 active:scale-95 border-blue-400' : ''}`}
+                                                        >
                                                             {record.check_in_image ? (
                                                                 <img src={record.check_in_image} alt="In" className="w-full h-full object-cover" />
                                                             ) : (
@@ -584,13 +589,18 @@ const AttendancePage: React.FC = () => {
                                                                     <div className="text-[6px] font-black text-blue-300 uppercase mt-0.5 tracking-tighter">In</div>
                                                                 </>
                                                             )}
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <Eye className="w-3 h-3 text-white" />
-                                                            </div>
+                                                            {record.check_in_image && (
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                                    <Eye className="w-3 h-3 text-white" />
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="w-10 h-10 rounded-full bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden group/img relative">
+                                                        <div 
+                                                            onClick={() => record.check_out_image && setPreviewImage({ url: record.check_out_image, title: "Check-Out Image - " + (record.full_name || user?.name || "Labour") })}
+                                                            className={`w-10 h-10 rounded-full bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden group/img relative transition-all ${record.check_out_image ? 'cursor-pointer hover:scale-105 active:scale-95 border-rose-400' : ''}`}
+                                                        >
                                                             {record.check_out_image ? (
                                                                 <img src={record.check_out_image} alt="Out" className="w-full h-full object-cover" />
                                                             ) : (
@@ -611,6 +621,10 @@ const AttendancePage: React.FC = () => {
                                                         {record.working_hours ? `${record.working_hours}h` : '-'}
                                                     </td>
 
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-400">
+                                                        {record.overtime_hours ? `${record.overtime_hours}h` : '-'}
+                                                    </td>
+
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <button 
                                                             onClick={() => setSelectedRecordForLocation(record)}
@@ -622,8 +636,8 @@ const AttendancePage: React.FC = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${record.out_time ? 'bg-slate-50 text-slate-400' : record.in_time ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                            {record.out_time ? 'Completed' : record.in_time ? 'Present' : 'Absent'}
+                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${(record.in_time || record.out_time) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                            {(record.in_time || record.out_time) ? 'Present' : 'Absent'}
                                                         </span>
                                                     </td>
 
@@ -733,8 +747,7 @@ const AttendancePage: React.FC = () => {
                                         <MapPinIcon className="w-4 h-4" />
                                     </div>
                                     <p className="text-xs font-bold text-rose-800 leading-relaxed italic">
-                                        {/* Fallback to check-in if check-out missing for demo */}
-                                        {"-"}
+                                        {selectedRecordForLocation.check_out_address || "-"}
                                     </p>
                                 </div>
                             </div>
@@ -750,55 +763,74 @@ const AttendancePage: React.FC = () => {
                 </div>
             )}
 
+            {/* Image Preview Modal */}
+            <Modal
+                isOpen={!!previewImage}
+                onClose={() => setPreviewImage(null)}
+                title={previewImage?.title || "Image Preview"}
+                maxWidth="max-w-sm"
+            >
+                <div className="w-full flex items-center justify-center bg-black/5">
+                    {previewImage && (
+                        <img
+                            src={previewImage.url}
+                            alt={previewImage.title}
+                            className="w-full h-auto object-cover rounded-b-2xl"
+                        />
+                    )}
+                </div>
+            </Modal>
+
             {/* Attendance Detail Modal */}
             {selectedRecordForDetail && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 overflow-hidden">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setSelectedRecordForDetail(null)} />
-                    <div className="relative w-full max-w-lg bg-white rounded-[40px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div className="relative w-full max-w-[450px] max-h-[calc(100vh-3rem)] bg-white rounded-[32px] shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col overflow-hidden">
                         <button 
                             onClick={() => setSelectedRecordForDetail(null)} 
-                            className="absolute top-6 right-6 p-2.5 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-md transition-all z-20"
+                            className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-md transition-all z-20"
                         >
                             <X className="w-5 h-5" />
                         </button>
 
-                        <div className="p-8 pb-32">
-                            {/* Profile Header */}
-                            <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-[32px] p-6 flex items-center gap-6 shadow-xl shadow-blue-200 relative overflow-hidden group">
+                        {/* Profile Header */}
+                        <div className="p-5 pb-4 shrink-0 z-10 border-b border-slate-100">
+                            <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-[20px] p-5 flex items-center gap-4 shadow-xl shadow-blue-200 relative overflow-hidden group">
                                 <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                                <div className="w-20 h-20 rounded-[24px] bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center relative">
-                                    <User className="w-10 h-10 text-white opacity-80" />
-                                    <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-white border-4 border-blue-500 flex items-center justify-center">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center relative shrink-0">
+                                    <User className="w-6 h-6 text-white opacity-80" />
+                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                                     </div>
                                 </div>
-                                <div className="space-y-1">
-                                    <h3 className="text-2xl font-black text-white tracking-tight">{selectedRecordForDetail.full_name || user?.name || "Labour"}</h3>
-                                    <p className="text-sm font-bold text-white/70 uppercase tracking-widest">General</p>
+                                <div className="space-y-0.5">
+                                    <h3 className="text-lg font-black text-white tracking-tight">{selectedRecordForDetail.full_name || user?.name || "Labour"}</h3>
+                                    <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest">General</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-8 -mt-36 space-y-10 bg-white rounded-t-[40px] relative z-10 border-t border-slate-100 min-h-[500px] shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+                        {/* Scrollable Content */}
+                        <div className="p-5 overflow-y-auto flex-1 min-h-0 space-y-6">
                             {/* Information Grid */}
-                            <div className="grid grid-cols-2 gap-y-10">
+                            <div className="grid grid-cols-2 gap-y-4 gap-x-4">
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</span>
-                                    <p className="text-sm font-black text-slate-700">{selectedRecordForDetail.attendance_date}</p>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</span>
+                                    <p className="text-xs font-black text-slate-700">{selectedRecordForDetail.attendance_date}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Name</span>
-                                    <p className="text-sm font-black text-slate-700">—</p>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Contractor Name</span>
+                                    <p className="text-xs font-black text-slate-700">—</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</span>
-                                    <p className="text-sm font-black text-slate-700">General</p>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Department</span>
+                                    <p className="text-xs font-black text-slate-700">General</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Online Status</span>
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${selectedRecordForDetail.out_time ? 'bg-slate-300' : selectedRecordForDetail.in_time ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                        <p className="text-sm font-black text-slate-700">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Online Status</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${selectedRecordForDetail.out_time ? 'bg-slate-300' : selectedRecordForDetail.in_time ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                        <p className="text-xs font-black text-slate-700">
                                             {selectedRecordForDetail.out_time ? "Shift Ended" : selectedRecordForDetail.in_time ? "Online" : "Not Checked In"}
                                         </p>
                                     </div>
@@ -806,78 +838,87 @@ const AttendancePage: React.FC = () => {
                             </div>
 
                             {/* Selfies */}
-                            <div className="flex items-center justify-center gap-16 py-4">
-                                <div className="flex flex-col items-center gap-3">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Check In</span>
-                                    <div className="w-16 h-16 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden">
-                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100">
+                            <div className="flex items-center justify-center gap-8 py-2 border-y border-dashed border-slate-100">
+                                <div className="flex flex-col items-center gap-2">
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Check In</span>
+                                    <div 
+                                        onClick={() => selectedRecordForDetail.check_in_image && setPreviewImage({ url: selectedRecordForDetail.check_in_image, title: "Check-In Image - " + (selectedRecordForDetail.full_name || user?.name || "Labour") })}
+                                        className={`w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden transition-all ${selectedRecordForDetail.check_in_image ? 'cursor-pointer hover:scale-110 active:scale-95 border-blue-400' : ''}`}
+                                    >
+                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100 overflow-hidden">
                                             {selectedRecordForDetail.check_in_image ? (
-                                                <img src={selectedRecordForDetail.check_in_image} alt="In" className="w-full h-full object-cover" />
+                                                <img src={selectedRecordForDetail.check_in_image} alt="In" className="w-full h-full object-cover rounded-full" />
                                             ) : (
-                                                <Camera className="w-5 h-5 text-slate-300" />
+                                                <Camera className="w-4 h-4 text-slate-300" />
                                             )}
                                         </div>
                                     </div>
-                                    <span className="text-[10px] font-bold text-slate-400 italic">
+                                    <span className="text-[9px] font-bold text-slate-400 italic">
                                         {selectedRecordForDetail.in_time ? "→ " + new Date(selectedRecordForDetail.in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "→ -"}
                                     </span>
                                 </div>
 
-                                <div className="flex flex-col items-center gap-3">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Check Out</span>
-                                    <div className="w-16 h-16 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden">
-                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100">
+                                <div className="flex flex-col items-center gap-2">
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Check Out</span>
+                                    <div 
+                                        onClick={() => selectedRecordForDetail.check_out_image && setPreviewImage({ url: selectedRecordForDetail.check_out_image, title: "Check-Out Image - " + (selectedRecordForDetail.full_name || user?.name || "Labour") })}
+                                        className={`w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden transition-all ${selectedRecordForDetail.check_out_image ? 'cursor-pointer hover:scale-110 active:scale-95 border-rose-400' : ''}`}
+                                    >
+                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100 overflow-hidden">
                                             {selectedRecordForDetail.check_out_image ? (
-                                                <img src={selectedRecordForDetail.check_out_image} alt="Out" className="w-full h-full object-cover" />
+                                                <img src={selectedRecordForDetail.check_out_image} alt="Out" className="w-full h-full object-cover rounded-full" />
                                             ) : (
-                                                <Camera className="w-5 h-5 text-slate-300" />
+                                                <Camera className="w-4 h-4 text-slate-300" />
                                             )}
                                         </div>
                                     </div>
-                                    <span className="text-[10px] font-bold text-slate-400 italic">
+                                    <span className="text-[9px] font-bold text-slate-400 italic">
                                         {selectedRecordForDetail.out_time ? "← " + new Date(selectedRecordForDetail.out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "← -"}
                                     </span>
                                 </div>
                             </div>
 
                             {/* Metrics */}
-                            <div className="grid grid-cols-2 gap-y-10">
+                            <div className="grid grid-cols-2 gap-y-4 gap-x-4">
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Working Hours</span>
-                                    <p className="text-sm font-black text-slate-700">{selectedRecordForDetail.working_hours || "-"}</p>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Working Hours</span>
+                                    <p className="text-xs font-black text-slate-700">{selectedRecordForDetail.working_hours || "-"}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overtime</span>
-                                    <p className="text-sm font-black text-slate-700">-</p>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Overtime</span>
+                                    <p className="text-xs font-black text-slate-700">-</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Wage</span>
-                                    <p className="text-sm font-black text-slate-700">-</p>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Wage</span>
+                                    <p className="text-xs font-black text-slate-700">-</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Check-In Location</span>
-                                    <div className="flex items-start gap-2 text-blue-500 max-w-full">
-                                        <MapPinIcon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                                        <span className="text-[11px] md:text-xs font-bold leading-relaxed">{selectedRecordForDetail.check_in_address || "-"}</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Check-In</span>
+                                    <div className="flex items-start gap-1.5 text-blue-500 max-w-full">
+                                        <MapPinIcon className="w-3 h-3 mt-0.5 shrink-0" />
+                                        <span className="text-[10px] font-bold leading-tight">{selectedRecordForDetail.check_in_address || "-"}</span>
                                     </div>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</span>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</span>
                                     <div>
-                                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${selectedRecordForDetail.in_time ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${selectedRecordForDetail.in_time ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                             {selectedRecordForDetail.in_time ? 'Present' : 'Absent'}
                                         </span>
                                     </div>
                                 </div>
                                 <div className="space-y-1">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Summary</span>
-                                    <p className="text-sm font-black text-slate-700 italic">{selectedRecordForDetail.work_summary || "-"}</p>
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Summary</span>
+                                    <p className="text-xs font-black text-slate-700 italic">{selectedRecordForDetail.work_summary || "-"}</p>
                                 </div>
                             </div>
+                        </div>
 
+                        {/* Footer */}
+                        <div className="p-5 pt-0 shrink-0">
                             <button
                                 onClick={() => setSelectedRecordForDetail(null)}
-                                className="w-full py-5 bg-[#0062ff] text-white rounded-2xl text-sm font-black uppercase tracking-[0.2em] shadow-xl shadow-blue-100 hover:bg-[#0056e0] transition-all active:scale-[0.98] mt-4"
+                                className="w-full py-3.5 bg-[#0062ff] text-white rounded-xl text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-100 hover:bg-[#0056e0] transition-all active:scale-[0.98]"
                             >
                                 Close
                             </button>

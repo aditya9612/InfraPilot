@@ -5,7 +5,7 @@ import StatCard from "../../components/common/StatCard";
 import {
   Eye, Download, Trash2, Folder, FileText,
   ChevronRight, Search, Filter, FileImage,
-  FileSpreadsheet, FolderPlus, RefreshCcw, History, CheckCircle
+  FileSpreadsheet, FolderPlus, RefreshCcw, History, CheckCircle, Edit2, Upload
 } from "lucide-react";
 import CreateFolderModal from "../../components/forms/CreateFolderModal";
 import DocumentPreviewModal from "../../components/dashboard/DocumentPreviewModal";
@@ -102,21 +102,17 @@ const DocumentsPage = () => {
       const promises: Promise<any>[] = [
         documentService.listDocuments({
           search: query,
-          parent_id: folderId
+          parent_id: folderId,
+          ...(selectedProjectId ? { project_id: selectedProjectId } : {})
         }),
         documentService.getStats()
       ];
 
-      // At root level, fetch specialized drawings for selected project (or all projects if none selected)
-      if (folderId === null && (typeFilter === "All" || typeFilter === "Drawings")) {
+      // At root level, fetch specialized drawings for selected project. 
+      // Note: We deliberately do not fetch for ALL projects simultaneously to avoid N+1 API request flooding.
+      if (folderId === null && mainTab === "Drawings") {
         if (selectedProjectId) {
           promises.push(drawingService.getVersions(selectedProjectId));
-        } else if (projects.length > 0) {
-          // Fetch drawings for all projects and flatten
-          promises.push(
-            Promise.all(projects.map((p: any) => drawingService.getVersions(p.id || p.project_id).catch(() => [])))
-              .then((results) => results.flat())
-          );
         }
       }
 
@@ -130,9 +126,10 @@ const DocumentsPage = () => {
         apiDrawings = results[2].value;
       }
 
-      // Map Documents (standard)
-      const mappedDocs = (docRes.items || [])
-        .filter((item: any) => item.parent_id === folderId)
+      const docItems = Array.isArray(docRes) ? docRes : (docRes.items || docRes.data || []);
+
+      // Map Documents (standard) — API already scopes by parent_id, no client-side re-filter needed
+      const mappedDocs = docItems
         .map((d: any) => ({
           ...d,
           type: d.is_folder ? "Folder" : "Document",
@@ -154,12 +151,9 @@ const DocumentsPage = () => {
 
       const combined = [...mappedDrawings, ...mappedDocs];
 
-      // Filter by type if needed (Standard documents already filtered by API search, but drawings might need manual search filter)
+      // Filter by search query only (type/tab filtering is handled in filteredDocuments useMemo)
       const filtered = combined.filter(item => {
         if (query && !item.display_name.toLowerCase().includes(query.toLowerCase())) return false;
-        if (typeFilter === "Drawings" && item.document_type !== "Drawing") return false;
-        if (typeFilter === "Contracts" && item.document_type !== "Contract") return false;
-        // ... add other filters as needed
         return true;
       });
 
@@ -171,12 +165,12 @@ const DocumentsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentFolderId, selectedProjectId, typeFilter, projects]);
+  }, [currentFolderId, selectedProjectId, typeFilter, projects, mainTab]);
 
   useEffect(() => {
     fetchDocs(searchTerm);
     setCurrentPage(0);
-  }, [fetchDocs, searchTerm, currentFolderId, selectedProjectId, typeFilter]);
+  }, [fetchDocs, searchTerm, currentFolderId, selectedProjectId, typeFilter, mainTab]);
 
   useEffect(() => {
     if (!viewingDoc) {
@@ -419,29 +413,41 @@ const DocumentsPage = () => {
 
   return (
     <>
-      <Navbar title="Document Management" breadcrumb={["Admin", "Documents", folderPath.length > 0 ? folderPath[folderPath.length - 1].name : "Root"]} />
+      <Navbar title="Document Vault" breadcrumb={["Admin", "Documents", folderPath.length > 0 ? folderPath[folderPath.length - 1].name : "Root"]} />
 
       <PageTransition className="p-3 sm:p-6 bg-slate-50 min-h-screen">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Document Repository</h1>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Project Document Vault</h1>
+            <p className="text-slate-500 text-sm mt-1">
+              Centralized repository for drawings, contracts, and project files.
+            </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchDocs(searchTerm)}
+              disabled={isLoading}
+              className="p-2.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all border border-slate-200 bg-white shadow-sm"
+              title="Refresh"
+            >
+              <RefreshCcw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            </button>
             <button
               onClick={() => setIsFolderModalOpen(true)}
-              className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 shadow-sm transition-all flex items-center gap-2"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all font-semibold"
             >
               <FolderPlus className="w-4 h-4 text-indigo-500" />
               New Folder
             </button>
             <button
               onClick={() => {
-                setUploadType("General");
+                const type = mainTab === "Drawings" ? "Drawing" : "Document";
+                setUploadType(type);
                 setIsUploadModalOpen(true);
               }}
-              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2"
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
             >
-              <FileText className="w-4 h-4" />
+              <Upload className="w-4 h-4" />
               {mainTab === "Drawings" ? "Upload Drawing" : "Upload Document"}
             </button>
           </div>
@@ -452,7 +458,7 @@ const DocumentsPage = () => {
           {(["Drawings", "Documents"] as const).map(tab => (
             <button
               key={tab}
-              onClick={() => { setMainTab(tab); setCategoryFilter(""); setCurrentPage(0); }}
+              onClick={() => { setMainTab(tab); setCategoryFilter(""); setCurrentPage(0); setTypeFilter("All"); }}
               className={`px-5 py-2 rounded-lg text-[11px] font-bold transition-all ${mainTab === tab ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             >
               {tab}
@@ -493,7 +499,7 @@ const DocumentsPage = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search documents..."
+                  placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -517,30 +523,18 @@ const DocumentsPage = () => {
             </div>
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
               <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl whitespace-nowrap">
-                {(["All", "Documents", "Folders"] as TypeFilter[]).map(tabName => (
-                  <button
-                    key={tabName}
-                    onClick={() => { setTypeFilter(tabName); setCategoryFilter(""); }}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${typeFilter === tabName ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                  >
-                    {tabName}
-                  </button>
-                ))}
-              </div>
               <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                value={typeFilter}
+                onChange={e => { setTypeFilter(e.target.value as TypeFilter); setCategoryFilter(""); }}
                 className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${
-                  categoryFilter
+                  typeFilter !== "All"
                     ? "bg-primary/10 border-primary/30 text-primary"
                     : "bg-slate-50 border-slate-200 text-slate-600"
                 }`}
               >
-                <option value="">All Types</option>
-                {availableCategories.map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
+                <option value="All">All</option>
+                <option value="Documents">{mainTab === "Drawings" ? "Drawings" : "Documents"}</option>
+                <option value="Folders">Folders</option>
               </select>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
@@ -565,15 +559,17 @@ const DocumentsPage = () => {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[800px]">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-4 py-4 w-14">Type</th>
-                  <th className="px-3 sm:px-4 py-3">Document Name</th>
-                  <th className="px-3 sm:px-4 py-3">Category</th>
-                  <th className="hidden md:table-cell px-3 sm:px-4 py-3">Project Link</th>
-                  <th className="px-3 sm:px-4 py-3">Status</th>
-                  <th className="hidden sm:table-cell px-3 sm:px-4 py-3 text-right">Actions</th>
+                <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                  <th className="px-6 py-4 w-14">Type</th>
+                  <th className="px-6 py-4">{mainTab === "Drawings" ? "Drawing Name" : "Document Name"}</th>
+                  <th className="px-6 py-4">{mainTab === "Drawings" ? "Drawing Type" : "Category"}</th>
+                  <th className="hidden md:table-cell px-6 py-4">Project Link</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Version</th>
+                  <th className="px-6 py-4">Uploaded</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -590,89 +586,93 @@ const DocumentsPage = () => {
                         className="hover:bg-slate-50/50 transition-colors group"
                       >
                         <td className="px-6 py-4">
-                          <div className={`w-10 h-10 rounded-xl border flex flex-col items-center justify-center gap-0.5 shadow-sm group-hover:scale-105 transition-transform ${colorMap[ft.color]}`}>
-                            <span className="text-[7px] font-black uppercase tracking-widest leading-none">{ft.label}</span>
+                          <div className={`w-11 h-11 rounded-xl border flex flex-col items-center justify-center gap-0.5 shadow-sm group-hover:scale-105 transition-transform ${colorMap[ft.color]}`}>
+                            <span className="text-[8px] font-black uppercase tracking-widest leading-none">{ft.label}</span>
                             {ft.icon}
                           </div>
                         </td>
-                        <td className="px-3 sm:px-4 py-3">
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div
-                              className="cursor-pointer min-w-0"
-                              onClick={() => {
-                                if (doc.is_folder) {
-                                  handleFolderClick(doc);
-                                } else {
-                                  openPreview(doc);
-                                }
-                              }}
+                        <td className="px-6 py-4">
+                          {doc.is_folder ? (
+                            <button
+                              onClick={() => handleFolderClick(doc)}
+                              className="text-sm font-bold text-indigo-600 hover:text-indigo-800 hover:underline text-left cursor-pointer"
                             >
-                              <span className="font-bold text-slate-700 group-hover:text-primary transition-colors block leading-tight truncate max-w-[10rem] sm:max-w-xs">
-                                {doc.title}
-                              </span>
+                              {doc.title}
+                            </button>
+                          ) : (
+                            <div
+                              onClick={() => openPreview(doc)}
+                              className="cursor-pointer"
+                            >
+                              <p className="text-sm font-bold text-slate-800 group-hover:text-primary transition-colors">{doc.title}</p>
                               {doc.remarks && (
-                                <span className="text-[10px] text-slate-400 font-medium line-clamp-1">{doc.remarks}</span>
+                                <p className="text-[10px] text-slate-400 font-medium truncate max-w-[240px]">{doc.remarks}</p>
                               )}
                             </div>
-                          </div>
+                          )}
                         </td>
-                        <td className="px-3 sm:px-4 py-3">
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase tracking-widest">
                             {doc.document_type || (doc.is_folder ? "Folder" : "File")}
                           </span>
                         </td>
-                        <td className="hidden md:table-cell px-3 sm:px-4 py-3 text-xs font-bold text-slate-500 whitespace-nowrap">{doc.project_name || "General"}</td>
-                        <td className="px-3 sm:px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase whitespace-nowrap ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "PENDING" ? "bg-amber-100 text-amber-500" : "bg-rose-100 text-rose-500"
-                            }`}>
-                            {doc.status}
+                        <td className="hidden md:table-cell px-6 py-4 text-xs font-bold text-slate-500 whitespace-nowrap">{doc.project_name || "General"}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "REJECTED" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"}`}>
+                            {doc.status || "PENDING"}
                           </span>
                         </td>
-                        <td className="px-3 sm:px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1 sm:gap-2 flex-shrink-0">
-                            <button
-                              onClick={() => {
-                                openPreview(doc);
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-primary transition-all rounded-lg hover:bg-primary/5"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingDoc(doc);
-                                setIsEditModalOpen(true);
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-amber-500 transition-all rounded-lg hover:bg-amber-50"
-                              title="Edit Details"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                            </button>
+                        <td className="px-6 py-4 text-xs font-bold text-slate-500">
+                          {doc.version || "v1.0"}
+                        </td>
+                        <td className="px-6 py-4 text-[10px] font-bold text-slate-400">
+                          {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
                             {!doc.is_folder && (
-                              <button
-                                onClick={() => handleDownload(doc)}
-                                className="p-1.5 text-slate-400 hover:text-emerald-500 transition-all rounded-lg hover:bg-emerald-50"
-                                title="Download"
-                              >
-                                <Download className="w-4 h-4" />
-                              </button>
-                            )}
-                            {doc.document_type === "Drawing" && (
-                              <button
-                                onClick={() => handleViewHistory(doc)}
-                                className="p-1.5 text-slate-400 hover:text-amber-500 transition-all rounded-lg hover:bg-amber-50"
-                                title="View History"
-                              >
-                                <History className="w-4 h-4" />
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => {
+                                    openPreview(doc);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                  title="View Details"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleViewHistory(doc)}
+                                  className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                                  title="View History"
+                                >
+                                  <History className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingDoc(doc);
+                                    setIsEditModalOpen(true);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                  title="Edit Details"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDownload(doc)}
+                                  className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                                  title="Download"
+                                >
+                                  <Download className="w-4 h-4" />
+                                </button>
+                              </>
                             )}
                             <button
                               onClick={() => {
                                 setDocToDelete(doc.id);
                                 setIsDeleteModalOpen(true);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-rose-500 transition-all rounded-lg hover:bg-rose-50"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
                               title="Delete"
                             >
                               <Trash2 className="w-4 h-4" />

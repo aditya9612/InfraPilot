@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
+import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
+import { projectService } from '../../services/projectService';
+import { taskRequestService } from '../../services/taskRequestService';
+import type { TaskRequest } from '../../services/taskRequestService';
 import {
     Send,
     RotateCcw,
     ClipboardList,
     ChevronDown,
+    Clock,
+    CheckCircle2,
+    AlertCircle,
+    Loader2,
+    Calendar,
+    RefreshCw,
+    MoreVertical,
+    Edit3,
+    XCircle
 } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { useAuth } from '../../context/AuthContext';
-import { projectService } from '../../services/projectService';
 
 interface Project {
     id: number;
@@ -24,9 +35,30 @@ const TaskRequestsPage: React.FC = () => {
     const [category, setCategory] = useState('New Task');
     const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
     const [description, setDescription] = useState('');
+    const [attachmentUrl, setAttachmentUrl] = useState('');
+    const [assignedTo, setAssignedTo] = useState(0);
 
     const [projects, setProjects] = useState<Project[]>([]);
     const [loadingProjects, setLoadingProjects] = useState(true);
+
+    // List State
+    const [requests, setRequests] = useState<TaskRequest[]>([]);
+    const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [editingRequest, setEditingRequest] = useState<TaskRequest | null>(null);
+
+    const fetchRequests = React.useCallback(async () => {
+        setIsLoadingRequests(true);
+        try {
+            const data = await taskRequestService.getRequests();
+            setRequests(data);
+        } catch (err) {
+            console.error('Failed to fetch requests:', err);
+            toast.error("Could not load active requests");
+        } finally {
+            setIsLoadingRequests(false);
+        }
+    }, []);
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -59,16 +91,60 @@ const TaskRequestsPage: React.FC = () => {
         };
 
         fetchProjects();
-    }, [user]);
+        fetchRequests();
+    }, [user, fetchRequests]);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!title || !description) {
-            toast.error("Please provide a title and description");
+        if (!title || !description || !project) {
+            toast.error("Please provide all required fields");
             return;
         }
-        handleReset();
-        toast.success("Task request submitted!");
+
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                title,           // service maps this → `name` for POST /api/v1/projects/
+                description,
+                category,
+                priority,
+                project_id: project ? Number(project) : undefined,
+                attachment_url: attachmentUrl || undefined,
+                assigned_to: assignedTo || undefined,
+            };
+
+            if (editingRequest) {
+                // PUT /api/v1/projects/{id}
+                await taskRequestService.updateRequest(editingRequest.id, payload);
+                toast.success("Task request updated successfully!");
+            } else {
+                // POST /api/v1/projects/
+                await taskRequestService.createRequest(payload);
+                toast.success("Task request submitted successfully!");
+            }
+            handleReset();
+            fetchRequests(); // Refresh the list
+        } catch (err: any) {
+            const msg = err?.response?.data?.detail || (editingRequest ? "Failed to update request" : "Failed to submit task request");
+            toast.error(msg);
+            console.error("Task request submit error:", err?.response?.data ?? err);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleEdit = (req: TaskRequest) => {
+        setEditingRequest(req);
+        setTitle(req.title);
+        setDescription(req.description);
+        setCategory(req.category);
+        setPriority(req.priority as any);
+        setProject(String(req.project_id || ''));
+        setAttachmentUrl(req.attachment_url || '');
+        setAssignedTo(req.assigned_to || 0);
+        
+        // Scroll to form
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleReset = () => {
@@ -77,6 +153,9 @@ const TaskRequestsPage: React.FC = () => {
         setDescription('');
         setCategory('New Task');
         setPriority('Medium');
+        setAttachmentUrl('');
+        setAssignedTo(0);
+        setEditingRequest(null);
     };
 
     return (
@@ -105,8 +184,12 @@ const TaskRequestsPage: React.FC = () => {
                                 <ClipboardList className="w-7 h-7" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-slate-800">Task Information</h2>
-                                <p className="text-sm text-slate-400 font-medium">Provide the details of the task you need</p>
+                                <h2 className="text-xl font-bold text-slate-800">
+                                    {editingRequest ? 'Edit Task Request' : 'Task Information'}
+                                </h2>
+                                <p className="text-sm text-slate-400 font-medium">
+                                    {editingRequest ? `Updating request #${editingRequest.id}` : 'Provide the details of the task you need'}
+                                </p>
                             </div>
                         </div>
 
@@ -172,6 +255,33 @@ const TaskRequestsPage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Attachment and Assigned To Row */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
+                                        Attachment URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={attachmentUrl}
+                                        onChange={(e) => setAttachmentUrl(e.target.value)}
+                                        placeholder="https://example.com/image.jpg"
+                                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-400 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
+                                        Assigned To (ID)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={assignedTo}
+                                        onChange={(e) => setAssignedTo(Number(e.target.value))}
+                                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-400 transition-all"
+                                    />
+                                </div>
+                            </div>
+
                             {/* Priority Selection */}
                             <div className="space-y-3">
                                 <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
@@ -223,17 +333,139 @@ const TaskRequestsPage: React.FC = () => {
                                     onClick={handleReset}
                                     className="px-8 py-4 bg-white border border-slate-200 text-slate-500 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                                 >
-                                    RESET FORM <RotateCcw className="w-4 h-4" />
+                                    {editingRequest ? 'CANCEL EDIT' : 'RESET FORM'} 
+                                    {editingRequest ? <XCircle className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                                    disabled={isSubmitting}
+                                    className={`flex-1 py-4 text-white rounded-xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-70 ${
+                                        editingRequest ? 'bg-amber-500 shadow-amber-100 hover:bg-amber-600' : 'bg-indigo-600 shadow-indigo-100 hover:bg-indigo-700'
+                                    }`}
                                 >
-                                    SUBMIT REQUEST <Send className="w-4 h-4" />
+                                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingRequest ? <Edit3 className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                                    {editingRequest ? 'UPDATE REQUEST' : 'SUBMIT REQUEST'}
                                 </button>
                             </div>
 
                         </form>
+                    </div>
+
+                    {/* Active Requests List */}
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between px-1">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-black text-slate-800 tracking-tight">Active Requests</h2>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    TRACK THE STATUS OF YOUR SUBMITTED REQUISITIONS
+                                </p>
+                            </div>
+                            <button 
+                                onClick={fetchRequests}
+                                className="p-3 bg-white border border-slate-100 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-all active:rotate-180 duration-500"
+                            >
+                                <RefreshCw className={`w-5 h-5 ${isLoadingRequests ? 'animate-spin' : ''}`} />
+                            </button>
+                        </div>
+
+                        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
+                            {isLoadingRequests ? (
+                                <div className="flex flex-col items-center justify-center py-32 opacity-20">
+                                    <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Synchronizing Data...</p>
+                                </div>
+                            ) : requests.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-32 opacity-30">
+                                    <ClipboardList className="w-16 h-16 text-slate-300 mb-4" />
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">No requests found</p>
+                                    <p className="text-[11px] font-medium text-slate-300 mt-2">Submit your first task request using the form above</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50/50 border-b border-slate-50">
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Task Details</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Priority</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date Submitted</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {requests.map((req, idx) => (
+                                                <tr key={req.id || idx} className="hover:bg-slate-50/30 transition-colors group">
+                                                    <td className="px-8 py-6">
+                                                        <div>
+                                                            <h4 className="text-sm font-bold text-slate-800 mb-0.5">{req.title}</h4>
+                                                            <p className="text-[11px] text-slate-400 font-medium line-clamp-1">{req.description}</p>
+                                                            {req.attachment_url && (
+                                                                <a href={req.attachment_url} target="_blank" rel="noopener noreferrer" className="text-[9px] font-black text-indigo-600 uppercase mt-1 inline-block hover:underline">
+                                                                    View Attachment
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex flex-col">
+                                                            <span className="px-3 py-1 bg-slate-50 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-tight w-fit">
+                                                                {req.category}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-300 font-bold mt-1 uppercase">Assigned: {req.assigned_to || 'None'}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
+                                                            req.priority === 'High' ? 'text-rose-500' :
+                                                            req.priority === 'Medium' ? 'text-amber-500' : 'text-emerald-500'
+                                                        }`}>
+                                                            <div className={`w-1.5 h-1.5 rounded-full ${
+                                                                req.priority === 'High' ? 'bg-rose-500' :
+                                                                req.priority === 'Medium' ? 'bg-amber-500' : 'bg-emerald-500'
+                                                            }`} />
+                                                            {req.priority}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                                                            <Calendar className="w-3.5 h-3.5 text-slate-300" />
+                                                            {req.created_at ? new Date(req.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Today'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex items-center gap-2">
+                                                            {req.status?.toLowerCase() === 'approved' ? (
+                                                                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                            ) : req.status?.toLowerCase() === 'rejected' ? (
+                                                                <AlertCircle className="w-4 h-4 text-rose-500" />
+                                                            ) : (
+                                                                <Clock className="w-4 h-4 text-amber-500" />
+                                                            )}
+                                                            <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">
+                                                                {req.status || 'Pending'}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-right flex items-center justify-end gap-2">
+                                                        <button 
+                                                            onClick={() => handleEdit(req)}
+                                                            className="p-2.5 rounded-xl border border-slate-100 text-slate-400 hover:text-amber-500 hover:border-amber-100 transition-all"
+                                                            title="Edit Request"
+                                                        >
+                                                            <Edit3 className="w-4 h-4" />
+                                                        </button>
+                                                        <button className="p-2.5 rounded-xl border border-slate-100 text-slate-300 hover:text-indigo-600 hover:border-indigo-100 transition-all">
+                                                            <MoreVertical className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </PageTransition>

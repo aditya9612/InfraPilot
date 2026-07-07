@@ -122,6 +122,7 @@ const ClientNotificationsPage = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
 
   const handleSetActiveTab = (tab: TabType) => {
     setActiveTab(tab);
@@ -333,19 +334,21 @@ const ClientNotificationsPage = () => {
           <div className="flex items-center gap-2">
             {selectedIds.length > 0 && (
               <button
+                disabled={markingAllRead}
                 onClick={handleMarkSelectedRead}
-                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCheck className="w-4 h-4" />
-                Mark Selected Read ({selectedIds.length})
+                {markingAllRead ? "Processing..." : `Mark Selected Read (${selectedIds.length})`}
               </button>
             )}
             <button
+              disabled={markingAllRead}
               onClick={handleMarkAllRead}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 shadow-sm transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Check className="w-4 h-4" />
-              Mark All Read
+              {markingAllRead ? "Processing..." : "Mark All Read"}
             </button>
           </div>
         </div>

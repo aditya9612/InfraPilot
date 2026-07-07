@@ -28,6 +28,7 @@ export interface AttendanceRecord {
     check_in_address?: string;
     check_in_image?: string;
     check_out_image?: string;
+    check_out_address?: string;
 }
 
 export interface TodayStatusResponse {
@@ -172,7 +173,7 @@ export const attendanceService = {
     async checkOut(id: number, data: any) {
         try {
             const isFormData = data instanceof FormData;
-            const response = await api.put(`attendance/${id}/check-out`, data, {
+            const response = await api.put(`attendance/check-out/${id}`, data, {
                 headers: isFormData ? { "Content-Type": "multipart/form-data" } : {},
             });
             return response.data;
