@@ -103,35 +103,31 @@ const TaskRequestsPage: React.FC = () => {
 
         setIsSubmitting(true);
         try {
+            const payload = {
+                title,           // service maps this → `name` for POST /api/v1/projects/
+                description,
+                category,
+                priority,
+                project_id: project ? Number(project) : undefined,
+                attachment_url: attachmentUrl || undefined,
+                assigned_to: assignedTo || undefined,
+            };
+
             if (editingRequest) {
-                // Update existing
-                await taskRequestService.updateRequest(editingRequest.id, {
-                    title,
-                    description,
-                    category,
-                    priority,
-                    project_id: project,
-                    attachment_url: attachmentUrl,
-                    assigned_to: assignedTo
-                });
+                // PUT /api/v1/projects/{id}
+                await taskRequestService.updateRequest(editingRequest.id, payload);
                 toast.success("Task request updated successfully!");
             } else {
-                // Create new
-                await taskRequestService.createRequest({
-                    title,
-                    description,
-                    category,
-                    priority,
-                    project_id: project,
-                    attachment_url: attachmentUrl,
-                    assigned_to: assignedTo
-                });
+                // POST /api/v1/projects/
+                await taskRequestService.createRequest(payload);
                 toast.success("Task request submitted successfully!");
             }
             handleReset();
             fetchRequests(); // Refresh the list
-        } catch (err) {
-            toast.error(editingRequest ? "Failed to update request" : "Failed to submit task request");
+        } catch (err: any) {
+            const msg = err?.response?.data?.detail || (editingRequest ? "Failed to update request" : "Failed to submit task request");
+            toast.error(msg);
+            console.error("Task request submit error:", err?.response?.data ?? err);
         } finally {
             setIsSubmitting(false);
         }

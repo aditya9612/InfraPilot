@@ -50,6 +50,8 @@ const LabourDashboard: React.FC = () => {
         pending: 0,
         earnings: '₹0'
     });
+    const [projectName, setProjectName] = useState<string>('Urban Heights');
+    const [contractorName, setContractorName] = useState<string>('M/S Sharma Contractors');
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -64,6 +66,8 @@ const LabourDashboard: React.FC = () => {
                         pending: data.pending_tasks ?? data.pending ?? data.tasks_pending ?? 0,
                         earnings: `₹${(data.earnings_current_month ?? data.earnings ?? data.total_earnings ?? 0).toLocaleString()}`
                     });
+                    if (data.project_name) setProjectName(data.project_name);
+                    if (data.contractor_name) setContractorName(data.contractor_name);
 
                     // Map API tasks to UI Task interface
                     const rawTasks = data.tasks || data.recent_tasks || data.assigned_tasks || [];
@@ -131,9 +135,9 @@ const LabourDashboard: React.FC = () => {
     const activityAccents = [
         { dot: 'bg-indigo-500', icon: 'text-indigo-500', bg: 'bg-indigo-50' },
         { dot: 'bg-emerald-500', icon: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { dot: 'bg-amber-500',  icon: 'text-amber-500',  bg: 'bg-amber-50'  },
-        { dot: 'bg-rose-500',   icon: 'text-rose-500',   bg: 'bg-rose-50'   },
-        { dot: 'bg-blue-500',   icon: 'text-blue-500',   bg: 'bg-blue-50'   },
+        { dot: 'bg-amber-500', icon: 'text-amber-500', bg: 'bg-amber-50' },
+        { dot: 'bg-rose-500', icon: 'text-rose-500', bg: 'bg-rose-50' },
+        { dot: 'bg-blue-500', icon: 'text-blue-500', bg: 'bg-blue-50' },
     ];
 
     return (
@@ -163,11 +167,11 @@ const LabourDashboard: React.FC = () => {
                                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-1">
                                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest">
                                         <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
-                                        Urban Heights
+                                        {projectName}
                                     </div>
                                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest">
                                         <User className="w-3.5 h-3.5 text-emerald-500" />
-                                        M/S Sharma Contractors
+                                        {contractorName}
                                     </div>
                                 </div>
                             </div>

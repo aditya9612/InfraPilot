@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
+import Modal from '../../components/common/Modal';
 import {
     Clock,
     Calendar,
@@ -44,6 +45,7 @@ const AttendancePage: React.FC = () => {
     const [dateTo, setDateTo] = useState('');
     const [selectedRecordForLocation, setSelectedRecordForLocation] = useState<AttendanceRecord | null>(null);
     const [selectedRecordForDetail, setSelectedRecordForDetail] = useState<AttendanceRecord | null>(null);
+    const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -536,8 +538,8 @@ const AttendancePage: React.FC = () => {
                                         <tr>
                                             {[
                                                 'DATE', 'LABOUR NAME', 'DEPARTMENT',
-                                                'ONLINE STATUS', 'CHECK IN', 'CHECK OUT', 'HOURS',
-                                                'LOCATION', 'STATUS', 'ACTION'
+                                                'ONLINE STATUS', 'CHECK IN', 'CHECK OUT', 'WORKING HOURS',
+                                                'OVERTIME HOURS', 'LOCATION', 'STATUS', 'ACTION'
                                             ].map(head => (
                                                 <th key={head} className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 whitespace-nowrap">
                                                     {head}
@@ -575,7 +577,10 @@ const AttendancePage: React.FC = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="w-10 h-10 rounded-full bg-blue-50/50 border border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden group/img relative">
+                                                        <div 
+                                                            onClick={() => record.check_in_image && setPreviewImage({ url: record.check_in_image, title: "Check-In Image - " + (record.full_name || user?.name || "Labour") })}
+                                                            className={`w-10 h-10 rounded-full bg-blue-50/50 border border-dashed border-blue-200 flex flex-col items-center justify-center overflow-hidden group/img relative transition-all ${record.check_in_image ? 'cursor-pointer hover:scale-105 active:scale-95 border-blue-400' : ''}`}
+                                                        >
                                                             {record.check_in_image ? (
                                                                 <img src={record.check_in_image} alt="In" className="w-full h-full object-cover" />
                                                             ) : (
@@ -584,13 +589,18 @@ const AttendancePage: React.FC = () => {
                                                                     <div className="text-[6px] font-black text-blue-300 uppercase mt-0.5 tracking-tighter">In</div>
                                                                 </>
                                                             )}
-                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <Eye className="w-3 h-3 text-white" />
-                                                            </div>
+                                                            {record.check_in_image && (
+                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                                    <Eye className="w-3 h-3 text-white" />
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="w-10 h-10 rounded-full bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden group/img relative">
+                                                        <div 
+                                                            onClick={() => record.check_out_image && setPreviewImage({ url: record.check_out_image, title: "Check-Out Image - " + (record.full_name || user?.name || "Labour") })}
+                                                            className={`w-10 h-10 rounded-full bg-slate-50 border border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden group/img relative transition-all ${record.check_out_image ? 'cursor-pointer hover:scale-105 active:scale-95 border-rose-400' : ''}`}
+                                                        >
                                                             {record.check_out_image ? (
                                                                 <img src={record.check_out_image} alt="Out" className="w-full h-full object-cover" />
                                                             ) : (
@@ -611,6 +621,10 @@ const AttendancePage: React.FC = () => {
                                                         {record.working_hours ? `${record.working_hours}h` : '-'}
                                                     </td>
 
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-slate-400">
+                                                        {record.overtime_hours ? `${record.overtime_hours}h` : '-'}
+                                                    </td>
+
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <button 
                                                             onClick={() => setSelectedRecordForLocation(record)}
@@ -622,8 +636,8 @@ const AttendancePage: React.FC = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${record.out_time ? 'bg-slate-50 text-slate-400' : record.in_time ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                                            {record.out_time ? 'Completed' : record.in_time ? 'Present' : 'Absent'}
+                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${(record.in_time || record.out_time) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                            {(record.in_time || record.out_time) ? 'Present' : 'Absent'}
                                                         </span>
                                                     </td>
 
@@ -749,6 +763,24 @@ const AttendancePage: React.FC = () => {
                 </div>
             )}
 
+            {/* Image Preview Modal */}
+            <Modal
+                isOpen={!!previewImage}
+                onClose={() => setPreviewImage(null)}
+                title={previewImage?.title || "Image Preview"}
+                maxWidth="max-w-sm"
+            >
+                <div className="w-full flex items-center justify-center bg-black/5">
+                    {previewImage && (
+                        <img
+                            src={previewImage.url}
+                            alt={previewImage.title}
+                            className="w-full h-auto object-cover rounded-b-2xl"
+                        />
+                    )}
+                </div>
+            </Modal>
+
             {/* Attendance Detail Modal */}
             {selectedRecordForDetail && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 overflow-hidden">
@@ -809,8 +841,11 @@ const AttendancePage: React.FC = () => {
                             <div className="flex items-center justify-center gap-8 py-2 border-y border-dashed border-slate-100">
                                 <div className="flex flex-col items-center gap-2">
                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Check In</span>
-                                    <div className="w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden">
-                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100">
+                                    <div 
+                                        onClick={() => selectedRecordForDetail.check_in_image && setPreviewImage({ url: selectedRecordForDetail.check_in_image, title: "Check-In Image - " + (selectedRecordForDetail.full_name || user?.name || "Labour") })}
+                                        className={`w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden transition-all ${selectedRecordForDetail.check_in_image ? 'cursor-pointer hover:scale-110 active:scale-95 border-blue-400' : ''}`}
+                                    >
+                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100 overflow-hidden">
                                             {selectedRecordForDetail.check_in_image ? (
                                                 <img src={selectedRecordForDetail.check_in_image} alt="In" className="w-full h-full object-cover rounded-full" />
                                             ) : (
@@ -825,8 +860,11 @@ const AttendancePage: React.FC = () => {
 
                                 <div className="flex flex-col items-center gap-2">
                                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Check Out</span>
-                                    <div className="w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden">
-                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100">
+                                    <div 
+                                        onClick={() => selectedRecordForDetail.check_out_image && setPreviewImage({ url: selectedRecordForDetail.check_out_image, title: "Check-Out Image - " + (selectedRecordForDetail.full_name || user?.name || "Labour") })}
+                                        className={`w-12 h-12 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center p-0.5 overflow-hidden transition-all ${selectedRecordForDetail.check_out_image ? 'cursor-pointer hover:scale-110 active:scale-95 border-rose-400' : ''}`}
+                                    >
+                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center border border-slate-100 overflow-hidden">
                                             {selectedRecordForDetail.check_out_image ? (
                                                 <img src={selectedRecordForDetail.check_out_image} alt="Out" className="w-full h-full object-cover rounded-full" />
                                             ) : (
