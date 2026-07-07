@@ -201,7 +201,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
       <PageTransition className="p-6 bg-slate-50 min-h-[calc(100vh-64px)] overflow-y-auto pb-8 font-inter">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Notification Center</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Notification & Alert Center</h1>
             <p className="text-slate-500 text-sm">View all alerts, approvals, and system messages.</p>
           </div>
           <div className="flex gap-2">
@@ -221,19 +221,21 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
               <CheckCheck className="w-4 h-4" />
               Mark All Read
             </button>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
-            >
-              + Send Alert
-            </button>
+            {activeTab === "alerts" && (
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
+              >
+                + Send Alert
+              </button>
+            )}
           </div>
         </div>
 
         {/* Alerts / System Notification Tabs */}
         <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit mb-6">
           {([
-            { key: "alerts", label: "Project Alerts" },
+            { key: "alerts", label: "Alerts" },
             { key: "system", label: "System Notifications" },
           ] as const).map(t => (
             <button
@@ -355,22 +357,24 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                 </div>
               </div>
 
-              <select
-                value={sourceFilter}
-                onChange={(e) => { setSourceFilter(e.target.value); }}
-                className={`px-3 py-2 border rounded-xl text-sm font-medium outline-none transition-all font-inter ${
-                  sourceFilter !== "All"
-                    ? "bg-primary/10 border-primary/30 text-primary"
-                    : "bg-slate-50 border-slate-200 text-slate-600"
-                }`}
-              >
-                <option value="All">All Sources</option>
-                <option value="general">General</option>
-                <option value="project">Project</option>
-                <option value="task">Task</option>
-                <option value="system">System</option>
-                <option value="direct">Direct</option>
-              </select>
+              {activeTab === "alerts" && (
+                <select
+                  value={sourceFilter}
+                  onChange={(e) => { setSourceFilter(e.target.value); }}
+                  className={`px-3 py-2 border rounded-xl text-sm font-medium outline-none transition-all font-inter ${
+                    sourceFilter !== "All"
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "bg-slate-50 border-slate-200 text-slate-600"
+                  }`}
+                >
+                  <option value="All">All Sources</option>
+                  <option value="general">General</option>
+                  <option value="project">Project</option>
+                  <option value="task">Task</option>
+                  <option value="system">System</option>
+                  <option value="direct">Direct</option>
+                </select>
+              )}
             </div>
           </div>
 
@@ -487,7 +491,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
           {/* Pagination */}
           <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Showing {filteredNotifs.length === 0 ? 0 : currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredNotifs.length)} of {filteredNotifs.length} Notifications
+              Showing {filteredNotifs.length === 0 ? 0 : currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredNotifs.length)} of {filteredNotifs.length} {activeTab === "alerts" ? "Alerts" : "Notifications"}
             </p>
             <div className="flex items-center gap-2">
               <button
