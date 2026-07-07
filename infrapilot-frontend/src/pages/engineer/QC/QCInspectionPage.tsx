@@ -23,6 +23,7 @@ import {
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
 import { dsrService } from "../../../services/dsrService";
+import { userService } from "../../../services/userService";
 import type { QcItem } from "../../../services/qcService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
@@ -92,7 +93,7 @@ const QCInspectionPage = () => {
         report_file: ""
     });
 
-    // â”€â”€â”€ PROJECT RESOLUTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ──────────────────────────────── PROJECT RESOLUTION ────────────────────────────────
     useEffect(() => {
         const initializeProject = async () => {
             try {
@@ -149,6 +150,7 @@ const QCInspectionPage = () => {
 
     const [availableTasks, setAvailableTasks] = useState<any[]>([]);
     const [availableDsrs, setAvailableDsrs] = useState<any[]>([]);
+    const [availableEngineers, setAvailableEngineers] = useState<any[]>([]);
     const [isFetchingDeps, setIsFetchingDeps] = useState(false);
 
     useEffect(() => {
@@ -157,12 +159,15 @@ const QCInspectionPage = () => {
             setIsFetchingDeps(true);
             Promise.all([
                 projectService.getTasks(Number(targetProjectId)).catch(() => []),
-                dsrService.getDsrByProject(Number(targetProjectId)).catch(() => [])
-            ]).then(([tasksRes, dsrsRes]: [any, any]) => {
+                dsrService.getDsrByProject(Number(targetProjectId)).catch(() => []),
+                userService.getAllUsers(100, 0).catch(() => [])
+            ]).then(([tasksRes, dsrsRes, usersRes]: [any, any, any]) => {
                 const tasksList = Array.isArray(tasksRes) ? tasksRes : (tasksRes.data || tasksRes.items || []);
                 const dsrsList = Array.isArray(dsrsRes) ? dsrsRes : (dsrsRes.data || dsrsRes.items || []);
+                const usersList = Array.isArray(usersRes) ? usersRes : (usersRes.data || usersRes.items || []);
                 setAvailableTasks(tasksList);
                 setAvailableDsrs(dsrsList);
+                setAvailableEngineers(usersList.filter((u: any) => u.role === 'ENGINEER' || u.role === 'PROJECT_MANAGER' || u.role === 'ADMIN'));
             }).finally(() => {
                 setIsFetchingDeps(false);
             });
@@ -181,7 +186,7 @@ const QCInspectionPage = () => {
         return dsr ? (dsr.report_date || dsr.date || `DSR #${dsrId}`) : `DSR #${dsrId}`;
     };
 
-    // â”€â”€â”€ INITIALIZATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ──────────────────────────────── INITIALIZATION ────────────────────────────────
 
     const fetchData = useCallback(async () => {
         if (projectId === null) return;
@@ -207,7 +212,7 @@ const QCInspectionPage = () => {
         setCurrentPage(1);
     }, [searchTerm, filterType, filterStatus, activeStatFilter, sortOrder]);
 
-    // â”€â”€â”€ ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ──────────────────────────────── ACTIONS ────────────────────────────────
 
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -347,7 +352,7 @@ const QCInspectionPage = () => {
         setIsEditModalOpen(true);
     };
 
-    // â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ──────────────────────────────── HELPERS ────────────────────────────────
 
     const filteredList = useMemo(() => {
         let data = qcList;
@@ -897,7 +902,7 @@ const QCInspectionPage = () => {
                                     <option value="">-- Select DSR --</option>
                                     {availableDsrs.map(d => (
                                         <option key={d.id} value={d.id}>
-                                            {d.title || d.dsr_name || d.name || `DSR #${d.id}`}
+                                            DSR #{d.id} {d.report_date || d.date ? `(${d.report_date || d.date})` : ''}
                                         </option>
                                     ))}
                                 </select>
@@ -969,16 +974,19 @@ const QCInspectionPage = () => {
 
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer_name *</label>
-                                <input
-                                    type="text"
-                                    placeholder="Enter auditor name..."
+                                <select
                                     value={formData.engineer_name}
-                                    onChange={(e) => {
-                                        const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
-                                        setFormData({ ...formData, engineer_name: val });
-                                    }}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter"
-                                />
+                                    onChange={(e) => setFormData({ ...formData, engineer_name: e.target.value })}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    required
+                                >
+                                    <option value="">Enter auditor name...</option>
+                                    {availableEngineers.map(eng => (
+                                        <option key={eng.user_id || eng.id} value={eng.full_name || eng.name}>
+                                            {eng.full_name || eng.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="md:col-span-2">

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
+import { projectService } from "../../../services/projectService";
 import type { ActivityItem, DailyEntry } from "../../../types/workProgress";
 
 
@@ -38,6 +39,8 @@ const DailyProgressEntryPage = () => {
   const engineer_id = Number(user?.id) || 1;
   const [projectId, setProjectId] = useState<number | null>(null);
 
+  const [projectsList, setProjectsList] = useState<any[]>([]);
+
   useEffect(() => {
     const userStr = localStorage.getItem("infrapilot_user");
     if (userStr) {
@@ -54,7 +57,31 @@ const DailyProgressEntryPage = () => {
         setProjectId(92);
       }
     }
+
+    // Fetch projects for the dropdown
+    projectService.getProjects(100, 0).then((data: any) => {
+        setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
+    }).catch(() => {});
   }, []);
+
+  const handleProjectChange = (newProjectId: number) => {
+      setProjectId(newProjectId);
+      setHasLoadedToday(false);
+      setHasLoadedAll(false);
+      setHasLoadedHistory(false);
+      const userStr = localStorage.getItem("infrapilot_user");
+      if (userStr) {
+          try {
+              const user = JSON.parse(userStr);
+              if (user.user) {
+                  user.user.project_id = newProjectId;
+              } else {
+                  user.project_id = newProjectId;
+              }
+              localStorage.setItem("infrapilot_user", JSON.stringify(user));
+          } catch (e) { }
+      }
+  };
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay'>('all');
   const [delayActivities, setDelayActivities] = useState<ActivityItem[]>([]);
@@ -96,7 +123,7 @@ const DailyProgressEntryPage = () => {
 
   const loadActivities = useCallback(async () => {
     try {
-      const data = await workProgressService.listActivities(projectId || 92, engineer_id);
+      const data = await workProgressService.listActivities(projectId || 92, undefined, 100, 0);
       const normalizedData = data.map((a: any) => {
         let status = a.status;
         if (status) {
@@ -122,7 +149,7 @@ const DailyProgressEntryPage = () => {
       if (!hasLoadedToday) {
         setLoading(true);
       }
-      const res = await workProgressService.getTodayProgress(engineer_id);
+      const res = await workProgressService.getTodayProgress(engineer_id, projectId || undefined);
       const entries = res?.data || res || [];
       setTodayActivities(entries as DailyEntry[]);
       setAllEntries(entries as DailyEntry[]);
@@ -132,14 +159,14 @@ const DailyProgressEntryPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [engineer_id, hasLoadedToday]);
+  }, [engineer_id, hasLoadedToday, projectId]);
 
   const loadAllEntries = useCallback(async () => {
     try {
       if (!hasLoadedAll) {
         setLoading(true);
       }
-      const res = await workProgressService.listDailyEntries();
+      const res = await workProgressService.listDailyEntries(undefined, undefined, projectId || undefined);
       setAllEntries(res || []);
       setHasLoadedAll(true);
     } catch (err) {
@@ -148,7 +175,7 @@ const DailyProgressEntryPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [hasLoadedAll]);
+  }, [hasLoadedAll, projectId]);
 
   const loadActivityHistory = useCallback(async () => {
     try {
@@ -170,15 +197,17 @@ const DailyProgressEntryPage = () => {
   const loadDelayReport = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await workProgressService.getDelayReport();
-      setDelayActivities(res?.data || []);
+      const res = await workProgressService.getDelayReport(projectId || undefined);
+      const data = res?.data || [];
+      const filtered = data.filter((a: any) => String(a.project_id) === String(projectId || 92));
+      setDelayActivities(filtered);
     } catch (err) {
       console.error("Load Delay Error:", err);
       toast.error("Failed to load delay report");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [projectId]);
 
   const loadProjectSummary = useCallback(async () => {
     if (!projectId) return;
@@ -200,14 +229,14 @@ const DailyProgressEntryPage = () => {
       loadTodayProgress();
     } else if (activeTab === 'all') {
       loadAllEntries();
-    } else if (activeTab === 'delay') {
-      loadDelayReport();
     } else if (activeTab === 'history') {
       loadActivityHistory();
+    } else if (activeTab === 'delay') {
+      loadDelayReport();
     } else if (activeTab === 'summary') {
       loadProjectSummary();
     }
-  }, [activeTab, loadTodayProgress, loadAllEntries, loadDelayReport, loadActivityHistory, loadProjectSummary]);
+  }, [activeTab, loadTodayProgress, loadAllEntries, loadActivityHistory, loadDelayReport, loadProjectSummary, projectId]);
 
   const handleLogModalSubmit = async (data: any) => {
     try {
@@ -539,8 +568,10 @@ const DailyProgressEntryPage = () => {
           {/* ─── Registry Container ────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
             {/* Integrated Filter Bar */}
-            <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-              <div className="relative flex-1 max-w-md font-inter">
+            <div className="p-4 border-b border-slate-50 flex flex-row items-center gap-4 bg-white font-inter flex-nowrap overflow-x-auto overflow-y-hidden scrollbar-none w-full">
+              
+              {/* 1. Search Box */}
+              <div className="relative flex-1 min-w-[200px] max-w-md font-inter shrink-0">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
                   <Search className="w-4 h-4" />
                 </span>
@@ -549,37 +580,54 @@ const DailyProgressEntryPage = () => {
                   placeholder="Search by activity ref or BOQ identity..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                  className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                 />
               </div>
 
-              <div className="flex items-center gap-3 font-inter">
-                {(activeTab === 'all' || activeTab === 'history') && (
-                  <div className="flex items-center gap-3 font-inter">
-                    {activeTab === 'all' && (
-                      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm font-inter">
-                        <Calendar className="w-4 h-4 text-blue-600" />
-                        <input
-                          type="date"
-                          value={filterDate}
-                          onChange={(e) => setFilterDate(e.target.value)}
-                          className="bg-transparent text-[11px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter"
-                        />
-                      </div>
-                    )}
-                    <select
-                      value={selectedActivityId}
-                      onChange={(e) => setSelectedActivityId(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
-                    >
-                      <option value="all">All Activities</option>
-                      {activitiesList.map(a => (
-                        <option key={a.id} value={a.id}>{a.activity_name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+              {/* 2. Date Filter */}
+              {activeTab === 'all' && (
+                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
+                  <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                  <input
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter w-[95px]"
+                  />
+                </div>
+              )}
+
+              {/* 3. Project Filter */}
+              <div className="flex items-center gap-2 font-inter shrink-0">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden xl:inline-block">Project:</span>
+                <select
+                    value={projectId || ""}
+                    onChange={(e) => handleProjectChange(Number(e.target.value))}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter shadow-sm max-w-[150px] truncate"
+                >
+                    <option value="">ALL PROJECTS</option>
+                    {projectsList.map(p => (
+                        <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name}</option>
+                    ))}
+                </select>
               </div>
+
+              {/* 4. All Activity Filter */}
+              {(activeTab === 'all' || activeTab === 'history') && (
+                <div className="flex items-center gap-2 font-inter shrink-0">
+                  <select
+                    value={selectedActivityId}
+                    onChange={(e) => setSelectedActivityId(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm max-w-[130px] truncate"
+                  >
+                    <option value="all">ALL ACTIVITIES</option>
+                    {activitiesList.map(a => (
+                      <option key={a.id} value={a.id}>{a.activity_name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
             </div>
 
             <div className="flex-1 overflow-auto p-10 font-inter scrollbar-thin scrollbar-thumb-slate-200">

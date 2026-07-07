@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
+import { projectService } from "../../../services/projectService";
 import type { ActivityItem } from "../../../types/workProgress";
 
 // Modular Components
@@ -36,6 +37,8 @@ const ActivityListPage = () => {
   const engineer_id = Number(user?.id) || 1;
   const [projectId, setProjectId] = useState<number | null>(null);
 
+  const [projectsList, setProjectsList] = useState<any[]>([]);
+
   useEffect(() => {
     const userStr = localStorage.getItem("infrapilot_user");
     if (userStr) {
@@ -52,7 +55,28 @@ const ActivityListPage = () => {
         setProjectId(92);
       }
     }
+
+    // Fetch projects for the dropdown
+    projectService.getProjects(100, 0).then((data: any) => {
+      setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
+    }).catch(() => { });
   }, []);
+
+  const handleProjectChange = (newProjectId: number) => {
+    setProjectId(newProjectId);
+    const userStr = localStorage.getItem("infrapilot_user");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.user) {
+          user.user.project_id = newProjectId;
+        } else {
+          user.project_id = newProjectId;
+        }
+        localStorage.setItem("infrapilot_user", JSON.stringify(user));
+      } catch (e) { }
+    }
+  };
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,6 +337,21 @@ const ActivityListPage = () => {
                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
               />
             </div>
+
+            {/* Project Filter */}
+            <div className="flex items-center gap-3 font-inter">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Project:</span>
+              <select
+                value={projectId || ""}
+                onChange={(e) => handleProjectChange(Number(e.target.value))}
+                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter"
+              >
+                <option value="">ALL PROJECTS</option>
+                {projectsList.map(p => (
+                  <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name}</option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-center gap-3 font-inter">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status:</span>
               <select
@@ -404,8 +443,8 @@ const ActivityListPage = () => {
                           onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }}
                           disabled={a.status === "ON_TRACK" || a.status === "COMPLETED"}
                           className={`p-2 rounded-xl transition-all font-inter ${a.status === "ON_TRACK" || a.status === "COMPLETED"
-                              ? "text-slate-300 opacity-50 cursor-not-allowed"
-                              : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            ? "text-slate-300 opacity-50 cursor-not-allowed"
+                            : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
                             }`}
                           title={a.status === "ON_TRACK" || a.status === "COMPLETED" ? "Cannot delete active or completed activities" : "Archive Entry"}
                         >

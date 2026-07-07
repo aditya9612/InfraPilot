@@ -99,6 +99,7 @@ export interface PurchaseOrder {
   material_id: number;
   supplier_id: number;
   project_id: number;
+  boq_item_id?: number;
   material_name: string;
   quantity: number;
   rate: number;
@@ -110,6 +111,7 @@ export interface POCreate {
   supplier_id: number;
   project_id: number;
   material_id: number;
+  boq_item_id?: number;
   quantity: number;
   rate: number;
 }

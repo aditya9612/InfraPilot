@@ -78,7 +78,7 @@ const LaborDetailsPage = () => {
             return 92;
         }
     });
-    const [contractorFilter, setContractorFilter] = useState<string>("");
+
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [labourToDelete, setLabourToDelete] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -86,35 +86,40 @@ const LaborDetailsPage = () => {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Active" | "Skilled">("All");
     const [projects, setProjects] = useState<any[]>([]);
-    const [assignProjectId, setAssignProjectId] = useState<string>("");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
     const [labourTypes, setLabourTypes] = useState<any[]>([]);
 
+    // Assign Project Modal State
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [assignTargetLabourId, setAssignTargetLabourId] = useState<number | null>(null);
+    const [assignTargetLabourName, setAssignTargetLabourName] = useState<string>("");
+    const [assignSelectedProjectId, setAssignSelectedProjectId] = useState<number | "">("");
+    const [isAssigning, setIsAssigning] = useState(false);
+    const [projectAssignmentFilter, setProjectAssignmentFilter] = useState<string>("All");
+
     useEffect(() => {
-        if (isFormModalOpen) {
-            const fetchProjects = async () => {
-                try {
-                    const res = await projectService.getProjects(100, 0);
-                    const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
-                    setProjects(projectsList);
-                } catch (err) {
-                    console.error("Failed to fetch projects", err);
-                }
-            };
-            const fetchLabourTypes = async () => {
-                try {
-                    const res = await masterService.getEntities("labour-types");
-                    setLabourTypes(res);
-                } catch (err) {
-                    console.error("Failed to fetch labour types", err);
-                }
-            };
-            fetchProjects();
-            fetchLabourTypes();
-        }
-    }, [isFormModalOpen]);
+        const fetchProjects = async () => {
+            try {
+                const res = await projectService.getProjects(100, 0);
+                const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                setProjects(projectsList);
+            } catch (err) {
+                console.error("Failed to fetch projects", err);
+            }
+        };
+        const fetchLabourTypes = async () => {
+            try {
+                const res = await masterService.getEntities("labour-types");
+                setLabourTypes(res);
+            } catch (err) {
+                console.error("Failed to fetch labour types", err);
+            }
+        };
+        fetchProjects();
+        fetchLabourTypes();
+    }, []);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -136,6 +141,12 @@ const LaborDetailsPage = () => {
             newErrors.mobile_number = "Mobile number is required";
         } else if (!/^[6-9]\d{9}$/.test(formData.mobile_number)) {
             newErrors.mobile_number = "Enter a valid 10-digit Indian mobile number";
+        }
+
+        if (formData.pan_number && formData.pan_number.trim()) {
+            if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.pan_number.trim())) {
+                newErrors.pan_number = "Enter a valid PAN format (e.g., ABCDE1234F)";
+            }
         }
 
         if (!formData.labour_type_id) newErrors.labour_type_id = "Labour type is required";
@@ -160,8 +171,11 @@ const LaborDetailsPage = () => {
                     offset: offset,
                     status: statusFilter === "All" ? undefined : statusFilter
                 });
-                
-                const items = response.items || [];
+                // Ensure fetched items are marked as assigned to the current project
+                const items = (response.items || []).map((item: any) => ({
+                    ...item,
+                    project_id: item.project_id || projectId || 92
+                }));
                 allItems = [...allItems, ...items];
                 
                 if (items.length < 50) {
@@ -315,9 +329,7 @@ const LaborDetailsPage = () => {
 
                 toast.success("Profile updated successfully");
             } else {
-                const activePId = assignProjectId ? Number(assignProjectId) : (projectId || 92);
                 const createPayload = {
-                    project_id: activePId,
                     aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null,
                     labour_name: formData.labour_name,
                     mobile_number: formData.mobile_number,
@@ -332,24 +344,14 @@ const LaborDetailsPage = () => {
                     notes: formData.notes || null,
                     profile_image: formData.profile_image || null,
                 };
-                console.log("Step 1: Registering Personnel...", createPayload);
+                console.log("Registering Personnel...", createPayload);
                 const newLaborer = await labourService.createLabour(createPayload);
-
-                // Step 2: Explicitly assign worker to the project to ensure they appear in the list
-                console.log(`Step 2: Assigning Worker ${newLaborer.id} to Project ${activePId}...`);
-                try {
-                    await labourService.assignLabourToProject(newLaborer.id, activePId);
-                } catch (assignError: any) {
-                    console.error("Assignment Failed, rolling back labour creation:", assignError);
-                    await labourService.deleteLabour(newLaborer.id);
-                    throw new Error("Failed to assign project. Worker registration rolled back.");
-                }
 
                 // Add to local state immediately
                 setLaborers(prev => [newLaborer, ...prev]);
                 // Store in localStorage for instant sync with Attendance page
                 try {
-                    const localKey = `created_labourers_${activePId}`;
+                    const localKey = `created_labourers_${projectId || 92}`;
                     const localSaved = localStorage.getItem(localKey);
                     const localItems = localSaved ? JSON.parse(localSaved) : [];
                     localItems.unshift(newLaborer);
@@ -375,12 +377,57 @@ const LaborDetailsPage = () => {
         }
     };
 
+    const handleAssignSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!assignSelectedProjectId || !assignTargetLabourId) {
+            toast.error("Please select a project to assign");
+            return;
+        }
+        setIsAssigning(true);
+        try {
+            await labourService.assignLabourToProject(assignTargetLabourId, Number(assignSelectedProjectId));
+            toast.success("Project assigned successfully");
+            setIsAssignModalOpen(false);
+            setAssignTargetLabourId(null);
+            setAssignSelectedProjectId("");
+            // Refresh data
+            fetchLaborers();
+        } catch (error: any) {
+            console.error("Assign Error:", error.response?.data || error.message);
+            toast.error(error.response?.data?.detail || "Assignment failed");
+        } finally {
+            setIsAssigning(false);
+        }
+    };
+
+    const getAssignedProjectName = (l: any) => {
+        if (l.projects && l.projects.length > 0) {
+            return l.projects.map((p: any) => p.project_name || p.name).join(', ');
+        }
+        if (l.project_id && Number(l.project_id) !== 0) {
+            const p = projects.find(proj => proj.id === Number(l.project_id));
+            return p ? (p.project_name || p.name) : "Assigned";
+        }
+        if (l.project_name && l.project_name !== "Unassigned") return l.project_name;
+        return "Unassigned";
+    };
+
     const baseFilteredLaborers = laborers.filter(l => {
-        // Apply Contractor Name filter
-        if (contractorFilter && l.contractor_name !== contractorFilter) return false;
 
         // Apply Status Filter
         if (statusFilter !== "All" && l.status !== statusFilter) return false;
+
+        // Apply Project Assignment Filter
+        const assignedName = getAssignedProjectName(l);
+        if (projectAssignmentFilter === "Assigned") {
+            if (assignedName === "Unassigned") return false;
+        } else if (projectAssignmentFilter === "Unassigned") {
+            if (assignedName !== "Unassigned") return false;
+        } else if (projectAssignmentFilter !== "All") {
+            const filterProjectId = Number(projectAssignmentFilter);
+            const isAssignedToThisProject = l.project_id === filterProjectId || (l.projects && l.projects.some((p: any) => p.id === filterProjectId));
+            if (!isAssignedToThisProject) return false;
+        }
 
         // Apply Search Term filter (Name, ID, Worker Code, Aadhaar)
         const search = searchTerm.toLowerCase().trim();
@@ -421,7 +468,7 @@ const LaborDetailsPage = () => {
     // Reset pagination when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [projectId, contractorFilter, searchTerm, statusFilter, activeStatFilter]);
+    }, [projectId, searchTerm, statusFilter, activeStatFilter, projectAssignmentFilter]);
 
     const paginatedLaborers = filteredLaborers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -441,11 +488,11 @@ const LaborDetailsPage = () => {
                         </p>
                     </div>
                     <button
-                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setAssignProjectId(""); setIsFormModalOpen(true); }}
+                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
                         className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        Register Personnel
+                        Create Labour
                     </button>
                 </div>
 
@@ -505,17 +552,12 @@ const LaborDetailsPage = () => {
                                 <option value="Inactive">Inactive</option>
                             </select>
                         </div>
-                        <div className="flex items-center gap-3 md:border-l md:border-slate-100 md:pl-4">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contractor:</span>
-                            <select
-                                value={contractorFilter}
-                                onChange={(e) => setContractorFilter(e.target.value)}
-                                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest min-w-[160px]"
-                            >
-                                <option value="">All Contractors</option>
-                                {[...new Set(laborers.map(l => l.contractor_name).filter(Boolean))].map(name => (
-                                    <option key={name} value={name!}>{name}</option>
-                                ))}
+                        <div className="flex items-center gap-2 font-inter md:border-l md:border-slate-100 md:pl-4">
+                            <Building2 className="w-4 h-4 text-slate-400" />
+                            <select value={projectAssignmentFilter} onChange={(e) => setProjectAssignmentFilter(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none cursor-pointer font-inter uppercase tracking-widest max-w-[200px] truncate">
+                                <option value="All">All Projects</option>
+                                <option value="Assigned">Assigned to Project</option>
+                                <option value="Unassigned">Unassigned</option>
                             </select>
                         </div>
                         <div className="flex items-center gap-2 font-inter md:border-l md:border-slate-100 md:pl-4">
@@ -549,6 +591,7 @@ const LaborDetailsPage = () => {
                                         <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Custom OT Rate/Hr (₹)</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Effective Daily Wage (₹)</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Effective OT Rate (₹)</th>
+                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Assigned Project</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Contractor Name</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Status</th>
                                         <th className="px-4 py-4 text-right font-inter whitespace-nowrap">Actions</th>
@@ -610,6 +653,10 @@ const LaborDetailsPage = () => {
                                             <td className="px-4 py-4 text-right">
                                                 <span className="text-xs font-bold text-slate-600 tabular-nums font-inter">{labor.effective_ot_rate != null ? `₹${labor.effective_ot_rate}` : "—"}</span>
                                             </td>
+                                            {/* assigned_project */}
+                                            <td className="px-4 py-4">
+                                                <span className={`text-xs font-bold font-inter ${getAssignedProjectName(labor) === 'Unassigned' ? 'text-slate-400' : 'text-primary'}`}>{getAssignedProjectName(labor)}</span>
+                                            </td>
                                             {/* contractor_name */}
                                             <td className="px-4 py-4">
                                                 <span className="text-xs text-slate-500 font-inter">{labor.contractor_name || "—"}</span>
@@ -623,6 +670,18 @@ const LaborDetailsPage = () => {
                                             {/* actions */}
                                             <td className="px-4 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2 font-inter">
+                                                    <button
+                                                        onClick={() => {
+                                                            setAssignTargetLabourId(labor.id);
+                                                            setAssignTargetLabourName(labor.labour_name);
+                                                            setAssignSelectedProjectId(labor.project_id || "");
+                                                            setIsAssignModalOpen(true);
+                                                        }}
+                                                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                        title="Assign to Project"
+                                                    >
+                                                        <Building2 className="w-4 h-4" />
+                                                    </button>
                                                     <button
                                                         onClick={() => handleViewDetail(labor.id)}
                                                         disabled={loadingId !== null}
@@ -734,7 +793,7 @@ const LaborDetailsPage = () => {
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
-                title={formMode === 'create' ? 'Register New Personnel' : 'Update Personnel Profile'}
+                title={formMode === 'create' ? 'Create Labour' : 'Update Personnel Profile'}
                 maxWidth="max-w-4xl"
                 footer={
                     <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
@@ -752,36 +811,13 @@ const LaborDetailsPage = () => {
                             className="min-w-[180px] px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
                         >
                             {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                            {formMode === 'create' ? 'Confirm Registration' : 'Update Profile'}
+                            {formMode === 'create' ? 'Create Labour' : 'Update Profile'}
                         </button>
                     </div>
                 }
             >
                 <form id="personnel-form" onSubmit={handleSubmit} className="space-y-6">
-                    {formMode === 'create' && (
-                        <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-200 shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2">
-                                    <Building2 className="w-4 h-4 text-primary" />
-                                    <h3 className="text-sm font-bold text-primary">Assign to project</h3>
-                                </div>
-                            </div>
-                            <p className="text-[11px] text-blue-500 mb-4 ml-6">Labour create hone ke baad automatically project assign ho jayega</p>
-                            <div className="ml-6">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT PROJECT *</label>
-                                <select
-                                    value={assignProjectId}
-                                    onChange={(e) => setAssignProjectId(e.target.value)}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
-                                >
-                                    <option value="">-- Select your project --</option>
-                                    {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                    )}
+
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Personnel Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -816,7 +852,8 @@ const LaborDetailsPage = () => {
                             {/* pan_number */}
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">PAN Number</label>
-                                <input type="text" value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase().slice(0, 10) })} placeholder="HHLM5621L" className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-mono outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                                <input type="text" value={formData.pan_number} onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10) })} placeholder="HHLM5621L" className={`w-full px-4 py-2.5 bg-white border ${errors.pan_number ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm font-mono outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`} />
+                                {errors.pan_number && <p className="text-[10px] text-rose-500 font-bold mt-1 ml-1">{errors.pan_number}</p>}
                             </div>
 
                             {/* address */}
@@ -926,9 +963,9 @@ const LaborDetailsPage = () => {
                         {/* All fields in GET API sequence */}
                         <div className="grid grid-cols-2 gap-4 mb-6">
                             {([
-                                { label: 'ID', value: selectedLaborer.id },
+                                { label: 'id', value: selectedLaborer.id },
                                 { label: 'Worker Code', value: selectedLaborer.worker_code },
-                                { label: 'User ID', value: selectedLaborer.user_id ?? '—' },
+                                { label: 'user_id', value: selectedLaborer.user_id ?? '—' },
                                 { label: 'Role', value: selectedLaborer.role || '—' },
                                 { label: 'Aadhaar Number', value: selectedLaborer.aadhaar_number || '—' },
                                 { label: 'Labour Name', value: selectedLaborer.labour_name },
@@ -967,6 +1004,55 @@ const LaborDetailsPage = () => {
                         </button>
                     </div>
                 )}
+            </Modal>
+
+            {/* ─── Assign Project Modal ──────────────────────────────────────────────────────── */}
+            <Modal
+                isOpen={isAssignModalOpen}
+                onClose={() => setIsAssignModalOpen(false)}
+                title="Assign Labour To Project"
+                maxWidth="max-w-md"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-6 font-inter">
+                        <button
+                            type="button"
+                            onClick={() => setIsAssignModalOpen(false)}
+                            className="min-w-[120px] px-6 py-2.5 bg-white text-slate-600 border border-slate-200 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all font-inter"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleAssignSubmit}
+                            disabled={isAssigning || !assignSelectedProjectId}
+                            className="min-w-[120px] px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold uppercase tracking-widest shadow-xl shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 font-inter"
+                        >
+                            {isAssigning && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                            Assign
+                        </button>
+                    </div>
+                }
+            >
+                <div className="p-6 font-inter">
+                    <div className="mb-4">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Name</label>
+                        <div className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700">
+                            {assignTargetLabourName}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Select Project</label>
+                        <select
+                            value={assignSelectedProjectId}
+                            onChange={(e) => setAssignSelectedProjectId(Number(e.target.value))}
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        >
+                            <option value="">-- Select Project --</option>
+                            {projects.map(p => (
+                                <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
             </Modal>
 
             <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteConfirm} title="Remove Personnel Entry" message="Are you sure you want to delete this labor record?" confirmText="Confirm Deletion" type="danger" isLoading={isDeleting} />

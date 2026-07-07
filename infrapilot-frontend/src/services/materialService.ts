@@ -354,8 +354,10 @@ export const materialService = {
     return response.data;
   },
 
-  async listTransfers(skip: number = 0, limit: number = 500): Promise<any> {
-    const response = await api.get<any>("/materials/transfers", { params: { skip, limit } });
+  async listTransfers(skip: number = 0, limit: number = 500, project_id?: number): Promise<any> {
+    const params: any = { skip, limit };
+    if (project_id) params.project_id = project_id;
+    const response = await api.get<any>("/materials/transfers", { params });
     return response.data;
   },
 

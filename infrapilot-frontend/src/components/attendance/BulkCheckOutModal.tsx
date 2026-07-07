@@ -11,9 +11,10 @@ interface Props {
     initialSelectedUserIds?: number[];
     initialProjectId?: number;
     eligibleForCheckOutIds?: number[];
+    selectedLaboursContext?: any[];
 }
 
-const BulkCheckOutModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialSelectedUserIds = [], initialProjectId = 0, eligibleForCheckOutIds = [] }) => {
+const BulkCheckOutModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initialSelectedUserIds = [], initialProjectId = 0, eligibleForCheckOutIds = [], selectedLaboursContext = [] }) => {
     const [projectId, setProjectId] = useState<number>(initialProjectId);
     const [attendanceIds, setAttendanceIds] = useState<number[]>([]);
     const [remarks, setRemarks] = useState('');
@@ -46,7 +47,7 @@ const BulkCheckOutModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initia
                 
                 // Only show users that were initially selected (if any selection was made)
                 const usersToShow = initialSelectedUserIds.length > 0 
-                    ? fetchedAttendances.filter((att: any) => initialSelectedUserIds.includes(Number(att.user_id || att.labour_id)))
+                    ? fetchedAttendances.filter((att: any) => initialSelectedUserIds.map(Number).includes(Number(att.user_id || att.labour_id)))
                     : fetchedAttendances;
                 
                 setUsers(usersToShow);
@@ -55,7 +56,7 @@ const BulkCheckOutModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initia
                 const validSelection = fetchedAttendances
                     .filter((att: any) => {
                         const targetId = Number(att.user_id || att.labour_id);
-                        return initialSelectedUserIds.includes(targetId) && eligibleForCheckOutIds.includes(targetId);
+                        return initialSelectedUserIds.map(Number).includes(targetId) && eligibleForCheckOutIds.map(Number).includes(targetId);
                     })
                     .map((att: any) => Number(att.id));
                 setAttendanceIds(validSelection);
@@ -79,10 +80,14 @@ const BulkCheckOutModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initia
 
         setIsSubmitting(true);
         try {
-            const payload = {
-                attendance_ids: attendanceIds,
-                remarks: remarks || "string"
+            const payload: any = {
+                attendance_ids: attendanceIds
             };
+            if (remarks) {
+                payload.remarks = remarks;
+            } else {
+                payload.remarks = "check-out";
+            }
 
             await labourService.bulkCheckOut(payload);
             toast.success("Successfully Checked Out!");
@@ -167,7 +172,10 @@ const BulkCheckOutModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initia
                                             className="w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-500/20 cursor-pointer"
                                         />
                                         <span className="text-sm font-medium text-slate-700 flex-1">
-                                            {u.labour_name || u.name || `User #${labourId}`}
+                                            {(() => {
+                                                const ctx = selectedLaboursContext.find(l => Number(l.labour_id) === Number(labourId) || Number(l.id) === Number(labourId));
+                                                return ctx?.labour_name || ctx?.name || u.labour_name || u.name || `User #${labourId}`;
+                                            })()}
                                         </span>
                                         {!isEligible && (
                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-200/50 px-2 py-1 rounded-full">Not Eligible</span>

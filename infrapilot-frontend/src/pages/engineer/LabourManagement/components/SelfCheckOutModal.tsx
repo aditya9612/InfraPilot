@@ -14,8 +14,6 @@ interface SelfCheckOutModalProps {
 }
 
 const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, onSuccess, attendanceId, title = "Self Check-Out" }) => {
-    // ── State — fields matching Swagger API image exactly ──────────────────
-    const [outTime, setOutTime] = useState(new Date().toISOString().slice(0, 16));
     const [checkOutLatitude, setCheckOutLatitude] = useState<number | null>(null);
     const [checkOutLongitude, setCheckOutLongitude] = useState<number | null>(null);
     const [checkOutAddress, setCheckOutAddress] = useState('Fetching location...');
@@ -73,7 +71,7 @@ const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, 
             canvas.width = videoRef.current.videoWidth;
             canvas.height = videoRef.current.videoHeight;
             const ctx = canvas.getContext('2d');
-            if (ctx) { ctx.drawImage(videoRef.current, 0, 0); setCapturedImage(canvas.toDataURL('image/jpeg')); stopCamera(); }
+            if (ctx) { ctx.drawImage(videoRef.current, 0, 0); setCapturedImage(canvas.toDataURL('image/jpeg')); }
         }
     };
 
@@ -82,7 +80,6 @@ const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, 
         if (isOpen) {
             captureGPS();
             startCamera();
-            setOutTime(new Date().toISOString().slice(0, 16));
         } else {
             stopCamera();
             setCapturedImage(null);
@@ -99,8 +96,6 @@ const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, 
         setIsSubmitting(true);
         try {
             const fd = new FormData();
-
-            fd.append("out_time", new Date(outTime).toISOString());
 
             if (checkOutLatitude !== null) fd.append("check_out_latitude", checkOutLatitude.toString());
             if (checkOutLongitude !== null) fd.append("check_out_longitude", checkOutLongitude.toString());
@@ -169,16 +164,22 @@ const SelfCheckOutModal: React.FC<SelfCheckOutModalProps> = ({ isOpen, onClose, 
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2 font-inter">Check-Out Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                        {/* out_time */}
-                        <div className="md:col-span-2">
-                            <label className={labelCls}>Out Time</label>
-                            <input type="datetime-local" value={outTime} onChange={(e) => setOutTime(e.target.value)} className={inputCls} />
+                        {/* check_out_latitude */}
+                        <div className="md:col-span-1">
+                            <label className={labelCls}>Check Out Latitude</label>
+                            <input type="number" readOnly value={checkOutLatitude || ""} placeholder="Fetching..." className={`${inputCls} bg-slate-50 cursor-not-allowed`} />
+                        </div>
+
+                        {/* check_out_longitude */}
+                        <div className="md:col-span-1">
+                            <label className={labelCls}>Check Out Longitude</label>
+                            <input type="number" readOnly value={checkOutLongitude || ""} placeholder="Fetching..." className={`${inputCls} bg-slate-50 cursor-not-allowed`} />
                         </div>
 
                         {/* check_out_address */}
                         <div className="md:col-span-2">
                             <label className={labelCls}>Check Out Address</label>
-                            <div className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 flex items-center gap-2 transition-all">
+                            <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 flex items-center gap-2 transition-all">
                                 <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
                                 <span className="truncate flex-1">{checkOutAddress}</span>
                                 <button type="button" onClick={captureGPS} className="text-[10px] font-bold text-rose-500 hover:underline whitespace-nowrap ml-auto">

@@ -9,19 +9,22 @@ import {
 } from "lucide-react";
 import { materialService, type InventoryItem, type Transfer, type MaterialLog, type IssueType, type TransferStatus } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
+import { boqService } from "../../../services/boqService";
+import { useProject } from "../../../context/ProjectContext";
 
 type TabType = "Usage" | "Transfers" | "Transactions";
 const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"];
 const TRANSFER_STATUSES: TransferStatus[] = ["PENDING", "COMPLETED", "CANCELLED"];
 
 const MaterialConsumptionPage = () => {
+    const { selectedProjectId: globalProjectId } = useProject();
     const formatINR = (amount: number | string | undefined | null) => {
         if (amount === undefined || amount === null || isNaN(Number(amount))) return "₹0";
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(Number(amount));
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Usage");
-    const [projectId, setProjectId] = useState<number>(1);
+    const [projectId, setProjectId] = useState<number>(Number(globalProjectId) || 1);
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -30,6 +33,9 @@ const MaterialConsumptionPage = () => {
     const [transfers, setTransfers] = useState<Transfer[]>([]);
     const [transactions, setTransactions] = useState<MaterialLog[]>([]);
     const [projectsList, setProjectsList] = useState<any[]>([]);
+    const [tasksList, setTasksList] = useState<any[]>([]);
+    const [boqsList, setBoqsList] = useState<any[]>([]);
+    const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
 
     // Pagination & Filtering
     const [currentPage, setCurrentPage] = useState(1);
@@ -57,6 +63,12 @@ const MaterialConsumptionPage = () => {
         }
     }, []);
 
+    useEffect(() => {
+        if (globalProjectId) {
+            setProjectId(Number(globalProjectId));
+        }
+    }, [globalProjectId]);
+
     const handleProjectChange = (newProjectId: number) => {
         setProjectId(newProjectId);
         const userStr = localStorage.getItem("infrapilot_user");
@@ -74,7 +86,7 @@ const MaterialConsumptionPage = () => {
     };
     const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
-    const [usageForm, setUsageForm] = useState({ quantity: 0, project_id: projectId, issue_type: "SITE" });
+    const [usageForm, setUsageForm] = useState<any>({ quantity: 0, project_id: projectId, issue_type: "SITE", task_id: 0, boq_item_id: 0 });
     const [transferForm, setTransferForm] = useState<Partial<{ material_id: number; from_project_id: number; to_project_id: number; quantity: number; remarks: string }>>({ from_project_id: projectId });
     const [updateTransferForm, setUpdateTransferForm] = useState({ status: "DELIVERED" as TransferStatus, remarks: "" });
 
@@ -88,16 +100,34 @@ const MaterialConsumptionPage = () => {
 
     const fetchTransfers = async () => {
         setIsLoading(true);
-        try { const data = await materialService.listTransfers(0, 500); setTransfers(data.data); }
+        try { const data = await materialService.listTransfers(0, 500, projectId); setTransfers(data.data || data.items || data); }
         catch (e) { toast.error("Failed to load transfers"); }
         finally { setIsLoading(false); }
     };
 
     const fetchTransactions = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getLogs({ project_id: projectId }); setTransactions(data as any); }
+        try { 
+            const params: any = { project_id: projectId };
+            if (selectedMaterialId) params.material_id = Number(selectedMaterialId);
+            const data = await materialService.getLogs(params); 
+            setTransactions(data as any); 
+        }
         catch (e) { toast.error("Failed to load transactions"); }
         finally { setIsLoading(false); }
+    };
+
+    const fetchTasksAndBoqs = async () => {
+        try {
+            const [tasksRes, boqsRes] = await Promise.all([
+                projectService.getTasks(projectId, { limit: 100, offset: 0 }).catch(() => ({ items: [] })),
+                boqService.getBoqs({ project_id: projectId, limit: 100, skip: 0 } as any).catch(() => ({ items: [] }))
+            ]);
+            setTasksList(Array.isArray(tasksRes) ? tasksRes : (tasksRes.items || tasksRes.data || []));
+            setBoqsList(boqsRes.items || []);
+        } catch (e) {
+            console.error("Failed to fetch tasks or boqs", e);
+        }
     };
 
     useEffect(() => {
@@ -111,11 +141,28 @@ const MaterialConsumptionPage = () => {
     }, []);
 
     useEffect(() => {
+        const fetchFormTasks = async () => {
+            if (!usageForm.project_id || !isUsageModalOpen) return;
+            try {
+                const [tasksRes, boqsRes] = await Promise.all([
+                    projectService.getTasks(usageForm.project_id, { limit: 100, offset: 0 }).catch(() => ({ items: [] })),
+                    boqService.getBoqs({ project_id: usageForm.project_id, limit: 100, skip: 0 } as any).catch(() => ({ items: [] }))
+                ]);
+                setTasksList(Array.isArray(tasksRes) ? tasksRes : ((tasksRes as any).items || (tasksRes as any).data || []));
+                setBoqsList(Array.isArray(boqsRes) ? boqsRes : ((boqsRes as any).items || (boqsRes as any).data || []));
+            } catch (e) {
+                console.error("Failed to fetch form tasks", e);
+            }
+        };
+        fetchFormTasks();
+    }, [usageForm.project_id, isUsageModalOpen]);
+
+    useEffect(() => {
         setCurrentPage(1);
-        if (activeTab === "Usage") fetchInventory();
+        if (activeTab === "Usage") { fetchInventory(); fetchTasksAndBoqs(); }
         else if (activeTab === "Transfers") fetchTransfers();
-        else if (activeTab === "Transactions") fetchTransactions();
-    }, [activeTab, projectId]);
+        else if (activeTab === "Transactions") { fetchTransactions(); fetchInventory(); }
+    }, [activeTab, projectId, selectedMaterialId]);
 
     // Derived Data
     const filteredInventory = useMemo(() => inventory.filter(i => i.material_name.toLowerCase().includes(searchTerm.toLowerCase())), [inventory, searchTerm]);
@@ -134,7 +181,10 @@ const MaterialConsumptionPage = () => {
     const handleUsageSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); if (!selectedInventory) return; setIsSubmitting(true);
         try {
-            await materialService.recordUsage(selectedInventory.material_id, { ...usageForm, issue_type: usageForm.issue_type as IssueType });
+            const payload = { ...usageForm, issue_type: usageForm.issue_type as IssueType };
+            if (!payload.task_id) delete payload.task_id;
+            if (!payload.boq_item_id) delete payload.boq_item_id;
+            await materialService.recordUsage(selectedInventory.material_id, payload);
             toast.success("Usage recorded!"); setIsUsageModalOpen(false); fetchInventory();
         } catch (e) { toast.error("Failed to record usage"); }
         finally { setIsSubmitting(false); }
@@ -259,6 +309,18 @@ const MaterialConsumptionPage = () => {
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
                                 <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                             </div>
+                            {activeTab === "Transactions" && (
+                                <select 
+                                    value={selectedMaterialId} 
+                                    onChange={e => setSelectedMaterialId(e.target.value)}
+                                    className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600"
+                                >
+                                    <option value="">All Materials</option>
+                                    {inventory.map(m => (
+                                        <option key={m.material_id} value={m.material_id}>{m.material_name}</option>
+                                    ))}
+                                </select>
+                            )}
                             <button onClick={activeTab === "Usage" ? fetchInventory : activeTab === "Transfers" ? fetchTransfers : fetchTransactions} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100 shadow-sm"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                         </div>
                         <div className="flex-1 overflow-auto scrollbar-thin">
@@ -306,7 +368,12 @@ const MaterialConsumptionPage = () => {
                                                 <td className="px-6 py-4 text-center">
                                                     <span className={`px-2 py-1 rounded-md text-[9px] font-bold uppercase border ${t.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : t.status === 'PENDING' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{t.status}</span>
                                                 </td>
-                                                <td className="px-6 py-4 text-sm text-slate-600">{new Date(t.created_at || Date.now()).toLocaleDateString()}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">
+                                                    {(() => {
+                                                        const d = (t as any).transfer_date || (t as any).transferDate || (t as any).created_at || (t as any).createdAt || (t as any).date || (t as any).timestamp;
+                                                        return d ? new Date(d).toLocaleDateString() : 'N/A';
+                                                    })()}
+                                                </td>
                                                 <td className="px-6 py-4 text-right flex justify-end gap-2">
                                                     <button onClick={() => { handleViewTransfer(t.id); }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-all" title="View"><Eye className="w-4 h-4" /></button>
                                                     <button onClick={() => { setSelectedTransfer(t); setUpdateTransferForm({ status: t.status as TransferStatus, remarks: t.remarks || "" }); setIsUpdateTransferOpen(true); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white rounded-lg text-xs font-bold transition-all">Update Status</button>
@@ -341,8 +408,22 @@ const MaterialConsumptionPage = () => {
                         <div className="bg-rose-50 p-3 rounded-xl border border-rose-100 mb-4"><p className="text-sm font-bold text-rose-800">{selectedInventory?.material_name}</p><p className="text-xs text-rose-600">Available: {selectedInventory?.remaining_stock} {selectedInventory?.unit}</p></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelClasses}>Project *</label><select required value={usageForm.project_id} onChange={e => setUsageForm({ ...usageForm, project_id: Number(e.target.value) })} className={inputClasses}>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div>
+                                <label className={labelClasses}>Task Name</label>
+                                <select value={usageForm.task_id || ""} onChange={e => setUsageForm({ ...usageForm, task_id: Number(e.target.value) || 0 })} className={inputClasses}>
+                                    <option value="">Select Task (Optional)</option>
+                                    {tasksList.map(t => <option key={t.id} value={t.id}>{t.title || t.task_name || t.name || `Task #${t.id}`}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClasses}>BOQ Item</label>
+                                <select value={usageForm.boq_item_id || ""} onChange={e => setUsageForm({ ...usageForm, boq_item_id: Number(e.target.value) || 0 })} className={inputClasses}>
+                                    <option value="">Select BOQ (Optional)</option>
+                                    {boqsList.map(b => <option key={b.id || b.boq_item_id} value={b.id || b.boq_item_id}>{b.item_name || b.description || `BOQ Item #${b.id}`}</option>)}
+                                </select>
+                            </div>
                             <div><label className={labelClasses}>Quantity *</label><input type="number" required value={usageForm.quantity || ""} onChange={e => setUsageForm({ ...usageForm, quantity: Number(e.target.value) })} className={inputClasses} max={selectedInventory?.remaining_stock} /></div>
-                            <div><label className={labelClasses}>Issue Type *</label><select required value={usageForm.issue_type} onChange={e => setUsageForm({ ...usageForm, issue_type: e.target.value })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div className="md:col-span-2"><label className={labelClasses}>Issue Type *</label><select required value={usageForm.issue_type} onChange={e => setUsageForm({ ...usageForm, issue_type: e.target.value })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
                         </div>
                     </div>
                 </form>

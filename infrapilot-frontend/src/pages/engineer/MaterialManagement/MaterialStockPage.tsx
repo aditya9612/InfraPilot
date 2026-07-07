@@ -74,6 +74,7 @@ const MaterialStockPage = () => {
 
     // Filters & Pagination
     const [searchTerm, setSearchTerm] = useState("");
+    const [logTypeFilter, setLogTypeFilter] = useState("ADJUSTMENT");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -99,8 +100,8 @@ const MaterialStockPage = () => {
 
     const fetchAdjustments = async () => {
         setIsLoading(true);
-        try { const data = await materialService.getLogs({ project_id: projectId, type: "ADJUSTMENT" }); setAdjustments(data); }
-        catch (e) { toast.error("Failed to load adjustments"); }
+        try { const data = await materialService.getLogs({ project_id: projectId, type: logTypeFilter || undefined }); setAdjustments(data); }
+        catch (e) { toast.error("Failed to load logs"); }
         finally { setIsLoading(false); }
     };
 
@@ -117,7 +118,7 @@ const MaterialStockPage = () => {
         else if (activeTab === "Global Inventory") fetchGlobalInventory();
         else if (activeTab === "Reports") fetchReports();
         else if (activeTab === "Inventory Adjustment") { fetchAdjustments(); fetchStock(); }
-    }, [activeTab, projectId]);
+    }, [activeTab, projectId, logTypeFilter]);
 
     const stats = useMemo(() => {
         return {
@@ -413,7 +414,17 @@ const MaterialStockPage = () => {
                         <div className="p-4 border-b border-slate-50 flex items-center gap-4">
                             <div className="relative flex-1 max-w-md">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                <input type="text" placeholder="Search adjustments..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                <input type="text" placeholder="Search logs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                            </div>
+                            <div className="relative w-48">
+                                <select value={logTypeFilter} onChange={(e) => setLogTypeFilter(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer">
+                                    <option value="">All Types</option>
+                                    <option value="PURCHASE">Purchase</option>
+                                    <option value="USAGE">Usage</option>
+                                    <option value="TRANSFER_IN">Transfer In</option>
+                                    <option value="TRANSFER_OUT">Transfer Out</option>
+                                    <option value="ADJUSTMENT">Adjustment</option>
+                                </select>
                             </div>
                             <button onClick={fetchAdjustments} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                         </div>

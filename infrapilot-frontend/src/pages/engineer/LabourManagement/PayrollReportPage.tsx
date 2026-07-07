@@ -88,11 +88,15 @@ const PayrollReportPage: React.FC = () => {
         fetchReports();
     }, [activeTab, projectId, selectedMonth, selectedYear]);
 
-    const handleExport = async () => {
+    const handleExport = async (format: string = 'excel') => {
         setIsExportingExcel(true);
         try {
-            await paymentService.exportPayroll(selectedMonth, selectedYear);
-            toast.success('Payroll exported successfully');
+            await paymentService.exportPayroll({ 
+                month: selectedMonth, 
+                year: selectedYear,
+                format: format 
+            });
+            toast.success(`Payroll exported as ${format.toUpperCase()} successfully`);
         } catch (error) {
             console.error("Export Error:", error);
             toast.error('Export failed');
@@ -223,7 +227,7 @@ const PayrollReportPage: React.FC = () => {
                                 ))}
                             </select>
                             <button
-                                onClick={handleExport}
+                                onClick={() => handleExport('excel')}
                                 disabled={isExportingExcel}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-emerald-100 active:scale-95 disabled:opacity-50"
                             >
@@ -231,7 +235,7 @@ const PayrollReportPage: React.FC = () => {
                                 {isExportingExcel ? 'Generating...' : 'Export Excel'}
                             </button>
                             <button
-                                onClick={handleExport}
+                                onClick={() => handleExport('pdf')}
                                 disabled={isExportingExcel}
                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm hover:bg-rose-100 active:scale-95 disabled:opacity-50"
                             >

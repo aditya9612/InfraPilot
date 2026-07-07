@@ -11,6 +11,7 @@ import {
 // import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
 import AudioRecordModal from './AudioRecordModal';
+import EditTaskRequestModal from './EditTaskRequestModal';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
 import { boqService } from '../../../services/boqService';
@@ -107,8 +108,16 @@ const TaskManagementPage = () => {
     const [ownershipFilter, setOwnershipFilter] = useState("Entire View");
     const [taskTypeFilter, setTaskTypeFilter] = useState("All Tasks");
 
-    const [activeTab, setActiveTab] = useState("All Tasks");
+    const [activeTab, setActiveTab] = useState("All Tasks"); // "All Tasks", "Project Tasks", "Task Requests"
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+    
+    // Task Requests State
+    const [taskRequests, setTaskRequests] = useState<any[]>([]);
+    const [isFetchingTaskRequests, setIsFetchingTaskRequests] = useState(false);
+    const [isEditRequestModalOpen, setIsEditRequestModalOpen] = useState(false);
+    const [selectedTaskRequest, setSelectedTaskRequest] = useState<any>(null);
+    const [taskReqStatusFilter, setTaskReqStatusFilter] = useState("All");
+    const [taskReqProjectFilter, setTaskReqProjectFilter] = useState<number | "All">("All");
 
     // Project Accordion State
     const [expandedProjects, setExpandedProjects] = useState<number[]>([]);
@@ -269,7 +278,7 @@ const TaskManagementPage = () => {
                 boqService.getBoqItems(projectId).catch(() => []),
                 workProgressService.listActivities(projectId).catch(() => []),
                 projectService.getProjects(100, 0).catch(() => []),
-                labourService.getLabours(projectId, { limit: 1000 }).catch(() => [])
+                labourService.getLabours(projectId, { limit: 100 }).catch(() => [])
             ]);
 
             const membersList: ProjectMember[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers.items || fetchedMembers.data || []);
@@ -401,6 +410,40 @@ const TaskManagementPage = () => {
             fetchData();
         }
     }, [projectId, activeTab, fetchData]);
+
+    // Fetch Task Requests
+    useEffect(() => {
+        if (activeTab === "Task Requests") {
+            setIsFetchingTaskRequests(true);
+            const params: any = { limit: 100, skip: 0 };
+            
+            if (taskReqProjectFilter !== "All") {
+                params.project_id = taskReqProjectFilter;
+            }
+
+            if (taskReqStatusFilter !== "All") {
+                params.status = taskReqStatusFilter;
+            }
+
+            projectService.getTaskRequests(params).then(res => {
+                setTaskRequests(res || []);
+            }).finally(() => {
+                setIsFetchingTaskRequests(false);
+            });
+        }
+    }, [activeTab, taskReqStatusFilter, taskReqProjectFilter]);
+
+    const handleDeleteTaskRequest = async (requestId: number) => {
+        if (window.confirm("Are you sure you want to delete this task request?")) {
+            try {
+                await projectService.deleteTaskRequest(requestId);
+                toast.success("Task Request deleted successfully");
+                projectService.getTaskRequests({ limit: 100, skip: 0, project_id: projectId || undefined }).then(res => setTaskRequests(res || []));
+            } catch (error) {
+                toast.error("Failed to delete task request");
+            }
+        }
+    };
 
     const startEditRecording = async () => {
         try {
@@ -823,10 +866,58 @@ const TaskManagementPage = () => {
                     >
                         Project Tasks
                     </button>
+                    <button
+                        onClick={() => setActiveTab("Task Requests")}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "Task Requests"
+                            ? "bg-slate-100 text-slate-800 shadow-sm"
+                            : "text-slate-500 hover:bg-slate-50"
+                            }`}
+                    >
+                        Task Requests
+                    </button>
                 </div>
 
                 {/* ─── Stats Cards Section ──────────────────────────────────────────────────────── */}
-                {activeTab === "All Tasks" ? (
+                {activeTab === "Task Requests" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-all">
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest mb-1 text-slate-400">Total Requests</p>
+                                <h3 className="text-2xl font-black text-slate-800">{taskRequests.length}</h3>
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-slate-100 transition-colors">
+                                <List className="w-5 h-5" />
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-all">
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest mb-1 text-amber-500">Pending</p>
+                                <h3 className="text-2xl font-black text-slate-800">{taskRequests.filter(t => t.status === 'PENDING' || t.status?.toLowerCase() === 'pending').length}</h3>
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 group-hover:bg-amber-100 transition-colors">
+                                <Clock className="w-5 h-5" />
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-all">
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest mb-1 text-emerald-500">Approved</p>
+                                <h3 className="text-2xl font-black text-slate-800">{taskRequests.filter(t => t.status === 'APPROVED' || t.status?.toLowerCase() === 'approved').length}</h3>
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 group-hover:bg-emerald-100 transition-colors">
+                                <CheckCircle className="w-5 h-5" />
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:-translate-y-1 transition-all">
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest mb-1 text-rose-500">Rejected</p>
+                                <h3 className="text-2xl font-black text-slate-800">{taskRequests.filter(t => t.status === 'REJECTED' || t.status?.toLowerCase() === 'rejected').length}</h3>
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 group-hover:bg-rose-100 transition-colors">
+                                <XCircle className="w-5 h-5" />
+                            </div>
+                        </div>
+                    </div>
+                ) : activeTab === "All Tasks" ? (
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                         <div onClick={() => setStatusFilter("All Status")} className={`bg-white p-5 rounded-2xl border ${statusFilter === "All Status" ? 'border-primary ring-1 ring-primary shadow-md' : 'border-slate-200 shadow-sm'} flex items-center justify-between group hover:-translate-y-1 transition-all cursor-pointer`}>
                             <div>
@@ -1331,7 +1422,7 @@ const TaskManagementPage = () => {
                                 </div>
                             )}
                         </>
-                    ) : (
+                    ) : activeTab === "Project Tasks" ? (
                         <>
                             {/* Project Tasks Filters Toolbar */}
                             <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -1575,6 +1666,127 @@ const TaskManagementPage = () => {
                                         </div>
                                     );
                                 })}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Task Requests Content */}
+                            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center">
+                                        <AlertCircle className="w-4 h-4" />
+                                    </div>
+                                    <span className="font-bold text-sm text-slate-800">Task Requests for Approval</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                        <select
+                                            value={taskReqProjectFilter}
+                                            onChange={(e) => setTaskReqProjectFilter(e.target.value === "All" ? "All" : Number(e.target.value))}
+                                            className="appearance-none bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 pr-10 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer min-w-[160px]"
+                                        >
+                                            <option value="All">All Projects</option>
+                                            {assignedProjects.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                                            <Filter className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                    <div className="relative">
+                                        <select
+                                            value={taskReqStatusFilter}
+                                            onChange={(e) => setTaskReqStatusFilter(e.target.value)}
+                                            className="appearance-none bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 pr-10 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer min-w-[140px]"
+                                        >
+                                            <option value="All">All Status</option>
+                                            <option value="PENDING">Pending</option>
+                                            <option value="APPROVED">Approved</option>
+                                            <option value="REJECTED">Rejected</option>
+                                        </select>
+                                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                                            <Filter className="w-4 h-4" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-6 bg-slate-50 flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200">
+                                {isFetchingTaskRequests ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                    </div>
+                                ) : taskRequests.length > 0 ? (
+                                    <table className="w-full text-left font-inter min-w-[1200px] block md:table">
+                                        <thead className="hidden md:table-header-group">
+                                            <tr className="bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200">
+                                                <th className="p-4 whitespace-nowrap">Title</th>
+                                                <th className="p-4 whitespace-nowrap">Category</th>
+                                                <th className="p-4 whitespace-nowrap">Project Name</th>
+                                                <th className="p-4 whitespace-nowrap">Priority</th>
+                                                <th className="p-4 whitespace-nowrap">Description</th>
+                                                <th className="p-4 whitespace-nowrap">Attachment URL</th>
+                                                <th className="p-4 whitespace-nowrap">Assigned Name</th>
+                                                <th className="p-4 whitespace-nowrap">Status</th>
+                                                <th className="p-4 whitespace-nowrap">Is Deleted</th>
+                                                <th className="p-4 whitespace-nowrap">Created At</th>
+                                                <th className="p-4 whitespace-nowrap">Updated At</th>
+                                                <th className="p-4 whitespace-nowrap text-center">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="block md:table-row-group">
+                                            {taskRequests.map((req, idx) => {
+                                                const projectName = assignedProjects.find(p => p.id === req.project_id)?.name || req.project_id || 'N/A';
+                                                const assignedName = projectMembers?.find(m => m.user_id === req.assigned_to)?.full_name || req.assigned_to || 'Unassigned';
+                                                
+                                                return (
+                                                    <tr key={req.id || idx} className="border-b border-slate-100 bg-white hover:bg-slate-50 transition-colors block md:table-row">
+                                                        <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{req.title || req.name || 'Untitled'}</td>
+                                                        <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.category || '-'}</td>
+                                                        <td className="p-4 text-xs font-bold text-slate-800 block md:table-cell">{projectName}</td>
+                                                        <td className="p-4 block md:table-cell">
+                                                            <span className={`inline-flex px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${priorityBadges[req.priority?.toLowerCase()] || 'bg-slate-200 text-slate-600'}`}>
+                                                                {req.priority || 'NORMAL'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 text-xs text-slate-500 max-w-[150px] truncate block md:table-cell">{req.description || '-'}</td>
+                                                        <td className="p-4 text-xs text-blue-500 truncate max-w-[150px] block md:table-cell">
+                                                            {req.attachment_url && req.attachment_url !== "null" && req.attachment_url !== "-" ? (
+                                                                <a href={req.attachment_url} target="_blank" rel="noreferrer" className="hover:underline">View</a>
+                                                            ) : '-'}
+                                                        </td>
+                                                        <td className="p-4 text-xs text-slate-600 block md:table-cell">{assignedName}</td>
+                                                        <td className="p-4 block md:table-cell">
+                                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : req.status === 'REJECTED' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                {req.status || 'PENDING'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 text-xs text-slate-600 block md:table-cell">{req.is_deleted ? 'Yes' : 'No'}</td>
+                                                        <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</td>
+                                                        <td className="p-4 text-[10px] text-slate-500 block md:table-cell">{req.updated_at ? new Date(req.updated_at).toLocaleString() : '-'}</td>
+                                                        <td className="p-4 block md:table-cell text-center">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <button onClick={() => { setSelectedTaskRequest(req); setIsEditRequestModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all" title="Edit Request">
+                                                                    <Edit2 className="w-4 h-4" />
+                                                                </button>
+                                                                <button onClick={() => handleDeleteTaskRequest(req.id || req.request_id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all" title="Delete Request">
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                                        <AlertCircle className="w-12 h-12 text-slate-300 mb-4" />
+                                        <h3 className="text-lg font-bold text-slate-800 mb-2">No Task Requests</h3>
+                                        <p className="text-sm text-slate-500">There are currently no task requests pending approval.</p>
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}
@@ -2505,6 +2717,15 @@ const TaskManagementPage = () => {
                     <img src={selectedImage || ''} alt="Instruction Full" className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-lg" />
                 </div>
             </Modal>
+            <EditTaskRequestModal
+                isOpen={isEditRequestModalOpen}
+                onClose={() => setIsEditRequestModalOpen(false)}
+                onSuccess={() => {
+                    projectService.getTaskRequests({ limit: 100, skip: 0, project_id: projectId || undefined }).then(res => setTaskRequests(res || []));
+                }}
+                request={selectedTaskRequest}
+            />
+
         </>
     );
 };

@@ -173,6 +173,11 @@ export const workProgressService = {
     } catch (error: any) {
       console.warn("listDailyEntries API error, using virtual success fallback:", error.message);
       let filtered = [...mockDailyEntries];
+      if (project_id) {
+        // filter by checking if the activity belongs to this project
+        const projectActivityIds = new Set(mockActivities.filter(a => a.project_id === project_id).map(a => a.id));
+        filtered = filtered.filter(e => projectActivityIds.has(e.activity_id));
+      }
       if (activityId) {
         filtered = filtered.filter(e => e.activity_id === activityId);
       }
@@ -260,9 +265,15 @@ export const workProgressService = {
       return response.data;
     } catch (error: any) {
       console.warn("getTodayProgress API error, using virtual success fallback:", error.message);
+      let filtered = mockDailyEntries;
+      if (engineerId) filtered = filtered.filter(e => e.created_by === engineerId);
+      if (project_id) {
+        const projectActivityIds = new Set(mockActivities.filter(a => a.project_id === project_id).map(a => a.id));
+        filtered = filtered.filter(e => projectActivityIds.has(e.activity_id));
+      }
       return {
-        limit: 10, offset: 0, page_count: 1, total_count: 0,
-        data: mockDailyEntries.filter(e => e.created_by === engineerId)
+        limit: 10, offset: 0, page_count: 1, total_count: filtered.length,
+        data: filtered
       };
     }
   },
