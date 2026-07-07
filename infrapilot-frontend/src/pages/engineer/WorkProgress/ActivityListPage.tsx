@@ -137,11 +137,12 @@ const ActivityListPage = () => {
       data = data.filter(a => a.status === "ON_TRACK");
     }
 
-    return data.filter(a =>
+    const filtered = data.filter(a =>
       (searchTerm === "" || a.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()))) &&
       (filterStatus === "All Status" || a.status === filterStatus)
     );
+    return [...filtered].sort((a, b) => b.id - a.id);
   }, [activities, searchTerm, filterStatus, activeStatFilter]);
 
   // Reset pagination when filters change
@@ -404,8 +405,8 @@ const ActivityListPage = () => {
                           onClick={() => { setDeleteId(a.id); setIsDeleteModalOpen(true); }}
                           disabled={a.status === "ON_TRACK" || a.status === "COMPLETED"}
                           className={`p-2 rounded-xl transition-all font-inter ${a.status === "ON_TRACK" || a.status === "COMPLETED"
-                              ? "text-slate-300 opacity-50 cursor-not-allowed"
-                              : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            ? "text-slate-300 opacity-50 cursor-not-allowed"
+                            : "text-slate-400 hover:text-rose-600 hover:bg-rose-50"
                             }`}
                           title={a.status === "ON_TRACK" || a.status === "COMPLETED" ? "Cannot delete active or completed activities" : "Archive Entry"}
                         >

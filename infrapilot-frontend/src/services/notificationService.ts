@@ -25,12 +25,14 @@ export const notificationService = {
      */
     getAllNotifications: async (): Promise<Notification[]> => {
         try {
-            const [genRes, pRes, tRes, nRes] = await Promise.all([
+            const [genRes, nRes] = await Promise.all([
                 api.get('/alerts', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
-                api.get('/projects/alerts/projects', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
-                api.get('/projects/alerts/tasks', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
                 api.get('/notifications', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] }))
             ]);
+            // Note: /projects/alerts/projects and /projects/alerts/tasks require a project_id
+            // and return 422 when called without one. They are intentionally excluded here.
+            const pRes = { data: [] };
+            const tRes = { data: [] };
 
             const extractData = (res: any) => {
                 const data = res.data;
@@ -160,11 +162,13 @@ export const notificationService = {
      */
     async getAlertsOnly(): Promise<Notification[]> {
         try {
-            const [genRes, pRes, tRes] = await Promise.all([
+            const [genRes] = await Promise.all([
                 api.get('/alerts', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
-                api.get('/projects/alerts/projects', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
-                api.get('/projects/alerts/tasks', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
             ]);
+            // Note: /projects/alerts/projects and /projects/alerts/tasks require a project_id
+            // and return 422 when called without one. They are excluded here.
+            const pRes = { data: [] };
+            const tRes = { data: [] };
 
             const extractData = (res: any) => {
                 const data = res.data;
