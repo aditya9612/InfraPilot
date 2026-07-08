@@ -35,11 +35,15 @@ const ClientPaymentPage = () => {
             try {
                 setLoading(true);
                 if (activeTab === "quotation") {
-                    const data = await quotationService.getQuotations();
-                    // Filter strictly for New Sara City
-                    const projectQuotations = data.filter((q: any) => Number(q.project_id) === Number(projectId));
-                    
-                    const mapped = projectQuotations.map((q: any) => ({
+                    // Server-side project filter: GET /api/v1/quotations/?project_id={projectId}
+                    const data = await quotationService.getQuotations(100, 0, projectId ? Number(projectId) : null);
+
+                    // Hard client-side guard — only show quotations for the active project
+                    const projectFiltered = projectId
+                        ? data.filter((q: any) => Number(q.project_id) === Number(projectId))
+                        : data;
+
+                    const mapped = projectFiltered.map((q: any) => ({
                         ...q,
                         entity_title: 'QUOTATION',
                         id: q.id,
@@ -532,9 +536,6 @@ const ClientPaymentPage = () => {
                             <table className="w-full text-left border-collapse table-fixed">
                                 <thead>
                                     <tr className="bg-slate-50/30">
-                                        <th className="px-6 py-5 w-[6%] text-center">
-                                            <input type="checkbox" className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
-                                        </th>
                                         <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[14%]">QUOTATION ID</th>
                                         <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[16%]">COMPANY NAME</th>
                                         <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[16%]">PROJECT NAME</th>
@@ -547,7 +548,7 @@ const ClientPaymentPage = () => {
                                 <tbody className="divide-y divide-slate-50">
                                     {filteredQuotations.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="py-24 text-center">
+                                            <td colSpan={7} className="py-24 text-center">
                                                 <div className="flex flex-col items-center opacity-40">
                                                    <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                    <p className="font-bold uppercase tracking-widest text-xs">No records matching your search</p>
@@ -557,9 +558,6 @@ const ClientPaymentPage = () => {
                                     ) : (
                                         filteredQuotations.map((q, i) => (
                                             <tr key={i} className="hover:bg-slate-50/30 transition-all group">
-                                                <td className="px-6 py-6 text-center">
-                                                    <input type="checkbox" className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" />
-                                                </td>
                                                 <td className="px-6 py-6">
                                                     <p className="text-xs font-black text-slate-800 tracking-tight">{q.entity_id_display || q.id}</p>
                                                 </td>

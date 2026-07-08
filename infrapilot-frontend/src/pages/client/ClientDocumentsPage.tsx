@@ -314,19 +314,11 @@ const ClientDocumentsPage = () => {
 
     // Apply type tab filter
     if (activeTab === "Drawings") {
-      // Only drawings/images + folders
-      data = data.filter(d => {
-        if (d.is_folder) return true;
-        const url = (d.file_url || "").toLowerCase();
-        return IMAGE_EXTS.test(url) || d.type === "Drawing";
-      });
+      // Only drawings
+      data = data.filter(d => d.type === "Drawing" && (d.file_url || "").toLowerCase().includes("drawings/"));
     } else if (activeTab === "Documents") {
-      // All files EXCEPT images + folders
-      data = data.filter(d => {
-        if (d.is_folder) return true;
-        const url = (d.file_url || "").toLowerCase();
-        return !IMAGE_EXTS.test(url) && d.type !== "Drawing";
-      });
+      // All files/folders EXCEPT drawings
+      data = data.filter(d => d.type !== "Drawing" || !(d.file_url || "").toLowerCase().includes("drawings/"));
     }
 
     // Apply search query
@@ -362,8 +354,7 @@ const ClientDocumentsPage = () => {
     drawingData.forEach(d => {
       allCount++;
       if (d.is_folder) return;
-      const url = (d.file_url || "").toLowerCase();
-      const isDrawing = IMAGE_EXTS.test(url) || d.type === "Drawing";
+      const isDrawing = d.type === "Drawing" && (d.file_url || "").toLowerCase().includes("drawings/");
       if (isDrawing) {
         drawingsCount++;
       } else {
@@ -449,11 +440,11 @@ const ClientDocumentsPage = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">All Files</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">All Drawings</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-800 tracking-tight">{stats.all}</span>
+                <span className="text-3xl font-black text-slate-800 tracking-tight">{stats.drawings}</span>
               </div>
-              <span className="text-xs text-slate-500 font-medium mt-1">Total Assets</span>
+              <span className="text-xs text-slate-500 font-medium mt-1">Total Drawings</span>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Drawings</span>
@@ -570,7 +561,7 @@ const ClientDocumentsPage = () => {
                               drawing.drawing_name
                             )}
                           </td>
-                          <td className="px-4 py-3">{drawing.type !== undefined ? String(drawing.type) : "null"}</td>
+                          <td className="px-4 py-3">{(drawing.is_folder || drawing.type === "Folder") ? "null" : (drawing.type !== undefined ? String(drawing.type) : "null")}</td>
                           <td className="px-4 py-3">{drawing.version}</td>
                           <td className="px-4 py-3">
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">

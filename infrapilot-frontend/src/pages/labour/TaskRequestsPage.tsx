@@ -65,13 +65,14 @@ const TaskRequestsPage: React.FC = () => {
             if (!user) return;
             setLoadingProjects(true);
             try {
-                const assigned = await projectService.getAssignedProjects(Number(user.id));
-                const mapped: Project[] = assigned.map((p: any) => ({
+                const res = await projectService.getProjects(100, 0);
+                const items = Array.isArray(res) ? res : (res?.items || res?.data || []);
+                const mapped: Project[] = items.map((p: any) => ({
                     id: p.id || p.project_id,
                     name: p.project_name || p.name || `Project ${p.id}`,
                 }));
 
-                // If no assigned projects found but user has a default project, use that
+                // Fallback to user default project if list is empty
                 if (mapped.length === 0 && user.project_id && user.project_name) {
                     mapped.push({ id: user.project_id, name: user.project_name });
                 }
@@ -79,8 +80,7 @@ const TaskRequestsPage: React.FC = () => {
                 setProjects(mapped);
                 if (mapped.length > 0) setProject(String(mapped[0].id));
             } catch (err) {
-                console.error('Failed to load assigned projects:', err);
-                // Fallback to user's default project
+                console.error('Failed to load projects from API:', err);
                 if (user.project_id && user.project_name) {
                     setProjects([{ id: user.project_id, name: user.project_name }]);
                     setProject(String(user.project_id));
@@ -142,7 +142,7 @@ const TaskRequestsPage: React.FC = () => {
         setProject(String(req.project_id || ''));
         setAttachmentUrl(req.attachment_url || '');
         setAssignedTo(req.assigned_to || 0);
-        
+
         // Scroll to form
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -296,12 +296,11 @@ const TaskRequestsPage: React.FC = () => {
                                             className={`flex-1 flex items-center justify-center gap-3 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${priority === lvl
                                                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-[1.02]'
                                                 : 'text-slate-500 hover:bg-white hover:text-slate-800'
-                                            }`}
+                                                }`}
                                         >
-                                            <div className={`w-2 h-2 rounded-full ${
-                                                lvl === 'Low' ? 'bg-emerald-400' :
+                                            <div className={`w-2 h-2 rounded-full ${lvl === 'Low' ? 'bg-emerald-400' :
                                                 lvl === 'Medium' ? 'bg-amber-400' : 'bg-rose-400'
-                                            } ${priority === lvl ? 'bg-white' : ''}`} />
+                                                } ${priority === lvl ? 'bg-white' : ''}`} />
                                             {lvl}
                                         </button>
                                     ))}
@@ -333,15 +332,14 @@ const TaskRequestsPage: React.FC = () => {
                                     onClick={handleReset}
                                     className="px-8 py-4 bg-white border border-slate-200 text-slate-500 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                                 >
-                                    {editingRequest ? 'CANCEL EDIT' : 'RESET FORM'} 
+                                    {editingRequest ? 'CANCEL EDIT' : 'RESET FORM'}
                                     {editingRequest ? <XCircle className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />}
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className={`flex-1 py-4 text-white rounded-xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-70 ${
-                                        editingRequest ? 'bg-amber-500 shadow-amber-100 hover:bg-amber-600' : 'bg-indigo-600 shadow-indigo-100 hover:bg-indigo-700'
-                                    }`}
+                                    className={`flex-1 py-4 text-white rounded-xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-70 ${editingRequest ? 'bg-amber-500 shadow-amber-100 hover:bg-amber-600' : 'bg-indigo-600 shadow-indigo-100 hover:bg-indigo-700'
+                                        }`}
                                 >
                                     {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingRequest ? <Edit3 className="w-4 h-4" /> : <Send className="w-4 h-4" />}
                                     {editingRequest ? 'UPDATE REQUEST' : 'SUBMIT REQUEST'}
@@ -360,7 +358,7 @@ const TaskRequestsPage: React.FC = () => {
                                     TRACK THE STATUS OF YOUR SUBMITTED REQUISITIONS
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 onClick={fetchRequests}
                                 className="p-3 bg-white border border-slate-100 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-slate-50 transition-all active:rotate-180 duration-500"
                             >
@@ -416,14 +414,12 @@ const TaskRequestsPage: React.FC = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-8 py-6">
-                                                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${
-                                                            req.priority === 'High' ? 'text-rose-500' :
+                                                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${req.priority === 'High' ? 'text-rose-500' :
                                                             req.priority === 'Medium' ? 'text-amber-500' : 'text-emerald-500'
-                                                        }`}>
-                                                            <div className={`w-1.5 h-1.5 rounded-full ${
-                                                                req.priority === 'High' ? 'bg-rose-500' :
+                                                            }`}>
+                                                            <div className={`w-1.5 h-1.5 rounded-full ${req.priority === 'High' ? 'bg-rose-500' :
                                                                 req.priority === 'Medium' ? 'bg-amber-500' : 'bg-emerald-500'
-                                                            }`} />
+                                                                }`} />
                                                             {req.priority}
                                                         </div>
                                                     </td>
@@ -448,7 +444,7 @@ const TaskRequestsPage: React.FC = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-8 py-6 text-right flex items-center justify-end gap-2">
-                                                        <button 
+                                                        <button
                                                             onClick={() => handleEdit(req)}
                                                             className="p-2.5 rounded-xl border border-slate-100 text-slate-400 hover:text-amber-500 hover:border-amber-100 transition-all"
                                                             title="Edit Request"

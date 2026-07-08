@@ -5,6 +5,7 @@ import { reportService } from "../../services/reportService";
 import { dsrService } from "../../services/dsrService";
 import { workProgressService } from "../../services/workProgressService";
 import { issueService } from "../../services/issueService";
+import { materialService } from "../../services/materialService";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import toast from "react-hot-toast";
@@ -104,6 +105,53 @@ const ClientReportsPage = () => {
   const [showInsight, setShowInsight] = useState(false);
   const [selectedInsight, setSelectedInsight] = useState<any>(null);
 
+  // Daily Excel export modal state
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [excelStartDate, setExcelStartDate] = useState("");
+  const [excelEndDate, setExcelEndDate] = useState("");
+  const [excelContractorName, setExcelContractorName] = useState("");
+  const [isExcelDownloading, setIsExcelDownloading] = useState(false);
+
+  // Labour PDF modal state
+  const [showLabourPdfModal, setShowLabourPdfModal] = useState(false);
+  const [labourPdfDate, setLabourPdfDate] = useState("");
+  const [labourPdfSkillCategory, setLabourPdfSkillCategory] = useState("");
+  const [isLabourPdfDownloading, setIsLabourPdfDownloading] = useState(false);
+
+  // Labour Excel modal state
+  const [showLabourExcelModal, setShowLabourExcelModal] = useState(false);
+  const [labourExcelDate, setLabourExcelDate] = useState("");
+  const [labourExcelSkillCategory, setLabourExcelSkillCategory] = useState("");
+  const [isLabourExcelDownloading, setIsLabourExcelDownloading] = useState(false);
+
+  // Issue PDF modal state
+  const [showIssuePdfModal, setShowIssuePdfModal] = useState(false);
+  const [issuePdfStatus, setIssuePdfStatus] = useState("");
+  const [issuePdfPriority, setIssuePdfPriority] = useState("");
+  const [issuePdfStartDate, setIssuePdfStartDate] = useState("");
+  const [issuePdfEndDate, setIssuePdfEndDate] = useState("");
+  const [isIssuePdfDownloading, setIsIssuePdfDownloading] = useState(false);
+
+  // Issue Excel modal state
+  const [showIssueExcelModal, setShowIssueExcelModal] = useState(false);
+  const [issueExcelStatus, setIssueExcelStatus] = useState("");
+  const [issueExcelPriority, setIssueExcelPriority] = useState("");
+  const [issueExcelStartDate, setIssueExcelStartDate] = useState("");
+  const [issueExcelEndDate, setIssueExcelEndDate] = useState("");
+  const [isIssueExcelDownloading, setIsIssueExcelDownloading] = useState(false);
+
+  // Weekly PDF modal state
+  const [showWeeklyPdfModal, setShowWeeklyPdfModal] = useState(false);
+  const [weeklyPdfStartDate, setWeeklyPdfStartDate] = useState("");
+  const [weeklyPdfEndDate, setWeeklyPdfEndDate] = useState("");
+  const [isWeeklyPdfDownloading, setIsWeeklyPdfDownloading] = useState(false);
+
+  // Weekly Excel modal state
+  const [showWeeklyExcelModal, setShowWeeklyExcelModal] = useState(false);
+  const [weeklyExcelStartDate, setWeeklyExcelStartDate] = useState("");
+  const [weeklyExcelEndDate, setWeeklyExcelEndDate] = useState("");
+  const [isWeeklyExcelDownloading, setIsWeeklyExcelDownloading] = useState(false);
+
   const fetchAllReports = async () => {
     if (!projectId) return;
     try {
@@ -115,13 +163,13 @@ const ClientReportsPage = () => {
           console.error("Daily report fetch failed:", err);
           return null;
         }),
-        // 5) Weekly Progress — GET /api/v1/reports/weekly
-        reportService.getWeeklyProgress(pid).catch(err => {
+        // 5) Weekly Progress — GET /api/v1/work-progress/project-summary/{project_id}
+        workProgressService.getProjectSummary(pid).catch(err => {
           console.error("Weekly progress fetch failed:", err);
           return null;
         }),
-        // 3) Material Report — GET /api/v1/reports/material
-        reportService.getMaterialReport(pid).catch(err => {
+        // 3) Material Report — GET /api/v1/materials/reports
+        materialService.getMaterialReport(pid).catch(err => {
           console.error("Material report fetch failed:", err);
           return null;
         }),
@@ -144,32 +192,23 @@ const ClientReportsPage = () => {
       setDailyReport(resolvedDaily);
 
       // ── WEEKLY ─────────────────────────────────────────────────────────────
-      // API may return: { overall_completion, total_activities, completed_activities, tasks:[...] }
-      // or plain weekly progress summary object: { weekly_progress_percent, tasks_count }
-      // or a plain array of tasks
-      const weeklyItems: any[] = Array.isArray(weekly)
-        ? weekly
-        : (weekly?.tasks || weekly?.items || weekly?.data?.items || weekly?.data || []);
-      const calcTotal = weeklyItems.length;
-      const calcCompleted = weeklyItems.filter((a: any) =>
-        Number(a.completion_percentage) === 100 || a.status === 'Completed'
-      ).length;
-      const calcCompletion = calcTotal > 0
-        ? Math.round(weeklyItems.reduce((acc: number, val: any) => acc + (Number(val.completion_percentage) || 0), 0) / calcTotal)
-        : 0;
+      // API returns ProjectSummary: { total_activities, completed_activities, delayed_activities, on_track_activities, not_started_activities, completion_percentage }
+      const totalActivities = weekly?.total_activities || 0;
+      const completedActivities = weekly?.completed_activities || 0;
+      const overallCompletion = weekly?.completion_percentage !== undefined 
+        ? weekly.completion_percentage 
+        : (totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0);
       setWeeklyProgress({
-        tasks: weeklyItems,
-        total_activities:    weekly?.total_activities    ?? weekly?.tasks_count ?? calcTotal,
-        completed_activities: weekly?.completed_activities ?? calcCompleted,
-        overall_completion:  weekly?.overall_completion  ?? weekly?.weekly_progress_percent ?? calcCompletion
+        tasks: [],
+        total_activities: totalActivities,
+        completed_activities: completedActivities,
+        overall_completion: overallCompletion
       });
 
       // ── MATERIAL ───────────────────────────────────────────────────────────
-      // API may return: { total_items, total_purchased, total_used, total_value, materials:[...] }
-      // or a plain array
-      const allMaterials: any[] = Array.isArray(material)
-        ? material
-        : (material?.materials || material?.items || material?.data || []);
+      // API returns: { summary: any, materials: MaterialReport[] }
+      const allMaterials = material?.materials || [];
+      const summaryInfo = material?.summary || {};
       const projectMaterials = allMaterials.filter((m: any) =>
         !m.project_id || Number(m.project_id) === Number(projectId)
       );
@@ -181,17 +220,17 @@ const ClientReportsPage = () => {
         return acc;
       }, []);
       const finalMaterials = uniqueMaterials.filter((m: any) => m.material_name || m.name).slice(0, 23);
-      const calcPurchased  = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.quantity_purchased || 0), 0);
-      const calcUsed       = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.quantity_used || 0), 0);
+      const calcPurchased  = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.quantity_purchased || item.total_purchased || 0), 0);
+      const calcUsed       = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.quantity_used || item.total_used || 0), 0);
       const calcStock      = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.remaining_stock || 0), 0);
-      const calcValue      = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.total_amount || 0), 0);
+      const calcValue      = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.total_amount || item.total_cost || 0), 0);
       setMaterialSummary({
         items:           finalMaterials,
-        total_items:     material?.total_items     ?? finalMaterials.length,
-        total_purchased: material?.total_purchased ?? calcPurchased,
-        total_used:      material?.total_used      ?? calcUsed,
-        total_qty:       material?.total_stock     ?? material?.remaining_stock ?? calcStock,
-        total_value:     material?.total_value     ?? calcValue
+        total_items:     summaryInfo?.total_items     ?? finalMaterials.length,
+        total_purchased: summaryInfo?.total_purchased ?? calcPurchased,
+        total_used:      summaryInfo?.total_used      ?? calcUsed,
+        total_qty:       summaryInfo?.total_stock     ?? summaryInfo?.remaining_stock ?? calcStock,
+        total_value:     summaryInfo?.total_value     ?? calcValue
       });
 
       // ── ISSUES ─────────────────────────────────────────────────────────────
@@ -289,7 +328,7 @@ const ClientReportsPage = () => {
         { label: "LOCATION", value: dailyReport ? (dailyReport?.site_location || "N/A") : "Not Filed" }
       ],
       onPDF: () => handleExportDailyPDF(),
-      onExcel: () => handleExportDailyExcel(),
+      onExcel: () => { setExcelStartDate(reportDate); setExcelEndDate(reportDate); setExcelContractorName(""); setShowExcelModal(true); },
       onView: () => {
         setSelectedInsight({
           title: "Daily Report",
@@ -333,8 +372,8 @@ const ClientReportsPage = () => {
         { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 8 },
         { label: "STATUS", value: weeklyProgress?.overall_completion >= 100 ? "Completed" : "In Progress" }
       ],
-      onPDF: () => handleExportWeeklyPDF(),
-      onExcel: () => handleExportWeeklyExcel(),
+      onPDF: () => setShowWeeklyPdfModal(true),
+      onExcel: () => setShowWeeklyExcelModal(true),
       onView: () => {
         setSelectedInsight({
           title: "Weekly Progress",
@@ -377,8 +416,8 @@ const ClientReportsPage = () => {
         { label: "UNSKILLED LABOUR", value: labourSummary?.unskilled_workers ?? labourSummary?.unskilled_labour ?? dailyReport?.unskilled_labour ?? 0 },
         { label: "CATEGORIES",     value: labourSummary?.contractors_count ?? labourSummary?.categories_count ?? (labourSummary?.labour_summary?.length ?? 0) }
       ],
-      onPDF: () => handleExportLabourPDF(),
-      onExcel: () => handleExportLabourExcel(),
+      onPDF: () => setShowLabourPdfModal(true),
+      onExcel: () => setShowLabourExcelModal(true),
       onView: () => {
         setSelectedInsight({
           title: "Labour Report",
@@ -463,8 +502,8 @@ const ClientReportsPage = () => {
         { label: "RESOLVED", value: issueSummary?.closed ?? 0 },
         { label: "TOTAL", value: issueSummary?.total ?? 0 }
       ],
-      onPDF: () => handleExportIssuePDF(),
-      onExcel: () => handleExportIssueExcel(),
+      onPDF: () => setShowIssuePdfModal(true),
+      onExcel: () => setShowIssueExcelModal(true),
       onView: () => {
         setSelectedInsight({
           title: "Issue Report",
@@ -653,269 +692,290 @@ const ClientReportsPage = () => {
 
   const handleExportDailyPDF = async () => {
     if (!projectId) return;
+    const toastId = "daily-pdf";
+    toast.loading("Exporting Daily Report PDF...", { id: toastId });
     try {
-      toast.loading("Generating High-Fidelity PDF...", { id: "daily-pdf" });
-      const daily = await reportService.getDailyReport(projectId, reportDate);
-      const dsr = daily ? (daily.dsr !== undefined ? daily.dsr : daily) : null;
- 
-      if (!dsr) {
-        toast.error("No daily report found for this date to generate PDF", { id: "daily-pdf" });
-        return;
-      }
-
-      generatePremiumPDF({
-        title: "Daily Operations Report",
-        subtitle: `${dsr.site_location || 'Project Site'} | ${new Date(reportDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`,
-        summaryStats: [
-          { label: "Total Labour", value: (dsr.total_labour || 0).toString() },
-          { label: "Skilled", value: (dsr.skilled_labour || 0).toString() },
-          { label: "Unskilled", value: (dsr.unskilled_labour || 0).toString() },
-          { label: "Weather", value: dsr.weather || "Sunny" },
-          { label: "Status", value: dsr.status || "Updated" }
-        ],
-        tableHeaders: [["Daily Site Record", "Details / Observations"]],
-        tableBody: [
-          ["Report ID", dsr.business_id || `DSR-${dsr.id}`],
-          ["Work Completed", dsr.work_done || "-"],
-          ["Work Planned", dsr.work_planned || "-"],
-          ["Materials Consumed", dsr.material_used || "-"],
-          ["Materials Received", dsr.material_received || "-"],
-          ["Machinery Used", dsr.machinery_used || "-"],
-          ["Safety Observations", dsr.safety_observations || "Verified"],
-          ["Site Remarks", dsr.remarks || "Work progressing as per schedule"]
-        ],
-        fileName: `Daily_Report_${dsr.business_id || reportDate}.pdf`
-      });
-      toast.success("Daily Report PDF downloaded!", { id: "daily-pdf" });
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "Failed to generate Daily Report", { id: "daily-pdf" });
-    }
-  };
-
-  const handleExportDailyExcel = async () => {
-    if (!projectId) return;
-    try {
-      // Use the dedicated DSR export endpoint which provides proper Excel formatting
-      await dsrService.exportDsrExcel(Number(projectId), {
-        start_date: reportDate,
-        end_date: reportDate
-      });
-    } catch (error) {
-      console.error("DSR Excel export failed, falling back to CSV:", error);
+      // Primary: GET /api/v1/reports/daily/export/pdf
+      const blob = await reportService.exportDailyPDF(Number(projectId), reportDate);
+      const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Daily_Report_${reportDate}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Daily Report PDF downloaded!", { id: toastId });
+    } catch (apiError: any) {
+      console.warn("API PDF export failed, falling back to local generation:", apiError);
       try {
-        const data = await reportService.getDailyReport(projectId, reportDate);
-        const dsr = data ? (data.dsr !== undefined ? data.dsr : data) : null;
+        const daily = await reportService.getDailyReport(projectId, reportDate);
+        const dsr = daily ? (daily.dsr !== undefined ? daily.dsr : daily) : null;
         if (!dsr) {
-          toast.error("No daily report found for this date to export");
+          toast.error("No daily report found for this date to generate PDF", { id: toastId });
           return;
         }
-        generateCSV(dsr, `Daily_Report_${reportDate}.csv`);
-      } catch (err) {
-        toast.error("Failed to export daily report");
+        generatePremiumPDF({
+          title: "Daily Operations Report",
+          subtitle: `${dsr.site_location || 'Project Site'} | ${new Date(reportDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`,
+          summaryStats: [
+            { label: "Total Labour", value: (dsr.total_labour || 0).toString() },
+            { label: "Skilled", value: (dsr.skilled_labour || 0).toString() },
+            { label: "Unskilled", value: (dsr.unskilled_labour || 0).toString() },
+            { label: "Weather", value: dsr.weather || "Sunny" },
+            { label: "Status", value: dsr.status || "Updated" }
+          ],
+          tableHeaders: [["Daily Site Record", "Details / Observations"]],
+          tableBody: [
+            ["Report ID", dsr.business_id || `DSR-${dsr.id}`],
+            ["Work Completed", dsr.work_done || "-"],
+            ["Work Planned", dsr.work_planned || "-"],
+            ["Materials Consumed", dsr.material_used || "-"],
+            ["Materials Received", dsr.material_received || "-"],
+            ["Machinery Used", dsr.machinery_used || "-"],
+            ["Safety Observations", dsr.safety_observations || "Verified"],
+            ["Site Remarks", dsr.remarks || "Work progressing as per schedule"]
+          ],
+          fileName: `Daily_Report_${dsr.business_id || reportDate}.pdf`
+        });
+        toast.success("Daily Report PDF downloaded!", { id: toastId });
+      } catch (fallbackError: any) {
+        console.error("Fallback PDF generation failed:", fallbackError);
+        toast.error(fallbackError.message || "Failed to generate Daily Report PDF", { id: toastId });
       }
     }
   };
 
   const handleExportWeeklyPDF = async () => {
     if (!projectId) return;
+    const toastId = "weekly-pdf";
+    toast.loading("Exporting Weekly Progress PDF...", { id: toastId });
     try {
-      toast.loading("Generating Weekly Progress Report...", { id: "weekly-pdf" });
-      const weeklyData = await workProgressService.listActivities(projectId);
-      const tasks = Array.isArray(weeklyData) ? weeklyData : ((weeklyData as any).items || (weeklyData as any).data || []);
-
-      const totalActivities = tasks.length;
-      const completedActivities = tasks.filter((a: any) => a.completion_percentage === 100 || a.status === 'Completed').length;
-      const overallCompletion = totalActivities > 0 ? Math.round((tasks.reduce((acc: number, val: any) => acc + (Number(val.completion_percentage) || 0), 0)) / totalActivities) : 0;
-
-      generatePremiumPDF({
-        title: "Weekly Progress Report",
-        subtitle: `Project ID: ${projectId} | Week Ending ${new Date().toLocaleDateString('en-GB')}`,
-        summaryStats: [
-          { label: "Completion", value: `${overallCompletion}%` },
-          { label: "Tasks Done", value: completedActivities.toString() },
-          { label: "Total Tasks", value: totalActivities.toString() },
-          { label: "Delayed", value: tasks.filter((a: any) => a.status === 'Delay').length.toString() },
-          { label: "Status", value: overallCompletion >= 100 ? "Completed" : "In Progress" }
-        ],
-        tableHeaders: [["Task Name", "Category/BOQ", "Planned Qty", "Progress", "Status"]],
-        tableBody: tasks.map((t: any) => [
-          t.activity_name || t.task_name || "-",
-          t.boq_code || t.category || "Civil",
-          t.planned_quantity || t.planned_qty || "0",
-          `${t.completion_percentage || t.progress_percent || 0}%`,
-          t.status || "On Track"
-        ]),
-        fileName: `Weekly_Report_${new Date().toISOString().split('T')[0]}.pdf`
-      });
-      toast.success("Weekly Progress PDF generated!", { id: "weekly-pdf" });
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to generate Weekly PDF", { id: "weekly-pdf" });
+      // Primary: GET /api/v1/work-progress/reports/pdf
+      const blob = await reportService.exportWeeklyPDF(Number(projectId));
+      const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Weekly_Progress_${projectId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Weekly Progress PDF downloaded!", { id: toastId });
+    } catch (error: any) {
+      console.error("Weekly progress PDF export failed:", error);
+      toast.error("No data available for the weekly report", { id: toastId });
     }
   };
 
   const handleExportWeeklyExcel = async () => {
     if (!projectId) return;
+    const toastId = "weekly-excel";
+    toast.loading("Exporting Weekly Progress Excel...", { id: toastId });
     try {
-      toast.loading("Generating Weekly Progress Excel...", { id: "weekly-excel" });
-      const weeklyData = await workProgressService.listActivities(projectId);
-      const tasks = Array.isArray(weeklyData) ? weeklyData : ((weeklyData as any).items || (weeklyData as any).data || []);
-
-      // Calculate stats to include in every row for context
-      const totalActivities = tasks.length;
-      const completedActivities = tasks.filter((a: any) => a.completion_percentage === 100).length;
-      const progressPercent = totalActivities > 0 ? Math.round((tasks.reduce((acc: number, val: any) => acc + (Number(val.completion_percentage) || 0), 0)) / totalActivities) : 0;
-
-      const formattedData = tasks.map((t: any) => ({
-        Project_ID: projectId,
-        Report_Date: new Date().toLocaleDateString(),
-        Overall_Completion: `${progressPercent}%`,
-        Total_Activities: totalActivities,
-        Completed_Activities: completedActivities,
-        Activity_Name: t.activity_name || "-",
-        Planned_Quantity: t.planned_quantity || 0,
-        Completed_Quantity: t.total_completed || 0,
-        Progress: `${t.completion_percentage || 0}%`,
-        Status: t.status || "-"
-      }));
-
-      generateCSV(formattedData, `Weekly_Report_${new Date().toISOString().split('T')[0]}.csv`);
-      toast.success("Weekly Progress downloaded!", { id: "weekly-excel" });
-    } catch (error) {
-      console.error("Weekly Excel export failed:", error);
-      toast.error("Failed to export Weekly Excel", { id: "weekly-excel" });
+      // Primary: GET /api/v1/work-progress/reports/excel
+      const blob = await reportService.exportWeeklyExcel(Number(projectId));
+      const url = window.URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Weekly_Progress_${projectId}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Weekly Progress Excel downloaded!", { id: toastId });
+    } catch (error: any) {
+      console.error("Weekly progress Excel export failed:", error);
+      toast.error("No data available for the weekly report", { id: toastId });
     }
   };
 
   const handleExportLabourPDF = async () => {
     if (!projectId) return;
+    const toastId = "labour-pdf";
+    toast.loading("Exporting Labour PDF...", { id: toastId });
     try {
-      toast.loading("Generating Labour Deployment Report...", { id: "labour-pdf" });
-      const labourRes = await reportService.getLabourReport(projectId);
-      const summary: Array<{ skill_type: string; count: number }> =
-        labourRes.labour_summary || labourRes.data?.labour_summary || [];
-      const totalCount = summary.reduce((acc: number, curr: any) => acc + (curr.count || 0), 0);
+      // Primary: GET /api/v1/reports/labour-distribution/pdf
+      const blob = await reportService.exportLabourDistributionPdf(Number(projectId));
+      const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Labour_Distribution_${projectId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Labour Report PDF downloaded!", { id: toastId });
+    } catch (apiError: any) {
+      console.warn("API Labour PDF export failed, falling back to local generation:", apiError);
+      // Fallback: build PDF locally
+      try {
+        const labourRes = await reportService.getLabourReport(projectId);
+        const summary: Array<{ skill_type: string; count: number }> =
+          labourRes.labour_summary || labourRes.data?.labour_summary || [];
+        const totalCount = summary.reduce((acc: number, curr: any) => acc + (curr.count || 0), 0);
 
-      generatePremiumPDF({
-        title: "Labour Deployment Report",
-        subtitle: `Viman Nagar, Pune | ${new Date().toLocaleDateString('en-GB')}`,
-        summaryStats: [
-          { label: "Total Workers", value: totalCount.toString() },
-          { label: "Skilled", value: (summary.find(s => s.skill_type === 'Skilled')?.count || 0).toString() },
-          { label: "Unskilled", value: (summary.find(s => s.skill_type === 'Unskilled')?.count || 0).toString() },
-          { label: "Contractors", value: (labourRes.contractors_count || "1").toString() },
-          { label: "Safety", value: "Verified" }
-        ],
-        tableHeaders: [["Labour Category/Skill Type", "Strength Deployed", "Remarks/Notes"]],
-        tableBody: [...summary.map(s => [s.skill_type || "-", s.count?.toString() || "0", "Daily Attendance Verified"]), ["TOTAL", totalCount.toString(), ""]],
-        fileName: `Labour_Report_${new Date().toISOString().split('T')[0]}.pdf`
-      });
-      toast.success("Labour Report PDF generated!", { id: "labour-pdf" });
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to generate Labour PDF", { id: "labour-pdf" });
+        generatePremiumPDF({
+          title: "Labour Deployment Report",
+          subtitle: `Viman Nagar, Pune | ${new Date().toLocaleDateString('en-GB')}`,
+          summaryStats: [
+            { label: "Total Workers", value: totalCount.toString() },
+            { label: "Skilled", value: (summary.find(s => s.skill_type === 'Skilled')?.count || 0).toString() },
+            { label: "Unskilled", value: (summary.find(s => s.skill_type === 'Unskilled')?.count || 0).toString() },
+            { label: "Contractors", value: (labourRes.contractors_count || "1").toString() },
+            { label: "Safety", value: "Verified" }
+          ],
+          tableHeaders: [["Labour Category/Skill Type", "Strength Deployed", "Remarks/Notes"]],
+          tableBody: [...summary.map(s => [s.skill_type || "-", s.count?.toString() || "0", "Daily Attendance Verified"]), ["TOTAL", totalCount.toString(), ""]],
+          fileName: `Labour_Report_${new Date().toISOString().split('T')[0]}.pdf`
+        });
+        toast.success("Labour Report PDF generated!", { id: toastId });
+      } catch (fallbackError: any) {
+        console.error(fallbackError);
+        toast.error("No data available for the labour report", { id: toastId });
+      }
     }
   };
 
   const handleExportLabourExcel = async () => {
     if (!projectId) return;
+    const toastId = "labour-excel";
+    toast.loading("Exporting Labour Excel...", { id: toastId });
     try {
-      const blob = await reportService.exportLabourExcel(projectId);
-      downloadFile(blob, `Labour_Report.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    } catch (error) { console.error(error); }
+      // Primary: GET /api/v1/reports/labour-distribution/excel
+      const blob = await reportService.exportLabourDistributionExcel(Number(projectId));
+      const url = window.URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Labour_Distribution_${projectId}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Labour Report Excel downloaded!", { id: toastId });
+    } catch (error: any) {
+      console.error("Labour Excel export failed:", error);
+      toast.error("No data available for the labour report", { id: toastId });
+    }
   };
 
   const handleExportMaterialPDF = async () => {
     if (!projectId) return;
+    const toastId = "material-pdf";
+    toast.loading("Exporting Material PDF...", { id: toastId });
     try {
-      toast.loading("Generating Material Inventory PDF...", { id: "material-pdf" });
-      const data = await reportService.getMaterialReport(projectId);
-      const items = Array.isArray(data) ? data : (data?.materials || data?.items || data?.data || []);
+      // Primary: GET /api/v1/materials/reports/pdf
+      await materialService.exportPdf(Number(projectId));
+      toast.success("Material Report PDF downloaded!", { id: toastId });
+    } catch (apiError: any) {
+      console.warn("API Material PDF export failed, falling back to local generation:", apiError);
+      // Fallback: build PDF locally
+      try {
+        const res = await materialService.getMaterialReport(Number(projectId));
+        const items = res?.materials || [];
 
-      generatePremiumPDF({
-        title: "Material Inventory Report",
-        subtitle: `Project Site | ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`,
-        summaryStats: [
-          { label: "Total Materials", value: materialSummary?.total_items?.toString() || "0" },
-          { label: "Total Purchased", value: Math.round(materialSummary?.total_purchased ?? 0).toLocaleString() },
-          { label: "Total Used", value: Math.round(materialSummary?.total_used ?? 0).toLocaleString() },
-          { label: "Remaining Stock", value: Math.round(materialSummary?.total_qty ?? 0).toLocaleString() },
-          { label: "Stock Value", value: `Rs. ${Math.round(materialSummary?.total_value ?? 0).toLocaleString()}` }
-        ],
-        tableHeaders: [["Material Name", "Category", "Purchased", "Used", "Remaining", "Value"]],
-        tableBody: items.map((m: any) => [
-          m.material_name || "-",
-          m.category || "Material",
-          m.quantity_purchased?.toString() || "0",
-          m.quantity_used?.toString() || "0",
-          m.remaining_stock?.toString() || "0",
-          `Rs. ${Number(m.total_amount || 0).toLocaleString()}`
-        ]),
-        fileName: `Material_Report_${new Date().toISOString().split('T')[0]}.pdf`
-      });
-      toast.success("Material Report PDF downloaded!", { id: "material-pdf" });
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "Failed to generate Material PDF", { id: "material-pdf" });
+        generatePremiumPDF({
+          title: "Material Inventory Report",
+          subtitle: `Project Site | ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}`,
+          summaryStats: [
+            { label: "Total Materials", value: materialSummary?.total_items?.toString() || "0" },
+            { label: "Total Purchased", value: Math.round(materialSummary?.total_purchased ?? 0).toLocaleString() },
+            { label: "Total Used", value: Math.round(materialSummary?.total_used ?? 0).toLocaleString() },
+            { label: "Remaining Stock", value: Math.round(materialSummary?.total_qty ?? 0).toLocaleString() },
+            { label: "Stock Value", value: `Rs. ${Math.round(materialSummary?.total_value ?? 0).toLocaleString()}` }
+          ],
+          tableHeaders: [["Material Name", "Category", "Purchased", "Used", "Remaining", "Value"]],
+          tableBody: items.map((m: any) => [
+            m.material_name || "-",
+            m.category || "Material",
+            (m.quantity_purchased ?? m.total_purchased)?.toString() || "0",
+            (m.quantity_used ?? m.total_used)?.toString() || "0",
+            m.remaining_stock?.toString() || "0",
+            `Rs. ${Number(m.total_amount ?? m.total_cost ?? 0).toLocaleString()}`
+          ]),
+          fileName: `Material_Report_${new Date().toISOString().split('T')[0]}.pdf`
+        });
+        toast.success("Material Report PDF generated!", { id: toastId });
+      } catch (fallbackError: any) {
+        console.error(fallbackError);
+        toast.error("No data available for the material report", { id: toastId });
+      }
     }
   };
 
   const handleExportMaterialExcel = async () => {
     if (!projectId) return;
-    const toastId = toast.loading("Preparing Material Consumption Excel...");
+    const toastId = "material-excel";
+    toast.loading("Exporting Material Excel...", { id: toastId });
     try {
-      const blob = await reportService.exportMaterialExcel(projectId);
-      downloadFile(blob, `Material_Consumption_Report_${new Date().toISOString().split('T')[0]}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      toast.success("Excel downloaded successfully!", { id: toastId });
-    } catch (error: any) { 
-      console.error(error); 
-      toast.error(error.message ?? "Failed to download Material Excel", { id: toastId });
+      // Primary: GET /api/v1/materials/reports/excel
+      await materialService.exportExcel(Number(projectId));
+      toast.success("Material Report Excel downloaded!", { id: toastId });
+    } catch (error: any) {
+      console.error("Material Excel export failed:", error);
+      toast.error("No data available for the material report", { id: toastId });
     }
   };
 
   const handleExportIssuePDF = async () => {
     if (!projectId) return;
+    const toastId = "issue-pdf";
+    toast.loading("Exporting Issues Report PDF...", { id: toastId });
     try {
-      toast.loading("Generating Site Issues Report...", { id: "issue-pdf" });
-      const issuesRes = await issueService.listIssuesByProject(projectId, { limit: 1000 });
-      const rawItems = (issuesRes as any).items ?? (issuesRes as any).data?.items ?? (Array.isArray(issuesRes) ? issuesRes : []);
-      const items = rawItems.filter((i: any) => !i.project_id || Number(i.project_id) === Number(projectId));
-      const openCount = items.filter((i: any) => i.status?.toLowerCase() !== 'resolved' && i.status?.toLowerCase() !== 'closed').length;
+      // Primary: GET /api/v1/reports/issues/pdf
+      const blob = await reportService.exportIssuesPdf(projectId);
+      downloadFile(blob, `Issues_Report_${new Date().toISOString().split('T')[0]}.pdf`, 'application/pdf');
+      toast.success("Issues Report PDF downloaded!", { id: toastId });
+    } catch (apiError) {
+      // Fallback: local jsPDF generation
+      try {
+        const issuesRes = await issueService.listIssuesByProject(projectId, { limit: 1000 });
+        const rawItems = (issuesRes as any).items ?? (issuesRes as any).data?.items ?? (Array.isArray(issuesRes) ? issuesRes : []);
+        const items = rawItems.filter((i: any) => !i.project_id || Number(i.project_id) === Number(projectId));
+        const openCount = items.filter((i: any) => i.status?.toLowerCase() !== 'resolved' && i.status?.toLowerCase() !== 'closed').length;
 
-      generatePremiumPDF({
-        title: "Site Issues Report",
-        subtitle: `Project ID: ${projectId} | Outstanding as of ${new Date().toLocaleDateString('en-GB')}`,
-        summaryStats: [
-          { label: "Total Issues", value: items.length.toString() },
-          { label: "Open Issues", value: openCount.toString() },
-          { label: "Resolved", value: (items.length - openCount).toString() },
-          { label: "Critical", value: items.filter((i: any) => i.priority?.toLowerCase() === 'high' || i.priority?.toLowerCase() === 'critical').length.toString() },
-          { label: "Status", value: openCount > 5 ? "Critical" : "Stable" }
-        ],
-        tableHeaders: [["ID", "Issue Title/Description", "Status", "Priority", "Reported By"]],
-        tableBody: items.map((i: any) => [
-          i.business_id ?? i.id ?? "-",
-          i.title ?? i.issue_name ?? "-",
-          i.status ?? "Open",
-          i.priority ?? "Medium",
-          i.reporter_role ?? i.source ?? "Site Engineer"
-        ]),
-        fileName: `Issues_Report_${new Date().toISOString().split('T')[0]}.pdf`
-      });
-      toast.success("Issues Report PDF generated!", { id: "issue-pdf" });
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to generate Issues PDF", { id: "issue-pdf" });
+        generatePremiumPDF({
+          title: "Site Issues Report",
+          subtitle: `Project ID: ${projectId} | Outstanding as of ${new Date().toLocaleDateString('en-GB')}`,
+          summaryStats: [
+            { label: "Total Issues", value: items.length.toString() },
+            { label: "Open Issues", value: openCount.toString() },
+            { label: "Resolved", value: (items.length - openCount).toString() },
+            { label: "Critical", value: items.filter((i: any) => i.priority?.toLowerCase() === 'high' || i.priority?.toLowerCase() === 'critical').length.toString() },
+            { label: "Status", value: openCount > 5 ? "Critical" : "Stable" }
+          ],
+          tableHeaders: [["ID", "Issue Title/Description", "Status", "Priority", "Reported By"]],
+          tableBody: items.map((i: any) => [
+            i.business_id ?? i.id ?? "-",
+            i.title ?? i.issue_name ?? "-",
+            i.status ?? "Open",
+            i.priority ?? "Medium",
+            i.reporter_role ?? i.source ?? "Site Engineer"
+          ]),
+          fileName: `Issues_Report_${new Date().toISOString().split('T')[0]}.pdf`
+        });
+        toast.success("Issues Report PDF generated!", { id: toastId });
+      } catch (error) {
+        console.error(error);
+        toast.error("No data available for the issues report", { id: toastId });
+      }
     }
   };
 
   const handleExportIssueExcel = async () => {
     if (!projectId) return;
+    const toastId = "issue-excel";
+    toast.loading("Exporting Issues Report Excel...", { id: toastId });
     try {
-      const blob = await reportService.exportIssueExcel(projectId);
-      downloadFile(blob, `Issues_Report.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    } catch (error) { console.error(error); }
+      // GET /api/v1/reports/issues/excel
+      const blob = await reportService.exportIssuesExcel(projectId);
+      downloadFile(blob, `Issues_Report_${new Date().toISOString().split('T')[0]}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      toast.success("Issues Report Excel downloaded!", { id: toastId });
+    } catch (error: any) {
+      console.error(error);
+      const msg = error?.response?.data?.detail ?? error?.message ?? "";
+      toast.error(msg ? `No data available: ${msg}` : "No data available for the issues report", { id: toastId });
+    }
   };
 
   const handleExportProjectPDF = async () => {
@@ -1334,6 +1394,574 @@ const ClientReportsPage = () => {
           </div>
         </div>
       </Modal>
+
+      {/* ── Excel Export Filter Modal ─────────────────────────────────── */}
+      {showExcelModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowExcelModal(false)}
+          />
+          {/* Card */}
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Daily to Excel</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button
+                onClick={() => setShowExcelModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* START DATE */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date</label>
+              <input
+                type="date"
+                value={excelStartDate}
+                onChange={e => setExcelStartDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all"
+              />
+            </div>
+
+            {/* END DATE */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date</label>
+              <input
+                type="date"
+                value={excelEndDate}
+                onChange={e => setExcelEndDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all"
+              />
+            </div>
+
+            {/* CONTRACTOR NAME */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Shree Construction"
+                value={excelContractorName}
+                onChange={e => setExcelContractorName(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                onClick={() => { setExcelStartDate(""); setExcelEndDate(""); setExcelContractorName(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]"
+              >
+                Clear Filters
+              </button>
+              <button
+                disabled={isExcelDownloading}
+                onClick={async () => {
+                  if (!projectId) return;
+                  setIsExcelDownloading(true);
+                  const toastId = "daily-excel";
+                  toast.loading("Exporting Daily Report Excel...", { id: toastId });
+                  try {
+                    await dsrService.exportDsrExcel(Number(projectId), {
+                      ...(excelStartDate ? { start_date: excelStartDate } : {}),
+                      ...(excelEndDate ? { end_date: excelEndDate } : {}),
+                      ...(excelContractorName.trim() ? { contractor_name: excelContractorName.trim() } : {}),
+                    });
+                    toast.success("Daily Report Excel downloaded!", { id: toastId });
+                    setShowExcelModal(false);
+                  } catch (error: any) {
+                    console.error("DSR Excel export failed:", error);
+                    toast.error("No data available for the selected filters", { id: toastId });
+                  } finally {
+                    setIsExcelDownloading(false);
+                  }
+                }}
+                className="flex-1 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isExcelDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                )}
+                {isExcelDownloading ? "Exporting..." : "Download Excel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Labour PDF Filter Modal ─────────────────────────────────── */}
+      {showLabourPdfModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowLabourPdfModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Labour Report to PDF</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowLabourPdfModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label>
+              <input type="date" value={labourPdfDate} onChange={e => setLabourPdfDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Skill Category</label>
+              <select value={labourPdfSkillCategory} onChange={e => setLabourPdfSkillCategory(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all appearance-none">
+                <option value="">All Categories</option>
+                <option value="skilled">Skilled</option>
+                <option value="unskilled">Unskilled</option>
+                <option value="supervisor">Supervisor</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setLabourPdfDate(""); setLabourPdfSkillCategory(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isLabourPdfDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsLabourPdfDownloading(true);
+                const toastId = "labour-pdf";
+                toast.loading("Exporting Labour PDF...", { id: toastId });
+                try {
+                  const blob = await reportService.exportLabourDistributionPdf(Number(projectId));
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `Labour_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success("Labour Report PDF downloaded!", { id: toastId });
+                  setShowLabourPdfModal(false);
+                } catch (error: any) {
+                  console.error(error);
+                  toast.error("No data available for the labour report", { id: toastId });
+                } finally {
+                  setIsLabourPdfDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isLabourPdfDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                )}
+                {isLabourPdfDownloading ? "Exporting..." : "Download PDF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Labour Excel Filter Modal ─────────────────────────────────── */}
+      {showLabourExcelModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowLabourExcelModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Labour Report to Excel</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowLabourExcelModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label>
+              <input type="date" value={labourExcelDate} onChange={e => setLabourExcelDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Skill Category</label>
+              <select value={labourExcelSkillCategory} onChange={e => setLabourExcelSkillCategory(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all appearance-none">
+                <option value="">All Categories</option>
+                <option value="skilled">Skilled</option>
+                <option value="unskilled">Unskilled</option>
+                <option value="supervisor">Supervisor</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setLabourExcelDate(""); setLabourExcelSkillCategory(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isLabourExcelDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsLabourExcelDownloading(true);
+                const toastId = "labour-excel";
+                toast.loading("Exporting Labour Excel...", { id: toastId });
+                try {
+                  const blob = await reportService.exportLabourDistributionExcel(Number(projectId));
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `Labour_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success("Labour Report Excel downloaded!", { id: toastId });
+                  setShowLabourExcelModal(false);
+                } catch (error: any) {
+                  console.error(error);
+                  toast.error("No data available for the labour report", { id: toastId });
+                } finally {
+                  setIsLabourExcelDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isLabourExcelDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                )}
+                {isLabourExcelDownloading ? "Exporting..." : "Download Excel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Issue PDF Filter Modal ─────────────────────────────────── */}
+      {showIssuePdfModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowIssuePdfModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Issue Report to PDF</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowIssuePdfModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+              <select value={issuePdfStatus} onChange={e => setIssuePdfStatus(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all appearance-none">
+                <option value="">All Statuses</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Priority</label>
+              <select value={issuePdfPriority} onChange={e => setIssuePdfPriority(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all appearance-none">
+                <option value="">All Priorities</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reported Start Date</label>
+              <input type="date" value={issuePdfStartDate} onChange={e => setIssuePdfStartDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reported End Date</label>
+              <input type="date" value={issuePdfEndDate} onChange={e => setIssuePdfEndDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setIssuePdfStatus(""); setIssuePdfPriority(""); setIssuePdfStartDate(""); setIssuePdfEndDate(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isIssuePdfDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsIssuePdfDownloading(true);
+                const toastId = "issue-pdf";
+                toast.loading("Exporting Issue PDF...", { id: toastId });
+                try {
+                  const blob = await reportService.exportIssuesPdf(
+                    projectId,
+                    {
+                      status: issuePdfStatus || null,
+                      priority: issuePdfPriority || null,
+                      start_date: issuePdfStartDate || null,
+                      end_date: issuePdfEndDate || null,
+                    }
+                  );
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `Issues_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success("Issue Report PDF downloaded!", { id: toastId });
+                  setShowIssuePdfModal(false);
+                } catch (error: any) {
+                  console.error(error);
+                  toast.error("No data available for the issues report", { id: toastId });
+                } finally {
+                  setIsIssuePdfDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isIssuePdfDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                )}
+                {isIssuePdfDownloading ? "Exporting..." : "Download PDF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Issue Excel Filter Modal ─────────────────────────────────── */}
+      {showIssueExcelModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowIssueExcelModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Issue Report to Excel</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowIssueExcelModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</label>
+              <select value={issueExcelStatus} onChange={e => setIssueExcelStatus(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all appearance-none">
+                <option value="">All Statuses</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Priority</label>
+              <select value={issueExcelPriority} onChange={e => setIssueExcelPriority(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all appearance-none">
+                <option value="">All Priorities</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reported Start Date</label>
+              <input type="date" value={issueExcelStartDate} onChange={e => setIssueExcelStartDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reported End Date</label>
+              <input type="date" value={issueExcelEndDate} onChange={e => setIssueExcelEndDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all" />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setIssueExcelStatus(""); setIssueExcelPriority(""); setIssueExcelStartDate(""); setIssueExcelEndDate(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isIssueExcelDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsIssueExcelDownloading(true);
+                const toastId = "issue-excel";
+                toast.loading("Exporting Issue Excel...", { id: toastId });
+                try {
+                  const blob = await reportService.exportIssuesExcel(
+                    projectId,
+                    {
+                      status: issueExcelStatus || null,
+                      priority: issueExcelPriority || null,
+                      start_date: issueExcelStartDate || null,
+                      end_date: issueExcelEndDate || null,
+                    }
+                  );
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `Issues_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success("Issue Report Excel downloaded!", { id: toastId });
+                  setShowIssueExcelModal(false);
+                } catch (error: any) {
+                  console.error(error);
+                  toast.error("No data available for the issues report", { id: toastId });
+                } finally {
+                  setIsIssueExcelDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isIssueExcelDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                )}
+                {isIssueExcelDownloading ? "Exporting..." : "Download Excel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Weekly PDF Filter Modal ─────────────────────────────────── */}
+      {showWeeklyPdfModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowWeeklyPdfModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Weekly Progress to PDF</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowWeeklyPdfModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date</label>
+              <input type="date" value={weeklyPdfStartDate} onChange={e => setWeeklyPdfStartDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date</label>
+              <input type="date" value={weeklyPdfEndDate} onChange={e => setWeeklyPdfEndDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setWeeklyPdfStartDate(""); setWeeklyPdfEndDate(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isWeeklyPdfDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsWeeklyPdfDownloading(true);
+                const toastId = "weekly-pdf";
+                toast.loading("Exporting Weekly Progress PDF...", { id: toastId });
+                try {
+                  const blob = await reportService.exportWeeklyPDF(Number(projectId));
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `Weekly_Progress_${new Date().toISOString().split('T')[0]}.pdf`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success("Weekly Progress PDF downloaded!", { id: toastId });
+                  setShowWeeklyPdfModal(false);
+                } catch (error: any) {
+                  console.error(error);
+                  toast.error("No data available for the weekly report", { id: toastId });
+                } finally {
+                  setIsWeeklyPdfDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isWeeklyPdfDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                )}
+                {isWeeklyPdfDownloading ? "Exporting..." : "Download PDF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Weekly Excel Filter Modal ─────────────────────────────────── */}
+      {showWeeklyExcelModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowWeeklyExcelModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Weekly Progress to Excel</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowWeeklyExcelModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date</label>
+              <input type="date" value={weeklyExcelStartDate} onChange={e => setWeeklyExcelStartDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date</label>
+              <input type="date" value={weeklyExcelEndDate} onChange={e => setWeeklyExcelEndDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 transition-all" />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setWeeklyExcelStartDate(""); setWeeklyExcelEndDate(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isWeeklyExcelDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsWeeklyExcelDownloading(true);
+                const toastId = "weekly-excel";
+                toast.loading("Exporting Weekly Progress Excel...", { id: toastId });
+                try {
+                  const blob = await reportService.exportWeeklyExcel(Number(projectId));
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `Weekly_Progress_${new Date().toISOString().split('T')[0]}.xlsx`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success("Weekly Progress Excel downloaded!", { id: toastId });
+                  setShowWeeklyExcelModal(false);
+                } catch (error: any) {
+                  console.error(error);
+                  toast.error("No data available for the weekly report", { id: toastId });
+                } finally {
+                  setIsWeeklyExcelDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isWeeklyExcelDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                )}
+                {isWeeklyExcelDownloading ? "Exporting..." : "Download Excel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   </div>
 );

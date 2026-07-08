@@ -486,8 +486,8 @@ const ClientIssuesPage = () => {
                 <div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Description</p>
                   <div className="bg-slate-50 border border-slate-100 rounded-xl px-5 py-4">
-                    <p className="text-sm text-slate-700 font-medium italic leading-relaxed">
-                      "{selectedIssue.description || "No description provided."}"
+                    <p className="text-sm text-slate-700 font-medium leading-relaxed">
+                      {selectedIssue.description || "No description provided."}
                     </p>
                   </div>
                 </div>

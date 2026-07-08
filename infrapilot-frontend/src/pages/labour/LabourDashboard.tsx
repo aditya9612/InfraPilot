@@ -8,6 +8,7 @@ import PageTransition from '../../components/common/PageTransition';
 import Navbar from '../../components/common/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { dashboardService } from '../../services/dashboardService';
+import { attendanceService } from '../../services/attendanceService';
 import type { Task } from '../../types/task';
 import {
     Clipboard,
@@ -39,6 +40,7 @@ const LabourDashboard: React.FC = () => {
     const { speak } = useTextToAudio();
     const navigate = useNavigate();
     const [isCheckedIn, setIsCheckedIn] = useState(false);
+    const [isCheckedOut, setIsCheckedOut] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -103,6 +105,20 @@ const LabourDashboard: React.FC = () => {
         };
 
         fetchDashboardData();
+
+        // Fetch today's attendance status so the card reflects reality on load
+        const fetchTodayStatus = async () => {
+            try {
+                const status = await attendanceService.getTodayStatus();
+                const hasCheckedIn = !!(status.checked_in || status.attendance?.in_time || status.attendance?.check_in_time);
+                const hasCheckedOut = !!(status.checked_out || status.attendance?.out_time || status.attendance?.check_out_time);
+                setIsCheckedIn(hasCheckedIn);
+                setIsCheckedOut(hasCheckedOut);
+            } catch (err) {
+                console.warn('Could not fetch today attendance status:', err);
+            }
+        };
+        fetchTodayStatus();
     }, [user?.name]);
 
     const handleUpdateTask = (id: string, status: string) => {
@@ -347,3 +363,4 @@ const LabourDashboard: React.FC = () => {
 };
 
 export default LabourDashboard;
+

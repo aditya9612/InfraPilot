@@ -22,9 +22,7 @@ export interface TaskRequest {
 
 /**
  * Service for the Labour Module → Task Requests page.
- * Endpoint: POST /api/v1/projects/
- * The backend expects: title, category, project_id, priority,
- * description, attachment_url, assigned_to
+ * Uses POST /api/v1/projects/ and GET /api/v1/projects/ (with trailing slash)
  */
 export const taskRequestService = {
     /**
@@ -33,7 +31,8 @@ export const taskRequestService = {
      */
     async getRequests(): Promise<TaskRequest[]> {
         try {
-            const response = await api.get("projects");
+            // Note the trailing slash at the end of 'projects/' to request the task requests API
+            const response = await api.get("projects/");
             const data = response.data;
             if (!data) return [];
             const items = Array.isArray(data)
@@ -49,10 +48,6 @@ export const taskRequestService = {
     /**
      * Submit a new task request
      * POST /api/v1/projects/
-     *
-     * Sends fields exactly as the backend expects them:
-     * title, category, project_id, priority, description,
-     * attachment_url, assigned_to
      */
     async createRequest(formData: {
         title: string;
@@ -66,8 +61,9 @@ export const taskRequestService = {
         const body: Record<string, any> = {
             title: formData.title,
             description: formData.description,
-            category: formData.category,
-            priority: formData.priority,
+            // Convert to lowercase to match backend expects (e.g. "support", "high")
+            category: (formData.category || "").toLowerCase(),
+            priority: (formData.priority || "").toLowerCase(),
         };
 
         if (formData.project_id !== undefined && formData.project_id !== "") {
@@ -81,7 +77,8 @@ export const taskRequestService = {
         }
 
         console.log("[taskRequestService] POST /api/v1/projects/ body:", body);
-        const response = await api.post("projects", body);
+        // Note the trailing slash at the end of 'projects/'
+        const response = await api.post("projects/", body);
         return response.data;
     },
 
@@ -104,8 +101,8 @@ export const taskRequestService = {
         const body: Record<string, any> = {};
         if (formData.title !== undefined)       body.title       = formData.title;
         if (formData.description !== undefined) body.description = formData.description;
-        if (formData.category !== undefined)    body.category    = formData.category;
-        if (formData.priority !== undefined)    body.priority    = formData.priority;
+        if (formData.category !== undefined)    body.category    = formData.category.toLowerCase();
+        if (formData.priority !== undefined)    body.priority    = formData.priority.toLowerCase();
         if (formData.project_id !== undefined)  body.project_id  = Number(formData.project_id);
         if (formData.attachment_url)            body.attachment_url = formData.attachment_url;
         if (formData.assigned_to && formData.assigned_to > 0) body.assigned_to = formData.assigned_to;

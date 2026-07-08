@@ -6,10 +6,14 @@ export const quotationService = {
      * Get all quotations
      * GET /api/v1/quotations/
      */
-    async getQuotations(limit: number = 100, offset: number = 0): Promise<Quotation[]> {
+    async getQuotations(limit: number = 100, offset: number = 0, project_id?: number | null): Promise<Quotation[]> {
         try {
             const response = await api.get("/quotations/", {
-                params: { limit, offset }
+                params: {
+                    limit,
+                    offset,
+                    ...(project_id != null ? { project_id } : {})
+                }
             });
             return Array.isArray(response.data) ? response.data : (response.data.items || []);
         } catch (error: any) {
