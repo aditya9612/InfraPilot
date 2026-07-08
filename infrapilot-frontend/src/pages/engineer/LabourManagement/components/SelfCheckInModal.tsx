@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Modal from '../../../../components/common/Modal';
-import { Camera, RefreshCw, Check, MapPin, Building2 } from "lucide-react";
+import { Camera, RefreshCw, Check, MapPin, Building2, Calendar, Clock } from "lucide-react";
 import toast from 'react-hot-toast';
 import { projectService } from '../../../../services/projectService';
 import { labourService } from '../../../../services/labourService';
@@ -210,7 +210,10 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
                         {/* attendance_date * */}
                         <div>
                             <label className={labelCls}>Attendance Date <span className="text-rose-500">*</span></label>
-                            <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} className={inputCls} required />
+                            <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 flex items-center gap-2 cursor-not-allowed opacity-80">
+                                <Calendar className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                <span className="truncate flex-1">{attendanceDate}</span>
+                            </div>
                         </div>
 
                         {/* status */}
@@ -226,7 +229,10 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
                         {/* in_time */}
                         <div>
                             <label className={labelCls}>In Time</label>
-                            <input type="datetime-local" value={inTime} onChange={(e) => setInTime(e.target.value)} className={inputCls} />
+                            <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-600 flex items-center gap-2 cursor-not-allowed opacity-80">
+                                <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                <span className="truncate flex-1">{new Date(inTime).toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}</span>
+                            </div>
                         </div>
 
                         {/* work_location_type */}

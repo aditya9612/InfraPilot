@@ -27,6 +27,7 @@ import {
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
 import { dsrService } from "../../services/dsrService";
+import { reportService } from "../../services/reportService";
 import { sitePhotoService } from "../../services/sitePhotoService";
 import type { DsrItem, LabourTrend, ContractorAnalytics, IssueAnalytics } from "../../types/dsr";
 
@@ -97,6 +98,37 @@ const DSRPage = () => {
     };
     // ──────────────────────────────────────────────────────────────────────────
 
+    // ─── PDF Export State ──────────────────────────────────────────────────────
+    const [isPdfExportModalOpen, setIsPdfExportModalOpen] = useState(false);
+    const [pdfExportDate, setPdfExportDate] = useState("");
+    const [isPdfExporting, setIsPdfExporting] = useState(false);
+
+    const handlePdfExport = async () => {
+        if (!pdfExportDate) {
+            toast.error("Please select a report date");
+            return;
+        }
+        setIsPdfExporting(true);
+        const toastId = toast.loading("Generating PDF report...");
+        try {
+            const blob = await reportService.exportDailyPDF(projectId || 92, pdfExportDate);
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `DSR_Report_${pdfExportDate}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success("PDF report exported!", { id: toastId });
+            setIsPdfExportModalOpen(false);
+        } catch (err: any) {
+            console.error("PDF Export failed:", err);
+            toast.error("Export failed", { id: toastId });
+        } finally {
+            setIsPdfExporting(false);
+        }
+    };
+    // ──────────────────────────────────────────────────────────────────────────
 
     const resolveProjectId = useCallback(() => {
         try {
@@ -365,11 +397,18 @@ const DSRPage = () => {
                             <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
+                            onClick={() => setIsPdfExportModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm font-bold shadow-sm hover:bg-rose-100 transition-all active:scale-95"
+                        >
+                            <FileDown className="w-4 h-4" />
+                            Export PDF
+                        </button>
+                        <button
                             onClick={() => setIsExportModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95"
                         >
                             <FileDown className="w-4 h-4" />
-                            Export
+                            Export Excel
                         </button>
                         <button
                             onClick={() => setIsCreateOpen(true)}
@@ -1113,6 +1152,57 @@ const DSRPage = () => {
                             >
                                 <FileDown className="w-4 h-4" />
                                 {isExporting ? "Exporting..." : "Download Excel"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Export PDF Modal ─────────────────────────────────────────── */}
+            {isPdfExportModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">Export DSR to PDF</h2>
+                            </div>
+                            <button
+                                onClick={() => setIsPdfExportModalOpen(false)}
+                                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Report Date <span className="text-rose-500">*</span></label>
+                                <input
+                                    type="date"
+                                    value={pdfExportDate}
+                                    onChange={e => setPdfExportDate(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-rose-100 focus:border-rose-300 transition-all"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-6">
+                            <button
+                                onClick={() => setIsPdfExportModalOpen(false)}
+                                className="flex-1 px-4 py-2.5 text-sm font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handlePdfExport}
+                                disabled={isPdfExporting || !pdfExportDate}
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-rose-200"
+                            >
+                                <FileDown className="w-4 h-4" />
+                                {isPdfExporting ? "Exporting..." : "Download PDF"}
                             </button>
                         </div>
                     </div>

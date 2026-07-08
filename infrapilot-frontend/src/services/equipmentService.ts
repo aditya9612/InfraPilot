@@ -302,6 +302,29 @@ export const equipmentService = {
         return response.data;
     },
 
+    async getAllRentals(params?: { project_id?: number }): Promise<RentalItem[]> {
+        try {
+            // Because the backend lacks a single '/equipment/rentals' endpoint (as shown in Swagger),
+            // we must fetch equipment first and then fetch their rentals individually.
+            const eqRes = await api.get<any>('/equipment', { params: { project_id: params?.project_id, limit: 100 } });
+            const data = eqRes.data;
+            const eqList = Array.isArray(data) ? data : (data.items || data.data || []);
+            
+            const rentalPromises = eqList.map((eq: any) => this.listRental(eq.id));
+            const results = await Promise.allSettled(rentalPromises);
+            
+            const allRentals = results
+                .filter((r): r is PromiseFulfilledResult<RentalItem[]> => r.status === 'fulfilled')
+                .map(r => r.value)
+                .flat();
+                
+            return allRentals.sort((a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime());
+        } catch (error) {
+            console.error("Failed to fetch all rentals:", error);
+            return [];
+        }
+    },
+
     async getRental(rental_id: number): Promise<RentalItem> {
         const response = await api.get<RentalItem>(`/equipment/rental/${rental_id}`);
         return response.data;
@@ -373,8 +396,9 @@ export const equipmentService = {
         return response.data;
     },
 
-    async exportPdf(): Promise<void> {
-        const response = await api.get('/equipment/reports/pdf', { responseType: 'blob' });
+    async exportPdf(project_id?: number): Promise<void> {
+        const params = project_id ? { project_id } : {};
+        const response = await api.get('/equipment/reports/pdf', { params, responseType: 'blob' });
         const url = window.URL.createObjectURL(new Blob([response.data as any]));
         const link = document.createElement('a');
         link.href = url;
@@ -385,8 +409,9 @@ export const equipmentService = {
         window.URL.revokeObjectURL(url);
     },
 
-    async exportExcel(): Promise<void> {
-        const response = await api.get('/equipment/reports/excel', { responseType: 'blob' });
+    async exportExcel(project_id?: number): Promise<void> {
+        const params = project_id ? { project_id } : {};
+        const response = await api.get('/equipment/reports/excel', { params, responseType: 'blob' });
         const url = window.URL.createObjectURL(new Blob([response.data as any]));
         const link = document.createElement('a');
         link.href = url;

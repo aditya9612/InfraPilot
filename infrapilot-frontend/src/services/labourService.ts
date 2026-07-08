@@ -686,9 +686,13 @@ export const labourService = {
             // Merge with mock attendances so virtual check-ins appear in the list
             try {
                 const stored = localStorage.getItem("mock_attendance_global");
+                const storedSelf = localStorage.getItem("mock_self_attendance_global");
 
-                if (stored) {
-                    const mockList = JSON.parse(stored);
+                const mockList = [];
+                if (stored) mockList.push(...JSON.parse(stored));
+                if (storedSelf) mockList.push(...JSON.parse(storedSelf));
+
+                if (mockList.length > 0) {
                     mockList.forEach((mockItem: any) => {
                         const existingIdx = items.findIndex((i: any) =>
                             String(i.id) === String(mockItem.id) ||
@@ -703,13 +707,23 @@ export const labourService = {
                 }
             } catch (e) { }
 
-            return { items, total: items.length, limit: 50, offset: 0 };
+            const finalItems = items.filter((i: any) => {
+                if (!i.attendance_date || fromDate === 'ALL' || toDate === 'ALL') return true;
+                const d = i.attendance_date.split('T')[0];
+                if (fromDate && d < fromDate) return false;
+                if (toDate && d > toDate) return false;
+                return true;
+            });
+
+            return { items: finalItems, total: finalItems.length, limit: 50, offset: 0 };
         } catch (err: any) {
             console.warn("getAttendanceList API error, using virtual success fallback:", err.message);
             let list = [];
             try {
                 const stored = localStorage.getItem("mock_attendance_global");
-                list = stored ? JSON.parse(stored) : [];
+                const storedSelf = localStorage.getItem("mock_self_attendance_global");
+                if (stored) list.push(...JSON.parse(stored));
+                if (storedSelf) list.push(...JSON.parse(storedSelf));
             } catch (e) { }
 
             const items = list.map((item: any) => ({
@@ -725,7 +739,15 @@ export const labourService = {
                 check_out_image: this.resolveUrl(item.check_out_image)
             }));
 
-            return { items, total: items.length, limit: 50, offset: 0 };
+            const finalItems = items.filter((i: any) => {
+                if (!i.attendance_date || fromDate === 'ALL' || toDate === 'ALL') return true;
+                const d = i.attendance_date.split('T')[0];
+                if (fromDate && d < fromDate) return false;
+                if (toDate && d > toDate) return false;
+                return true;
+            });
+
+            return { items: finalItems, total: finalItems.length, limit: 50, offset: 0 };
         }
     },
     async deleteAttendance(attendanceId: number): Promise<any> {
@@ -785,20 +807,6 @@ export const labourService = {
             console.warn("getTodayStatus API error:", error.message);
             throw error;
         }
-    },
-
-    /**
-     * Export Labour Wage Report to Excel
-     * GET /api/v1/labour/report/export?project_id=1
-     */
-    async exportExcel(projectId: number | string) {
-        console.log(`GET /api/v1/labour/report/export?project_id=${projectId}`);
-        const response = await api.get("labour/report/export", {
-            params: { project_id: projectId },
-            responseType: "blob",
-        });
-        console.log("Wage Report Export Success: 200 OK");
-        return response.data;
     },
 
     /**

@@ -14,7 +14,7 @@ import type {
 
 import {
     Search, Plus, Edit2, Trash2, Eye, FileText, Wrench, Activity,
-    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink
+    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink, Check
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
 
@@ -33,7 +33,7 @@ const conditionDisplay: Record<string, string> = {
     'MAINTENANCE': 'MAINTENANCE',
 };
 
-const TABS = ["Dashboard", "Machinery & Equipment List", "Usage", "Maintenance", "Rental", "Purchase", "Reports & Alerts"];
+const TABS = ["Dashboard", "Machinery & Equipment List", "Usage", "Transfer Equipment", "Maintenance", "Rental", "Purchase", "Reports & Alerts"];
 
 const MachineryPage = () => {
     // ─── Project Context ──────────────────────────────────────────────
@@ -115,7 +115,7 @@ const MachineryPage = () => {
     const [isRentalDeleteModalOpen, setIsRentalDeleteModalOpen] = useState(false);
     const [rentalToDelete, setRentalToDelete] = useState<{ id: number, equipment_id: number } | null>(null);
     const [purchaseReport, setPurchaseReport] = useState<any[]>([]);
-    
+
     // New Modals for Transfer & Purchase
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [isPurchaseHistoryModalOpen, setIsPurchaseHistoryModalOpen] = useState(false);
@@ -162,7 +162,7 @@ const MachineryPage = () => {
                     localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
                     window.dispatchEvent(new Event('storage'));
                 }
-            } catch(e) {}
+            } catch (e) { }
         }
     };
 
@@ -232,13 +232,13 @@ const MachineryPage = () => {
                 setEquipmentList(eqList);
                 setCostReport(cost);
                 if (!selectedEquipment && eqList.length > 0) setSelectedEquipment(eqList[0]);
-                
-                // Fetch all rentals
+
+                // Fetch all rentals in one call
                 try {
-                    const rentalsArrays = await Promise.all(eqList.map(eq => equipmentService.listRental(eq.id)));
-                    const flatRentals = rentalsArrays.flat().sort((a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime());
+                    const flatRentals = await equipmentService.getAllRentals(pIdObj);
+                    flatRentals.sort((a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime());
                     setAllRentals(flatRentals);
-                } catch(e) { console.error("Failed to fetch all rentals"); }
+                } catch (e) { console.error("Failed to fetch all rentals", e); }
             }
             else if (activeTab === "Purchase") {
                 const res = await equipmentService.listEquipment(eqParams);
@@ -372,9 +372,9 @@ const MachineryPage = () => {
 
     const handleTransfer = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedEquipment || !formData.project_id) return;
+        if (!formData.equipment_id || !formData.project_id) return;
         try {
-            await equipmentService.transferEquipment({ equipment_id: selectedEquipment.id, to_project_id: formData.project_id });
+            await equipmentService.transferEquipment({ equipment_id: formData.equipment_id, to_project_id: formData.project_id });
             toast.success("Equipment transferred successfully!");
             setIsTransferModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
@@ -435,6 +435,7 @@ const MachineryPage = () => {
             toast.error("Failed to delete usage log");
         }
     };
+
     const handleDeleteMaintenanceConfirm = async () => {
         if (!maintenanceToDelete) return;
         try {
@@ -454,6 +455,24 @@ const MachineryPage = () => {
         } finally {
             setIsMaintenanceDeleteModalOpen(false);
             setMaintenanceToDelete(null);
+        }
+    };
+
+    const handleCompleteMaintenance = async (maintenance_id: number, equipment_id: number) => {
+        try {
+            await equipmentService.completeMaintenance(maintenance_id);
+            toast.success("Maintenance marked as completed!");
+            if (activeTab === "Maintenance") {
+                const alerts = await equipmentService.getMaintenanceAlerts({ project_id: selectedProjectId || undefined });
+                setMaintenanceAlerts(alerts);
+                const eq = equipmentList.find(e => e.id === equipment_id);
+                if (eq) {
+                    const logs = await equipmentService.listMaintenance(eq.id);
+                    setSelectedEquipmentLogs(prev => ({ ...prev, maint: logs }));
+                }
+            }
+        } catch (error) {
+            toast.error("Failed to complete maintenance");
         }
     };
 
@@ -543,7 +562,7 @@ const MachineryPage = () => {
                     const rentalsArrays = await Promise.all(equipmentList.map(eq => equipmentService.listRental(eq.id)));
                     const flatRentals = rentalsArrays.flat().sort((a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime());
                     setAllRentals(flatRentals);
-                } catch(e) {}
+                } catch (e) { }
             }
         } catch (error) {
             toast.error("Failed to delete rental record");
@@ -775,7 +794,6 @@ const MachineryPage = () => {
                                             <button onClick={() => openViewModal(item)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded" title="View"><Eye className="w-4 h-4" /></button>
                                             <button onClick={() => { setFormData(item); setIsEquipmentModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
                                             <button onClick={() => openAllocateModal(item)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Allocate"><Link2 className="w-4 h-4" /></button>
-                                            <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsTransferModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded" title="Transfer"><ExternalLink className="w-4 h-4" /></button>
                                             <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsUsageModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Log Usage"><Activity className="w-4 h-4" /></button>
                                             <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
                                             <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
@@ -871,6 +889,26 @@ const MachineryPage = () => {
                         </div>
                     </div>
                 )}
+            </div>
+        </div>
+    );
+
+    const renderTransfer = () => (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h2 className="text-lg font-bold text-slate-800">Transfer Equipment</h2>
+                <button onClick={() => { setFormData({}); setIsTransferModalOpen(true); }} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/20 transition-all flex items-center gap-2 active:scale-95">
+                    <ExternalLink className="w-4 h-4" /> Create Transfer
+                </button>
+            </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 flex flex-col items-center justify-center min-h-[400px]">
+                <div className="w-20 h-20 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <ExternalLink className="w-10 h-10" />
+                </div>
+                <div className="text-center">
+                    <h3 className="text-2xl font-bold text-slate-800 mb-2">Initiate Equipment Transfer</h3>
+                    <p className="text-slate-500 text-sm max-w-sm mx-auto">Click the Create Transfer button at the top right to seamlessly transfer equipment between active projects or return it to the central yard.</p>
+                </div>
             </div>
         </div>
     );
@@ -1003,13 +1041,10 @@ const MachineryPage = () => {
                                     <th className="p-4">Project</th>
                                     <th className="p-4">BOQ Item</th>
                                     <th className="p-4">Equipment</th>
-                                    <th className="p-4">Description</th>
                                     <th className="p-4">Maintenance Date</th>
                                     <th className="p-4">Cost</th>
                                     <th className="p-4">Next Maintenance Date</th>
-                                    <th className="p-4">Is Completed</th>
-                                    <th className="p-4">Completed At</th>
-                                    <th className="p-4">Created At</th>
+                                    <th className="p-4">Created / Completed</th>
                                     <th className="p-4">Status</th>
                                     <th className="p-4 text-right">Actions</th>
                                 </tr>
@@ -1018,35 +1053,41 @@ const MachineryPage = () => {
                                 {selectedEquipmentLogs.maint.length > 0 ? selectedEquipmentLogs.maint.map((logItem: any) => {
                                     const log = logItem as any;
                                     return (
-                                    <tr key={log.id} className="hover:bg-slate-50">
-                                        <td className="p-4 whitespace-nowrap">{log.project_id ? (projects.find(p => p.id === log.project_id)?.project_name || projects.find(p => p.id === log.project_id)?.name || `Project #${log.project_id}`) : '-'}</td>
-                                        <td className="p-4 whitespace-nowrap">{log.boq_item_id ? (boqsList.find(b => b.id === log.boq_item_id)?.item_name || `BOQ Item #${log.boq_item_id}`) : '-'}</td>
-                                        <td className="p-4 whitespace-nowrap">{log.equipment_id ? (equipmentList.find(e => e.id === log.equipment_id)?.equipment_name || selectedEquipment?.equipment_name || `Equipment #${log.equipment_id}`) : '-'}</td>
-                                        <td className="p-4 text-slate-700 min-w-[150px]">{log.description || '-'}</td>
-                                        <td className="p-4 whitespace-nowrap">{log.maintenance_date || '-'}</td>
-                                        <td className="p-4 font-bold text-slate-800">₹{log.cost?.toLocaleString() || '0'}</td>
-                                        <td className="p-4 whitespace-nowrap">{log.next_maintenance_date || '-'}</td>
-                                        <td className="p-4">{log.is_completed ? 'True' : 'False'}</td>
-                                        <td className="p-4 whitespace-nowrap">{log.completed_at ? new Date(log.completed_at).toLocaleString() : '-'}</td>
-                                        <td className="p-4 whitespace-nowrap">{log.created_at ? new Date(log.created_at).toLocaleString() : '-'}</td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{log.status}</span>
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <div className="flex justify-end gap-1">
-                                                <button onClick={() => { setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button onClick={() => {
-                                                    setMaintenanceToDelete({ id: log.id, equipment_id: log.equipment_id || selectedEquipment?.id || 0 });
-                                                    setIsMaintenanceDeleteModalOpen(true);
-                                                }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" title="Delete">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}) : <tr><td colSpan={12} className="p-8 text-center text-slate-400">No maintenance records found</td></tr>}
+                                        <tr key={log.id} className="hover:bg-slate-50">
+                                            <td className="p-4 whitespace-nowrap">{log.project_id ? (projects.find(p => p.id === log.project_id)?.project_name || projects.find(p => p.id === log.project_id)?.name || `Project #${log.project_id}`) : '-'}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.boq_item_id ? (boqsList.find(b => b.id === log.boq_item_id)?.item_name || `BOQ Item #${log.boq_item_id}`) : '-'}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.equipment_id ? (equipmentList.find(e => e.id === log.equipment_id)?.equipment_name || selectedEquipment?.equipment_name || `Equipment #${log.equipment_id}`) : '-'}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.maintenance_date || '-'}</td>
+                                            <td className="p-4 font-bold text-slate-800">₹{log.cost?.toLocaleString() || '0'}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.next_maintenance_date || '-'}</td>
+                                            <td className="p-4 whitespace-nowrap">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] text-slate-500">Created: {log.created_at ? new Date(log.created_at).toLocaleDateString() : '-'}</span>
+                                                    <span className="text-[10px] text-slate-500">Completed: {log.completed_at ? new Date(log.completed_at).toLocaleDateString() : '-'}</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{log.status}</span>
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <div className="flex justify-end gap-1">
+                                                    <button onClick={() => handleCompleteMaintenance(log.id, log.equipment_id || selectedEquipment?.id || 0)} disabled={log.status === 'COMPLETED'} className={`p-1.5 rounded ${log.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Complete Maintenance">
+                                                        <Check className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => { setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => {
+                                                        setMaintenanceToDelete({ id: log.id, equipment_id: log.equipment_id || selectedEquipment?.id || 0 });
+                                                        setIsMaintenanceDeleteModalOpen(true);
+                                                    }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" title="Delete">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                }) : <tr><td colSpan={12} className="p-8 text-center text-slate-400">No maintenance records found</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -1093,7 +1134,7 @@ const MachineryPage = () => {
                             </h3>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</span>
-                                <select 
+                                <select
                                     className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium outline-none focus:border-primary"
                                     value={selectedEquipment?.id || ""}
                                     onChange={(e) => {
@@ -1189,38 +1230,39 @@ const MachineryPage = () => {
                                     {paginatedAllRentals.length > 0 ? paginatedAllRentals.map(log => {
                                         const eq = equipmentList.find(e => e.id === log.equipment_id);
                                         return (
-                                        <tr key={`${log.equipment_id}-${log.id}`} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-6 py-3 font-bold text-slate-800">{eq?.equipment_code || `EQ-${log.equipment_id}`}</td>
-                                            <td className="px-6 py-3 text-slate-700">{log.start_date}</td>
-                                            <td className="px-6 py-3 text-slate-700">{log.end_date}</td>
-                                            <td className="px-6 py-3 font-bold text-purple-600">₹{log.rental_cost?.toLocaleString()}</td>
-                                            <td className="px-6 py-3 font-bold text-slate-700">{log.client_name}</td>
-                                            <td className="px-6 py-3 text-slate-500 max-w-[150px] truncate" title={log.notes}>{log.notes || '-'}</td>
-                                            <td className="px-6 py-3">
-                                                <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{log.status || 'COMPLETED'}</span>
-                                            </td>
-                                            <td className="px-6 py-3 whitespace-nowrap text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <button onClick={async () => {
-                                                        const rentalDetails = await equipmentService.getRental(log.id);
-                                                        setRentalToView(rentalDetails);
-                                                        setIsRentalViewModalOpen(true);
-                                                    }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View">
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => { setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
-                                                        <Edit2 className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => {
-                                                        setRentalToDelete({ id: log.id, equipment_id: log.equipment_id || selectedEquipment?.id || 0 });
-                                                        setIsRentalDeleteModalOpen(true);
-                                                    }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" title="Delete">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )}) : <tr><td colSpan={7} className="px-6 py-20 text-center text-slate-400">No rental records found in history</td></tr>}
+                                            <tr key={`${log.equipment_id}-${log.id}`} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-3 font-bold text-slate-800">{eq?.equipment_code || `EQ-${log.equipment_id}`}</td>
+                                                <td className="px-6 py-3 text-slate-700">{log.start_date}</td>
+                                                <td className="px-6 py-3 text-slate-700">{log.end_date}</td>
+                                                <td className="px-6 py-3 font-bold text-purple-600">₹{log.rental_cost?.toLocaleString()}</td>
+                                                <td className="px-6 py-3 font-bold text-slate-700">{log.client_name}</td>
+                                                <td className="px-6 py-3 text-slate-500 max-w-[150px] truncate" title={log.notes}>{log.notes || '-'}</td>
+                                                <td className="px-6 py-3">
+                                                    <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{log.status || 'COMPLETED'}</span>
+                                                </td>
+                                                <td className="px-6 py-3 whitespace-nowrap text-right">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <button onClick={async () => {
+                                                            const rentalDetails = await equipmentService.getRental(log.id);
+                                                            setRentalToView(rentalDetails);
+                                                            setIsRentalViewModalOpen(true);
+                                                        }} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="View">
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => { setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
+                                                            <Edit2 className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => {
+                                                            setRentalToDelete({ id: log.id, equipment_id: log.equipment_id || selectedEquipment?.id || 0 });
+                                                            setIsRentalDeleteModalOpen(true);
+                                                        }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" title="Delete">
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    }) : <tr><td colSpan={7} className="px-6 py-20 text-center text-slate-400">No rental records found in history</td></tr>}
                                 </tbody>
                             </table>
                         </div>
@@ -1302,10 +1344,10 @@ const MachineryPage = () => {
             <div className="flex justify-between items-center">
                 <h2 className="text-lg font-bold text-slate-800">Intelligence & Export</h2>
                 <div className="flex gap-3">
-                    <button onClick={async () => { toast.loading("Generating PDF...", { id: 'pdf' }); await equipmentService.exportPdf(); toast.success("PDF downloaded!", { id: 'pdf' }); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
+                    <button onClick={async () => { toast.loading("Generating PDF...", { id: 'pdf' }); try { await equipmentService.exportPdf(selectedProjectId || undefined); toast.success("PDF downloaded!", { id: 'pdf' }); } catch(e) { toast.error("Failed to generate PDF", { id: 'pdf' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
                         <FileText className="w-4 h-4 text-rose-500" /> Export PDF
                     </button>
-                    <button onClick={async () => { toast.loading("Generating Excel...", { id: 'xl' }); await equipmentService.exportExcel(); toast.success("Excel downloaded!", { id: 'xl' }); }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
+                    <button onClick={async () => { toast.loading("Generating Excel...", { id: 'xl' }); try { await equipmentService.exportExcel(selectedProjectId || undefined); toast.success("Excel downloaded!", { id: 'xl' }); } catch(e) { toast.error("Failed to generate Excel", { id: 'xl' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
                         <Download className="w-4 h-4 text-emerald-500" /> Export Excel
                     </button>
                 </div>
@@ -1412,17 +1454,17 @@ const MachineryPage = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-3 text-right">
-                                        <button 
+                                        <button
                                             onClick={async () => {
                                                 setSelectedEquipment(item);
                                                 try {
                                                     const hist = await equipmentService.getEquipmentPurchaseHistory(item.id);
                                                     setPurchaseHistoryData(hist);
                                                     setIsPurchaseHistoryModalOpen(true);
-                                                } catch(e) {
+                                                } catch (e) {
                                                     toast.error("Failed to load purchase history");
                                                 }
-                                            }} 
+                                            }}
                                             className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
                                         >
                                             View History
@@ -1494,6 +1536,7 @@ const MachineryPage = () => {
                             {activeTab === "Dashboard" && renderDashboard()}
                             {activeTab === "Machinery & Equipment List" && renderEquipmentList()}
                             {activeTab === "Usage" && renderUsage()}
+                            {activeTab === "Transfer Equipment" && renderTransfer()}
                             {activeTab === "Maintenance" && renderMaintenance()}
                             {activeTab === "Rental" && renderRental()}
                             {activeTab === "Purchase" && renderPurchase()}
@@ -1547,8 +1590,8 @@ const MachineryPage = () => {
                             <div>
                                 <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-0.5">Allocation Status</p>
                                 <p className="text-sm font-bold text-blue-900">
-                                    {allocationStatus.allocated 
-                                        ? `Allocated to ${projects.find(p => Number(p.id) === Number(allocationStatus.project_id))?.project_name || projects.find(p => Number(p.id) === Number(allocationStatus.project_id))?.name || `Project ${allocationStatus.project_id}`}` 
+                                    {allocationStatus.allocated
+                                        ? `Allocated to ${projects.find(p => Number(p.id) === Number(allocationStatus.project_id))?.project_name || projects.find(p => Number(p.id) === Number(allocationStatus.project_id))?.name || `Project ${allocationStatus.project_id}`}`
                                         : 'Available in Yard'}
                                 </p>
                             </div>
@@ -1763,157 +1806,157 @@ const MachineryPage = () => {
                                 </span>
                             </div>
                         </div>
-                        
+
                         <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 mb-6">
-                    {auditLogs.length > 0 ? auditLogs.map(log => {
-                        const actionColors: Record<string, string> = {
-                            ALLOCATE: 'bg-blue-100 text-blue-700',
-                            DEALLOCATE: 'bg-amber-100 text-amber-700',
-                            CREATE: 'bg-emerald-100 text-emerald-700',
-                            UPDATE: 'bg-purple-100 text-purple-700',
-                            DELETE: 'bg-rose-100 text-rose-700',
-                            RENTAL_CREATE: 'bg-violet-100 text-violet-700',
-                            MAINTENANCE_CREATE: 'bg-orange-100 text-orange-700',
-                            USAGE_CREATE: 'bg-cyan-100 text-cyan-700',
-                        };
-                        const colorClass = actionColors[log.action] || 'bg-slate-100 text-slate-600';
+                            {auditLogs.length > 0 ? auditLogs.map(log => {
+                                const actionColors: Record<string, string> = {
+                                    ALLOCATE: 'bg-blue-100 text-blue-700',
+                                    DEALLOCATE: 'bg-amber-100 text-amber-700',
+                                    CREATE: 'bg-emerald-100 text-emerald-700',
+                                    UPDATE: 'bg-purple-100 text-purple-700',
+                                    DELETE: 'bg-rose-100 text-rose-700',
+                                    RENTAL_CREATE: 'bg-violet-100 text-violet-700',
+                                    MAINTENANCE_CREATE: 'bg-orange-100 text-orange-700',
+                                    USAGE_CREATE: 'bg-cyan-100 text-cyan-700',
+                                };
+                                const colorClass = actionColors[log.action] || 'bg-slate-100 text-slate-600';
 
-                        // Helper: get project name from projects list by id
-                        const getProjectName = (id: any) => {
-                            if (!id) return 'Not Allocated';
-                            const p = projects.find(p => Number(p.id) === Number(id));
-                            return p ? (p.project_name || p.name) : `Project #${id}`;
-                        };
+                                // Helper: get project name from projects list by id
+                                const getProjectName = (id: any) => {
+                                    if (!id) return 'Not Allocated';
+                                    const p = projects.find(p => Number(p.id) === Number(id));
+                                    return p ? (p.project_name || p.name) : `Project #${id}`;
+                                };
 
-                        // Render meaningful summary based on action type
-                        const renderDetails = () => {
-                            const ov = log.old_values;
-                            const nv = log.new_values;
+                                // Render meaningful summary based on action type
+                                const renderDetails = () => {
+                                    const ov = log.old_values;
+                                    const nv = log.new_values;
 
-                            if (log.action === 'ALLOCATE') {
-                                return (
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] text-slate-400 uppercase font-bold">From</span>
-                                            <span className="text-sm font-semibold text-slate-600">{getProjectName(ov?.project_id)}</span>
-                                        </div>
-                                        <span className="text-slate-400 text-lg">→</span>
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] text-slate-400 uppercase font-bold">To</span>
-                                            <span className="text-sm font-bold text-blue-700">{getProjectName(nv?.project_id)}</span>
-                                        </div>
-                                    </div>
-                                );
-                            }
-
-                            if (log.action === 'DEALLOCATE') {
-                                return (
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Released From</span>
-                                            <span className="text-sm font-semibold text-slate-600">{getProjectName(ov?.project_id)}</span>
-                                        </div>
-                                        <span className="text-slate-400 text-lg">→</span>
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Status</span>
-                                            <span className="text-sm font-bold text-amber-600">Not Allocated</span>
-                                        </div>
-                                    </div>
-                                );
-                            }
-
-                            if (log.action === 'CREATE') {
-                                const vals = nv || {};
-                                return (
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                                        {vals.equipment_name && <div><span className="text-slate-400 text-xs">Name: </span><span className="font-semibold text-slate-700">{vals.equipment_name}</span></div>}
-                                        {vals.equipment_code && <div><span className="text-slate-400 text-xs">Code: </span><span className="font-semibold text-slate-700">{vals.equipment_code}</span></div>}
-                                        {vals.operator_name && <div><span className="text-slate-400 text-xs">Operator: </span><span className="font-semibold text-slate-700">{vals.operator_name}</span></div>}
-                                        {vals.condition && <div><span className="text-slate-400 text-xs">Condition: </span><span className="font-semibold text-slate-700">{vals.condition}</span></div>}
-                                        {vals.project_id && <div><span className="text-slate-400 text-xs">Project: </span><span className="font-semibold text-slate-700">{getProjectName(vals.project_id)}</span></div>}
-                                        {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Rental Cost: </span><span className="font-semibold text-slate-700">₹{vals.rental_cost}</span></div>}
-                                    </div>
-                                );
-                            }
-
-                            if (log.action === 'RENTAL_CREATE') {
-                                const vals = nv || {};
-                                return (
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                                        {vals.client_name && <div><span className="text-slate-400 text-xs">Client: </span><span className="font-semibold text-slate-700">{vals.client_name}</span></div>}
-                                        {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.rental_cost}</span></div>}
-                                        {vals.start_date && <div><span className="text-slate-400 text-xs">Start: </span><span className="font-semibold text-slate-700">{vals.start_date}</span></div>}
-                                        {vals.end_date && <div><span className="text-slate-400 text-xs">End: </span><span className="font-semibold text-slate-700">{vals.end_date}</span></div>}
-                                    </div>
-                                );
-                            }
-
-                            if (log.action === 'MAINTENANCE_CREATE') {
-                                const vals = nv || {};
-                                return (
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                                        {vals.description && <div className="col-span-2"><span className="text-slate-400 text-xs">Description: </span><span className="font-semibold text-slate-700">{vals.description}</span></div>}
-                                        {vals.maintenance_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.maintenance_date}</span></div>}
-                                        {vals.cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.cost}</span></div>}
-                                    </div>
-                                );
-                            }
-
-                            if (log.action === 'USAGE_CREATE') {
-                                const vals = nv || {};
-                                return (
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                                        {vals.working_hours !== undefined && <div><span className="text-slate-400 text-xs">Working Hours: </span><span className="font-semibold text-slate-700">{vals.working_hours} hrs</span></div>}
-                                        {vals.fuel_used !== undefined && <div><span className="text-slate-400 text-xs">Fuel Used: </span><span className="font-semibold text-slate-700">{vals.fuel_used} L</span></div>}
-                                        {vals.usage_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.usage_date}</span></div>}
-                                        {vals.notes && <div className="col-span-2"><span className="text-slate-400 text-xs">Notes: </span><span className="font-semibold text-slate-700">{vals.notes}</span></div>}
-                                    </div>
-                                );
-                            }
-
-                            if (log.action === 'UPDATE') {
-                                // Show what changed: old vs new for changed keys
-                                const allKeys = Array.from(new Set([...Object.keys(ov || {}), ...Object.keys(nv || {})]));
-                                const changedKeys = allKeys.filter(k => JSON.stringify((ov || {})[k]) !== JSON.stringify((nv || {})[k]));
-                                if (changedKeys.length === 0) return <span className="text-xs text-slate-400">No meaningful changes</span>;
-                                return (
-                                    <div className="space-y-1">
-                                        {changedKeys.map(k => (
-                                            <div key={k} className="flex items-center gap-2 text-sm flex-wrap">
-                                                <span className="text-slate-500 text-xs capitalize">{k.replace(/_/g, ' ')}:</span>
-                                                <span className="text-slate-500 line-through text-xs">{k === 'project_id' ? getProjectName((ov || {})[k]) : String((ov || {})[k] ?? '—')}</span>
-                                                <span className="text-slate-400">→</span>
-                                                <span className="font-semibold text-slate-700 text-xs">{k === 'project_id' ? getProjectName((nv || {})[k]) : String((nv || {})[k] ?? '—')}</span>
+                                    if (log.action === 'ALLOCATE') {
+                                        return (
+                                            <div className="flex items-center gap-3 flex-wrap">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-400 uppercase font-bold">From</span>
+                                                    <span className="text-sm font-semibold text-slate-600">{getProjectName(ov?.project_id)}</span>
+                                                </div>
+                                                <span className="text-slate-400 text-lg">→</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-400 uppercase font-bold">To</span>
+                                                    <span className="text-sm font-bold text-blue-700">{getProjectName(nv?.project_id)}</span>
+                                                </div>
                                             </div>
-                                        ))}
+                                        );
+                                    }
+
+                                    if (log.action === 'DEALLOCATE') {
+                                        return (
+                                            <div className="flex items-center gap-3 flex-wrap">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-400 uppercase font-bold">Released From</span>
+                                                    <span className="text-sm font-semibold text-slate-600">{getProjectName(ov?.project_id)}</span>
+                                                </div>
+                                                <span className="text-slate-400 text-lg">→</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-400 uppercase font-bold">Status</span>
+                                                    <span className="text-sm font-bold text-amber-600">Not Allocated</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    if (log.action === 'CREATE') {
+                                        const vals = nv || {};
+                                        return (
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                                {vals.equipment_name && <div><span className="text-slate-400 text-xs">Name: </span><span className="font-semibold text-slate-700">{vals.equipment_name}</span></div>}
+                                                {vals.equipment_code && <div><span className="text-slate-400 text-xs">Code: </span><span className="font-semibold text-slate-700">{vals.equipment_code}</span></div>}
+                                                {vals.operator_name && <div><span className="text-slate-400 text-xs">Operator: </span><span className="font-semibold text-slate-700">{vals.operator_name}</span></div>}
+                                                {vals.condition && <div><span className="text-slate-400 text-xs">Condition: </span><span className="font-semibold text-slate-700">{vals.condition}</span></div>}
+                                                {vals.project_id && <div><span className="text-slate-400 text-xs">Project: </span><span className="font-semibold text-slate-700">{getProjectName(vals.project_id)}</span></div>}
+                                                {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Rental Cost: </span><span className="font-semibold text-slate-700">₹{vals.rental_cost}</span></div>}
+                                            </div>
+                                        );
+                                    }
+
+                                    if (log.action === 'RENTAL_CREATE') {
+                                        const vals = nv || {};
+                                        return (
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                                {vals.client_name && <div><span className="text-slate-400 text-xs">Client: </span><span className="font-semibold text-slate-700">{vals.client_name}</span></div>}
+                                                {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.rental_cost}</span></div>}
+                                                {vals.start_date && <div><span className="text-slate-400 text-xs">Start: </span><span className="font-semibold text-slate-700">{vals.start_date}</span></div>}
+                                                {vals.end_date && <div><span className="text-slate-400 text-xs">End: </span><span className="font-semibold text-slate-700">{vals.end_date}</span></div>}
+                                            </div>
+                                        );
+                                    }
+
+                                    if (log.action === 'MAINTENANCE_CREATE') {
+                                        const vals = nv || {};
+                                        return (
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                                {vals.description && <div className="col-span-2"><span className="text-slate-400 text-xs">Description: </span><span className="font-semibold text-slate-700">{vals.description}</span></div>}
+                                                {vals.maintenance_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.maintenance_date}</span></div>}
+                                                {vals.cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.cost}</span></div>}
+                                            </div>
+                                        );
+                                    }
+
+                                    if (log.action === 'USAGE_CREATE') {
+                                        const vals = nv || {};
+                                        return (
+                                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                                {vals.working_hours !== undefined && <div><span className="text-slate-400 text-xs">Working Hours: </span><span className="font-semibold text-slate-700">{vals.working_hours} hrs</span></div>}
+                                                {vals.fuel_used !== undefined && <div><span className="text-slate-400 text-xs">Fuel Used: </span><span className="font-semibold text-slate-700">{vals.fuel_used} L</span></div>}
+                                                {vals.usage_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.usage_date}</span></div>}
+                                                {vals.notes && <div className="col-span-2"><span className="text-slate-400 text-xs">Notes: </span><span className="font-semibold text-slate-700">{vals.notes}</span></div>}
+                                            </div>
+                                        );
+                                    }
+
+                                    if (log.action === 'UPDATE') {
+                                        // Show what changed: old vs new for changed keys
+                                        const allKeys = Array.from(new Set([...Object.keys(ov || {}), ...Object.keys(nv || {})]));
+                                        const changedKeys = allKeys.filter(k => JSON.stringify((ov || {})[k]) !== JSON.stringify((nv || {})[k]));
+                                        if (changedKeys.length === 0) return <span className="text-xs text-slate-400">No meaningful changes</span>;
+                                        return (
+                                            <div className="space-y-1">
+                                                {changedKeys.map(k => (
+                                                    <div key={k} className="flex items-center gap-2 text-sm flex-wrap">
+                                                        <span className="text-slate-500 text-xs capitalize">{k.replace(/_/g, ' ')}:</span>
+                                                        <span className="text-slate-500 line-through text-xs">{k === 'project_id' ? getProjectName((ov || {})[k]) : String((ov || {})[k] ?? '—')}</span>
+                                                        <span className="text-slate-400">→</span>
+                                                        <span className="font-semibold text-slate-700 text-xs">{k === 'project_id' ? getProjectName((nv || {})[k]) : String((nv || {})[k] ?? '—')}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    }
+
+                                    return <span className="text-xs text-slate-400">Action recorded</span>;
+                                };
+
+                                return (
+                                    <div key={log.id} className="bg-white border border-slate-200 rounded-xl p-4 flex gap-4 items-start shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="shrink-0">
+                                            <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg ${colorClass}`}>{log.action.replace(/_/g, ' ')}</span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            {renderDetails()}
+                                        </div>
+                                        <div className="shrink-0 text-right">
+                                            <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleDateString()}</p>
+                                            <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleTimeString()}</p>
+                                        </div>
                                     </div>
                                 );
-                            }
-
-                            return <span className="text-xs text-slate-400">Action recorded</span>;
-                        };
-
-                        return (
-                            <div key={log.id} className="bg-white border border-slate-200 rounded-xl p-4 flex gap-4 items-start shadow-sm hover:shadow-md transition-shadow">
-                                <div className="shrink-0">
-                                    <span className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-lg ${colorClass}`}>{log.action.replace(/_/g, ' ')}</span>
+                            }) : (
+                                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                                    <p className="text-sm font-medium">No audit logs found</p>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    {renderDetails()}
-                                </div>
-                                <div className="shrink-0 text-right">
-                                    <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleDateString()}</p>
-                                    <p className="text-[10px] text-slate-400">{new Date(log.created_at).toLocaleTimeString()}</p>
-                                </div>
-                            </div>
-                        );
-                    }) : (
-                        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
-                            <p className="text-sm font-medium">No audit logs found</p>
+                            )}
                         </div>
-                    )}
-                        </div>
-                        
+
                         <div className="flex gap-3">
                             <button onClick={() => setIsLogsModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">Close</button>
                         </div>
@@ -1993,21 +2036,30 @@ const MachineryPage = () => {
             </Modal>
 
             {/* Transfer Modal */}
-            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Transfer Equipment">
-                <form onSubmit={handleTransfer} className="p-6 font-inter space-y-4">
+            <Modal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} title="Transfer Equipment" maxWidth="max-w-md">
+                <form onSubmit={handleTransfer} className="p-6 font-inter space-y-5">
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Transfer To Project</label>
-                        <select required value={formData.project_id || ""} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
-                            <option value="" disabled>Select target project...</option>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">SELECT EQUIPMENT *</label>
+                        <select required value={formData.equipment_id || ""} onChange={e => setFormData({ ...formData, equipment_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                            <option value="" disabled>-- Choose equipment --</option>
+                            {equipmentList.map(eq => (
+                                <option key={eq.id} value={eq.id}>{eq.equipment_code} - {eq.equipment_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">TARGET PROJECT *</label>
+                        <select required value={formData.project_id || ""} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full px-4 py-3 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300">
+                            <option value="" disabled>-- Select target project --</option>
                             {projects.map(p => (
                                 <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                             ))}
                         </select>
-                        <p className="text-[10px] text-slate-400 mt-2">Equipment will be moved from its current allocation to the selected project.</p>
+                        <p className="text-[10px] text-slate-400 mt-2 ml-1">Equipment will be moved to the selected project.</p>
                     </div>
-                    <div className="flex gap-3 pt-4">
-                        <button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-                        <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/20 transition-all py-2.5">Transfer Equipment</button>
+                    <div className="flex justify-end gap-3 mt-8">
+                        <button type="button" onClick={() => setIsTransferModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                        <button type="submit" className="px-8 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all flex items-center gap-2 active:scale-95">Transfer Equipment</button>
                     </div>
                 </form>
             </Modal>

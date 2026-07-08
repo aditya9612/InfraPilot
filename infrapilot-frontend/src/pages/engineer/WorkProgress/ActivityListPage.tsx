@@ -12,11 +12,13 @@ import {
   ClipboardList,
   RotateCcw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileDown
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
 import { projectService } from "../../../services/projectService";
+import { reportService } from "../../../services/reportService";
 import type { ActivityItem } from "../../../types/workProgress";
 
 // Modular Components
@@ -35,6 +37,59 @@ const statusBadge: Record<string, string> = {
 const ActivityListPage = () => {
   const { user } = useAuth();
   const engineer_id = Number(user?.id) || 1;
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (!projectId) {
+        toast.error("Project ID is required");
+        return;
+    }
+    setIsExportingPdf(true);
+    const toastId = toast.loading("Generating PDF report...");
+    try {
+        const blob = await reportService.exportWeeklyPDF(projectId);
+        const url = window.URL.createObjectURL(new Blob([blob]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Work_Progress_Report_${projectId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        toast.success("PDF report exported!", { id: toastId });
+    } catch (err: any) {
+        console.error("PDF Export failed:", err);
+        toast.error("Export failed", { id: toastId });
+    } finally {
+        setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!projectId) {
+        toast.error("Project ID is required");
+        return;
+    }
+    setIsExportingExcel(true);
+    const toastId = toast.loading("Generating Excel report...");
+    try {
+        const blob = await reportService.exportWeeklyExcel(projectId);
+        const url = window.URL.createObjectURL(new Blob([blob]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Work_Progress_Report_${projectId}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        toast.success("Excel report exported!", { id: toastId });
+    } catch (err: any) {
+        console.error("Excel Export failed:", err);
+        toast.error("Export failed", { id: toastId });
+    } finally {
+        setIsExportingExcel(false);
+    }
+  };
+
   const [projectId, setProjectId] = useState<number | null>(null);
 
   const [projectsList, setProjectsList] = useState<any[]>([]);
@@ -262,6 +317,22 @@ const ActivityListPage = () => {
               title="Sync Ledger"
             >
               <RotateCcw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={isExportingPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-sm font-bold shadow-sm hover:bg-rose-100 transition-all active:scale-95 disabled:opacity-50"
+            >
+              <FileDown className="w-4 h-4" />
+              {isExportingPdf ? "Exporting..." : "Export PDF"}
+            </button>
+            <button
+              onClick={handleExportExcel}
+              disabled={isExportingExcel}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95 disabled:opacity-50"
+            >
+              <FileDown className="w-4 h-4" />
+              {isExportingExcel ? "Exporting..." : "Export Excel"}
             </button>
             <button
               onClick={() => setIsAddModalOpen(true)}

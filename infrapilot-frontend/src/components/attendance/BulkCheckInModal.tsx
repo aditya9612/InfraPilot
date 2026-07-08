@@ -66,7 +66,8 @@ const BulkCheckInModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initial
         try {
             const payload: any = {
                 project_id: projectId,
-                user_ids: userIds
+                user_ids: userIds,
+                labour_ids: userIds
             };
             if (remarks) {
                 payload.remarks = remarks;

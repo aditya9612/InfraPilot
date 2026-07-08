@@ -46,7 +46,7 @@ const MaterialStockPage = () => {
             try {
                 const res = await projectService.getProjects(100, 0);
                 setProjectsList(Array.isArray(res) ? res : (res.items || res.data || []));
-            } catch (err) {}
+            } catch (err) { }
         };
         fetchProjects();
     }, []);
@@ -303,33 +303,33 @@ const MaterialStockPage = () => {
                         <div className="space-y-4 h-full flex flex-col min-h-0">
                             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Project Inventory</h2>
                             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
-                            <div className="p-4 border-b border-slate-50 flex items-center gap-4">
-                                <div className="relative flex-1 max-w-md">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                    <input type="text" placeholder="Search inventory..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                <div className="p-4 border-b border-slate-50 flex items-center gap-4">
+                                    <div className="relative flex-1 max-w-md">
+                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
+                                        <input type="text" placeholder="Search inventory..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                    </div>
+                                    <button onClick={fetchStock} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                                 </div>
-                                <button onClick={fetchStock} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+                                <div className="flex-1 overflow-auto scrollbar-thin">
+                                    <table className="w-full text-left whitespace-nowrap">
+                                        <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
+                                            <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th></tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {isLoading ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedInventory.map(i => (
+                                                <tr key={i.material_id} className="hover:bg-slate-50/50">
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
+                                                    <td className="px-6 py-4 text-sm text-right text-slate-600">{formatINR(i.avg_rate)}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {renderPagination(filteredInventory.length)}
                             </div>
-                            <div className="flex-1 overflow-auto scrollbar-thin">
-                                <table className="w-full text-left whitespace-nowrap">
-                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th></tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedInventory.map(i => (
-                                            <tr key={i.material_id} className="hover:bg-slate-50/50">
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
-                                                <td className="px-6 py-4 text-sm text-right text-slate-600">{formatINR(i.avg_rate)}</td>
-                                                <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {renderPagination(filteredInventory.length)}
                         </div>
-                    </div>
                     </div>
                 )}
 
@@ -368,7 +368,7 @@ const MaterialStockPage = () => {
                                 </table>
                             </div>
                             {renderPagination(filteredGlobalInventory.length)}
-                    </div>
+                        </div>
                     </div>
                 )}
 
@@ -376,33 +376,33 @@ const MaterialStockPage = () => {
                     <div className="space-y-4 flex-1 flex flex-col min-h-0">
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Consumption & Stock Reports</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
-                        <div className="p-4 border-b border-slate-50 flex items-center gap-4">
-                            <div className="relative flex-1 max-w-md">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                <input type="text" placeholder="Search reports..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                            <div className="p-4 border-b border-slate-50 flex items-center gap-4">
+                                <div className="relative flex-1 max-w-md">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
+                                    <input type="text" placeholder="Search reports..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                </div>
+                                <button onClick={fetchReports} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                             </div>
-                            <button onClick={fetchReports} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
-                        </div>
-                        <div className="flex-1 overflow-auto scrollbar-thin">
-                            <table className="w-full text-left whitespace-nowrap">
-                                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                    <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-500">Pending Pay</th></tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {isLoading ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedReports.map((r, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-50/50">
-                                            <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.material_name}</td>
-                                            <td className="px-6 py-4 text-sm text-center text-blue-600">{r.total_purchased}</td>
-                                            <td className="px-6 py-4 text-sm text-center text-orange-600">{r.total_used}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{r.remaining_stock}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-right text-slate-800">{formatINR(r.total_cost)}</td>
-                                            <td className="px-6 py-4 text-sm font-bold text-right text-rose-600">{formatINR(r.payment_pending)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        {renderPagination(filteredReports.length)}
+                            <div className="flex-1 overflow-auto scrollbar-thin">
+                                <table className="w-full text-left whitespace-nowrap">
+                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
+                                        <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Total Purchased</th><th className="px-6 py-4 text-center">Total Used</th><th className="px-6 py-4 text-center">Remaining</th><th className="px-6 py-4 text-right">Total Cost</th><th className="px-6 py-4 text-right text-rose-500">Pending Pay</th></tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {isLoading ? <tr><td colSpan={6} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedReports.map((r, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/50">
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.material_name}</td>
+                                                <td className="px-6 py-4 text-sm text-center text-blue-600">{r.total_purchased}</td>
+                                                <td className="px-6 py-4 text-sm text-center text-orange-600">{r.total_used}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{r.remaining_stock}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-right text-slate-800">{formatINR(r.total_cost)}</td>
+                                                <td className="px-6 py-4 text-sm font-bold text-right text-rose-600">{formatINR(r.payment_pending)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {renderPagination(filteredReports.length)}
                         </div>
                     </div>
                 )}
@@ -411,42 +411,42 @@ const MaterialStockPage = () => {
                     <div className="space-y-4 flex-1 flex flex-col min-h-0">
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Audit Adjustments Log</h2>
                         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col min-h-0">
-                        <div className="p-4 border-b border-slate-50 flex items-center gap-4">
-                            <div className="relative flex-1 max-w-md">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
-                                <input type="text" placeholder="Search logs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                            <div className="p-4 border-b border-slate-50 flex items-center gap-4">
+                                <div className="relative flex-1 max-w-md">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Search className="w-4 h-4" /></span>
+                                    <input type="text" placeholder="Search logs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                                </div>
+                                <div className="relative w-48">
+                                    <select value={logTypeFilter} onChange={(e) => setLogTypeFilter(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer">
+                                        <option value="">All Types</option>
+                                        <option value="PURCHASE">Purchase</option>
+                                        <option value="USAGE">Usage</option>
+                                        <option value="TRANSFER_IN">Transfer In</option>
+                                        <option value="TRANSFER_OUT">Transfer Out</option>
+                                        <option value="ADJUSTMENT">Adjustment</option>
+                                    </select>
+                                </div>
+                                <button onClick={fetchAdjustments} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
                             </div>
-                            <div className="relative w-48">
-                                <select value={logTypeFilter} onChange={(e) => setLogTypeFilter(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer">
-                                    <option value="">All Types</option>
-                                    <option value="PURCHASE">Purchase</option>
-                                    <option value="USAGE">Usage</option>
-                                    <option value="TRANSFER_IN">Transfer In</option>
-                                    <option value="TRANSFER_OUT">Transfer Out</option>
-                                    <option value="ADJUSTMENT">Adjustment</option>
-                                </select>
+                            <div className="flex-1 overflow-auto scrollbar-thin">
+                                <table className="w-full text-left whitespace-nowrap">
+                                    <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
+                                        <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Type</th><th className="px-6 py-4 text-center">Qty Changed</th><th className="px-6 py-4">Remarks</th></tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {isLoading ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => (
+                                            <tr key={idx} className="hover:bg-slate-50/50">
+                                                <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleString()}</td>
+                                                <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {a.issue_type}</span></td>
+                                                <td className="px-6 py-4 text-sm font-bold text-center">{a.quantity}</td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">Manual Audit Adjustment</td>
+                                            </tr>
+                                        ))}
+                                        {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
+                                    </tbody>
+                                </table>
                             </div>
-                            <button onClick={fetchAdjustments} className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100"><RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
-                        </div>
-                        <div className="flex-1 overflow-auto scrollbar-thin">
-                            <table className="w-full text-left whitespace-nowrap">
-                                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                    <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Type</th><th className="px-6 py-4 text-center">Qty Changed</th><th className="px-6 py-4">Remarks</th></tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {isLoading ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedAdjustments.map((a, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-50/50">
-                                            <td className="px-6 py-4 text-sm text-slate-600">{new Date(a.created_at).toLocaleString()}</td>
-                                            <td className="px-6 py-4"><span className="px-2 py-1 rounded text-[9px] font-bold bg-amber-50 text-amber-600">{a.type} / {a.issue_type}</span></td>
-                                            <td className="px-6 py-4 text-sm font-bold text-center">{a.quantity}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-600">Manual Audit Adjustment</td>
-                                        </tr>
-                                    ))}
-                                    {!isLoading && paginatedAdjustments.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-slate-400">No adjustments found.</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
-                        {renderPagination(filteredAdjustments.length)}
+                            {renderPagination(filteredAdjustments.length)}
                         </div>
                     </div>
                 )}
