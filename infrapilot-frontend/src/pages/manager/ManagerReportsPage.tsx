@@ -159,7 +159,7 @@ const ManagerReportsPage = () => {
             switch (reportId) {
                 case "daily":
                     blob = format === "PDF"
-                        ? await reportService.exportDailyPDF(pid, effectiveEnd)
+                        ? await reportService.exportProjectReportPDF({ project_id: pid, type: "daily", report_date: effectiveEnd })
                         : await reportService.exportProjectReportExcel({ project_id: pid, type: "daily", report_date: effectiveEnd });
                     break;
                 case "weekly":
@@ -504,6 +504,7 @@ const ManagerReportsPage = () => {
                 onClose={() => setIsPreviewOpen(false)}
                 reportName={viewingReport?.name || ""}
                 data={viewingReport?.data}
+                reportId={viewingReport?.id}
                 exportType={viewingReport?.exportType || "Excel"}
                 onExport={(format: "PDF" | "Excel") => viewingReport && handleExport(viewingReport.id, format)}
                 onShare={() => {

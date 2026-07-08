@@ -46,10 +46,10 @@ const PaymentPage: React.FC = () => {
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Paid" | "Pending" | "Advance">("All");
 
     const [stats, setStats] = useState<any>({
-        paid_this_month: 0,
-        pending_due: 0,
-        monthly_budget: 0,
-        advance_logs: 0
+        total_payout: 0,
+        high_payouts: 0,
+        ot_intensive: 0,
+        advance_adjusted: 0
     });
 
     // Modal States
@@ -70,8 +70,8 @@ const PaymentPage: React.FC = () => {
         setIsLoading(true);
         try {
             const [payrollRes, statsRes] = await Promise.all([
-                paymentService.getActivePayroll({ project_id: projectId }),
-                paymentService.getPayrollStats({ project_id: projectId })
+                paymentService.getAggregateReport({ project_id: projectId }),
+                paymentService.getFiscalSummary({ project_id: projectId })
             ]);
             setLabours(Array.isArray(payrollRes) ? payrollRes : ((payrollRes as any).items || []));
             if (statsRes) setStats(statsRes);
@@ -190,6 +190,12 @@ const PaymentPage: React.FC = () => {
                             <Calendar className="w-4 h-4 text-primary font-inter" />
                             <span className="text-xs font-bold text-slate-600 uppercase tracking-widest font-inter">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
                         </div>
+                        <button
+                            onClick={() => setIsGenerateModalOpen(true)}
+                            className="bg-primary hover:bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2"
+                        >
+                            Generate Payroll
+                        </button>
                     </div>
                 </div>
 
@@ -197,30 +203,30 @@ const PaymentPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 font-inter">
                     {[
                         {
-                            title: "Paid This Month",
-                            value: formatCurrency(stats.paid_this_month || 0),
+                            title: "Total Payout",
+                            value: formatCurrency(stats.total_payout || 0),
                             sub: "Disbursed Capital",
                             accent: "text-emerald-500",
                             status: "Paid",
                         },
                         {
-                            title: "Pending Due",
-                            value: formatCurrency(stats.pending_due || 0),
-                            sub: "Outstanding Liability",
+                            title: "High Payouts",
+                            value: (stats.high_payouts || 0).toString(),
+                            sub: "Alert Count",
                             accent: "text-rose-500",
                             status: "Pending",
                         },
                         {
-                            title: "Monthly Budget",
-                            value: formatCurrency(stats.monthly_budget || 0),
-                            sub: "Allocated Liquidity",
+                            title: "OT Intensive",
+                            value: (stats.ot_intensive || 0).toString(),
+                            sub: "High OT Workers",
                             accent: "text-primary",
                             status: "Budget",
                         },
                         {
-                            title: "Advance Logs",
-                            value: (stats.advance_logs || 0).toString().padStart(2, '0'),
-                            sub: "Pending Review",
+                            title: "Advance Adjusted",
+                            value: formatCurrency(stats.advance_adjusted || 0),
+                            sub: "Recovered Capital",
                             accent: "text-amber-500",
                             status: "Advance",
                         },

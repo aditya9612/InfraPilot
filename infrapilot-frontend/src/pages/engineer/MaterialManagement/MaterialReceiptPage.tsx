@@ -12,6 +12,7 @@ import {
 import { materialService, type MaterialItem, type Supplier, type PurchaseOrder, type InventorySummary, type PriceHistory, type MaterialLog, type IssueType, type RateType } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
 import { masterService } from "../../../services/masterService";
+import { boqService } from "../../../services/boqService";
 
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
@@ -45,6 +46,7 @@ const MaterialReceiptPage = () => {
     const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
     const [transactions, setTransactions] = useState<MaterialLog[]>([]);
     const [supplierMaterials, setSupplierMaterials] = useState<MaterialItem[]>([]);
+    const [boqs, setBoqs] = useState<any[]>([]);
 
     // Pagination & Filtering
     const [currentPage, setCurrentPage] = useState(1);
@@ -162,11 +164,20 @@ const MaterialReceiptPage = () => {
         finally { setIsLoading(false); }
     };
 
+    const fetchBoqs = async (pId: number = projectId) => {
+        try {
+            const data = await boqService.getBoqs({ project_id: pId, limit: 100, skip: 0 } as any);
+            setBoqs(data.items || []);
+        } catch (e) {
+            console.error("Failed to load BOQs", e);
+        }
+    };
+
     useEffect(() => {
         setCurrentPage(1);
         if (activeTab === "Materials") { fetchMaterials(projectId); fetchSuppliers(projectId); fetchDashboard(projectId); }
         else if (activeTab === "Suppliers") fetchSuppliers(projectId);
-        else if (activeTab === "Purchase Orders") { fetchPOs(projectId); fetchSuppliers(projectId); fetchMaterials(projectId); }
+        else if (activeTab === "Purchase Orders") { fetchPOs(projectId); fetchSuppliers(projectId); fetchMaterials(projectId); fetchBoqs(projectId); }
         else if (activeTab === "Dashboard") fetchDashboard(projectId);
     }, [activeTab, projectId]);
 
@@ -779,6 +790,21 @@ const MaterialReceiptPage = () => {
                                         .filter(m => !poForm.supplier_id || m.supplier_id === poForm.supplier_id)
                                         .map(m => <option key={m.id} value={m.id}>{m.material_name}</option>)
                                     }
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelClasses}>BOQ Item</label>
+                                <select
+                                    value={poForm.boq_item_id || ""}
+                                    onChange={e => setPoForm({ ...poForm, boq_item_id: Number(e.target.value) || undefined })}
+                                    className={inputClasses}
+                                >
+                                    <option value="">Select BOQ</option>
+                                    {boqs.map(b => (
+                                        <option key={b.id || b.boq_item_id} value={b.id || b.boq_item_id}>
+                                            {b.item_name || b.description || `BOQ Item #${b.id}`}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                             <div><label className={labelClasses}>Quantity *</label><input type="number" required value={poForm.quantity || ""} onChange={e => setPoForm({ ...poForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Upload, FileText, CheckCircle2, Layers, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { projectService } from "../../services/projectService";
@@ -21,17 +21,13 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
     const [projects, setProjects] = useState<any[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [formData, setFormData] = useState({
         project_id: "",
         title: "",
         document_type: preSelectedType,
         remarks: "",
-        version: "v1.0",
-        date: new Date().toISOString().split('T')[0],
-        approved_by: "Site Engineer",
-        parent_id: ""
+        parent_id: parentId ? parentId.toString() : "",
     });
 
     useEffect(() => {
@@ -41,13 +37,8 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                 title: "",
                 document_type: preSelectedType,
                 remarks: "",
-                version: "v1.0",
-                date: new Date().toISOString().split('T')[0],
-                approved_by: "Site Engineer",
-                parent_id: parentId ? parentId.toString() : ""
+                parent_id: parentId ? parentId.toString() : "",
             });
-            setSelectedFile(null);
-
             const fetchProjects = async () => {
                 try {
                     const response = await projectService.getProjects(100);
@@ -58,7 +49,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             };
             fetchProjects();
         }
-    }, [isOpen, parentId, preSelectedType]);
+    }, [isOpen, preSelectedType, parentId]);
 
     if (!isOpen) return null;
 
@@ -67,7 +58,7 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             const file = e.target.files[0];
             setSelectedFile(file);
             if (!formData.title) {
-                const fileName = file.name.split('.').slice(0, -1).join('.');
+                const fileName = e.target.files[0].name.split('.').slice(0, -1).join('.');
                 setFormData(prev => ({ ...prev, title: fileName }));
             }
         }
@@ -95,35 +86,25 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
             data.append("project_id", formData.project_id);
             data.append("title", formData.title);
             data.append("document_type", formData.document_type);
-
-            const resolvedParentId = formData.parent_id.trim() !== ""
-                ? formData.parent_id
-                : parentId ? parentId.toString() : "";
-            if (resolvedParentId) {
-                data.append("parent_id", resolvedParentId);
-            }
-
-            if (formData.remarks) {
-                data.append("remarks", formData.remarks);
-            }
-
-            if (formData.document_type === "Drawing") {
-                data.append("version", formData.version);
-                data.append("date", formData.date);
-                data.append("approved_by", formData.approved_by);
-            }
+            if (formData.parent_id) data.append("parent_id", formData.parent_id);
+            if (formData.remarks) data.append("remarks", formData.remarks);
 
             await onSubmit(data);
             onClose();
+            setSelectedFile(null);
+            setFormData({
+                project_id: "",
+                title: "",
+                document_type: "General",
+                remarks: "",
+                parent_id: "",
+            });
         } catch (error) {
             console.error("Upload Error:", error);
         } finally {
             setIsSubmitting(false);
         }
     };
-
-    const inputCls = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold text-slate-800";
-    const labelCls = "text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block";
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -151,155 +132,113 @@ const UploadDocumentModal: React.FC<UploadDocumentModalProps> = ({
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-                    <div>
-                        <label className={labelCls}>Project <span className="text-rose-500">*</span></label>
-                        <select
-                            required
-                            value={formData.project_id}
-                            onChange={e => setFormData(prev => ({ ...prev, project_id: e.target.value }))}
-                            className={inputCls}
-                        >
-                            <option value="">Select Project</option>
-                            {projects.map(p => (
-                                <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {formData.document_type === "Drawing" ? (
-                        <>
-                            <div>
-                                <label className={labelCls}>Drawing Name <span className="text-rose-500">*</span></label>
-                                <input
-                                    required
-                                    value={formData.title}
-                                    onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                                    placeholder="e.g. Foundation Drawing Rev-2"
-                                    className={inputCls}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className={labelCls}>Version <span className="text-rose-500">*</span></label>
-                                    <input
-                                        required
-                                        value={formData.version}
-                                        onChange={e => setFormData(prev => ({ ...prev, version: e.target.value }))}
-                                        placeholder="e.g. v1.0"
-                                        className={inputCls}
-                                    />
-                                </div>
-                                <div>
-                                    <label className={labelCls}>Date</label>
-                                    <input
-                                        type="date"
-                                        value={formData.date}
-                                        onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                                        className={inputCls}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className={labelCls}>Remarks</label>
-                                <textarea
-                                    value={formData.remarks}
-                                    onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-                                    placeholder="Optional notes..."
-                                    rows={2}
-                                    className={inputCls + " resize-none"}
-                                />
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div>
-                                <label className={labelCls}>Document Title</label>
-                                <input
-                                    value={formData.title}
-                                    onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                                    placeholder="e.g. Site Contract 2026"
-                                    className={inputCls}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className={labelCls}>Document Type</label>
-                                    <select
-                                        value={formData.document_type}
-                                        onChange={e => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
-                                        className={inputCls}
-                                    >
-                                        <option value="General">General</option>
-                                        <option value="Contract">Contract</option>
-                                        <option value="Invoice">Invoice</option>
-                                        <option value="Report">Report</option>
-                                        <option value="Blueprint">Blueprint</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className={labelCls}>Parent Folder ID</label>
-                                    <input
-                                        type="number"
-                                        value={formData.parent_id}
-                                        onChange={e => setFormData(prev => ({ ...prev, parent_id: e.target.value }))}
-                                        placeholder="Optional folder ID"
-                                        className={inputCls}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <label className={labelCls}>Remarks</label>
-                                <textarea
-                                    value={formData.remarks}
-                                    onChange={e => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-                                    placeholder="Optional notes..."
-                                    rows={2}
-                                    className={inputCls + " resize-none"}
-                                />
-                            </div>
-                        </>
-                    )}
-
-                    <div>
-                        <label className={labelCls}>File <span className="text-rose-500">*</span></label>
-                        <div
-                            onClick={() => fileInputRef.current?.click()}
-                            className="w-full border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
-                        >
-                            {selectedFile ? (
-                                <div className="flex items-center justify-center gap-3">
-                                    <FileText className="w-6 h-6 text-primary" />
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold text-slate-800 truncate max-w-[200px]">{selectedFile.name}</p>
-                                        <p className="text-xs text-slate-400">{(selectedFile.size / 1024).toFixed(1)} KB</p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }}
-                                        className="ml-auto p-1 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors"
-                                    >
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
-                                    <Upload className="w-8 h-8 text-slate-350 mx-auto mb-2" />
-                                    <p className="text-sm font-bold text-slate-500">Click to select file</p>
-                                    <p className="text-xs text-slate-400 mt-1">PDF, DOC, DWG, Images supported</p>
-                                </>
-                            )}
+                <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Layers className="w-4 h-4 text-primary" />
+                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Core Document Identity</h3>
                         </div>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            className="hidden"
-                            onChange={handleFileChange}
-                        />
+
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Project Context <span className="text-rose-500">*</span>
+                            </label>
+                            <select
+                                required
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
+                                value={formData.project_id}
+                                onChange={(e) => setFormData(prev => ({ ...prev, project_id: e.target.value }))}
+                            >
+                                <option value="">Select Project</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.project_name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Document Title <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. Structural Design"
+                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
+                                    value={formData.title}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Document Type <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    required
+                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold appearance-none cursor-pointer"
+                                    value={formData.document_type}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, document_type: e.target.value }))}
+                                >
+                                    <option value="General">General</option>
+                                    <option value="Drawing">Drawing</option>
+                                    <option value="Contract">Contract</option>
+                                    <option value="Invoice">Invoice</option>
+                                    <option value="Report">Report</option>
+                                    <option value="Blueprint">Blueprint</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Parent ID
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. 1"
+                                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-bold"
+                                    value={formData.parent_id || ""}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, parent_id: e.target.value }))}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    File <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    id="file-upload-input"
+                                    type="file"
+                                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium text-slate-600 cursor-pointer"
+                                    onChange={handleFileChange}
+                                />
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="pt-4 flex gap-4 bg-white sticky bottom-0">
+                    <div className="space-y-4 pt-2">
+                        <div className="flex items-center gap-2 mb-2">
+                            <FileText className="w-4 h-4 text-primary" />
+                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Technical Specifications</h3>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                Remarks
+                            </label>
+                            <textarea
+                                rows={2}
+                                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all font-medium resize-none"
+                                value={formData.remarks}
+                                onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="pt-2 flex gap-3">
                         <button
                             type="button"
                             disabled={isSubmitting}

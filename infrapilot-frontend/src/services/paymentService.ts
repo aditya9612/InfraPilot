@@ -1,9 +1,6 @@
 import api from "./api";
 import type {
-    AdvanceRequestPayload,
-    Payment,
-    AdvanceRequest,
-    PayrollReport
+    Payment
 } from "../types/payment";
 
 export const paymentService = {
@@ -33,10 +30,10 @@ export const paymentService = {
      * Export Payroll Excel
      * GET /api/v1/labour/payroll/export
      */
-    async exportPayroll(month: number, year: number): Promise<void> {
-        console.log(`GET /api/v1/labour/payroll/export?month=${month}&year=${year}`);
+    async exportPayroll(options: { month?: number; year?: number; start_date?: string; end_date?: string; labour_id?: number; format?: string }): Promise<void> {
+        console.log(`GET /api/v1/labour/payroll/export`, options);
         const response = await api.get("labour/payroll/export", {
-            params: { month, year },
+            params: options,
             responseType: 'blob'
         });
 
@@ -44,7 +41,9 @@ export const paymentService = {
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Payroll_Report_${month}_${year}.xlsx`);
+        const extension = options.format === 'pdf' ? 'pdf' : 'xlsx';
+        const filename = `Payroll_Report_${options.month || 'all'}_${options.year || 'all'}.${extension}`;
+        link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
 

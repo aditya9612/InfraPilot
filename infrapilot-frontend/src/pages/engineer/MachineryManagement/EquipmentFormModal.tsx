@@ -9,6 +9,7 @@ interface EquipmentFormModalProps {
     onSave: (formData: any) => Promise<void>;
     initialData?: any;
     selectedProjectId?: number | null;
+    isViewOnly?: boolean;
 }
 
 const conditionDisplay: Record<string, string> = {
@@ -18,7 +19,7 @@ const conditionDisplay: Record<string, string> = {
     'MAINTENANCE': 'MAINTENANCE',
 };
 
-const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose, onSave, initialData, selectedProjectId }) => {
+const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose, onSave, initialData, selectedProjectId, isViewOnly }) => {
     const [formData, setFormData] = useState<any>({});
     const [isSaving, setIsSaving] = useState(false);
     const [projects, setProjects] = useState<any[]>([]);
@@ -42,10 +43,11 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
             };
             fetchProjects();
         }
-    }, [isOpen, initialData]);
+    }, [isOpen, initialData, selectedProjectId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isViewOnly) return;
         setIsSaving(true);
         try {
             await onSave({ ...formData });
@@ -63,24 +65,26 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                 disabled={isSaving}
                 className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors disabled:opacity-50"
             >
-                Cancel
+                {isViewOnly ? "Close" : "Cancel"}
             </button>
-            <button
-                form="equipment-form"
-                type="submit"
-                disabled={isSaving}
-                className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
-            >
-                {isSaving ? "Saving..." : (formData.id ? "Update Equipment" : "Add Equipment")}
-            </button>
+            {!isViewOnly && (
+                <button
+                    form="equipment-form"
+                    type="submit"
+                    disabled={isSaving}
+                    className={`px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all flex items-center gap-2 ${isSaving ? 'opacity-70 cursor-not-allowed' : 'active:scale-95'}`}
+                >
+                    {isSaving ? "Saving..." : (formData.id ? "Update Equipment" : "Add Equipment")}
+                </button>
+            )}
         </div>
     );
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-    const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300";
+    const inputClasses = `w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${isViewOnly ? 'opacity-70 bg-slate-50 pointer-events-none' : 'focus:ring-primary/20 focus:border-primary'}`;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={formData.id ? "Edit Equipment" : "Add Equipment"} maxWidth="max-w-3xl" footer={modalFooter}>
+        <Modal isOpen={isOpen} onClose={onClose} title={isViewOnly ? "View Equipment" : formData.id ? "Edit Equipment" : "Add Equipment"} maxWidth="max-w-3xl" footer={modalFooter}>
             <form id="equipment-form" onSubmit={handleSubmit} className="p-2 sm:p-4 font-inter space-y-6">
                 <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
@@ -126,14 +130,6 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                                 <option value="">Select condition</option>
                                 {Object.keys(conditionDisplay).map(k => <option key={k} value={k}>{conditionDisplay[k]}</option>)}
                             </select>
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Working Hours *</label>
-                            <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className={inputClasses} />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Fuel Used (L) *</label>
-                            <input type="number" min="0" required value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className={inputClasses} />
                         </div>
                         <div>
                             <label className={labelClasses}>Rental Cost (₹) *</label>

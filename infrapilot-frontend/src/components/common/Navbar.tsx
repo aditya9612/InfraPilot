@@ -164,7 +164,7 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
 
   return (
     <>
-      <div className="fixed top-0 right-0 lg:left-56 left-0 z-[100] h-16 shadow-md bg-primary px-3 sm:px-6 py-3 flex items-center justify-between gap-2">
+      <div className="fixed top-0 right-0 lg:left-56 left-0 z-40 h-16 shadow-md bg-primary px-3 sm:px-6 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           {/* Mobile menu toggle */}
           <button

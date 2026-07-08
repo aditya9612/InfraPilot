@@ -79,7 +79,7 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
             canvas.width = videoRef.current.videoWidth;
             canvas.height = videoRef.current.videoHeight;
             const ctx = canvas.getContext('2d');
-            if (ctx) { ctx.drawImage(videoRef.current, 0, 0); setCapturedImage(canvas.toDataURL('image/jpeg')); stopCamera(); }
+            if (ctx) { ctx.drawImage(videoRef.current, 0, 0); setCapturedImage(canvas.toDataURL('image/jpeg')); }
         }
     };
 

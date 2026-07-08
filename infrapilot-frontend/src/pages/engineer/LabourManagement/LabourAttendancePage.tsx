@@ -23,9 +23,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import labourService from '../../../services/labourService';
-import CheckInModal from '../../../components/attendance/CheckInModal';
+import SelfCheckInModal from './components/SelfCheckInModal';
 import BulkCheckInModal from '../../../components/attendance/BulkCheckInModal';
-import CheckOutModal from '../../../components/attendance/CheckOutModal';
+import SelfCheckOutModal from './components/SelfCheckOutModal';
+import BulkCheckOutModal from '../../../components/attendance/BulkCheckOutModal';
 import { useProject } from '../../../context/ProjectContext';
 
 const LOCAL_CONTRACTOR_MAP: Record<number, string> = {
@@ -109,6 +110,7 @@ const LabourAttendancePage: React.FC = () => {
     // Modals State
     const [isCheckInModalOpen] = useState(false);
     const [isBulkCheckInOpen, setIsBulkCheckInOpen] = useState(false);
+    const [isBulkCheckOutOpen, setIsBulkCheckOutOpen] = useState(false);
     const [checkInUserIds, setCheckInUserIds] = useState<number[]>([]);
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
 
@@ -151,7 +153,7 @@ const LabourAttendancePage: React.FC = () => {
     // Labour Attendance Filters
     const [empSearch, setEmpSearch] = useState("");
     const [empStatusFilter, setEmpStatusFilter] = useState("All Status");
-    const [empContractorFilter, setEmpContractorFilter] = useState("All Contractors");
+
     const [empDurationFilter, setEmpDurationFilter] = useState("Today");
 
     // History Quick Filter & Pagination
@@ -477,14 +479,17 @@ const LabourAttendancePage: React.FC = () => {
                             className={`flex items-center justify-center gap-2 px-6 py-2 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 font-inter w-fit ${isCheckInEnabled ? 'bg-primary text-white hover:bg-primary/90' : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'}`}
                         >
                             <LogIn className="w-4 h-4" />
-                            Check In {selectedLabourIds.length > 0 && `(${selectedLabourIds.length})`}
+                            Bulk Checkin {selectedLabourIds.length > 0 && `(${selectedLabourIds.length})`}
                         </button>
                         <button
                             disabled={!isCheckOutEnabled}
+                            onClick={() => {
+                                setIsBulkCheckOutOpen(true);
+                            }}
                             className={`flex items-center justify-center gap-2 px-6 py-2 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-95 font-inter w-fit ${isCheckOutEnabled ? 'bg-rose-500 text-white hover:bg-rose-600' : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'}`}
                         >
                             <LogOut className="w-4 h-4" />
-                            Check Out {selectedLabourIds.length > 0 && `(${selectedLabourIds.length})`}
+                            Bulk Checkout {selectedLabourIds.length > 0 && `(${selectedLabourIds.length})`}
                         </button>
                         <button
                             onClick={() => {
@@ -590,21 +595,7 @@ const LabourAttendancePage: React.FC = () => {
                                     </select>
                                 </div>
                             </div>
-                            <div className="min-w-[150px]">
-                                <label className="block text-xs font-medium text-slate-600 mb-1.5">Contractor</label>
-                                <div className="relative">
-                                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                                    <select
-                                        className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all appearance-none bg-white cursor-pointer"
-                                        value={empContractorFilter}
-                                        onChange={e => setEmpContractorFilter(e.target.value)}
-                                    >
-                                        <option value="All Contractors">All Contractors</option>
-                                        <option value="ABC Builders">ABC Builders</option>
-                                        <option value="XYZ Constructions">XYZ Constructions</option>
-                                    </select>
-                                </div>
-                            </div>
+
                             <div className="min-w-[150px]">
                                 <label className="block text-xs font-medium text-slate-600 mb-1.5">Duration Filter</label>
                                 <div className="relative">
@@ -776,29 +767,7 @@ const LabourAttendancePage: React.FC = () => {
                                             <td className="px-6 py-4 text-center"><span className={`px-2 py-0.5 ${lab.status === 'absent' ? 'bg-rose-50 text-rose-500 border-rose-200' : 'bg-emerald-50 text-emerald-500 border-emerald-200'} border rounded-full text-[9px] font-bold uppercase tracking-widest`}>{lab.status || "present"}</span></td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2 font-inter">
-                                                    {!lab.in_time || lab.in_time === "--:--" ? (
-                                                        <button
-                                                            onClick={() => {
-                                                                setCheckInUserIds([lab.id || lab.labour_id]);
-                                                                setIsBulkCheckInOpen(true);
-                                                            }}
-                                                            className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-100 active:scale-95 flex items-center justify-center font-inter"
-                                                            title="Check In"
-                                                        >
-                                                            <LogIn className="w-4 h-4" />
-                                                        </button>
-                                                    ) : (!lab.out_time || lab.out_time === "--:--") ? (
-                                                        <button
-                                                            onClick={() => {
-                                                                setSelectedLabour(lab);
-                                                                setIsLabourCheckOutFormOpen(true);
-                                                            }}
-                                                            className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-100 active:scale-95 flex items-center justify-center font-inter"
-                                                            title="Check Out"
-                                                        >
-                                                            <LogOut className="w-4 h-4" />
-                                                        </button>
-                                                    ) : null}
+                                                    {/* Removed Check In and Check Out buttons as requested */}
                                                     <button
                                                         onClick={async () => {
                                                             try {
@@ -841,19 +810,19 @@ const LabourAttendancePage: React.FC = () => {
             </PageTransition>
 
             {isLabourCheckInFormOpen && selectedLabour && (
-                <CheckInModal
+                <SelfCheckInModal
                     isOpen={isLabourCheckInFormOpen}
                     onClose={() => {
                         setIsLabourCheckInFormOpen(false);
                         setSelectedLabour(null);
                     }}
-                    labour={selectedLabour}
+                    labourId={selectedLabour.id || (selectedLabour as any).labour_id}
                     onSuccess={() => {
                         setIsLabourCheckInFormOpen(false);
                         setSelectedLabour(null);
                         fetchLabourAttendances();
                     }}
-                    projectId={getActiveProjectId()}
+                    title="Check In"
                 />
             )}
 
@@ -869,14 +838,27 @@ const LabourAttendancePage: React.FC = () => {
                 alreadyCheckedInIds={labourAttendances.filter(l => l.in_time && l.in_time !== "--:--").map(l => l.id || l.labour_id)}
             />
 
+            <BulkCheckOutModal
+                isOpen={isBulkCheckOutOpen}
+                onClose={() => setIsBulkCheckOutOpen(false)}
+                onSuccess={() => {
+                    fetchLabourAttendances();
+                    setSelectedLabourIds([]);
+                }}
+                initialSelectedUserIds={selectedLabourIds}
+                initialProjectId={getActiveProjectId()}
+                eligibleForCheckOutIds={labourAttendances.filter(l => l.in_time && l.in_time !== "--:--" && (!l.out_time || l.out_time === "--:--")).map(l => l.id || l.labour_id)}
+                selectedLaboursContext={filteredLabourAttendances}
+            />
+
             {isLabourCheckOutFormOpen && selectedLabour && (
-                <CheckOutModal
+                <SelfCheckOutModal
                     isOpen={isLabourCheckOutFormOpen}
                     onClose={() => {
                         setIsLabourCheckOutFormOpen(false);
                         setSelectedLabour(null);
                     }}
-                    attendance={selectedLabour}
+                    labourId={selectedLabour.id || (selectedLabour as any).labour_id}
                     onSuccess={() => {
                         setIsLabourCheckOutFormOpen(false);
                         setSelectedLabour(null);
@@ -885,21 +867,22 @@ const LabourAttendancePage: React.FC = () => {
                 />
             )}
 
-            <CheckInModal
+            <SelfCheckInModal
                 isOpen={isSelfCheckInFormOpen}
                 onClose={() => setIsSelfCheckInFormOpen(false)}
-                labour={selectedLabour || {}}
+                labourId={selectedLabour?.id || (selectedLabour as any)?.labour_id}
                 onSuccess={() => {
+                    setIsSelfCheckInFormOpen(false);
                     fetchLabourAttendances();
                 }}
-                projectId={getActiveProjectId()}
             />
 
-            <CheckOutModal
+            <SelfCheckOutModal
                 isOpen={isCheckOutModalOpen}
                 onClose={() => setIsCheckOutModalOpen(false)}
-                attendance={selectedLabour || {}}
+                labourId={selectedLabour?.id || (selectedLabour as any)?.labour_id}
                 onSuccess={() => {
+                    setIsCheckOutModalOpen(false);
                     fetchLabourAttendances();
                 }}
             />

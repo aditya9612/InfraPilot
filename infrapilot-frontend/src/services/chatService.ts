@@ -130,12 +130,12 @@ export const chatService = {
     },
 
     async getReadReceipts(messageId: number): Promise<{ user_id: number; name: string; read_at: string }[]> {
-        const response = await api.get<{ user_id: number; name: string; read_at: string }[]>(`/messages/${messageId}/reads`);
+        const response = await api.get<{ user_id: number; name: string; read_at: string }[]>(`/chats/messages/${messageId}/reads`);
         return response.data;
     },
 
     async getMentionedMessages(): Promise<ChatMessage[]> {
-        const response = await api.get<ChatMessage[]>("/messages/mentions");
+        const response = await api.get<ChatMessage[]>("/chats/messages/mentions");
         return response.data;
     },
 

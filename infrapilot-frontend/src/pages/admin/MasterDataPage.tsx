@@ -153,10 +153,13 @@ const MasterDataPage = () => {
       );
     }
 
-    // "latest" = preserve API order, "oldest" = reverse
-    if (sortOrder === "oldest") {
-      result.reverse();
-    }
+    // Sort by id:
+    // "latest" = newest (highest id) first, "oldest" = oldest (lowest id) first
+    result.sort((a, b) => {
+      const aVal = Number(a.id) || 0;
+      const bVal = Number(b.id) || 0;
+      return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
+    });
     return result;
   }, [items, sortOrder, activeFilter, activeTab, searchTerm]);
 

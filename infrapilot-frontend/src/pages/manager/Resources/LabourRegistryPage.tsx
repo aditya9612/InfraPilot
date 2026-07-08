@@ -15,8 +15,8 @@ import { masterService } from "../../../services/masterService";
 import { useProject } from "../../../context/ProjectContext";
 import { useAuth } from "../../../context/AuthContext";
 import type { LabourItem } from "../../../types/labour";
-import CheckInModal from "../../../components/attendance/CheckInModal";
-import CheckOutModal from "../../../components/attendance/CheckOutModal";
+import CheckInModal from "../../../components/labour/CheckInModal";
+import CheckOutModal from "../../../components/labour/CheckOutModal";
 
 type TabType = "Registry" | "Attendance" | "Performance" | "Payroll" | "Alerts";
 
@@ -98,7 +98,7 @@ const LabourRegistryPage = () => {
 
     useEffect(() => {
         if (isFormModalOpen) {
-            masterService.getEntities("labour-types").then(setLabourTypes).catch(() => {});
+            masterService.getEntities("labour-types").then(setLabourTypes).catch(() => { });
         }
     }, [isFormModalOpen]);
 
@@ -157,7 +157,7 @@ const LabourRegistryPage = () => {
             try {
                 const stats = await labourService.getAttendanceDashboard(projectId, fromDate, toDate);
                 if (stats) setDashboardStats({ total_labour: stats.total_labour || 0, present: stats.present || 0 });
-            } catch {}
+            } catch { }
             let allLabourers: any[] = [];
             try {
                 const labRes = await labourService.getLabours(projectId, { limit: 100 });
@@ -173,7 +173,7 @@ const LabourRegistryPage = () => {
                 const deletedSaved = localStorage.getItem(deletedKey);
                 const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
                 allLabourers = allLabourers.filter((l: any) => !deletedIds.has(l.id));
-            } catch {}
+            } catch { }
             const data = await labourService.getAttendanceList(projectId, fromDate, toDate);
             const attendances = data.items || [];
             const enriched = allLabourers.map((lab: any) => {
@@ -293,26 +293,26 @@ const LabourRegistryPage = () => {
             </thead>
             <tbody className="divide-y divide-slate-50">
                 {isLoading ? <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading registry...</td></tr>
-                : pagedData.length > 0 ? pagedData.map((labor: any) => (
-                    <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">{(labor.labour_name || "U").charAt(0)}</div>
-                                <div className="flex flex-col"><span className="text-sm font-bold text-slate-800">{labor.labour_name}</span><span className="text-[10px] font-mono text-slate-400">{labor.worker_code}</span></div>
-                            </div>
-                        </td>
-                        <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.labour_type_name || labor.skill_type || "—"}</td>
-                        <td className="px-6 py-4 text-xs text-slate-500">{labor.contractor_name || "—"}</td>
-                        <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{labor.effective_daily_wage || labor.daily_wage_rate || "—"}</td>
-                        <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${labor.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>{labor.status}</span></td>
-                        <td className="px-6 py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                                <button onClick={() => handleEditClick(labor)} className="p-2 text-slate-400 hover:text-primary rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                                <button onClick={() => handleDeleteClick(labor.id)} className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                            </div>
-                        </td>
-                    </tr>
-                )) : <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No workforce records found</td></tr>}
+                    : pagedData.length > 0 ? pagedData.map((labor: any) => (
+                        <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400">{(labor.labour_name || "U").charAt(0)}</div>
+                                    <div className="flex flex-col"><span className="text-sm font-bold text-slate-800">{labor.labour_name}</span><span className="text-[10px] font-mono text-slate-400">{labor.worker_code}</span></div>
+                                </div>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.labour_type_name || labor.skill_type || "—"}</td>
+                            <td className="px-6 py-4 text-xs text-slate-500">{labor.contractor_name || "—"}</td>
+                            <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{labor.effective_daily_wage || labor.daily_wage_rate || "—"}</td>
+                            <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${labor.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>{labor.status}</span></td>
+                            <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={() => handleEditClick(labor)} className="p-2 text-slate-400 hover:text-primary rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
+                                    <button onClick={() => handleDeleteClick(labor.id)} className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                            </td>
+                        </tr>
+                    )) : <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No workforce records found</td></tr>}
             </tbody>
         </table>
     );
@@ -348,59 +348,59 @@ const LabourRegistryPage = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {isLoading ? <tr><td colSpan={10} className="p-10 text-center text-slate-400">Syncing attendance...</td></tr>
-                        : filteredAttendance.length === 0 ? <tr><td colSpan={10} className="p-10 text-center text-slate-400">No attendance records found</td></tr>
-                        : filteredAttendance.map((lab, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.attendance_date || "N/A"}</span></td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">{(lab.labour_name || "U").charAt(0).toUpperCase()}</div>
-                                        <span className="text-xs font-bold text-slate-800 truncate max-w-[150px]">{lab.labour_name || "Unknown"}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.contractor_name || "—"}</span></td>
-                                <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{lab.department || lab.skill_type || "—"}</span></td>
-                                <td className="px-6 py-4 text-center">
-                                    <div className="flex flex-col items-center gap-1">
-                                        {lab.in_time && lab.check_in_image ? (
-                                            <div className="w-8 h-8 rounded-full border-2 border-emerald-400 overflow-hidden cursor-pointer" onClick={() => setPreviewImage({ url: lab.check_in_image, title: "Check-In – " + lab.labour_name })}><img src={lab.check_in_image} alt="" className="w-full h-full object-cover" /></div>
-                                        ) : <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>}
-                                        <span className={`text-[10px] font-bold flex items-center gap-1 ${lab.in_time ? "text-emerald-600" : "text-slate-400"}`}><LogIn className="w-3 h-3" />{lab.in_time || "—"}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    <div className="flex flex-col items-center gap-1">
-                                        {lab.out_time && lab.check_out_image ? (
-                                            <div className="w-8 h-8 rounded-full border-2 border-rose-400 overflow-hidden cursor-pointer" onClick={() => setPreviewImage({ url: lab.check_out_image, title: "Check-Out – " + lab.labour_name })}><img src={lab.check_out_image} alt="" className="w-full h-full object-cover" /></div>
-                                        ) : <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>}
-                                        <span className={`text-[10px] font-bold flex items-center gap-1 ${lab.out_time ? "text-rose-600" : "text-slate-400"}`}><LogOut className="w-3 h-3" />{lab.out_time || "—"}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    <span className="text-xs font-bold text-slate-800">
-                                        {(() => { const c = calculateTotalHours(lab.in_time, lab.out_time); return c ? `${c}/8 hr` : lab.working_hours ? `${lab.working_hours}/8 hr` : "-"; })()}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer hover:underline" onClick={() => { setSelectedLocationLabour(lab); setIsLocationModalOpen(true); }}>
-                                        <MapPin className="w-3 h-3" /> View
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2 py-0.5 border rounded-full text-[9px] font-bold uppercase tracking-widest ${lab.status === "absent" ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-emerald-50 text-emerald-500 border-emerald-200"}`}>{lab.status || "present"}</span>
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                        {(!lab.in_time || lab.in_time === "--:--") ? (
-                                            <button onClick={() => { setSelectedLabour(lab); setIsCheckInOpen(true); }} className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-100" title="Check In"><LogIn className="w-4 h-4" /></button>
-                                        ) : (!lab.out_time || lab.out_time === "--:--") ? (
-                                            <button onClick={() => { setSelectedLabour(lab); setIsCheckOutOpen(true); }} className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-100" title="Check Out"><LogOut className="w-4 h-4" /></button>
-                                        ) : null}
-                                        <button onClick={() => { setSelectedLabour(lab); setIsViewModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View"><Eye className="w-4 h-4" /></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+                            : filteredAttendance.length === 0 ? <tr><td colSpan={10} className="p-10 text-center text-slate-400">No attendance records found</td></tr>
+                                : filteredAttendance.map((lab, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.attendance_date || "N/A"}</span></td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">{(lab.labour_name || "U").charAt(0).toUpperCase()}</div>
+                                                <span className="text-xs font-bold text-slate-800 truncate max-w-[150px]">{lab.labour_name || "Unknown"}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4"><span className="text-xs font-bold text-slate-800">{lab.contractor_name || "—"}</span></td>
+                                        <td className="px-6 py-4"><span className="px-3 py-1 border border-slate-200 rounded-full text-[10px] font-bold text-slate-600">{lab.department || lab.skill_type || "—"}</span></td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex flex-col items-center gap-1">
+                                                {lab.in_time && lab.check_in_image ? (
+                                                    <div className="w-8 h-8 rounded-full border-2 border-emerald-400 overflow-hidden cursor-pointer" onClick={() => setPreviewImage({ url: lab.check_in_image, title: "Check-In – " + lab.labour_name })}><img src={lab.check_in_image} alt="" className="w-full h-full object-cover" /></div>
+                                                ) : <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>}
+                                                <span className={`text-[10px] font-bold flex items-center gap-1 ${lab.in_time ? "text-emerald-600" : "text-slate-400"}`}><LogIn className="w-3 h-3" />{lab.in_time || "—"}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex flex-col items-center gap-1">
+                                                {lab.out_time && lab.check_out_image ? (
+                                                    <div className="w-8 h-8 rounded-full border-2 border-rose-400 overflow-hidden cursor-pointer" onClick={() => setPreviewImage({ url: lab.check_out_image, title: "Check-Out – " + lab.labour_name })}><img src={lab.check_out_image} alt="" className="w-full h-full object-cover" /></div>
+                                                ) : <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>}
+                                                <span className={`text-[10px] font-bold flex items-center gap-1 ${lab.out_time ? "text-rose-600" : "text-slate-400"}`}><LogOut className="w-3 h-3" />{lab.out_time || "—"}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="text-xs font-bold text-slate-800">
+                                                {(() => { const c = calculateTotalHours(lab.in_time, lab.out_time); return c ? `${c}/8 hr` : lab.working_hours ? `${lab.working_hours}/8 hr` : "-"; })()}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 cursor-pointer hover:underline" onClick={() => { setSelectedLocationLabour(lab); setIsLocationModalOpen(true); }}>
+                                                <MapPin className="w-3 h-3" /> View
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-0.5 border rounded-full text-[9px] font-bold uppercase tracking-widest ${lab.status === "absent" ? "bg-rose-50 text-rose-500 border-rose-200" : "bg-emerald-50 text-emerald-500 border-emerald-200"}`}>{lab.status || "present"}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <div className="flex items-center justify-center gap-1">
+                                                {(!lab.in_time || lab.in_time === "--:--") ? (
+                                                    <button onClick={() => { setSelectedLabour(lab); setIsCheckInOpen(true); }} className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-100" title="Check In"><LogIn className="w-4 h-4" /></button>
+                                                ) : (!lab.out_time || lab.out_time === "--:--") ? (
+                                                    <button onClick={() => { setSelectedLabour(lab); setIsCheckOutOpen(true); }} className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all border border-rose-100" title="Check Out"><LogOut className="w-4 h-4" /></button>
+                                                ) : null}
+                                                <button onClick={() => { setSelectedLabour(lab); setIsViewModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all" title="View"><Eye className="w-4 h-4" /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
                     </tbody>
                 </table>
             </div>
@@ -521,10 +521,10 @@ const LabourRegistryPage = () => {
 
             {/* Check In/Out Modals */}
             {isCheckInOpen && selectedLabour && (
-                <CheckInModal isOpen={isCheckInOpen} onClose={() => { setIsCheckInOpen(false); setSelectedLabour(null); }} labour={selectedLabour} onSuccess={() => { setIsCheckInOpen(false); setSelectedLabour(null); fetchAttendance(); }} projectId={projectId} />
+                <CheckInModal isOpen={isCheckInOpen} onClose={() => { setIsCheckInOpen(false); setSelectedLabour(null); }} workers={[selectedLabour as any]} onSubmit={async (data) => { await labourService.checkIn(selectedLabour.id || (selectedLabour as any).labour_id, data); setIsCheckInOpen(false); setSelectedLabour(null); fetchAttendance(); }} projectId={projectId} />
             )}
             {isCheckOutOpen && selectedLabour && (
-                <CheckOutModal isOpen={isCheckOutOpen} onClose={() => { setIsCheckOutOpen(false); setSelectedLabour(null); }} attendance={selectedLabour} onSuccess={() => { setIsCheckOutOpen(false); setSelectedLabour(null); fetchAttendance(); }} />
+                <CheckOutModal isOpen={isCheckOutOpen} onClose={() => { setIsCheckOutOpen(false); setSelectedLabour(null); }} attendanceId={selectedLabour.id || (selectedLabour as any).labour_id} onSubmit={async (data) => { await labourService.checkOut(selectedLabour.id || (selectedLabour as any).labour_id, data); setIsCheckOutOpen(false); setSelectedLabour(null); fetchAttendance(); }} />
             )}
 
             {/* Attendance Detail Modal */}

@@ -11,18 +11,18 @@ import {
     Eye,
     Edit2,
     Trash2,
-    Activity,
     User,
-    Briefcase,
-    Mail,
+    Activity,
     RotateCcw,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Mail
 } from "lucide-react";
 
 import { qcService } from "../../../services/qcService";
 import { projectService } from "../../../services/projectService";
 import { dsrService } from "../../../services/dsrService";
+import { userService } from "../../../services/userService";
 import type { QcItem } from "../../../services/qcService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
@@ -92,7 +92,7 @@ const QCInspectionPage = () => {
         report_file: ""
     });
 
-    // â”€â”€â”€ PROJECT RESOLUTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ──────────────────────────────── PROJECT RESOLUTION ────────────────────────────────
     useEffect(() => {
         const initializeProject = async () => {
             try {
@@ -149,6 +149,7 @@ const QCInspectionPage = () => {
 
     const [availableTasks, setAvailableTasks] = useState<any[]>([]);
     const [availableDsrs, setAvailableDsrs] = useState<any[]>([]);
+    const [availableEngineers, setAvailableEngineers] = useState<any[]>([]);
     const [isFetchingDeps, setIsFetchingDeps] = useState(false);
 
     useEffect(() => {
@@ -157,12 +158,15 @@ const QCInspectionPage = () => {
             setIsFetchingDeps(true);
             Promise.all([
                 projectService.getTasks(Number(targetProjectId)).catch(() => []),
-                dsrService.getDsrByProject(Number(targetProjectId)).catch(() => [])
-            ]).then(([tasksRes, dsrsRes]: [any, any]) => {
+                dsrService.getDsrByProject(Number(targetProjectId)).catch(() => []),
+                userService.getAllUsers(100, 0).catch(() => [])
+            ]).then(([tasksRes, dsrsRes, usersRes]: [any, any, any]) => {
                 const tasksList = Array.isArray(tasksRes) ? tasksRes : (tasksRes.data || tasksRes.items || []);
                 const dsrsList = Array.isArray(dsrsRes) ? dsrsRes : (dsrsRes.data || dsrsRes.items || []);
+                const usersList = Array.isArray(usersRes) ? usersRes : (usersRes.data || usersRes.items || []);
                 setAvailableTasks(tasksList);
                 setAvailableDsrs(dsrsList);
+                setAvailableEngineers(usersList.filter((u: any) => u.role === 'ENGINEER' || u.role === 'PROJECT_MANAGER' || u.role === 'ADMIN'));
             }).finally(() => {
                 setIsFetchingDeps(false);
             });
@@ -181,7 +185,7 @@ const QCInspectionPage = () => {
         return dsr ? (dsr.report_date || dsr.date || `DSR #${dsrId}`) : `DSR #${dsrId}`;
     };
 
-    // â”€â”€â”€ INITIALIZATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ──────────────────────────────── INITIALIZATION ────────────────────────────────
 
     const fetchData = useCallback(async () => {
         if (projectId === null) return;
@@ -207,7 +211,7 @@ const QCInspectionPage = () => {
         setCurrentPage(1);
     }, [searchTerm, filterType, filterStatus, activeStatFilter, sortOrder]);
 
-    // â”€â”€â”€ ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ──────────────────────────────── ACTIONS ────────────────────────────────
 
     const handleCreateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -347,7 +351,7 @@ const QCInspectionPage = () => {
         setIsEditModalOpen(true);
     };
 
-    // â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ──────────────────────────────── HELPERS ────────────────────────────────
 
     const filteredList = useMemo(() => {
         let data = qcList;
@@ -853,7 +857,7 @@ const QCInspectionPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Inspection Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project_id *</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">project *</label>
                                 <select
                                     value={formData.project_id}
                                     onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
@@ -870,7 +874,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">task_id</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">task</label>
                                 <select
                                     value={formData.task_id || ""}
                                     onChange={(e) => setFormData({ ...formData, task_id: e.target.value ? Number(e.target.value) : null })}
@@ -887,7 +891,7 @@ const QCInspectionPage = () => {
                             </div>
 
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">dsr_id</label>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">dsr</label>
                                 <select
                                     value={formData.dsr_id || ""}
                                     onChange={(e) => setFormData({ ...formData, dsr_id: e.target.value ? Number(e.target.value) : null })}
@@ -897,7 +901,7 @@ const QCInspectionPage = () => {
                                     <option value="">-- Select DSR --</option>
                                     {availableDsrs.map(d => (
                                         <option key={d.id} value={d.id}>
-                                            {d.title || d.dsr_name || d.name || `DSR #${d.id}`}
+                                            DSR - {d.report_date ? new Date(d.report_date).toLocaleDateString() : (d.date || d.id)}
                                         </option>
                                     ))}
                                 </select>
@@ -969,16 +973,19 @@ const QCInspectionPage = () => {
 
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">engineer_name *</label>
-                                <input
-                                    type="text"
-                                    placeholder="Enter auditor name..."
+                                <select
                                     value={formData.engineer_name}
-                                    onChange={(e) => {
-                                        const val = e.target.value.replace(/[^a-zA-Z\s]/g, "");
-                                        setFormData({ ...formData, engineer_name: val });
-                                    }}
-                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter"
-                                />
+                                    onChange={(e) => setFormData({ ...formData, engineer_name: e.target.value })}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-inter cursor-pointer"
+                                    required
+                                >
+                                    <option value="">Enter auditor name...</option>
+                                    {availableEngineers.map(eng => (
+                                        <option key={eng.user_id || eng.id} value={eng.full_name || eng.name}>
+                                            {eng.full_name || eng.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="md:col-span-2">
@@ -992,43 +999,45 @@ const QCInspectionPage = () => {
                                 />
                             </div>
 
-                            <div className="md:col-span-2">
-                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 mb-2">report_file</label>
-                                <div className="flex items-center gap-4">
-                                    <input
-                                        type="file"
-                                        id="report_file"
-                                        accept="image/*,application/pdf"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                toast.success(`Selected: ${file.name}`);
-                                                setSelectedFile(file);
-                                                setFormData({ ...formData, report_file: file.name });
-                                            }
-                                        }}
-                                    />
-                                    <label htmlFor="report_file" className="px-4 py-2.5 bg-white text-slate-700 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
-                                        Choose File
-                                    </label>
-                                    <span className="text-sm text-slate-500 font-medium truncate max-w-[200px] font-inter">
-                                        {formData.report_file || "No file chosen"}
-                                    </span>
-                                    {formData.report_file && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedFile(null);
-                                                setFormData({ ...formData, report_file: "" });
+                            {!isEditModalOpen && (
+                                <div className="md:col-span-2">
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 mb-2">report_file</label>
+                                    <div className="flex items-center gap-4">
+                                        <input
+                                            type="file"
+                                            id="report_file"
+                                            accept="image/*,application/pdf"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    toast.success(`Selected: ${file.name}`);
+                                                    setSelectedFile(file);
+                                                    setFormData({ ...formData, report_file: file.name });
+                                                }
                                             }}
-                                            className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-600 ml-2"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    )}
+                                        />
+                                        <label htmlFor="report_file" className="px-4 py-2.5 bg-white text-slate-700 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
+                                            Choose File
+                                        </label>
+                                        <span className="text-sm text-slate-500 font-medium truncate max-w-[200px] font-inter">
+                                            {formData.report_file || "No file chosen"}
+                                        </span>
+                                        {formData.report_file && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedFile(null);
+                                                    setFormData({ ...formData, report_file: "" });
+                                                }}
+                                                className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-600 ml-2"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1069,55 +1078,48 @@ const QCInspectionPage = () => {
 
                         <div className="space-y-8 px-2 mb-10 font-inter">
                             <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                                        <Briefcase className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Audit Intelligence</p>
-                                </div>
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Inspection Category</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter uppercase">{selectedQc.inspection_type}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">project_id</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate">{selectedQc.project_id ? (projects.find(p => Number(p.id) === Number(selectedQc.project_id))?.project_name || projects.find(p => Number(p.id) === Number(selectedQc.project_id))?.name || `Project #${selectedQc.project_id}`) : 'N/A'}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Final Status</p>
-                                        <p className={`text-sm font-bold font-inter uppercase tracking-widest ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                            {selectedQc.status === 'Pass' ? 'Compliant' : 'Non-Compliant'}
-                                        </p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Observed Value</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.result}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Standard Threshold</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.standard_value}</p>
-                                    </div>
-                                    <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task Link</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">task_id</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getTaskName(selectedQc.task_id as number)}>{getTaskName(selectedQc.task_id as number)}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR Link</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">dsr_id</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getDsrName(selectedQc.dsr_id as number)}>{getDsrName(selectedQc.dsr_id as number)}</p>
                                     </div>
-                                </div>
-                            </div>
-
-                            <div className="font-inter">
-                                <div className="flex items-center gap-2 mb-6 font-inter">
-                                    <div className="p-2 bg-blue-50 rounded-lg font-inter">
-                                        <Activity className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Technical Narrative</p>
-                                </div>
-                                <div className="grid grid-cols-1 gap-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Auditor Remarks</p>
-                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter">
-                                            "{selectedQc.remarks || "No additional technical remarks provided for this audit."}"
-                                        </div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">inspection_type</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.inspection_type}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">test_type</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.test_type}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">result</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.result}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">standard_value</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.standard_value}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">status</p>
+                                        <p className={`text-sm font-bold font-inter ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            {selectedQc.status}
+                                        </p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">engineer_name</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.engineer_name}>{selectedQc.engineer_name || 'N/A'}</p>
+                                    </div>
+                                    <div className="font-inter col-span-2">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">remarks</p>
+                                        <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks || 'null'}</p>
                                     </div>
                                 </div>
                             </div>

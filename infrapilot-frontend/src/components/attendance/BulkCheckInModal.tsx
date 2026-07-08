@@ -29,7 +29,7 @@ const BulkCheckInModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initial
             }).catch(() => { });
 
             // Filter out already checked in users from initial selection
-            const validInitialSelection = initialSelectedUserIds.filter(id => !alreadyCheckedInIds.includes(id));
+            const validInitialSelection = initialSelectedUserIds.map(Number).filter(id => !alreadyCheckedInIds.map(Number).includes(id));
             setUserIds(validInitialSelection);
             if (initialProjectId) {
                 setProjectId(initialProjectId);
@@ -64,11 +64,15 @@ const BulkCheckInModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initial
 
         setIsSubmitting(true);
         try {
-            const payload = {
+            const payload: any = {
                 project_id: projectId,
-                user_ids: userIds,
-                remarks: remarks || "string"
+                user_ids: userIds
             };
+            if (remarks) {
+                payload.remarks = remarks;
+            } else {
+                payload.remarks = "check-in";
+            }
 
             await labourService.bulkCheckIn(payload);
             toast.success("Successfully Checked In!");

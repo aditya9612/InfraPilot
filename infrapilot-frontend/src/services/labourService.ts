@@ -9,10 +9,16 @@ export const labourService = {
     _mockLabours: (() => {
         try {
             const saved = localStorage.getItem("mock_labours_global");
-            return saved ? JSON.parse(saved) : [];
+            if (saved) return JSON.parse(saved);
         } catch (e) {
-            return [];
+            // ignore
         }
+        return [
+            { id: 101, labour_name: "Ramesh Kumar", worker_code: "LAB-101", skill_type: "Mason", status: "Active", project_id: 1 },
+            { id: 102, labour_name: "Suresh Singh", worker_code: "LAB-102", skill_type: "Helper", status: "Active", project_id: 1 },
+            { id: 103, labour_name: "Mahesh Patil", worker_code: "LAB-103", skill_type: "Carpenter", status: "Active", project_id: 1 },
+            { id: 104, labour_name: "Ganesh Sharma", worker_code: "LAB-104", skill_type: "Plumber", status: "Active", project_id: 1 }
+        ];
     })(),
 
     _persistMockLabours() {
@@ -129,6 +135,20 @@ export const labourService = {
     },
 
     /**
+     * Assign Labour to Project
+     * POST /api/v1/labour/assign-project
+     */
+    async assignLabourToProject(labour_id: number, project_id: number): Promise<any> {
+        try {
+            const response = await api.post('/labour/assign-project', { labour_id, project_id });
+            return response.data;
+        } catch (error: any) {
+            console.error("assignLabourToProject API error:", error.message);
+            throw error;
+        }
+    },
+
+    /**
      * List all labour records for a project
      * GET /api/v1/labour?project_id=1&limit=20&offset=0
      */
@@ -221,28 +241,7 @@ export const labourService = {
         return response.data;
     },
 
-    /**
-     * Assign labour to a project
-     * POST /api/v1/labour/assign-project
-     */
-    async assignLabourToProject(labourId: number | string, projectId: number | string) {
-        try {
-            console.log(`Assigning Labour ${labourId} to Project ${projectId} via PUT /labour/${labourId}`);
-            const response = await api.put(`labour/${labourId}`, {
-                project_id: Number(projectId),
-            });
-            console.log("labourService.assignLabourToProject Success (200 OK):", response.data);
-            return response.data;
-        } catch (err: any) {
-            console.warn("assignLabourToProject API error, using virtual success fallback:", err.message);
-            const index = this._mockLabours.findIndex((l: any) => l.id === Number(labourId));
-            if (index !== -1) {
-                this._mockLabours[index].project_id = Number(projectId);
-                this._persistMockLabours();
-            }
-            return { message: "Assigned successfully" };
-        }
-    },
+
 
 
     /**
@@ -412,33 +411,9 @@ export const labourService = {
                 });
             }
 
-            // If it's a mock ID from local storage, or we don't have a real attendance ID, bypass the real API to prevent 404 error in Network tab
-            let isMock = false;
-            const targetLabourId = formData.get("user_id") ? Number(formData.get("user_id")) : null;
-
-            if (!attendanceId || attendanceId === "undefined" || attendanceId === "null") {
-                isMock = true;
-            } else if (targetLabourId && Number(attendanceId) === targetLabourId) {
-                // The backend returned the labour ID instead of the attendance ID
-                isMock = true;
-            } else {
-                try {
-                    const stored = localStorage.getItem("mock_attendance_global");
-                    const list = stored ? JSON.parse(stored) : [];
-                    if (list.find((a: any) => String(a.id) === String(attendanceId))) {
-                        isMock = true;
-                    }
-                } catch (e) { }
-            }
-
-            if (isMock) {
-                console.warn("Bypassing API call for mock attendance ID to prevent 404 error");
-                throw new Error("Virtual Check-out");
-            }
-
-            console.log(`PUT /api/v1/attendance/${attendanceId}/check-out Request Body: FormData`);
+            console.log(`PUT /api/v1/attendance/check-out/${attendanceId} Request Body: FormData`);
             const response = await api.put(
-                `attendance/${attendanceId}/check-out`,
+                `attendance/check-out/${attendanceId}`,
                 formData,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
@@ -514,13 +489,13 @@ export const labourService = {
      */
     async selfCheckOut(attendanceId: number | string, payload: FormData) {
         try {
-            console.log(`PUT /api/v1/attendance/${attendanceId}/check-out`);
+            console.log(`PUT /api/v1/attendance/check-out/${attendanceId}`);
             const response = await api.put(
-                `attendance/${attendanceId}/check-out`,
+                `attendance/check-out/${attendanceId}`,
                 payload,
                 { headers: { "Content-Type": "multipart/form-data" } }
             );
-            console.log(`PUT /api/v1/attendance/${attendanceId}/check-out - SUCCESS`, response.data);
+            console.log(`PUT /api/v1/attendance/check-out/${attendanceId} - SUCCESS`, response.data);
             return response.data;
         } catch (error: any) {
             console.warn("selfCheckOut API error, using virtual success fallback:", error.message);
@@ -623,30 +598,22 @@ export const labourService = {
 
     /**
      * Bulk Check-In
-     * POST /api/v1/attendance/check-in/bulk (assuming endpoint, or just /attendance/check-in with JSON)
+     * POST /api/v1/attendance/proxy-check-in
      */
-    async bulkCheckIn(payload: { project_id: number; user_ids: number[]; remarks: string }) {
-        try {
-            const response = await api.post(`attendance/check-in`, payload);
-            return response.data;
-        } catch (error: any) {
-            console.warn("bulkCheckIn API error:", error.message);
-            // fallback for mock
-            return { message: "Bulk check-in successful (fallback)" };
-        }
+    async bulkCheckIn(payload: { project_id: number; user_ids: number[]; remarks?: string }) {
+        console.log("SENDING bulkCheckIn PAYLOAD:", payload);
+        const response = await api.post(`attendance/proxy-check-in`, payload);
+        return response.data;
     },
 
     /**
      * Bulk Check-Out
+     * PUT /api/v1/attendance/proxy-check-out
      */
-    async bulkCheckOut(payload: { attendance_ids: number[]; remarks: string }) {
-        try {
-            const response = await api.post(`attendance/check-out`, payload);
-            return response.data;
-        } catch (error: any) {
-            console.warn("bulkCheckOut API error:", error.message);
-            return { message: "Bulk check-out successful (fallback)" };
-        }
+    async bulkCheckOut(payload: { attendance_ids: number[]; remarks?: string }) {
+        console.log("SENDING bulkCheckOut PAYLOAD:", payload);
+        const response = await api.put(`attendance/proxy-check-out`, payload);
+        return response.data;
     },
 
     /**

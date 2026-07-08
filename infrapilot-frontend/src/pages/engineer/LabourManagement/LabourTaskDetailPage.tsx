@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../../../components/common/Navbar';
 import PageTransition from '../../../components/common/PageTransition';
 import Modal from '../../../components/common/Modal';
@@ -7,10 +7,12 @@ import {
     Filter, Search, Eye, Calendar, User,
     CheckCircle, Clock, AlertCircle, XCircle, List,
     FileText, X, Mail, Briefcase, Phone,
-    Edit2, Trash2, RefreshCw, LayoutGrid, Camera, Play
+    Edit2, Trash2, RefreshCw, LayoutGrid, Camera, Play, ChevronDown
 } from 'lucide-react';
 import labourService from '../../../services/labourService';
 import { projectService } from '../../../services/projectService';
+import { boqService } from '../../../services/boqService';
+import { workProgressService } from '../../../services/workProgressService';
 
 interface TaskItem {
     id: string;
@@ -35,8 +37,23 @@ const priorityBadges: Record<string, string> = {
     HIGH: "bg-rose-500 text-white",
 };
 
+const getDefaultProjectId = () => {
+    try {
+        const userStr = localStorage.getItem("infrapilot_user");
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            const pId = user?.project_id || user?.user?.project_id;
+            if (pId) return Number(pId);
+        }
+    } catch (e) {
+        console.error("Failed to parse user for project ID", e);
+    }
+    return 92;
+};
+
 const LabourTaskDetailPage = () => {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<"All Tasks" | "Labour Detail">("All Tasks");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
@@ -45,8 +62,6 @@ const LabourTaskDetailPage = () => {
     // Filters and View State
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All Status");
-    const [typeFilter, setTypeFilter] = useState("All Tasks");
-    const [departmentFilter, setDepartmentFilter] = useState("All Departments");
 
     const [selectedTask, setSelectedTask] = useState<any | null>(null);
     const [modalTab, setModalTab] = useState<"Details" | "Activity" | "Comments">("Details");
@@ -56,6 +71,10 @@ const LabourTaskDetailPage = () => {
     const [editProjectId, setEditProjectId] = useState<number | null>(null);
     const [editLabours, setEditLabours] = useState<any[]>([]);
     const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+    
+    const [milestones, setMilestones] = useState<any[]>([]);
+    const [boqs, setBoqs] = useState<any[]>([]);
+    const [activityTypes, setActivityTypes] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -70,19 +89,36 @@ const LabourTaskDetailPage = () => {
     }, []);
 
     useEffect(() => {
-        if (isEditModalOpen && editProjectId) {
-            labourService.getLabours(editProjectId, { limit: 100 }).then(data => {
-                setEditLabours(data.items || []);
-            }).catch(err => {
-                console.error("Failed to load labours for edit modal", err);
-            });
+        if (isEditModalOpen) {
+            const validProjectId = getDefaultProjectId();
+            
+            if (validProjectId) {
+                labourService.getLabours(validProjectId, { limit: 100 }).then(data => {
+                    setEditLabours(data.items || []);
+                }).catch(err => {
+                    console.error("Failed to load labours for edit modal", err);
+                });
+                
+                projectService.getMilestones(validProjectId).then(data => {
+                    setMilestones(data || []);
+                }).catch(err => console.error("Failed to load milestones", err));
+                
+                boqService.getBoqs({ limit: 100, project_id: validProjectId }).then(data => {
+                    setBoqs(data.items || []);
+                }).catch(err => console.error("Failed to load BOQs", err));
+                
+                workProgressService.listActivities(validProjectId).then(data => {
+                    setActivityTypes(data || []);
+                }).catch(err => console.error("Failed to load activity types", err));
+            }
         }
-    }, [isEditModalOpen, editProjectId]);
+    }, [isEditModalOpen]);
 
     const [previewImage, setPreviewImage] = useState<{ url: string, title: string } | null>(null);
 
     const [weeklyReport, setWeeklyReport] = useState<any>(null);
     const [monthlyReport, setMonthlyReport] = useState<any>(null);
+    const [labourDetails, setLabourDetails] = useState<any>(null);
     const [isLoadingReports, setIsLoadingReports] = useState(false);
 
     useEffect(() => {
@@ -90,10 +126,25 @@ const LabourTaskDetailPage = () => {
             if (!id) return;
             setIsLoadingReports(true);
             try {
-                const [weeklyData, monthlyData, taskList] = await Promise.all([
-                    labourService.getLabourWeeklyReport(id),
-                    labourService.getLabourMonthlyReport(id),
-                    projectService.getTasks(1, { assigned_user_id: Number(id), limit: 20, offset: 0 })
+                // Fetch labour info first to get the correct project_id
+                const labourInfo = await labourService.getLabourById(Number(id)).catch(() => null);
+
+                if (labourInfo) {
+                    setLabourDetails(labourInfo);
+                }
+
+                // Fallback to the settings page selected project if labour doesn't have a specific project_id
+                const projectIdToUse = labourInfo?.project_id || getDefaultProjectId();
+
+                // Then fetch reports and tasks using the correct project ID to avoid 404 errors
+                const targetUserId = labourInfo?.user_id ? Number(labourInfo.user_id) : Number(id);
+                const [weeklyData, monthlyData, taskList, projectsRes, membersRes, laboursRes] = await Promise.all([
+                    labourService.getLabourWeeklyReport(id).catch(() => []),
+                    labourService.getLabourMonthlyReport(id).catch(() => []),
+                    projectService.getTasks(Number(projectIdToUse), { assigned_user_id: targetUserId, limit: 100, offset: 0 }).catch(() => []),
+                    projectService.getProjects().catch(() => ({ items: [] })),
+                    projectService.getProjectMembers(Number(projectIdToUse)).catch(() => ({ items: [] })),
+                    labourService.getLabours(Number(projectIdToUse), { limit: 100 }).catch(() => ({ items: [] }))
                 ]);
 
                 if (weeklyData && weeklyData.length > 0) {
@@ -103,23 +154,68 @@ const LabourTaskDetailPage = () => {
                     setMonthlyReport(monthlyData[0]);
                 }
 
-                // Map tasks to frontend table format
-                const mappedTasks = taskList.map((t: any) => ({
-                    id: t.id.toString(),
-                    title: t.title || 'Untitled Task',
-                    subtitle: t.description || 'No description provided.',
-                    assignedBy: { name: "Darshan Patil", role: "Admin" }, // Mocked for UI
-                    assignedTo: { name: t.assigned_users && t.assigned_users.length > 0 ? (t.assigned_users[0].name || t.assigned_users[0].full_name || 'Employee') : 'Worker', role: "Employee" },
-                    priority: t.priority ? t.priority.toUpperCase() : "LOW",
-                    deadline: t.end_date ? new Date(t.end_date).toLocaleDateString() : 'N/A',
-                    status: t.status === 'Planned' ? 'To Do' : (t.status || 'To Do'),
-                    hasHistory: false,
-                    startWorkImgUrl: null,
-                    endWorkImgUrl: null,
-                    filterType: "Assigned",
-                    department: "Engineering",
-                    _raw: t
-                }));
+                // Trust the backend to filter by assigned_user_id (which we passed in the API call)
+                // If it falls back to mock data, the mock data is also generated with this ID.
+                const actualTasks = Array.isArray(taskList) ? taskList : (taskList.items || taskList.data || []);
+                const myTasks = actualTasks;
+
+                const projectsList = Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || projectsRes.data || []);
+                const membersList = Array.isArray(membersRes) ? membersRes : (membersRes.items || membersRes.data || []);
+                const laboursList = Array.isArray(laboursRes) ? laboursRes : ((laboursRes as any).items || (laboursRes as any).data || []);
+
+                // Map tasks to frontend table format using exact response fields
+                const mappedTasks = myTasks.map((t: any) => {
+                    let projectName = `Project ${t.project_id || projectIdToUse}`;
+                    if (t.project_id) {
+                        const matchedProj = projectsList.find((p: any) => p.id === t.project_id || p.project_id === t.project_id);
+                        if (matchedProj) projectName = matchedProj.project_name || matchedProj.name;
+                    }
+                    t.projectName = projectName;
+
+                    let creatorName = t.created_by_user_id ? `User ${t.created_by_user_id}` : "Unknown";
+                    if (t.created_by_user_id) {
+                        const creatorMember = membersList.find((m: any) => m.user_id === t.created_by_user_id || m.id === t.created_by_user_id);
+                        if (creatorMember) {
+                            creatorName = creatorMember.full_name || creatorMember.name || creatorName;
+                        } else {
+                            const creatorLabour = laboursList.find((l: any) => l.user_id === t.created_by_user_id || l.id === t.created_by_user_id);
+                            if (creatorLabour) {
+                                creatorName = creatorLabour.labour_name || creatorLabour.name || creatorName;
+                            } else {
+                                const userStr = localStorage.getItem("infrapilot_user");
+                                if (userStr) {
+                                    try {
+                                        const user = JSON.parse(userStr);
+                                        if (user.id === t.created_by_user_id || user.user?.id === t.created_by_user_id || user.user_id === t.created_by_user_id) {
+                                            creatorName = user.full_name || user.name || user.user?.full_name || user.user?.name || creatorName;
+                                        }
+                                    } catch (e) { }
+                                }
+                            }
+                        }
+                    }
+                    t.creatorName = creatorName;
+
+                    return {
+                        id: t.id?.toString() || '0',
+                        title: t.title || 'Untitled Task',
+                        subtitle: t.description || 'No description provided.',
+                        assignedBy: { name: creatorName, role: "Admin" },
+                        assignedTo: {
+                            name: (t.assigned_users && t.assigned_users.length > 0) ? t.assigned_users[0].name : (labourInfo?.labour_name || `Worker ${id}`),
+                            role: (t.assigned_users && t.assigned_users.length > 0) ? t.assigned_users[0].role : "Employee"
+                        },
+                        priority: t.priority ? t.priority.toUpperCase() : "LOW",
+                        deadline: t.end_date ? new Date(t.end_date).toLocaleDateString() : 'N/A',
+                        status: t.status === 'Planned' ? 'To Do' : (t.status || 'To Do'),
+                        hasHistory: false,
+                        startWorkImgUrl: null,
+                        endWorkImgUrl: null,
+                        filterType: "Assigned",
+                        department: "Engineering",
+                        _raw: t
+                    };
+                });
                 setTasks(mappedTasks);
             } catch (error) {
                 console.error("Failed to fetch labour reports or tasks", error);
@@ -133,9 +229,19 @@ const LabourTaskDetailPage = () => {
 
     const openTaskModal = async (task: any) => {
         try {
-            const fullTask = await projectService.getTask(1, Number(task.id));
-            setSelectedTask(fullTask);
+            setSelectedTask(task._raw || task);
             setModalTab("Details");
+
+            const projectIdToFetch = task._raw?.project_id || task.project_id || 92;
+            const fullTask = await projectService.getTask(Number(projectIdToFetch), Number(task.id));
+
+            setSelectedTask(() => ({
+                ...(task._raw || task),
+                ...fullTask,
+                creatorName: task._raw?.creatorName || task.creatorName,
+                projectName: task._raw?.projectName || task.projectName,
+                assigned_users: task._raw?.assigned_users || task.assigned_users || fullTask.assigned_users
+            }));
         } catch (e) {
             console.error("Failed to fetch task details", e);
             setSelectedTask(task._raw || task);
@@ -145,7 +251,7 @@ const LabourTaskDetailPage = () => {
 
     const openEditModal = (task: TaskItem) => {
         setSelectedEditTask(task);
-        setEditProjectId((task as any).project_id || 1);
+        setEditProjectId((task as any).project_id || (labourDetails ? labourDetails.project_id : getDefaultProjectId()));
         setIsEditModalOpen(true);
     };
 
@@ -154,42 +260,74 @@ const LabourTaskDetailPage = () => {
         e.preventDefault();
         if (selectedEditTask) {
             const form = e.target as HTMLFormElement;
+            const project_id = (form.elements.namedItem("project_id") as HTMLSelectElement).value;
             const title = (form.elements.namedItem("title") as HTMLInputElement).value;
             const description = (form.elements.namedItem("description") as HTMLTextAreaElement).value;
-            const deadline = (form.elements.namedItem("deadline") as HTMLInputElement).value;
-            const startDate = (form.elements.namedItem("startDate") as HTMLInputElement).value;
-            const assignee = (form.elements.namedItem("assignee") as HTMLSelectElement).value;
+            const priority = (form.elements.namedItem("priority") as HTMLSelectElement).value;
+            const start_date = (form.elements.namedItem("start_date") as HTMLInputElement).value;
+            const end_date = (form.elements.namedItem("end_date") as HTMLInputElement).value;
+            const status = (form.elements.namedItem("status") as HTMLSelectElement).value;
+            const assigned_user_ids = (form.elements.namedItem("assigned_user_ids") as HTMLSelectElement).value;
+            const activity_type_id = (form.elements.namedItem("activity_type_id") as HTMLInputElement).value;
+            const milestone_id = (form.elements.namedItem("milestone_id") as HTMLInputElement).value;
+            const boq_id = (form.elements.namedItem("boq_id") as HTMLInputElement).value;
+            const removeAudioEl = form.elements.namedItem("remove_audio") as HTMLInputElement;
+            const removeImageEl = form.elements.namedItem("remove_image") as HTMLInputElement;
+            const audioFileEl = form.elements.namedItem("audio_file") as HTMLInputElement;
+            const imageFileEl = form.elements.namedItem("image") as HTMLInputElement;
 
             try {
-                // Prepare API Payload matching the required spec
-                const payload = {
-                    title: title,
-                    description: description,
-                    priority: selectedEditTask.priority === "HIGH" ? 3 : selectedEditTask.priority === "MEDIUM" ? 2 : 1,
-                    start_date: startDate || "2026-06-15",
-                    end_date: deadline,
-                    status: selectedEditTask._raw?.status || "In Progress",
-                    assigned_user_ids: assignee || "2",
-                    activity_type_id: 1,
-                    milestone_id: 1,
-                    boq_id: 1,
-                    remove_audio: false,
-                    remove_image: false
-                };
+                // Prepare API Payload matching the exact required spec using FormData
+                const payload = new FormData();
+                payload.append('title', title);
+                payload.append('description', description);
+                payload.append('priority', String(Number(priority)));
+                payload.append('start_date', start_date);
+                payload.append('end_date', end_date);
+                payload.append('status', status);
+                if (assigned_user_ids) payload.append('assigned_user_ids', assigned_user_ids);
+                
+                if (activity_type_id) payload.append('activity_type_id', activity_type_id);
+                if (milestone_id) payload.append('milestone_id', milestone_id);
+                if (boq_id) payload.append('boq_id', boq_id);
+                
+                if (removeAudioEl) payload.append('remove_audio', String(removeAudioEl.checked));
+                if (removeImageEl) payload.append('remove_image', String(removeImageEl.checked));
+                
+                if (audioFileEl && audioFileEl.files && audioFileEl.files[0]) {
+                    payload.append('audio_file', audioFileEl.files[0]);
+                }
+                if (imageFileEl && imageFileEl.files && imageFileEl.files[0]) {
+                    payload.append('instruction_image', imageFileEl.files[0]);
+                }
 
                 // Call PUT API
-                await projectService.updateTask(1, Number(selectedEditTask.id), payload);
+                await projectService.updateTask(Number(project_id), Number(selectedEditTask.id), payload);
 
                 // Optimistically update local UI state
                 setTasks(prev => prev.map(t => t.id === selectedEditTask.id ? {
                     ...t,
                     title,
                     subtitle: description,
-                    deadline
+                    deadline: end_date,
+                    priority: priority === "3" ? "HIGH" : priority === "2" ? "MEDIUM" : "LOW",
+                    status: status,
+                    _raw: {
+                        ...t._raw,
+                        title,
+                        description,
+                        priority: Number(priority),
+                        start_date,
+                        end_date,
+                        status
+                    }
                 } : t));
 
                 setIsEditModalOpen(false);
                 setSelectedEditTask(null);
+                
+                // Refresh the page to ensure all new file URLs from backend are fetched properly for the list
+                setTimeout(() => window.location.reload(), 300);
             } catch (err) {
                 console.error("Failed to update task", err);
                 alert("Failed to update task. Please try again.");
@@ -201,17 +339,11 @@ const LabourTaskDetailPage = () => {
         setTasks(prev => prev.filter(t => t.id !== taskId));
     };
 
-    const handleStatusChange = (taskId: string, newStatus: string) => {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as TaskItem["status"] } : t));
-    };
-
     const filteredTasks = tasks.filter(task => {
         const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             task.subtitle.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === "All Status" || task.status === statusFilter;
-        const matchesType = typeFilter === "All Tasks" || task.filterType === typeFilter;
-        const matchesDepartment = departmentFilter === "All Departments" || task.department === departmentFilter;
-        return matchesSearch && matchesStatus && matchesType && matchesDepartment;
+        return matchesSearch && matchesStatus;
     });
 
     // Stat counts
@@ -243,9 +375,18 @@ const LabourTaskDetailPage = () => {
 
                 {/* ─── Header Section ──────────────────────────────────────────────────────── */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight mb-1">Labour Profile: {id || 'LAB-001'}</h1>
-                        <p className="text-slate-500 text-sm">Efficiently organize, track, and manage all tasks assigned to this personnel</p>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => navigate('/engineer/labor/labour-attendance')}
+                            className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-700"
+                            title="Back to Attendances"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                        </button>
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight mb-1">Labour Profile: {labourDetails?.labour_name || id || 'LAB-001'}</h1>
+                            <p className="text-slate-500 text-sm">Efficiently organize, track, and manage all tasks assigned to this personnel</p>
+                        </div>
                     </div>
                 </div>
 
@@ -359,32 +500,19 @@ const LabourTaskDetailPage = () => {
                                         </select>
                                     </div>
 
+                                    {/* Filter dropdown removed as per request */}
+
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-800 mb-1">Filter</span>
+                                        <span className="text-[10px] font-black text-slate-800 mb-1">Labour</span>
                                         <select
-                                            value={typeFilter}
-                                            onChange={(e) => setTypeFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-colors"
+                                            disabled
+                                            className="border border-slate-200 bg-slate-50 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 outline-none cursor-not-allowed"
                                         >
-                                            <option value="All Tasks">All Tasks</option>
-                                            <option value="My Tasks">My Tasks</option>
-                                            <option value="Assigned">Assigned</option>
+                                            <option>{labourDetails?.labour_name || 'Loading...'}</option>
                                         </select>
                                     </div>
 
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-black text-slate-800 mb-1">Department</span>
-                                        <select
-                                            value={departmentFilter}
-                                            onChange={(e) => setDepartmentFilter(e.target.value)}
-                                            className="border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-colors"
-                                        >
-                                            <option value="All Departments">All Departments</option>
-                                            <option value="Engineering">Engineering</option>
-                                            <option value="Plumbing">Plumbing</option>
-                                            <option value="Electrical">Electrical</option>
-                                        </select>
-                                    </div>
+                                    {/* Department dropdown removed as per request */}
 
                                     <div className="flex items-center p-1 bg-slate-100 rounded-xl mb-1">
                                         <button
@@ -410,16 +538,21 @@ const LabourTaskDetailPage = () => {
                                         <table className="w-full text-left border-collapse">
                                             <thead>
                                                 <tr className="border-b border-slate-200 bg-slate-50/50">
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Task</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned By</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Assigned To</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Priority</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Deadline</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Selfie</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Start Work Image</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">End Work Image</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800">Status</th>
-                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center">Actions</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">PROJECT</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">TITLE</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">DESCRIPTION</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap text-center">PRIORITY</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">STATUS</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">START / END DATE</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">ACTUAL START / END</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">CREATED BY</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">ASSIGNED USERS</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">COMPLETION %</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">DELAY DAYS</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">COST (A/P)</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">AUDIO INSTRUCTION</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 whitespace-nowrap">INSTRUCTION IMAGE</th>
+                                                    <th className="p-4 text-[10px] font-bold uppercase tracking-widest text-slate-800 text-center whitespace-nowrap">ACTIONS</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -427,89 +560,75 @@ const LabourTaskDetailPage = () => {
                                                     <tr><td colSpan={10} className="p-8 text-center text-slate-500 font-medium">No tasks found.</td></tr>
                                                 ) : filteredTasks.map((task) => (
                                                     <tr key={task.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                                                        <td className="p-4">
-                                                            <p className="text-sm font-bold text-slate-800">{task.title}</p>
-                                                            <p className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{task.subtitle}</p>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
-                                                                    <User className="w-3 h-3" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-xs font-bold text-slate-800">{task.assignedBy.name}</p>
-                                                                    <p className="text-[10px] text-slate-500">{task.assignedBy.role}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400">
-                                                                    <User className="w-3 h-3" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-xs font-bold text-slate-800">{task.assignedTo.name}</p>
-                                                                    <p className="text-[10px] text-slate-500">{task.assignedTo.role}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4 text-center">
-                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[task.priority]}`}>
-                                                                {task.priority}
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800">{task._raw?.projectName || `Project ${task._raw?.project_id || '92'}`}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs font-bold text-slate-800">{task._raw?.title ?? 'null'}</td>
+                                                        <td className="p-4 text-xs text-slate-500 truncate max-w-[200px]">{task._raw?.description ?? 'null'}</td>
+                                                        <td className="p-4 text-center whitespace-nowrap">
+                                                            <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${priorityBadges[String(task._raw?.priority || '').toUpperCase()] || 'bg-slate-500 text-white'}`}>
+                                                                {task._raw?.priority ?? 'LOW'}
                                                             </span>
                                                         </td>
-                                                        <td className="p-4">
-                                                            <div className="flex items-center gap-2 text-sm text-slate-800 font-medium">
-                                                                <Calendar className="w-4 h-4 text-slate-400" />
-                                                                {task.deadline}
+                                                        <td className="p-4 whitespace-nowrap">
+                                                            <div className="relative inline-block w-full min-w-[130px]">
+                                                                <select
+                                                                    disabled
+                                                                    value={task._raw?.status || 'Planned'}
+                                                                    className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 py-1.5 pl-8 text-xs font-bold text-slate-700 outline-none cursor-not-allowed opacity-80"
+                                                                >
+                                                                    <option value="Planned">Planned</option>
+                                                                    <option value="In Progress">In Progress</option>
+                                                                    <option value="Completed">Completed</option>
+                                                                    <option value="Cancelled">Cancelled</option>
+                                                                </select>
+                                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                                    <div className={`w-2 h-2 rounded-full ${task._raw?.status === 'Cancelled' ? 'bg-rose-500' :
+                                                                        task._raw?.status === 'Completed' ? 'bg-emerald-500' :
+                                                                            task._raw?.status === 'In Progress' ? 'bg-blue-500' :
+                                                                                'bg-slate-400'
+                                                                        }`}></div>
+                                                                </div>
+                                                                <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-slate-400">
+                                                                    <ChevronDown className="w-4 h-4" />
+                                                                </div>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                <div className="w-8 h-8 rounded-full border border-slate-200 bg-emerald-50 flex items-center justify-center shrink-0">
-                                                                    <span className="text-[8px] font-bold text-emerald-600">IN</span>
-                                                                </div>
-                                                                <div className="w-8 h-8 rounded-full border border-slate-200 bg-rose-50 flex items-center justify-center shrink-0">
-                                                                    <span className="text-[8px] font-bold text-rose-500">OUT</span>
-                                                                </div>
+                                                        <td className="p-4 whitespace-nowrap">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{task._raw?.start_date || 'NA'}</span></span>
+                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{task._raw?.end_date || 'NA'}</span></span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 text-center">
-                                                            {task.startWorkImgUrl ? (
-                                                                <div
-                                                                    onClick={() => setPreviewImage({ url: task.startWorkImgUrl!, title: "Start Work Image - " + task.title })}
-                                                                    className="w-10 h-10 rounded-lg border-2 border-blue-400 overflow-hidden bg-blue-50 mx-auto cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                                                >
-                                                                    <img src={task.startWorkImgUrl} alt="Start Work" className="w-full h-full object-cover" />
-                                                                </div>
-                                                            ) : (
-                                                                <div className="w-10 h-10 rounded-lg bg-slate-50 border-2 border-dashed border-slate-200 mx-auto flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
-                                                            )}
+                                                        <td className="p-4 whitespace-nowrap">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-[10px] text-slate-500">Start: <span className="text-xs font-bold text-slate-800">{task._raw?.actual_start_date || 'NA'}</span></span>
+                                                                <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{task._raw?.actual_end_date || 'NA'}</span></span>
+                                                            </div>
                                                         </td>
-                                                        <td className="p-4 text-center">
-                                                            {task.endWorkImgUrl ? (
-                                                                <div
-                                                                    onClick={() => setPreviewImage({ url: task.endWorkImgUrl!, title: "End Work Image - " + task.title })}
-                                                                    className="w-10 h-10 rounded-lg border-2 border-orange-400 overflow-hidden bg-orange-50 mx-auto cursor-pointer hover:scale-110 transition-transform shadow-sm"
-                                                                >
-                                                                    <img src={task.endWorkImgUrl} alt="End Work" className="w-full h-full object-cover" />
-                                                                </div>
-                                                            ) : (
-                                                                <div className="w-10 h-10 rounded-lg bg-slate-50 border-2 border-dashed border-slate-200 mx-auto flex items-center justify-center text-slate-400"><Camera className="w-3 h-3" /></div>
-                                                            )}
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800">
+                                                            {task._raw?.creatorName || 'NA'}
                                                         </td>
-                                                        <td className="p-4">
-                                                            <select
-                                                                value={task.status}
-                                                                onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                                                                className="w-full min-w-[130px] px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 bg-white shadow-sm outline-none cursor-pointer focus:border-indigo-500"
-                                                            >
-                                                                <option value="To Do">To Do</option>
-                                                                <option value="In Progress">In Progress</option>
-                                                                <option value="Completed">Completed</option>
-                                                                <option value="Overdue">Overdue</option>
-                                                                <option value="Cancelled">Cancelled</option>
-                                                            </select>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800">
+                                                            {task._raw?.assigned_users && task._raw.assigned_users.length > 0
+                                                                ? task._raw.assigned_users.map((u: any) => u.name || u.full_name || `User ${u.id}`).join(', ')
+                                                                : 'Unassigned'}
+                                                        </td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800">{task._raw?.completion_percentage || 0}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800">{task._raw?.delay_days || 0}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800">₹{task._raw?.actual_cost || 0} / ₹{task._raw?.planned_cost || 0}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800">
+                                                            {task._raw?.audio_instruction_url ? (
+                                                                <audio controls src={labourService.resolveUrl(task._raw.audio_instruction_url) || ''} className="h-8 w-32" />
+                                                            ) : 'null'}
+                                                        </td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800">
+                                                            {task._raw?.instruction_image_url ? (
+                                                                <img
+                                                                    src={labourService.resolveUrl(task._raw.instruction_image_url) || ''}
+                                                                    alt="Instruction"
+                                                                    className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                                                    onClick={() => setPreviewImage({ url: labourService.resolveUrl(task._raw.instruction_image_url)!, title: "Instruction Image" })}
+                                                                />
+                                                            ) : 'null'}
                                                         </td>
                                                         <td className="p-4">
                                                             <div className="flex items-center justify-center gap-1.5">
@@ -637,20 +756,20 @@ const LabourTaskDetailPage = () => {
                         <div className="bg-indigo-500 rounded-2xl p-8 mb-8 text-white shadow-xl relative overflow-hidden font-inter">
                             <div className="relative z-10 flex items-center gap-6 font-inter">
                                 <div className="w-24 h-24 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative font-inter">
-                                    <span className="text-4xl font-bold font-inter">R</span>
+                                    <span className="text-4xl font-bold font-inter">{(labourDetails?.labour_name || 'U').charAt(0).toUpperCase()}</span>
                                     <div className={`absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-indigo-500 rounded-full animate-pulse`} />
                                 </div>
                                 <div className="font-inter">
                                     <div className="flex items-center gap-3 mb-2 font-inter">
-                                        <h3 className="text-2xl font-bold tracking-tight font-inter">Rahul Sharma</h3>
-                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">Skilled</span>
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter">{labourDetails?.labour_name || 'Unknown Worker'}</h3>
+                                        <span className="px-2 py-0.5 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter">{labourDetails?.skill_type || labourDetails?.skill || 'General'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
                                         <Mail className="w-3 h-3" />
-                                        <span className="text-[11px] font-bold font-inter">worker.lab-001@infrapilot.com</span>
+                                        <span className="text-[11px] font-bold font-inter">{labourDetails?.email || `worker.${String(labourDetails?.worker_code || id).toLowerCase()}@infrapilot.com`}</span>
                                     </div>
                                     <div className="px-3 py-1 bg-white/20 rounded-full inline-block font-inter">
-                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">DAILY WAGE: ₹900.00</span>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest font-inter">DAILY WAGE: ₹{labourDetails?.daily_wage_rate || labourDetails?.wage || '0.00'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -668,19 +787,19 @@ const LabourTaskDetailPage = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Worker ID</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none uppercase">{id || 'LAB-001'}</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none uppercase">{labourDetails?.worker_code || labourDetails?.worker_id || id || 'LAB-001'}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Daily Base</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">₹900.00</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">₹{labourDetails?.daily_wage_rate || labourDetails?.wage || '0.00'}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Aadhaar Reference</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">XXXX-XXXX-0123</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{labourDetails?.aadhaar_number || labourDetails?.aadhaar || 'XXXX-XXXX-0000'}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Skill Category</p>
-                                        <p className="text-sm font-black text-indigo-600 font-inter italic-none">Skilled</p>
+                                        <p className="text-sm font-black text-indigo-600 font-inter italic-none">{labourDetails?.skill_type || labourDetails?.skill || 'General'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -716,11 +835,11 @@ const LabourTaskDetailPage = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 sm:gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Assigned Site</p>
-                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">Skyline Tower A</p>
+                                        <p className="text-sm font-black text-slate-800 font-inter italic-none">{labourDetails?.project?.name || 'Assigned Project'}</p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Status</p>
-                                        <p className="text-sm font-black text-emerald-600 font-inter italic-none">Active</p>
+                                        <p className="text-sm font-black text-emerald-600 font-inter italic-none">{labourDetails?.status || 'Active'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -920,7 +1039,87 @@ const LabourTaskDetailPage = () => {
                         </button>
                     </div>
 
-                    <div className="p-6 overflow-y-auto space-y-6 bg-white">
+                    <div className="p-6 overflow-y-auto space-y-6 bg-white max-h-[70vh]">
+                        
+                        {/* Project (First required field for URL) */}
+                        <div>
+                            <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
+                                <FileText className="w-3.5 h-3.5 text-blue-500 mr-1.5" />
+                                Project <span className="text-rose-500 ml-1">*</span>
+                            </label>
+                            <select
+                                required
+                                name="project_id"
+                                value={editProjectId || ""}
+                                onChange={(e) => setEditProjectId(e.target.value === "" ? null : Number(e.target.value))}
+                                className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none"
+                            >
+                                <option value="">Select Project</option>
+                                {assignedProjects.map((p: any) => (
+                                    <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Audio and Image Section */}
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
+                                    VOICE NOTE
+                                </label>
+                                {selectedEditTask?._raw?.audio_instruction_url ? (
+                                    <div className="flex items-center justify-between p-3 bg-slate-50/50 border border-slate-200 rounded-xl">
+                                        <div className="flex items-center gap-3">
+                                            <audio controls src={labourService.resolveUrl(selectedEditTask._raw.audio_instruction_url) || ''} className="h-8 w-40" />
+                                        </div>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" name="remove_audio" className="w-4 h-4 text-indigo-500 rounded border-slate-300 cursor-pointer" />
+                                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">REMOVE</span>
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <input 
+                                        type="file" 
+                                        name="audio_file" 
+                                        accept="audio/*"
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-600 outline-none transition-all cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
+                                    />
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
+                                    INSTRUCTION IMAGE
+                                </label>
+                                {(() => {
+                                    const imgUrl = selectedEditTask?._raw?.instruction_image_url || selectedEditTask?._raw?.startWorkImgUrl || selectedEditTask?._raw?.image_url || selectedEditTask?.startWorkImgUrl || selectedEditTask?.image_url;
+                                    return imgUrl ? (
+                                        <div className="p-3 bg-slate-50/50 border border-slate-200 rounded-xl mb-2 flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <img 
+                                                    src={labourService.resolveUrl(imgUrl) || ''} 
+                                                    alt="Instruction" 
+                                                    className="w-12 h-12 rounded object-cover border border-slate-200 bg-black" 
+                                                />
+                                                <span className="text-sm font-medium text-slate-600">Existing Image</span>
+                                            </div>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input type="checkbox" name="remove_image" className="w-4 h-4 text-indigo-500 rounded border-slate-300 cursor-pointer" />
+                                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">REMOVE</span>
+                                            </label>
+                                        </div>
+                                    ) : (
+                                        <input 
+                                            type="file" 
+                                            name="image" 
+                                            accept="image/*"
+                                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-600 outline-none transition-all cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
+                                        />
+                                    );
+                                })()}
+                            </div>
+                        </div>
+
                         {/* Task Title */}
                         <div>
                             <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
@@ -940,10 +1139,9 @@ const LabourTaskDetailPage = () => {
                         <div>
                             <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5 inline-block"></div>
-                                Description <span className="text-rose-500 ml-1">*</span>
+                                Description
                             </label>
                             <textarea
-                                required
                                 name="description"
                                 defaultValue={selectedEditTask?.subtitle}
                                 placeholder="Enter task description"
@@ -952,25 +1150,24 @@ const LabourTaskDetailPage = () => {
                             />
                         </div>
 
-                        {/* 2 Column Grid */}
+                        {/* 2 Column Grid for the rest */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Assign To */}
+                            
+                            {/* Priority */}
                             <div>
                                 <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
-                                    <User className="w-3.5 h-3.5 text-blue-500 mr-1.5" />
-                                    Assign To
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5 inline-block"></div>
+                                    Priority <span className="text-rose-500 ml-1">*</span>
                                 </label>
                                 <select
-                                    name="assignee"
-                                    defaultValue={selectedEditTask?._raw?.assigned_users?.[0]?.id || selectedEditTask?.assigned_user_id || ""}
+                                    required
+                                    name="priority"
+                                    defaultValue={selectedEditTask?.priority === "HIGH" ? "3" : selectedEditTask?.priority === "MEDIUM" ? "2" : "1"}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none"
                                 >
-                                    <option value="">Select Assignee</option>
-                                    {editLabours.map((l: any) => (
-                                        <option key={l.id} value={l.id}>
-                                            {l.labour_name || l.name} ({l.worker_code || l.id})
-                                        </option>
-                                    ))}
+                                    <option value="1">Low</option>
+                                    <option value="2">Medium</option>
+                                    <option value="3">High</option>
                                 </select>
                             </div>
 
@@ -982,42 +1179,115 @@ const LabourTaskDetailPage = () => {
                                 </label>
                                 <input
                                     type="date"
-                                    name="startDate"
+                                    name="start_date"
                                     defaultValue={selectedEditTask?._raw?.start_date?.split('T')[0] || selectedEditTask?.start_date?.split('T')[0] || ""}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all"
                                 />
                             </div>
 
-                            {/* Deadline */}
+                            {/* End Date */}
                             <div>
                                 <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
                                     <Calendar className="w-3.5 h-3.5 text-blue-500 mr-1.5" />
-                                    Deadline <span className="text-rose-500 ml-1">*</span>
+                                    End Date
                                 </label>
                                 <input
-                                    required
                                     type="date"
-                                    name="deadline"
+                                    name="end_date"
                                     defaultValue={selectedEditTask?._raw?.end_date?.split('T')[0] || selectedEditTask?.end_date?.split('T')[0] || ""}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all"
                                 />
                             </div>
 
-                            {/* Project (Optional) */}
+                            {/* Status */}
                             <div>
                                 <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
-                                    <FileText className="w-3.5 h-3.5 text-blue-500 mr-1.5" />
-                                    Project (Optional)
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5 inline-block"></div>
+                                    Status
                                 </label>
                                 <select
-                                    name="project"
-                                    value={editProjectId || ""}
-                                    onChange={(e) => setEditProjectId(e.target.value === "" ? null : Number(e.target.value))}
+                                    name="status"
+                                    defaultValue={selectedEditTask?._raw?.status || selectedEditTask?.status || "Planned"}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none"
+                                >
+                                    <option value="Planned">Planned</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Overdue">Overdue</option>
+                                    <option value="Cancelled">Cancelled</option>
+                                </select>
+                            </div>
+
+                            {/* Assign To */}
+                            <div>
+                                <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
+                                    <User className="w-3.5 h-3.5 text-blue-500 mr-1.5" />
+                                    Assigned User
+                                </label>
+                                <select
+                                    name="assigned_user_ids"
+                                    defaultValue={selectedEditTask?._raw?.assigned_users?.[0]?.id || selectedEditTask?.assigned_user_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none"
+                                >
+                                    <option value="">Select User</option>
+                                    {editLabours.map((l: any) => (
+                                        <option key={l.id} value={l.id}>
+                                            {l.labour_name || l.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Activity Type ID */}
+                            <div>
+                                <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5 inline-block"></div>
+                                    Activity Type ID
+                                </label>
+                                <select
+                                    name="activity_type_id"
+                                    defaultValue={selectedEditTask?._raw?.activity_type_id || ""}
                                     className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none"
                                 >
                                     <option value="">None</option>
-                                    {assignedProjects.map((p: any) => (
-                                        <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.project_name || p.name}</option>
+                                    {activityTypes.map((a: any) => (
+                                        <option key={a.id} value={a.id}>{a.activity_name || a.title || a.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Milestone ID */}
+                            <div>
+                                <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5 inline-block"></div>
+                                    Milestone ID
+                                </label>
+                                <select
+                                    name="milestone_id"
+                                    defaultValue={selectedEditTask?._raw?.milestone_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none"
+                                >
+                                    <option value="">None</option>
+                                    {milestones.map((m: any) => (
+                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* BOQ ID */}
+                            <div>
+                                <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mr-1.5 inline-block"></div>
+                                    BOQ ID
+                                </label>
+                                <select
+                                    name="boq_id"
+                                    defaultValue={selectedEditTask?._raw?.boq_id || ""}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-800 outline-none transition-all cursor-pointer appearance-none"
+                                >
+                                    <option value="">None</option>
+                                    {boqs.map((b: any) => (
+                                        <option key={b.id} value={b.id}>{b.item_name || b.name || b.item_description || `BOQ Item`}</option>
                                     ))}
                                 </select>
                             </div>
@@ -1037,7 +1307,7 @@ const LabourTaskDetailPage = () => {
                             type="submit"
                             className="px-6 py-2.5 bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/30 hover:bg-indigo-600 transition-all active:scale-95"
                         >
-                            Save Changes
+                            Update Task
                         </button>
                     </div>
                 </form>

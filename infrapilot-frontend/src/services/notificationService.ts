@@ -25,12 +25,14 @@ export const notificationService = {
      */
     getAllNotifications: async (): Promise<Notification[]> => {
         try {
-            const [genRes, pRes, tRes, nRes] = await Promise.all([
-                api.get('/alerts').catch(() => ({ data: [] })),
-                api.get('/projects/alerts/projects').catch(() => ({ data: [] })),
-                api.get('/projects/alerts/tasks').catch(() => ({ data: [] })),
-                api.get('/notifications').catch(() => ({ data: [] }))
+            const [genRes, nRes] = await Promise.all([
+                api.get('/alerts', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
+                api.get('/notifications', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] }))
             ]);
+            // Note: /projects/alerts/projects and /projects/alerts/tasks require a project_id
+            // and return 422 when called without one. They are intentionally excluded here.
+            const pRes = { data: [] };
+            const tRes = { data: [] };
 
             const extractData = (res: any) => {
                 const data = res.data;
@@ -90,7 +92,7 @@ export const notificationService = {
                 ...pAlerts.map((a: any, index: number) => ({
                     ...a,
                     id: a.id ? `proj-${a.id}` : (a.uuid ? `proj-${a.uuid}` : generateVirtualId('proj', a, index)),
-                    title: "Project Alert",
+                    title: "Alert",
                     description: `${a.project_name || 'Project'}: ${a.status || 'Updated'}`,
                     details: `Project "${a.project_name}" has reported a status change to ${a.status}. Due Date: ${a.end_date || 'N/A'}.`,
                     message: `Project "${a.project_name}" has reported a status change to ${a.status}. Due Date: ${a.end_date || 'N/A'}.`,
@@ -160,11 +162,13 @@ export const notificationService = {
      */
     async getAlertsOnly(): Promise<Notification[]> {
         try {
-            const [genRes, pRes, tRes] = await Promise.all([
-                api.get('/alerts').catch(() => ({ data: [] })),
-                api.get('/projects/alerts/projects').catch(() => ({ data: [] })),
-                api.get('/projects/alerts/tasks').catch(() => ({ data: [] })),
+            const [genRes] = await Promise.all([
+                api.get('/alerts', { params: { limit: 1000, offset: 0 } }).catch(() => ({ data: [] })),
             ]);
+            // Note: /projects/alerts/projects and /projects/alerts/tasks require a project_id
+            // and return 422 when called without one. They are excluded here.
+            const pRes = { data: [] };
+            const tRes = { data: [] };
 
             const extractData = (res: any) => {
                 const data = res.data;
@@ -246,7 +250,7 @@ export const notificationService = {
      */
     async getSystemNotificationsOnly(): Promise<Notification[]> {
         try {
-            const response = await api.get('/notifications');
+            const response = await api.get('/notifications', { params: { limit: 100, offset: 0 } });
             const rawItems = response.data?.items || response.data?.data || response.data || [];
             if (!Array.isArray(rawItems)) return [];
 

@@ -136,8 +136,7 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
             {errors.category && <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.category}</p>}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
+          <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Default Unit <span className="text-rose-500">*</span>
               </label>
@@ -158,19 +157,6 @@ const CreateActivityModal: React.FC<CreateActivityModalProps> = ({
                 <p className="text-[11px] text-rose-500 font-medium ml-1 mt-1">{errors.default_unit_id}</p>
               )}
             </div>
-            <div className="flex items-center gap-2 pt-8">
-              <input
-                type="checkbox"
-                id="activity-active"
-                className="rounded border-gray-300 text-primary focus:ring-primary"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              />
-              <label htmlFor="activity-active" className="text-sm font-medium text-gray-600">
-                Is Active
-              </label>
-            </div>
-          </div>
         </div>
       </form>
     </Modal>

@@ -3,6 +3,7 @@ import Modal from '../common/Modal';
 import { paymentService } from '../../services/paymentService';
 import toast from 'react-hot-toast';
 import { HelpCircle, AlertCircle } from 'lucide-react';
+import { projectService } from '../../services/projectService';
 
 interface Props {
     isOpen: boolean;
@@ -19,6 +20,19 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
         description: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [projects, setProjects] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const res = await projectService.getProjects(100, 0);
+                setProjects(Array.isArray(res) ? res : (res.items || []));
+            } catch (err) {
+                console.error("Failed to fetch projects for advance modal");
+            }
+        };
+        fetchProjects();
+    }, []);
 
     // SRS: Max 50% of monthly salary (26 working days)
     const dailyWage = parseFloat(labour?.daily_wage_rate || '0');
@@ -91,6 +105,30 @@ const AdvancePaymentModal: React.FC<Props> = ({ isOpen, onClose, labour, onSucce
                         <p className="text-xs font-bold text-blue-500 leading-tight">
                             Maximum advance limit is 50% of the monthly base salary. Requests are submitted by Site Engineers and require Admin approval.
                         </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Labour Name</label>
+                        <input
+                            type="text"
+                            value={labour?.labour_name || ''}
+                            disabled
+                            className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 font-bold cursor-not-allowed"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Project</label>
+                        <select
+                            value={formData.project_id}
+                            onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
+                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all font-bold"
+                        >
+                            {projects.map((p: any) => (
+                                <option key={p.id} value={p.id}>{p.name || `Project ${p.id}`}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 

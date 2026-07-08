@@ -1,29 +1,113 @@
 import Modal from "../common/Modal";
-import { FileText, Download, Share2, Printer } from "lucide-react";
+import { FileText, Download, Share2, Printer, Package, Calendar, DollarSign, TrendingDown } from "lucide-react";
 
 interface ReportPreviewModalProps {
     isOpen: boolean;
     onClose: () => void;
     reportName: string;
     data: any;
+    reportId?: string;
     onExport?: (format: "PDF" | "Excel") => void;
     onShare?: () => void;
     exportType?: "PDF" | "Excel" | "Both";
 }
+
+// Field order config for known report types
+const ASSET_FIELD_ORDER = ["name", "id", "project_id", "purchase_date", "purchase_value", "current_value", "depreciation_rate", "created_at", "updated_at"];
+
+const formatFieldValue = (key: string, value: any): string => {
+    if (value === null || value === undefined) return "—";
+    // Format ISO dates
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+        return new Date(value).toLocaleDateString(undefined, { dateStyle: "medium" });
+    }
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return new Date(value).toLocaleDateString(undefined, { dateStyle: "medium" });
+    }
+    // Format currency fields
+    if (["purchase_value", "current_value", "min_value", "max_value"].includes(key)) {
+        return `₹${Number(value).toLocaleString("en-IN")}`;
+    }
+    // Format rate fields
+    if (key === "depreciation_rate") return `${value}%`;
+    return value?.toString() || "—";
+};
+
+const ASSET_FIELD_LABELS: Record<string, string> = {
+    name: "Asset Name",
+    id: "Asset ID",
+    project_id: "Project ID",
+    purchase_date: "Purchase Date",
+    purchase_value: "Purchase Value",
+    current_value: "Current Value",
+    depreciation_rate: "Depreciation Rate",
+    created_at: "Created At",
+    updated_at: "Last Updated",
+};
+
+const ASSET_FIELD_ICONS: Record<string, React.ReactNode> = {
+    name: <Package size={14} />,
+    purchase_date: <Calendar size={14} />,
+    purchase_value: <DollarSign size={14} />,
+    current_value: <DollarSign size={14} />,
+    depreciation_rate: <TrendingDown size={14} />,
+};
 
 const ReportPreviewModal = ({
     isOpen,
     onClose,
     reportName,
     data,
+    reportId,
     onExport,
     onShare,
     exportType = "Both"
 }: ReportPreviewModalProps) => {
     if (!data) return null;
 
+    // Render asset items with reordered fields
+    const renderAssets = (items: any[]) => (
+        <div className="space-y-6">
+            {items.map((item: any, idx: number) => (
+                <div key={idx} className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                    {/* Asset header */}
+                    <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-100">
+                        <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs font-black">
+                            {idx + 1}
+                        </div>
+                        <span className="text-sm font-black text-slate-700">{item.name || `Asset #${idx + 1}`}</span>
+                    </div>
+                    {/* Fields in logical order */}
+                    <div className="grid grid-cols-2 gap-px bg-slate-100">
+                        {ASSET_FIELD_ORDER.filter(k => k in item).map(key => (
+                            <div key={key} className="bg-white px-4 py-3">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    {ASSET_FIELD_ICONS[key] && (
+                                        <span className="text-slate-400">{ASSET_FIELD_ICONS[key]}</span>
+                                    )}
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                        {ASSET_FIELD_LABELS[key] || key.replace(/_/g, " ")}
+                                    </span>
+                                </div>
+                                <span className="text-sm font-black text-slate-800">
+                                    {formatFieldValue(key, item[key])}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+
     const renderData = () => {
         if (typeof data === "string") return <p className="text-slate-600 font-mono text-sm whitespace-pre-wrap">{data}</p>;
+
+        // Assets report — data is array or has assets key
+        const assetItems = Array.isArray(data) ? data : data?.assets;
+        if (reportId === "assets" && Array.isArray(assetItems)) {
+            return renderAssets(assetItems);
+        }
 
         return (
             <div className="space-y-6">

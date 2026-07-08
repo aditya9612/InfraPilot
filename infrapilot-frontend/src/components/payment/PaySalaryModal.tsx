@@ -3,6 +3,7 @@ import Modal from '../common/Modal';
 import { paymentService } from '../../services/paymentService';
 import toast from 'react-hot-toast';
 import { Info } from 'lucide-react';
+import { projectService } from '../../services/projectService';
 
 interface Props {
     isOpen: boolean;
@@ -20,6 +21,19 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
         amount: 0
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [projects, setProjects] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const res = await projectService.getProjects(100, 0);
+                setProjects(Array.isArray(res) ? res : (res.items || []));
+            } catch (err) {
+                console.error("Failed to fetch projects for payment modal");
+            }
+        };
+        fetchProjects();
+    }, []);
 
     useEffect(() => {
         if (isOpen && labour) {
@@ -83,6 +97,30 @@ const PaySalaryModal: React.FC<Props> = ({ isOpen, onClose, labour, onSuccess })
         >
             <div className="space-y-6">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Labour Name</label>
+                            <input
+                                type="text"
+                                value={labour?.labour_name || ''}
+                                disabled
+                                className="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-sm outline-none text-slate-500 font-bold cursor-not-allowed"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Project</label>
+                            <select
+                                value={formData.project_id}
+                                onChange={(e) => setFormData({ ...formData, project_id: Number(e.target.value) })}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary transition-all font-bold"
+                            >
+                                {projects.map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.name || `Project ${p.id}`}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Payment Month</label>
