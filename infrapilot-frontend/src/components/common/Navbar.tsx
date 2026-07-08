@@ -9,6 +9,7 @@ import { notificationService, type Notification } from "../../services/notificat
 import { alertService } from "../../services/alertService";
 import { projectService } from "../../services/projectService";
 import { getFullImageUrl } from "../../utils/imageUtils";
+import api from "../../services/api";
 interface BreadcrumbItem {
   label: string;
   path?: string;
@@ -54,6 +55,7 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [clientTotalCount, setClientTotalCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -65,74 +67,47 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
       try {
         let data: any[] = [];
         if (user.role === "Client") {
-          // Use project-aware fetching for Clients
-          const projectIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("mock_settings") ? JSON.parse(localStorage.getItem("mock_settings") || "{}").project_id : null;
-          const projectId = projectIdStr ? Number(projectIdStr) : null;
-
-          const [generalData, projectAlertsRaw, taskAlertsRaw] = await Promise.all([
-            alertService.getAlerts(),
-            projectService.getProjectAlerts(),
-            projectService.getTaskAlerts()
+          // Use the same endpoints as ClientNotificationsPage so counts match
+          const [sysRes, taskRes] = await Promise.allSettled([
+            api.get("/notifications"),
+            api.get("/projects/alerts/tasks"),
           ]);
 
-          const mappedProjectAlerts = projectAlertsRaw.map((p: any) => ({
-            id: `p-${p.project_id}`,
-            title: p.status,
-            description: `${p.project_name} is currently ${p.status}.`,
-            details: `Expected completion: ${p.end_date || 'N/A'}`,
-            type: "Alert",
-            timestamp: new Date().toISOString(),
-            read: false,
-            source: "project",
-            project_id: p.project_id
+          const sysRaw = sysRes.status === "fulfilled" ? sysRes.value.data : [];
+          const sysItems: any[] = Array.isArray(sysRaw) ? sysRaw : sysRaw?.items || sysRaw?.data || sysRaw?.notifications || [];
+
+          const taskRaw = taskRes.status === "fulfilled" ? taskRes.value.data : [];
+          const taskItems: any[] = Array.isArray(taskRaw) ? taskRaw : taskRaw?.items || taskRaw?.data || [];
+
+          const TASK_READ_KEY = "client_task_notif_read_ids";
+          let taskReadIds: string[] = [];
+          try { taskReadIds = JSON.parse(localStorage.getItem(TASK_READ_KEY) || "[]"); } catch { /**/ }
+
+          const mappedSys = sysItems.map((n: any) => ({
+            id: n.id,
+            title: n.title || n.alert_type || "Notification",
+            description: n.message || n.description || n.content || "",
+            details: n.message || "",
+            type: n.type || "Info",
+            timestamp: n.created_at || n.timestamp || new Date().toISOString(),
+            read: !!(n.is_read || n.read),
+            source: "system",
           }));
 
-          const mappedTaskAlerts = taskAlertsRaw.map((t: any) => ({
-            id: `t-${t.task_id}`,
-            title: t.status || 'Delayed',
-            description: `Task: ${t.title}`,
+          const mappedTasks = taskItems.map((t: any) => ({
+            id: `task-${t.task_id}`,
+            title: t.title || "Delayed Task",
+            description: `Delayed Status: ${t.status || "Delayed"}. Due Date: ${t.end_date || "N/A"}`,
             details: `Due: ${t.end_date || 'N/A'}`,
             type: "Alert",
-            timestamp: new Date().toISOString(),
-            read: false,
+            timestamp: t.end_date || new Date().toISOString(),
+            read: taskReadIds.includes(`task-${t.task_id}`),
             source: "task",
-            project_id: t.project_id
           }));
 
-          const combined = [
-            ...generalData.map((a: any) => ({
-              id: a.id,
-              title: a.alert_type,
-              description: a.message,
-              details: a.message,
-              type: "Alert",
-              timestamp: a.created_at,
-              read: a.status === 'read',
-              source: "general",
-              project_id: a.project_id
-            })),
-            ...mappedProjectAlerts,
-            ...mappedTaskAlerts
-          ];
-
-          // Filter by allowed alert types to match Announcements page list
-          const allowedTypes = [
-            "Delay", "MaterialDelay", "Planning", "InProgress", "In Progress", "In-Progress",
-            "Announcement", "NewAlert", "New Alert", "Safety", "Quality", "Material",
-            "Task", "Milestone", "Alert", "Warning", "Critical", "Info", "Approval"
-          ];
-
-          const filteredByType = combined.filter(a => {
-            // Check both the raw status/type and the display title
-            const typeValue = (a.title || "").toString().replace(/^Project\s+|Task:\s+/i, "");
-            return allowedTypes.some(t => 
-              typeValue.toLowerCase().replace(/[^a-z]/g, '') === t.toLowerCase().replace(/[^a-z]/g, '')
-            );
-          });
-
-          data = projectId
-            ? filteredByType.filter(a => Number(a.project_id) === Number(projectId))
-            : filteredByType;
+          data = [...mappedSys, ...mappedTasks];
+          // Set the total count (matches the "TOTAL ALERTS" stat on the Notifications page)
+          setClientTotalCount(data.length);
         } else if (user.role === "Labour") {
           // Use the unified overview endpoint for Labour to match the main notifications page
           data = await notificationService.getNotificationsOverview();
@@ -149,6 +124,9 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
   }, [user]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  // For Clients: show total alerts count (matching the Notifications page "TOTAL ALERTS" stat)
+  // For other roles: show unread count
+  const bellBadgeCount = user?.role === "Client" ? clientTotalCount : unreadCount;
 
   const handleNotifClick = async (notif: Notification) => {
     setSelectedNotif(notif);
@@ -186,7 +164,7 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
 
   return (
     <>
-      <div className="fixed top-0 right-0 lg:left-56 left-0 z-[100] h-16 shadow-md bg-primary px-3 sm:px-6 py-3 flex items-center justify-between gap-2">
+      <div className="fixed top-0 right-0 lg:left-56 left-0 z-40 h-16 shadow-md bg-primary px-3 sm:px-6 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           {/* Mobile menu toggle */}
           <button
@@ -280,9 +258,9 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
               title="Notifications"
             >
               <Bell className="w-4.5 h-4.5" strokeWidth={2.5} />
-              {unreadCount > 0 && (
+              {bellBadgeCount > 0 && (
                 <span className="absolute top-0 -right-1 w-4 h-4 bg-rose-500 border-2 border-primary rounded-full flex items-center justify-center text-[8px] font-bold text-white shadow-sm">
-                  {unreadCount > 9 ? '9+' : unreadCount}
+                  {bellBadgeCount > 99 ? '99+' : bellBadgeCount}
                 </span>
               )}
             </button>

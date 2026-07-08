@@ -159,7 +159,7 @@ const ManagerReportsPage = () => {
             switch (reportId) {
                 case "daily":
                     blob = format === "PDF"
-                        ? await reportService.exportDailyPDF(pid, effectiveEnd)
+                        ? await reportService.exportProjectReportPDF({ project_id: pid, type: "daily", report_date: effectiveEnd })
                         : await reportService.exportProjectReportExcel({ project_id: pid, type: "daily", report_date: effectiveEnd });
                     break;
                 case "weekly":

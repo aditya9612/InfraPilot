@@ -15,7 +15,8 @@ import {
   Trash2,
   Plus,
   Search,
-  Edit3
+  Edit3,
+  Eye
 } from "lucide-react";
 import { boqService } from "../../services/boqService";
 import type { BoqItem } from "../../types/boq";
@@ -34,6 +35,8 @@ const MeasurementPage = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [targetId, setTargetId] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<Measurement | null>(null);
+  const [viewingItem, setViewingItem] = useState<Measurement | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [projectTasks, setProjectTasks] = useState<Task[]>([]);
   const [projectBoqItems, setProjectBoqItems] = useState<BoqItem[]>([]);
   // Use isDataLoading for potential UI loading states
@@ -105,8 +108,10 @@ const MeasurementPage = () => {
           projectService.getTasks(Number(pid)),
           boqService.getBoqItems(Number(pid))
         ]);
-        setProjectTasks(tasks || []);
-        setProjectBoqItems(boqs || []);
+        const tasksArr = Array.isArray(tasks) ? tasks : ((tasks as any)?.items || (tasks as any)?.data || []);
+        const boqsArr = Array.isArray(boqs) ? boqs : ((boqs as any)?.items || (boqs as any)?.data || []);
+        setProjectTasks(tasksArr);
+        setProjectBoqItems(boqsArr);
       } catch (error) {
         console.error("Failed to fetch reference data:", error);
       } finally {
@@ -189,6 +194,8 @@ const MeasurementPage = () => {
 
   const handleEdit = (m: Measurement) => {
     setEditingItem(m);
+    setProjectTasks([]);
+    setProjectBoqItems([]);
     setFormData({
       project_id: m.project_id.toString(),
       task_id: (m as any).task_id?.toString() || "",
@@ -204,6 +211,28 @@ const MeasurementPage = () => {
       status: (m as any).status || "DRAFT"
     });
     setIsModalOpen(true);
+  };
+
+  const handleView = async (id: number) => {
+    try {
+      toast.loading("Fetching measurement...", { id: "view" });
+      const data = await measurementService.getMeasurementById(id);
+      setViewingItem(data);
+      setIsViewModalOpen(true);
+      toast.dismiss("view");
+    } catch (error) {
+      toast.error("Failed to fetch measurement", { id: "view" });
+    }
+  };
+
+  const handleStatusChange = async (id: number, newStatus: string) => {
+    try {
+      await measurementService.updateMeasurementStatus(id, newStatus);
+      toast.success(`Status updated to ${newStatus}`);
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to update status");
+    }
   };
 
   const handleDelete = async () => {
@@ -312,6 +341,7 @@ const MeasurementPage = () => {
                   <th className="px-8 py-6">Approved Rate</th>
                   <th className="px-8 py-6">Extra (Area/Rate)</th>
                   <th className="px-8 py-6">Total Value</th>
+                  <th className="px-8 py-6">Status</th>
                   <th className="px-8 py-6 text-right">Actions</th>
                 </tr>
               </thead>
@@ -346,8 +376,40 @@ const MeasurementPage = () => {
                         <td className="px-8 py-6">
                           <p className="text-sm font-black text-primary">₹{lineTotal.toLocaleString()}</p>
                         </td>
+                        <td className="px-8 py-6">
+                          <select
+                            value={(m as any).status || "DRAFT"}
+                            onChange={(e) => handleStatusChange(m.id, e.target.value)}
+                            className={`text-[10px] font-black uppercase tracking-widest rounded-xl px-3 py-1.5 border cursor-pointer outline-none transition-all ${(m as any).status === "APPROVED"
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              : (m as any).status === "VERIFIED"
+                                ? "bg-blue-50 text-blue-600 border-blue-200"
+                                : (m as any).status === "SUBMITTED"
+                                  ? "bg-indigo-50 text-indigo-600 border-indigo-200"
+                                  : (m as any).status === "REJECTED"
+                                    ? "bg-rose-50 text-rose-600 border-rose-200"
+                                    : (m as any).status === "BILLED"
+                                      ? "bg-purple-50 text-purple-600 border-purple-200"
+                                      : "bg-amber-50 text-amber-600 border-amber-200"
+                              }`}
+                          >
+                            <option value="DRAFT">DRAFT</option>
+                            <option value="SUBMITTED">SUBMITTED</option>
+                            <option value="VERIFIED">VERIFIED</option>
+                            <option value="APPROVED">APPROVED</option>
+                            <option value="REJECTED">REJECTED</option>
+                            <option value="BILLED">BILLED</option>
+                          </select>
+                        </td>
                         <td className="px-8 py-6 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleView(m.id)}
+                              className="p-3 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-2xl transition-all border border-transparent hover:border-emerald-100"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => handleEdit(m)}
                               className="p-3 text-slate-300 hover:text-primary hover:bg-primary/5 rounded-2xl transition-all border border-transparent hover:border-primary/10"
@@ -508,8 +570,11 @@ const MeasurementPage = () => {
                     className="w-full px-4 py-2 bg-white border border-gray-200 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 rounded-xl transition-all outline-none font-semibold"
                   >
                     <option value="DRAFT">DRAFT</option>
-                    <option value="CERTIFIED">CERTIFIED</option>
+                    <option value="SUBMITTED">SUBMITTED</option>
+                    <option value="VERIFIED">VERIFIED</option>
+                    <option value="APPROVED">APPROVED</option>
                     <option value="REJECTED">REJECTED</option>
+                    <option value="BILLED">BILLED</option>
                   </select>
                 </div>
               </div>
@@ -626,6 +691,48 @@ const MeasurementPage = () => {
             </div>
           </div>
         </form>
+      </Modal>
+
+      {/* View Detail Modal */}
+      <Modal
+        isOpen={isViewModalOpen}
+        onClose={() => { setIsViewModalOpen(false); setViewingItem(null); }}
+        title={`Measurement #${viewingItem?.id}`}
+        maxWidth="max-w-xl"
+        footer={
+          <button
+            onClick={() => { setIsViewModalOpen(false); setViewingItem(null); }}
+            className="px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+          >
+            Close
+          </button>
+        }
+      >
+        {viewingItem && (
+          <div className="p-4 space-y-4 font-inter">
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { label: "Project ID", value: viewingItem.project_id },
+                { label: "Status", value: (viewingItem as any).status || "—" },
+                { label: "Final Area", value: `${viewingItem.final_area} sq.ft` },
+                { label: "Approved Rate", value: `₹${viewingItem.approved_rate}` },
+                { label: "Extra Area", value: `${viewingItem.extra_area} sq.ft` },
+                { label: "Extra Rate", value: `₹${viewingItem.extra_rate}` },
+                { label: "Measured Qty", value: (viewingItem as any).measured_qty ?? "—" },
+                { label: "Certified Qty", value: (viewingItem as any).certified_qty ?? "—" },
+                { label: "Rejected Qty", value: (viewingItem as any).rejected_qty ?? "—" },
+                { label: "Retention Amt", value: (viewingItem as any).retention_amount != null ? `₹${(viewingItem as any).retention_amount}` : "—" },
+                { label: "Total Value", value: `₹${((viewingItem.final_area * viewingItem.approved_rate) + (viewingItem.extra_area * viewingItem.extra_rate)).toLocaleString()}` },
+                { label: "Task ID", value: (viewingItem as any).task_id || "—" },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                  <p className="text-sm font-bold text-slate-700">{String(value)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Modal>
 
       <ConfirmModal

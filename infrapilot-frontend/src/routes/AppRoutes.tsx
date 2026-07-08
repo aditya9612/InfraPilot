@@ -23,6 +23,7 @@ import EngineerProfilePage from "../pages/admin/EngineerProfilePage";
 import ProjectManagersPage from "../pages/admin/ProjectManagersPage";
 import BOQPage from "../pages/admin/BOQPage";
 import InventoryPage from "../pages/admin/InventoryPage";
+import EquipmentPage from "../pages/admin/EquipmentPage";
 import FinancePage from "../pages/admin/FinancePage";
 import ApprovalsPage from "../pages/admin/ApprovalsPage";
 import NotificationsPage from "../pages/admin/NotificationsPage";
@@ -220,6 +221,7 @@ function AppRoutes() {
                   path="/admin/inventory/stock"
                   element={<InventoryPage />}
                 />
+                <Route path="/admin/equipment" element={<EquipmentPage />} />
                 <Route path="/admin/finance" element={<FinancePage />} />
                 <Route path="/admin/finance/invoices" element={<FinancePage />} />
                 <Route path="/admin/finance/payments" element={<FinancePage />} />

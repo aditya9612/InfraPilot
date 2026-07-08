@@ -10,6 +10,8 @@ import ShareReportModal from "../../components/dashboard/ShareReportModal";
 import ReportDateModal from "../../components/dashboard/ReportDateModal";
 import ReportPeriodModal from "../../components/dashboard/ReportPeriodModal";
 import type { ReportPeriodSelection } from "../../components/dashboard/ReportPeriodModal";
+import PLPeriodModal from "../../components/dashboard/PLPeriodModal";
+import type { PLPeriodSelection } from "../../components/dashboard/PLPeriodModal";
 import IssueFilterModal from "../../components/dashboard/IssueFilterModal";
 import type { IssueFilterSelection } from "../../components/dashboard/IssueFilterModal";
 import AssetFilterModal from "../../components/dashboard/AssetFilterModal";
@@ -286,7 +288,7 @@ const ReportsPage = () => {
       switch (reportId) {
         case "daily":
           blob = format === "PDF"
-            ? await reportService.exportDailyPDF(pid, effectiveEnd)
+            ? await reportService.exportProjectReportPDF({ project_id: pid, type: "daily", report_date: effectiveEnd })
             : await reportService.exportProjectReportExcel({ project_id: pid, type: "daily", report_date: effectiveEnd });
           break;
         case "weekly": {
@@ -609,7 +611,7 @@ const ReportsPage = () => {
     }
   };
 
-  const handlePLPeriodConfirm = async (selection: ReportPeriodSelection) => {
+  const handlePLPeriodConfirm = async (selection: PLPeriodSelection) => {
     const pid = parseInt(selectedProjectId);
     const toastId = toast.loading(`Generating ${plPeriodFormat} report...`);
     try {
@@ -971,12 +973,12 @@ const ReportsPage = () => {
         }}
       />
 
-      <ReportPeriodModal
+      <PLPeriodModal
         isOpen={isPLPeriodModalOpen}
         onClose={() => setIsPLPeriodModalOpen(false)}
         reportName="Profit & Loss Statement"
         format={plPeriodFormat}
-        onConfirm={(selection: ReportPeriodSelection) => {
+        onConfirm={(selection: PLPeriodSelection) => {
           setIsPLPeriodModalOpen(false);
           handlePLPeriodConfirm(selection);
         }}

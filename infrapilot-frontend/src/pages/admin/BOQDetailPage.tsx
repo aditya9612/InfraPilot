@@ -427,6 +427,9 @@ const BOQDetailPage = () => {
                                             <button onClick={() => handleExport("pdf")} className="w-full flex items-center gap-3 px-4 py-2 hover:bg-slate-50 transition-colors text-sm font-semibold">
                                                 <FileText className="w-4 h-4 text-rose-500" /> PDF Report
                                             </button>
+                                            <button onClick={() => handleExport("json")} className="w-full flex items-center gap-3 px-4 py-2 hover:bg-slate-50 transition-colors text-sm font-semibold">
+                                                <FileCheck className="w-4 h-4 text-blue-500" /> BOQ JSON
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -477,23 +480,34 @@ const BOQDetailPage = () => {
                                 <StatCard title="Completion" value={`${Math.round((boqItems.filter(i => i.is_completed).length / (boqItems.length || 1)) * 100)}%`} sub={`${boqItems.filter(i => i.is_completed).length} items finished`} accent="text-amber-500" />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 gap-6">
                                 <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
                                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6">Budget Health</h3>
                                     <div className="space-y-6">
                                         {comparison.slice(0, 4).map((item, idx) => {
-                                            const percentage = Math.min(100, (Number(item.actual) / (Number(item.estimated) || 1)) * 100);
+                                            const estimated = Number(item.estimated) || 1;
+                                            const actual = Number(item.actual) || 0;
+                                            const variance = Number(item.variance) || 0;
+                                            // Bar = actual spend as % of estimated budget
+                                            const percentage = Math.min(100, (actual / estimated) * 100);
+                                            // variance > 0 means under budget (good), variance < 0 means over budget (bad)
+                                            const isOverBudget = variance < 0;
                                             return (
                                                 <div key={idx} className="space-y-2">
                                                     <div className="flex justify-between text-xs font-bold uppercase tracking-tight">
                                                         <span className="text-slate-400">{item.item_name}</span>
-                                                        <span className={item.variance < 0 ? "text-rose-500" : "text-emerald-500"}>
-                                                            {formatCompactCurrency(Math.abs(item.variance))}
-                                                        </span>
+                                                        <div className="flex flex-col items-end gap-0.5">
+                                                            <span className={isOverBudget ? "text-rose-500" : "text-emerald-500"}>
+                                                                {isOverBudget ? "▲ Over" : "▼ Under"} ₹{Math.abs(variance).toLocaleString("en-IN")}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-400 font-medium normal-case">
+                                                                {percentage.toFixed(1)}% spent
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                     <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
                                                         <div
-                                                            className={`h-full rounded-full transition-all duration-1000 ${percentage > 100 ? "bg-rose-500" : "bg-primary"}`}
+                                                            className={`h-full rounded-full transition-all duration-1000 ${isOverBudget ? "bg-rose-500" : percentage > 75 ? "bg-amber-400" : "bg-primary"}`}
                                                             style={{ width: `${percentage}%` }}
                                                         />
                                                     </div>
@@ -501,15 +515,6 @@ const BOQDetailPage = () => {
                                             );
                                         })}
                                     </div>
-                                </div>
-
-                                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col justify-center items-center text-center space-y-4">
-                                    <div className="p-4 bg-primary/5 rounded-full">
-                                        <CheckCircle2 className="w-12 h-12 text-primary" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-slate-800">Fiscal Integrity Check</h3>
-                                    <p className="text-sm text-slate-500 max-w-xs">All BOQ items are synced with the latest site updates and material procurement logs.</p>
-                                    <button className="text-primary text-xs font-black uppercase tracking-widest hover:underline">Download Audit Log</button>
                                 </div>
                             </div>
                         </div>

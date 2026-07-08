@@ -342,14 +342,6 @@ const ClientNotificationsPage = () => {
                 {markingAllRead ? "Processing..." : `Mark Selected Read (${selectedIds.length})`}
               </button>
             )}
-            <button
-              disabled={markingAllRead}
-              onClick={handleMarkAllRead}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Check className="w-4 h-4" />
-              {markingAllRead ? "Processing..." : "Mark All Read"}
-            </button>
           </div>
         </div>
 
@@ -447,41 +439,6 @@ const ClientNotificationsPage = () => {
                 onChange={(e) => handleSetSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter"
               />
-            </div>
-
-            {/* Quick tabs/filters side row */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                {(["All", "System", "Delayed Tasks"] as TabType[]).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => handleSetActiveTab(tab)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
-                      activeTab === tab
-                        ? "bg-white text-slate-800 shadow-sm border border-slate-100"
-                        : "text-slate-400 hover:text-slate-600"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                {(["All", "Unread", "Read"] as FilterType[]).map(f => (
-                  <button
-                    key={f}
-                    onClick={() => handleSetFilter(f)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
-                      filter === f
-                        ? "bg-white text-slate-800 shadow-sm border border-slate-100"
-                        : "text-slate-400 hover:text-slate-600"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 
@@ -611,21 +568,7 @@ const ClientNotificationsPage = () => {
           </div>
         </div>
 
-        {/* Floating Chat Widget */}
-        <div className="fixed bottom-6 right-6 z-50 animate-bounce">
-          <Link
-            to="/chat"
-            className="w-14 h-14 bg-slate-900 hover:bg-black text-white rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 relative group"
-            title="Open Team Chat"
-          >
-            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span className="absolute -top-1 -right-1 bg-rose-500 text-white font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-              18
-            </span>
-          </Link>
-        </div>
+
       </div>
 
       {/* ── Detail Modal ── */}

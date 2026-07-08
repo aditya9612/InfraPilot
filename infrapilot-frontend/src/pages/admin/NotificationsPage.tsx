@@ -248,23 +248,33 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                 setSelectedProjectId("All");
                 fetchNotifications(t.key);
               }}
-              className={`px-5 py-2 rounded-lg text-[11px] font-bold transition-all ${
-                activeTab === t.key ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
-              }`}
+              className={`px-5 py-2 rounded-lg text-[11px] font-bold transition-all ${activeTab === t.key ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
             >
               {t.label}
             </button>
           ))}
         </div>
 
-        {/* Stat Cards — clickable to filter */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[
+        {/* Stat Cards — clickable to filter; counts are scoped to the active project + source filter */}
+        {(() => {
+          // Build a project + source scoped subset used for card counts
+          const projectScopedNotifs = notifications.filter(n => {
+            const matchesProject =
+              selectedProjectId === "All" ||
+              Number(n.project_id) === Number(selectedProjectId);
+            const matchesSource =
+              sourceFilter === "All" ||
+              (n.source || "general").toLowerCase() === sourceFilter.toLowerCase();
+            return matchesProject && matchesSource;
+          });
+
+          const cardDefs = [
             {
               f: "All" as const,
               label: "Total",
               sub: activeTab === "alerts" ? "All alerts received" : "All system notifications",
-              count: notifications.length,
+              count: projectScopedNotifs.length,
               accent: "text-primary",
               ring: "ring-primary",
             },
@@ -272,7 +282,7 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
               f: "Unread" as const,
               label: "Unread",
               sub: "Require attention",
-              count: notifications.filter(n => !n.read).length,
+              count: projectScopedNotifs.filter(n => !n.read).length,
               accent: "text-rose-500",
               ring: "ring-rose-500",
             },
@@ -280,37 +290,43 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
               f: "Read" as const,
               label: "Read",
               sub: "Processed messages",
-              count: notifications.filter(n => n.read).length,
+              count: projectScopedNotifs.filter(n => n.read).length,
               accent: "text-emerald-500",
               ring: "ring-emerald-500",
             },
             activeTab === "alerts"
               ? {
-                  f: "Approval" as const,
-                  label: "Alerts",
-                  sub: "Project & task alerts",
-                  count: notifications.filter(n => n.type === "Alert").length,
-                  accent: "text-amber-500",
-                  ring: "ring-amber-500",
-                }
+                f: "Approval" as const,
+                label: "Alerts",
+                sub: "Project & task alerts",
+                count: projectScopedNotifs.filter(n => n.type === "Alert").length,
+                accent: "text-amber-500",
+                ring: "ring-amber-500",
+              }
               : {
-                  f: "Approval" as const,
-                  label: "System",
-                  sub: "System messages",
-                  count: notifications.filter(n => n.type === "System" || n.source === "system").length,
-                  accent: "text-blue-500",
-                  ring: "ring-blue-500",
-                },
-          ].map(({ f, label, sub, count, accent, ring }) => (
-            <div
-              key={f}
-              onClick={() => setActiveStatFilter(f)}
-              className={`cursor-pointer transition-all duration-200 rounded-xl hover:-translate-y-0.5 ${activeStatFilter === f ? `ring-2 ${ring} ring-offset-2 shadow-md scale-[1.02]` : "hover:shadow-sm"}`}
-            >
-              <StatCard title={label} value={count.toString()} sub={sub} accent={accent} />
+                f: "Approval" as const,
+                label: "System",
+                sub: "System messages",
+                count: projectScopedNotifs.filter(n => n.type === "System" || n.source === "system").length,
+                accent: "text-blue-500",
+                ring: "ring-blue-500",
+              },
+          ];
+
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {cardDefs.map(({ f, label, sub, count, accent, ring }) => (
+                <div
+                  key={f}
+                  onClick={() => setActiveStatFilter(f)}
+                  className={`cursor-pointer transition-all duration-200 rounded-xl hover:-translate-y-0.5 ${activeStatFilter === f ? `ring-2 ${ring} ring-offset-2 shadow-md scale-[1.02]` : "hover:shadow-sm"}`}
+                >
+                  <StatCard title={label} value={count.toString()} sub={sub} accent={accent} />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
           <div className="p-4 border-b border-slate-50">
@@ -330,42 +346,43 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                 />
               </div>
 
-              <div className="w-full sm:w-64">
-                <div className="relative">
-                  <select
-                    value={selectedProjectId}
-                    onChange={(e) => setSelectedProjectId(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter appearance-none cursor-pointer"
-                  >
-                    <option value="All">All Projects</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                  </span>
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </span>
+              {activeTab === "alerts" && (
+                <div className="w-full sm:w-64">
+                  <div className="relative">
+                    <select
+                      value={selectedProjectId}
+                      onChange={(e) => setSelectedProjectId(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-inter appearance-none cursor-pointer"
+                    >
+                      <option value="All">All Projects</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {activeTab === "alerts" && (
                 <select
                   value={sourceFilter}
                   onChange={(e) => { setSourceFilter(e.target.value); }}
-                  className={`px-3 py-2 border rounded-xl text-sm font-medium outline-none transition-all font-inter ${
-                    sourceFilter !== "All"
+                  className={`px-3 py-2 border rounded-xl text-sm font-medium outline-none transition-all font-inter ${sourceFilter !== "All"
                       ? "bg-primary/10 border-primary/30 text-primary"
                       : "bg-slate-50 border-slate-200 text-slate-600"
-                  }`}
+                    }`}
                 >
                   <option value="All">All Sources</option>
                   <option value="general">General</option>
@@ -451,11 +468,10 @@ const NotificationsPage = ({ filter }: NotificationsPageProps) => {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-widest ${
-                          notif.read
+                        <span className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-widest ${notif.read
                             ? "bg-slate-100 text-slate-500"
                             : "bg-primary/10 text-primary"
-                        }`}>
+                          }`}>
                           {notif.read ? "Read" : "Unread"}
                         </span>
                       </td>

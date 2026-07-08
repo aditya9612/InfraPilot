@@ -2,37 +2,31 @@ import { useState } from "react";
 import Modal from "../common/Modal";
 import { Calendar, FileText, Download, ArrowRight } from "lucide-react";
 
-export interface ReportPeriodSelection {
-    type: "weekly" | "monthly" | "quarterly";
-    start_date?: string;  // for weekly
-    end_date?: string;    // for weekly
-    month?: number;       // 1-12
+export interface PLPeriodSelection {
+    type: "weekly" | "yearly" | "quarterly";
+    start_date?: string;
+    end_date?: string;
     year?: number;
-    quarter?: number;     // 1-4
+    quarter?: number;
 }
 
-interface ReportPeriodModalProps {
+interface PLPeriodModalProps {
     isOpen: boolean;
     onClose: () => void;
     reportName: string;
     format: "PDF" | "Excel";
-    onConfirm: (selection: ReportPeriodSelection) => void;
+    onConfirm: (selection: PLPeriodSelection) => void;
 }
-
-const MONTHS = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-];
 
 const REPORT_TYPES = [
     { id: "weekly",    label: "Weekly",    icon: "📆" },
-    { id: "monthly",   label: "Monthly",   icon: "🗓️" },
+    { id: "yearly",    label: "Yearly",    icon: "🗓️" },
     { id: "quarterly", label: "Quarterly", icon: "📊" },
 ];
 
-const ReportPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: ReportPeriodModalProps) => {
+const PLPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: PLPeriodModalProps) => {
     const now = new Date();
-    const [type, setType] = useState<ReportPeriodSelection["type"]>("monthly");
+    const [type, setType] = useState<PLPeriodSelection["type"]>("yearly");
 
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - now.getDay() + 1);
@@ -41,7 +35,6 @@ const ReportPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: R
     const [startDate, setStartDate] = useState(weekStart.toISOString().split("T")[0]);
     const [endDate, setEndDate] = useState(weekEnd.toISOString().split("T")[0]);
 
-    const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
     const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3));
 
@@ -49,9 +42,8 @@ const ReportPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: R
     const years = Array.from({ length: 6 }, (_, i) => currentYear - 2 + i);
 
     const handleConfirm = () => {
-        const selection: ReportPeriodSelection = { type, year };
+        const selection: PLPeriodSelection = { type, year };
         if (type === "weekly") { selection.start_date = startDate; selection.end_date = endDate; }
-        if (type === "monthly") selection.month = month;
         if (type === "quarterly") selection.quarter = quarter;
         onConfirm(selection);
         onClose();
@@ -60,6 +52,7 @@ const ReportPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: R
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`${reportName} — Select Period`} maxWidth="max-w-md">
             <div className="p-4 space-y-5">
+                {/* Format badge */}
                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${format === "PDF" ? "bg-rose-50 text-rose-500" : "bg-emerald-50 text-emerald-500"}`}>
                         {format === "PDF" ? <Download size={20} /> : <FileText size={20} />}
@@ -70,12 +63,13 @@ const ReportPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: R
                     </div>
                 </div>
 
+                {/* Type selector */}
                 <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Report Type</label>
                     <div className="grid grid-cols-3 gap-2">
                         {REPORT_TYPES.map(t => (
                             <button key={t.id} type="button"
-                                onClick={() => setType(t.id as ReportPeriodSelection["type"])}
+                                onClick={() => setType(t.id as PLPeriodSelection["type"])}
                                 className={`flex flex-col items-center gap-1 py-3 rounded-xl border text-xs font-black transition-all ${
                                     type === t.id
                                         ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
@@ -89,6 +83,7 @@ const ReportPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: R
                     </div>
                 </div>
 
+                {/* Weekly date range */}
                 {type === "weekly" && (
                     <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -110,25 +105,18 @@ const ReportPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: R
                     </div>
                 )}
 
-                {type === "monthly" && (
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Month</label>
-                            <select value={month} onChange={e => setMonth(Number(e.target.value))}
-                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none">
-                                {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Year</label>
-                            <select value={year} onChange={e => setYear(Number(e.target.value))}
-                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none">
-                                {years.map(y => <option key={y} value={y}>{y}</option>)}
-                            </select>
-                        </div>
+                {/* Yearly — only year selector */}
+                {type === "yearly" && (
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Year</label>
+                        <select value={year} onChange={e => setYear(Number(e.target.value))}
+                            className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none">
+                            {years.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
                     </div>
                 )}
 
+                {/* Quarterly */}
                 {type === "quarterly" && (
                     <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -151,6 +139,7 @@ const ReportPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: R
                     </div>
                 )}
 
+                {/* Actions */}
                 <div className="flex gap-3 pt-2">
                     <button onClick={onClose}
                         className="flex-1 px-4 py-3 bg-slate-100 text-slate-600 rounded-2xl text-xs font-black hover:bg-slate-200 transition-all active:scale-95">
@@ -167,4 +156,4 @@ const ReportPeriodModal = ({ isOpen, onClose, reportName, format, onConfirm }: R
     );
 };
 
-export default ReportPeriodModal;
+export default PLPeriodModal;

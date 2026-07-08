@@ -312,7 +312,7 @@ const AttendancePage: React.FC = () => {
                                 </div>
 
                                 <div className="space-y-6">
-                                    {statusData?.checked_in && !statusData?.checked_out && !statusData?.attendance?.out_time ? (
+                                    {(statusData?.checked_in || (statusData?.attendance?.in_time && !statusData?.attendance?.out_time)) ? (
                                         /* Active Session View: Show Check Out (Matches Screenshot Exactly) */
                                         <div className="space-y-6 animate-in fade-in duration-500">
                                             <div className="grid grid-cols-2 gap-12">
@@ -571,8 +571,8 @@ const AttendancePage: React.FC = () => {
                                                     </td>
 
                                                     <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className={`text-xs font-bold italic ${record.out_time ? 'text-slate-300' : record.in_time ? 'text-emerald-500' : 'text-slate-400'}`}>
-                                                            {record.out_time ? "Shift Ended" : record.in_time ? "Online" : "Not Checked In"}
+                                                        <span className="text-xs font-bold text-slate-500">
+                                                            {record.out_time ? "Checked Out" : record.in_time ? "Checked In" : "Not Checked In"}
                                                         </span>
                                                     </td>
 
@@ -829,9 +829,9 @@ const AttendancePage: React.FC = () => {
                                 <div className="space-y-1">
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Online Status</span>
                                     <div className="flex items-center gap-1.5">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${selectedRecordForDetail.out_time ? 'bg-slate-300' : selectedRecordForDetail.in_time ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                                        <p className="text-xs font-black text-slate-700">
-                                            {selectedRecordForDetail.out_time ? "Shift Ended" : selectedRecordForDetail.in_time ? "Online" : "Not Checked In"}
+                                        <div className={`w-1.5 h-1.5 rounded-full ${selectedRecordForDetail.in_time && !selectedRecordForDetail.out_time ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                                        <p className="text-xs font-bold text-slate-500">
+                                            {selectedRecordForDetail.out_time ? "Checked Out" : selectedRecordForDetail.in_time ? "Checked In" : "Not Checked In"}
                                         </p>
                                     </div>
                                 </div>

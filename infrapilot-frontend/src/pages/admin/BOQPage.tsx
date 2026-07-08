@@ -32,7 +32,11 @@ import {
 } from "lucide-react";
 import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
-import ActivityDetailsModal from "../../components/dashboard/ActivityDetailsModal";
+import ActivityDetailModal from "../../components/WorkProgress/ActivityDetailModal";
+import EditActivityModal from "../../components/WorkProgress/EditActivityModal";
+import AddActivityModal from "../../components/WorkProgress/AddActivityModal";
+import { workProgressService } from "../../services/workProgressService";
+import type { ActivityItem } from "../../types/workProgress";
 import { BOQ_CATEGORIES } from "../../config/constants";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
 
@@ -56,6 +60,7 @@ const BOQPage = () => {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [progressStatusFilter, setProgressStatusFilter] = useState("all");
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -70,6 +75,8 @@ const BOQPage = () => {
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
   // Advanced Feature States
+  const [activitiesList, setActivitiesList] = useState<ActivityItem[]>([]);
+  const [isAddActivityModalOpen, setIsAddActivityModalOpen] = useState(false);
   const [summaryData, setSummaryData] = useState<BoqSummary | null>(null);
   const [isActualsModalOpen, setIsActualsModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -82,6 +89,8 @@ const BOQPage = () => {
   const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [isActivityViewModalOpen, setIsActivityViewModalOpen] = useState(false);
   const [viewingActivity, setViewingActivity] = useState<any>(null);
+  const [editingActivity, setEditingActivity] = useState<ActivityItem | null>(null);
+  const [isEditActivityModalOpen, setIsEditActivityModalOpen] = useState(false);
   const [isActivityDeleteModalOpen, setIsActivityDeleteModalOpen] =
     useState(false);
   const [activityToDelete, setActivityToDelete] = useState<number | null>(null);
@@ -153,18 +162,32 @@ const BOQPage = () => {
         offset: (currentPage - 1) * itemsPerPage,
       };
 
-      const res = await boqService.getBoqs(filters);
+      if (isSetup) {
+        const res = await boqService.getBoqs(filters);
 
-      // Filter out deleted and inactive items from the local state
-      const activeItems = res.items.filter((item: any) =>
-        item.status?.toLowerCase() !== 'deleted' &&
-        item.status?.toLowerCase() !== 'inactive'
-      );
+        // Filter out deleted and inactive items from the local state
+        const activeItems = res.items.filter((item: any) =>
+          item.status?.toLowerCase() !== 'deleted' &&
+          item.status?.toLowerCase() !== 'inactive'
+        );
 
-      setBoqData(activeItems);
-      // We set totalItems to the backend total if not filtered, 
-      // or to the local length if we filtered out items to keep pagination consistent.
-      setTotalItems(res.total || activeItems.length);
+        setBoqData(activeItems);
+        // We set totalItems to the backend total if not filtered, 
+        // or to the local length if we filtered out items to keep pagination consistent.
+        setTotalItems(res.total || activeItems.length);
+      } else {
+        const projectId = projectFilter === "all" ? undefined : Number(projectFilter);
+        const res = await workProgressService.listActivities(projectId, undefined, itemsPerPage, (currentPage - 1) * itemsPerPage);
+
+        // Filter out deleted or inactive activities if necessary
+        const activeActivities = res.filter((item: any) =>
+          item.status?.toLowerCase() !== 'deleted' &&
+          item.status?.toLowerCase() !== 'inactive'
+        );
+
+        setActivitiesList(activeActivities);
+        setTotalItems(activeActivities.length);
+      }
 
       // Also refresh summary if project is selected
       if (projectFilter !== "all") {
@@ -182,23 +205,22 @@ const BOQPage = () => {
 
 
 
-  // Re-fetch when filters or page change
+  // Re-fetch when filters, tab or page change
   useEffect(() => {
-    if (!isLoading) {
-      refreshBoqs();
-    }
+    refreshBoqs();
   }, [
     searchTerm,
     statusFilter,
     categoryFilter,
     projectFilter,
     currentPage,
+    isSetup,
   ]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, categoryFilter, projectFilter]);
+  }, [searchTerm, statusFilter, categoryFilter, projectFilter, progressStatusFilter]);
 
   const handleCreateOrUpdateBOQ = async (data: any) => {
     try {
@@ -283,7 +305,7 @@ const BOQPage = () => {
   const handleDeleteActivityConfirm = async () => {
     if (activityToDelete) {
       try {
-        await boqService.deleteBoq(activityToDelete);
+        await workProgressService.deleteActivity(activityToDelete);
         toast.success("Activity removed successfully!");
         await refreshBoqs();
         setIsActivityDeleteModalOpen(false);
@@ -291,6 +313,38 @@ const BOQPage = () => {
       } catch (error) {
         toast.error("Failed to delete activity");
       }
+    }
+  };
+
+  const handleViewActivity = async (id: number) => {
+    try {
+      const fresh = await workProgressService.getActivity(id);
+      setViewingActivity(fresh);
+      setIsActivityViewModalOpen(true);
+    } catch (err: any) {
+      toast.error("Failed to load activity details");
+    }
+  };
+
+  const handleEditActivityClick = async (id: number) => {
+    try {
+      const fresh = await workProgressService.getActivity(id);
+      setEditingActivity(fresh);
+      setIsEditActivityModalOpen(true);
+    } catch (err: any) {
+      toast.error("Failed to load activity details");
+    }
+  };
+
+  const handleEditActivitySubmit = async (id: number, data: any) => {
+    try {
+      await workProgressService.updateActivity(id, data);
+      toast.success("Activity updated successfully!");
+      setIsEditActivityModalOpen(false);
+      setEditingActivity(null);
+      refreshBoqs();
+    } catch (err: any) {
+      toast.error("Failed to update activity");
     }
   };
 
@@ -475,19 +529,58 @@ const BOQPage = () => {
     });
   }, [boqData, sortOrder]);
 
-  // Filtered Activities Logic (Frontend filtering for mock/local data)
+  // Filtered Activities Logic
   const filteredActivities = useMemo(() => {
-    return filteredBoqData.map(item => ({
+    if (isSetup) return [];
+
+    let filtered = [...activitiesList];
+
+    // Filter by progress status
+    if (progressStatusFilter !== "all" && progressStatusFilter !== "") {
+      const targetStr = progressStatusFilter.toLowerCase().replace(/_/g, "");
+      filtered = filtered.filter(item => {
+        const itemStr = (item.status || "").toLowerCase().replace(/_/g, "");
+        return itemStr === targetStr ||
+          (targetStr === 'ontrack' && (itemStr === 'active' || itemStr === 'ongoing')) ||
+          ((targetStr === 'active' || targetStr === 'ongoing') && itemStr === 'ontrack');
+      });
+    }
+
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.activity_name?.toLowerCase().includes(term) ||
+        (projectMap[item.project_id] || "").toLowerCase().includes(term)
+      );
+    }
+
+    // Sort by latest/oldest
+    filtered.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+
+      if (dateA !== dateB) {
+        return sortOrder === "latest" ? dateB - dateA : dateA - dateB;
+      }
+      return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
+    });
+
+    return filtered.map(item => ({
       id: item.id,
-      name: item.item_name,
-      type: item.category,
+      name: item.activity_name,
+      type: item.unit || "N/A",
       project: projectMap[item.project_id] || "N/A",
-      status: item.is_completed ? "Completed" : (item.status === 'ACTIVE' || item.status === 'Ongoing') ? "Active" : item.status || "In Progress",
+      status: item.status === "COMPLETED" ? "Completed" : (item.status === 'ON_TRACK' || item.status === 'Ongoing' || item.status === 'ACTIVE') ? "Active" : item.status || "In Progress",
       created_at: item.created_at
     }));
   }, [
-    filteredBoqData,
+    activitiesList,
     projectMap,
+    isSetup,
+    progressStatusFilter,
+    searchTerm,
+    sortOrder
   ]);
 
   return (
@@ -525,42 +618,50 @@ const BOQPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-              className={`min-w-[200px] px-4 py-2 border rounded-xl text-sm font-bold outline-none focus:ring-4 transition-all duration-300 ${projectFilter === "all"
-                ? "bg-slate-50/50 border-slate-200 text-slate-500 hover:bg-slate-100"
-                : "bg-white border-primary/30 text-primary shadow-lg shadow-primary/5 ring-2 ring-primary/5"
-                }`}
-            >
-              <option value="all">📁 All Projects View</option>
-              {projectsList.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.project_name}
-                </option>
-              ))}
-            </select>
+            {isSetup && (
+              <select
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+                className={`min-w-[200px] px-4 py-2 border rounded-xl text-sm font-bold outline-none focus:ring-4 transition-all duration-300 ${projectFilter === "all"
+                  ? "bg-slate-50/50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                  : "bg-white border-primary/30 text-primary shadow-lg shadow-primary/5 ring-2 ring-primary/5"
+                  }`}
+              >
+                <option value="all">📁 All Projects View</option>
+                {projectsList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.project_name}
+                  </option>
+                ))}
+              </select>
+            )}
 
+            {isSetup && (
+              <button
+                onClick={() => {
+                  if (projectFilter === "all") {
+                    toast.error("Please select a project before importing");
+                    return;
+                  }
+                  setIsBulkImportModalOpen(true);
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${projectFilter === "all"
+                  ? "bg-slate-50 text-slate-400 border border-slate-100 cursor-not-allowed opacity-60"
+                  : "bg-white border border-primary/20 text-slate-700 hover:bg-slate-50 shadow-sm active:scale-95"
+                  }`}
+              >
+                <Download className={`w-4 h-4 ${projectFilter === "all" ? "text-slate-300" : "text-primary"}`} />
+                Import Excel
+              </button>
+            )}
             <button
               onClick={() => {
-                if (projectFilter === "all") {
-                  toast.error("Please select a project before importing");
-                  return;
+                if (isSetup) {
+                  setEditingItem(null);
+                  setIsModalOpen(true);
+                } else {
+                  setIsAddActivityModalOpen(true);
                 }
-                setIsBulkImportModalOpen(true);
-              }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${projectFilter === "all"
-                ? "bg-slate-50 text-slate-400 border border-slate-100 cursor-not-allowed opacity-60"
-                : "bg-white border border-primary/20 text-slate-700 hover:bg-slate-50 shadow-sm active:scale-95"
-                }`}
-            >
-              <Download className={`w-4 h-4 ${projectFilter === "all" ? "text-slate-300" : "text-primary"}`} />
-              Import Excel
-            </button>
-            <button
-              onClick={() => {
-                setEditingItem(null);
-                setIsModalOpen(true);
               }}
               className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
             >
@@ -570,44 +671,69 @@ const BOQPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Estimated Total"
-            value={formatCompactCurrency(summaryData?.estimated || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0))}
-            sub={
-              summaryData
-                ? `${summaryData.total_items} items total`
-                : "Across filtered items"
-            }
-            accent="text-primary"
-            icon={<TrendingUp className="w-5 h-5" />}
-          />
-          <StatCard
-            title="Actual Total"
-            value={formatCompactCurrency(summaryData?.actual || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))}
-            sub="Recorded real-world costs"
-            accent="text-violet-500"
-            icon={<TrendingUp className="w-5 h-5" />}
-          />
-          <StatCard
-            title="Variance/Difference"
-            value={formatCompactCurrency(Math.abs(summaryData?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))))}
-            sub="Budget gap analysis"
-            accent={
-              (summaryData?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))) < 0
-                ? "text-rose-500"
-                : "text-emerald-500"
-            }
-            icon={<TrendingUp className="w-5 h-5" />}
-          />
-          <StatCard
-            title="Pending Approval"
-            value={filteredBoqData
-              .filter((i) => i.status?.toLowerCase().includes("review") || i.status?.toLowerCase().includes("draft") || i.status?.toLowerCase().includes("pending"))
-              .length.toString()}
-            sub="Awaiting rate review"
-            accent="text-amber-500"
-            icon={<TrendingUp className="w-5 h-5" />}
-          />
+          {isSetup ? (
+            <>
+              <StatCard
+                title="Estimated Total"
+                value={formatCompactCurrency(summaryData?.estimated || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0))}
+                sub={summaryData ? `${summaryData.total_items} items total` : "Across filtered items"}
+                accent="text-primary"
+                icon={<TrendingUp className="w-5 h-5" />}
+              />
+              <StatCard
+                title="Actual Total"
+                value={formatCompactCurrency(summaryData?.actual || filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))}
+                sub="Recorded real-world costs"
+                accent="text-violet-500"
+                icon={<TrendingUp className="w-5 h-5" />}
+              />
+              <StatCard
+                title="Variance/Difference"
+                value={formatCompactCurrency(Math.abs(summaryData?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))))}
+                sub="Budget gap analysis"
+                accent={(summaryData?.difference || 0) < 0 ? "text-rose-500" : "text-emerald-500"}
+                icon={<TrendingUp className="w-5 h-5" />}
+              />
+              <StatCard
+                title="Pending Approval"
+                value={filteredBoqData.filter((i) => i.status?.toLowerCase().includes("review") || i.status?.toLowerCase().includes("draft") || i.status?.toLowerCase().includes("pending")).length.toString()}
+                sub="Awaiting rate review"
+                accent="text-amber-500"
+                icon={<TrendingUp className="w-5 h-5" />}
+              />
+            </>
+          ) : (
+            <>
+              <StatCard
+                title="Total Activities"
+                value={activitiesList.length.toString()}
+                sub="Active tracking ledger"
+                accent="text-primary"
+                icon={<TrendingUp className="w-5 h-5" />}
+              />
+              <StatCard
+                title="Completed"
+                value={activitiesList.filter(a => a.status === "COMPLETED").length.toString()}
+                sub={`${activitiesList.length > 0 ? Math.round((activitiesList.filter(a => a.status === "COMPLETED").length / activitiesList.length) * 100) : 0}% completion rate`}
+                accent="text-emerald-500"
+                icon={<TrendingUp className="w-5 h-5" />}
+              />
+              <StatCard
+                title="Ongoing Activities"
+                value={activitiesList.filter(a => a.status === "ON_TRACK" || a.status === "ACTIVE" || a.status === "Ongoing").length.toString()}
+                sub="Currently active on-site"
+                accent="text-violet-500"
+                icon={<TrendingUp className="w-5 h-5" />}
+              />
+              <StatCard
+                title="Delayed Activities"
+                value={activitiesList.filter(a => a.status === "DELAY").length.toString()}
+                sub="Under delay risk advisory"
+                accent="text-rose-500"
+                icon={<TrendingUp className="w-5 h-5" />}
+              />
+            </>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden text-slate-800">
@@ -643,31 +769,62 @@ const BOQPage = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="draft">Draft</option>
-                <option value="completed">Completed</option>
-                <option value="under review">Under Review</option>
-                <option value="pending">Pending</option>
-              </select>
+              {isSetup ? (
+                <>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="draft">Draft</option>
+                    <option value="completed">Completed</option>
+                    <option value="under review">Under Review</option>
+                    <option value="pending">Pending</option>
+                  </select>
 
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-              >
-                <option value="all">All Categories</option>
-                {BOQ_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                  >
+                    <option value="all">All Categories</option>
+                    {BOQ_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <>
+                  <select
+                    value={projectFilter}
+                    onChange={(e) => setProjectFilter(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all font-bold"
+                  >
+                    <option value="all">📁 All Projects View</option>
+                    {projectsList.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.project_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={progressStatusFilter}
+                    onChange={(e) => setProgressStatusFilter(e.target.value)}
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="NOT_STARTED">Not Started</option>
+                    <option value="ON_TRACK">Active/On Track</option>
+                    <option value="DELAY">Delay</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </>
+              )}
 
               <select
                 value={sortOrder}
@@ -680,45 +837,6 @@ const BOQPage = () => {
 
 
 
-
-              <div className="relative" ref={exportMenuRef}>
-                <button
-                  onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  Export
-                </button>
-
-                {isExportMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <button
-                      onClick={() => handleExport("excel")}
-                      disabled={isExporting}
-                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors ${isExporting ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                      CSV (.csv)
-                    </button>
-                    <button
-                      onClick={() => handleExport("pdf")}
-                      disabled={isExporting}
-                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all ${isExporting ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <FileText className="w-4 h-4 text-rose-500" />
-                      PDF Report
-                    </button>
-                    <button
-                      onClick={() => handleExport("json")}
-                      disabled={isExporting}
-                      className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all ${isExporting ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <FileJson className="w-4 h-4 text-amber-500" />
-                      JSON Data
-                    </button>
-                  </div>
-                )}
-              </div>
 
               <div className="h-6 w-px bg-slate-200 mx-1 hidden lg:block" />
 
@@ -948,14 +1066,18 @@ const BOQPage = () => {
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-3">
                             <button
-                              onClick={() => {
-                                setViewingActivity(act);
-                                setIsActivityViewModalOpen(true);
-                              }}
+                              onClick={() => handleViewActivity(act.id)}
                               className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
                               title="View Activity"
                             >
                               <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                            </button>
+                            <button
+                              onClick={() => handleEditActivityClick(act.id)}
+                              className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
+                              title="Edit Activity"
+                            >
+                              <Pencil className="w-4.5 h-4.5" strokeWidth={1.5} />
                             </button>
                             <button
                               onClick={() => handleDeleteActivityClick(act.id)}
@@ -1029,6 +1151,23 @@ const BOQPage = () => {
         initialData={editingItem}
       />
 
+      <AddActivityModal
+        isOpen={isAddActivityModalOpen}
+        onClose={() => setIsAddActivityModalOpen(false)}
+        onSubmit={async (data) => {
+          try {
+            await workProgressService.createActivity(data);
+            toast.success("Activity created successfully!");
+            setIsAddActivityModalOpen(false);
+            refreshBoqs();
+          } catch (err: any) {
+            toast.error("Failed to create activity");
+          }
+        }}
+        projectId={projectFilter === "all" ? 0 : Number(projectFilter)}
+        engineerId={0}
+      />
+
       {viewingItem && (
         <BOQDetailsModal
           isOpen={isViewModalOpen}
@@ -1041,14 +1180,32 @@ const BOQPage = () => {
         />
       )}
 
-      <ActivityDetailsModal
-        isOpen={isActivityViewModalOpen}
-        onClose={() => {
-          setIsActivityViewModalOpen(false);
-          setViewingActivity(null);
-        }}
-        activity={viewingActivity}
-      />
+      {viewingActivity && (
+        <ActivityDetailModal
+          isOpen={isActivityViewModalOpen}
+          onClose={() => {
+            setIsActivityViewModalOpen(false);
+            setViewingActivity(null);
+          }}
+          activity={viewingActivity}
+          onEdit={() => {
+            setIsActivityViewModalOpen(false);
+            handleEditActivityClick(viewingActivity.id);
+          }}
+        />
+      )}
+
+      {editingActivity && (
+        <EditActivityModal
+          isOpen={isEditActivityModalOpen}
+          onClose={() => {
+            setIsEditActivityModalOpen(false);
+            setEditingActivity(null);
+          }}
+          activity={editingActivity}
+          onSubmit={handleEditActivitySubmit}
+        />
+      )}
 
       <ConfirmModal
         isOpen={isDeleteModalOpen}

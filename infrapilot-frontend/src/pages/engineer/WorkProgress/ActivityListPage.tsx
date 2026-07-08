@@ -216,11 +216,12 @@ const ActivityListPage = () => {
       data = data.filter(a => a.status === "ON_TRACK");
     }
 
-    return data.filter(a =>
+    const filtered = data.filter(a =>
       (searchTerm === "" || a.activity_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a.boq_code && String(a.boq_code).toLowerCase().includes(searchTerm.toLowerCase()))) &&
       (filterStatus === "All Status" || a.status === filterStatus)
     );
+    return [...filtered].sort((a, b) => b.id - a.id);
   }, [activities, searchTerm, filterStatus, activeStatFilter]);
 
   // Reset pagination when filters change

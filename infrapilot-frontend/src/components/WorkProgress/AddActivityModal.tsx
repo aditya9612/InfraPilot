@@ -48,6 +48,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
   const [allWorkOrders, setAllWorkOrders] = useState<any[]>([]);
   const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
   const [unitList, setUnitList] = useState<any[]>([]);
+  const [activityTypes, setActivityTypes] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -91,6 +92,14 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           setUnitList(Array.isArray(unitsRes) ? unitsRes : []);
         } catch (err) {
           console.error("Failed to fetch units", err);
+        }
+
+        try {
+          const actTypes = await masterService.getEntities("activity-types");
+          setActivityTypes(Array.isArray(actTypes) ? actTypes : []);
+        } catch (err) {
+          console.error("Failed to fetch activity types", err);
+          setActivityTypes([]);
         }
       };
 
@@ -271,11 +280,20 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
             </div>
             <div>
               <label className={labelClasses}>Activity Name*</label>
-              <input
-                required type="text" name="activity_name" placeholder="e.g. Excavation, RCC, Brickwork"
+              <select
+                name="activity_name"
                 className={inputClasses(errors.activity_name)}
-                value={formData.activity_name} onChange={handleChange}
-              />
+                value={formData.activity_name}
+                onChange={handleChange}
+                required
+              >
+                <option value="">Select Activity Name</option>
+                {activityTypes.map((act) => (
+                  <option key={act.id || act.name} value={act.name}>
+                    {act.name}
+                  </option>
+                ))}
+              </select>
               {errors.activity_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1 font-inter">{errors.activity_name}</p>}
             </div>
             <div>

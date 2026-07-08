@@ -424,8 +424,14 @@ const FinancePage = () => {
   const usingExpenseFallback = invoices.length === 0 && expenses.length > 0;
 
   const filteredProjectsForProfit = useMemo(() => {
-    return projects.filter(p => projectIdFilter === "all" || p.id === Number(projectIdFilter));
-  }, [projects, projectIdFilter]);
+    return projects.filter(p => {
+      const matchesProject = projectIdFilter === "all" || p.id === Number(projectIdFilter);
+      const matchesSearch = !searchTerm.trim() ||
+        (p.project_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.description || "").toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesProject && matchesSearch;
+    });
+  }, [projects, projectIdFilter, searchTerm]);
 
   const totalItems = subPage === "expenses"
     ? filteredExpenses.length
