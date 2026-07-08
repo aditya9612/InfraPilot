@@ -7,7 +7,8 @@ import {
     Camera, Package, Wind, Droplets,
     Thermometer, Users, ChevronLeft, Calendar,
     TrendingUp, MapPin, Phone, Mail,
-    CreditCard, Fingerprint, FileDown, FileText
+    CreditCard, Fingerprint, FileText,
+    LayoutGrid, LayoutList
 } from "lucide-react";
 import { userService } from "../../services/userService";
 import { dsrService } from "../../services/dsrService";
@@ -575,9 +576,9 @@ const EngineerProfilePage: React.FC = () => {
                         {/* Site Mirror Experience */}
                         <div className="flex-1 bg-white rounded-[3rem] shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[600px]">
                             {/* Mirror Navigation */}
-                            <div className="px-8 pt-8 flex items-center justify-between border-b border-slate-50 pb-6 shrink-0">
-                                <div className="flex items-center gap-6">
-                                    <div className="flex gap-8">
+                            <div className="px-8 pt-8 flex items-start justify-between border-b border-slate-50 pb-0 shrink-0 flex-nowrap gap-4">
+                                <div className="flex items-start gap-6 flex-nowrap min-w-0">
+                                    <div className="flex gap-6 flex-nowrap shrink-0">
                                         <MirrorTab
                                             active={mirrorFilter === "photos"}
                                             onClick={() => setMirrorFilter("photos")}
@@ -601,7 +602,7 @@ const EngineerProfilePage: React.FC = () => {
                                     )}
 
                                     {assignedProjects.length > 1 && (
-                                        <div className="flex items-center gap-2 pl-8 border-l border-slate-100">
+                                        <div className="flex items-center gap-2 pl-8 border-l border-slate-100 self-start pt-1">
                                             <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Active Site:</span>
                                             <select
                                                 className="bg-slate-50 border-none text-[10px] font-black text-primary uppercase tracking-tight rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
@@ -615,7 +616,7 @@ const EngineerProfilePage: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">
+                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] whitespace-nowrap shrink-0 pt-1">
                                     {assignedProjects.length > 1 ? "Multi-Project Sync" : "Live Site Mirror"}
                                 </span>
                             </div>
@@ -637,27 +638,7 @@ const EngineerProfilePage: React.FC = () => {
                                     }));
                                     const allPhotos = [...spPhotos, ...dsrPhotos];
                                     return (
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                            {allPhotos.length > 0 ? (
-                                                allPhotos.map((item: any, i: number) => (
-                                                    <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
-                                                        <img src={item.url} alt="Site activity" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
-                                                            <p className="text-[10px] text-white font-black uppercase tracking-widest">{item.caption} • Live Feed</p>
-                                                            <p className="text-[9px] text-white/60 font-medium mt-1 truncate">{item.sub}</p>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                [1, 2, 3, 4, 5, 6].map((_, i) => (
-                                                    <div key={i} className="group relative aspect-square bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-100 hover:border-primary/30 transition-all cursor-zoom-in">
-                                                        <div className="absolute inset-0 flex items-center justify-center text-slate-200">
-                                                            <Camera className="w-12 h-12 opacity-10" />
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
+                                        <PhotoGallery photos={allPhotos} />
                                     );
                                 })()}
 
@@ -745,13 +726,145 @@ const ContactItem: React.FC<{ icon: React.ReactNode; label: string; value: strin
     </div>
 );
 
+const PhotoGallery: React.FC<{ photos: { url: string | null; caption: string; sub: string }[] }> = ({ photos }) => {
+    const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+    const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+
+    const openLightbox = (i: number) => setLightboxIdx(i);
+    const closeLightbox = () => setLightboxIdx(null);
+    const goPrev = () => setLightboxIdx(prev => (prev !== null && prev > 0 ? prev - 1 : prev));
+    const goNext = () => setLightboxIdx(prev => (prev !== null && prev < photos.length - 1 ? prev + 1 : prev));
+
+    // Keyboard navigation
+    React.useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (lightboxIdx === null) return;
+            if (e.key === "ArrowLeft") goPrev();
+            if (e.key === "ArrowRight") goNext();
+            if (e.key === "Escape") closeLightbox();
+        };
+        document.addEventListener("keydown", handler);
+        return () => document.removeEventListener("keydown", handler);
+    }, [lightboxIdx]);
+
+    return (
+        <>
+            {/* View toggle */}
+            <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{photos.length} Photos</span>
+                <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+                    <button
+                        onClick={() => setViewMode("grid")}
+                        title="Grid view"
+                        className={`p-2 rounded-lg transition-all ${viewMode === "grid" ? "bg-white text-primary shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                    >
+                        <LayoutGrid size={14} strokeWidth={2.5} />
+                    </button>
+                    <button
+                        onClick={() => setViewMode("list")}
+                        title="List view"
+                        className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-white text-primary shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                    >
+                        <LayoutList size={14} strokeWidth={2.5} />
+                    </button>
+                </div>
+            </div>
+
+            {photos.length > 0 ? (
+                viewMode === "grid" ? (
+                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {photos.map((item, i) => (
+                            <div
+                                key={i}
+                                onClick={() => openLightbox(i)}
+                                className="group relative aspect-square bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 hover:border-primary/40 hover:shadow-md transition-all cursor-zoom-in"
+                            >
+                                <img src={item.url || ""} alt="Site" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
+                                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-all">
+                                    <p className="text-[8px] text-white font-black uppercase tracking-widest truncate">{item.caption}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {photos.map((item, i) => (
+                            <div
+                                key={i}
+                                onClick={() => openLightbox(i)}
+                                className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:border-primary/30 hover:bg-white hover:shadow-sm transition-all cursor-zoom-in group"
+                            >
+                                <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-slate-100">
+                                    <img src={item.url || ""} alt="Site" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-xs font-black text-slate-700 uppercase tracking-widest">{item.caption}</p>
+                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5 truncate">{item.sub}</p>
+                                </div>
+                                <div className="ml-auto shrink-0 w-6 h-6 rounded-lg bg-slate-100 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all">
+                                    <Camera className="w-3 h-3" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )
+            ) : (
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {[...Array(10)].map((_, i) => (
+                        <div key={i} className="aspect-square bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center">
+                            <Camera className="w-6 h-6 text-slate-200" />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Lightbox */}
+            {lightboxIdx !== null && photos[lightboxIdx] && (
+                <div
+                    className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
+                    onClick={closeLightbox}
+                >
+                    <button onClick={closeLightbox} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg font-bold transition-all">✕</button>
+
+                    {lightboxIdx > 0 && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); goPrev(); }}
+                            className="absolute left-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xl font-bold transition-all"
+                        >‹</button>
+                    )}
+                    {lightboxIdx < photos.length - 1 && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); goNext(); }}
+                            className="absolute right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xl font-bold transition-all"
+                        >›</button>
+                    )}
+
+                    <div className="max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
+                        <img
+                            src={photos[lightboxIdx].url || ""}
+                            alt="Site photo"
+                            className="w-full max-h-[80vh] object-contain rounded-2xl"
+                        />
+                        <div className="text-center mt-4">
+                            <p className="text-white font-black text-sm uppercase tracking-widest">{photos[lightboxIdx].caption}</p>
+                            <p className="text-white/50 text-xs font-medium mt-1">{photos[lightboxIdx].sub}</p>
+                            <p className="text-white/30 text-[10px] mt-2">{lightboxIdx + 1} / {photos.length}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+};
+
 const MirrorTab: React.FC<{ active: boolean; onClick: () => void; label: string; count?: number }> = ({ active, onClick, label, count }) => (
     <button
         onClick={onClick}
         className={`relative pb-6 transition-all group ${active ? "text-primary" : "text-slate-400 hover:text-slate-600"}`}
     >
         <div className="flex items-center gap-2">
-            <span className="text-xs font-black uppercase tracking-widest">{label}</span>
+            <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap">{label}</span>
             {count && (
                 <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${active ? "bg-primary text-white" : "bg-slate-100 text-slate-400"}`}>
                     {count}

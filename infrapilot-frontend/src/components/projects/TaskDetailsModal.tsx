@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Task, TaskProgress, TaskComment } from "../../types/project";
 import { projectService } from "../../services/projectService";
+import { userService } from "../../services/userService";
 import toast from "react-hot-toast";
 import {
   X, Calendar, User, Clock, AlertCircle, Paperclip, Send, CheckCircle, FileText
@@ -46,18 +47,27 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
   const fetchData = useCallback(async () => {
     setIsFetchingDetails(true);
     try {
-      const [tData, hData, cData, members] = await Promise.all([
+      const [tData, hData, cData, members, allUsersRes] = await Promise.all([
         projectService.getTask(task.project_id, task.id),
         projectService.getTaskProgressHistory(task.project_id, task.id),
         projectService.getTaskComments(task.project_id, task.id),
-        projectService.getProjectMembers(task.project_id).catch(() => [])
+        projectService.getProjectMembers(task.project_id).catch(() => []),
+        userService.getAllUsers(200, 0).catch(() => [])
       ]);
       setTaskDetails(tData);
       setHistory(Array.isArray(hData) ? hData : (hData.items || hData.data || []));
       setComments(Array.isArray(cData) ? cData : (cData.items || cData.data || []));
 
+      const allUsers = Array.isArray(allUsersRes) ? allUsersRes : (allUsersRes.items || allUsersRes.data || allUsersRes.users || []);
       const list = Array.isArray(members) ? members : (members.items || members.data || []);
       const map: Record<string, string> = {};
+
+      allUsers.forEach((u: any) => {
+        const id = String(u.user_id || u.id);
+        const name = u.full_name || u.name || u.first_name || u.username;
+        if (id && name) map[id] = name;
+      });
+
       list.forEach((m: any) => {
         const id = String(m.user_id || m.id);
         const name = m.full_name || m.name || m.first_name || m.username;
@@ -93,7 +103,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
         try {
           const { boqService } = await import("../../services/boqService");
           const boqItem = await boqService.getBoqById(Number(boqId));
-          if (boqItem) setBoqName(boqItem.item_name || boqItem.name || `BOQ ${boqId}`);
+          if (boqItem) setBoqName(boqItem.item_name || (boqItem as any).name || `BOQ ${boqId}`);
         } catch { /* ignore */ }
       }
 
@@ -135,18 +145,76 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
 
   const selectedTask = taskDetails;
 
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+
+  const fetchComments = useCallback(async () => {
+    setIsLoadingComments(true);
+    try {
+      const cData = await projectService.getTaskComments(task.project_id, task.id);
+      const list = Array.isArray(cData)
+        ? cData
+        : (cData?.items || cData?.data || cData?.comments || []);
+      setComments(list);
+    } catch (error) {
+      console.error("Failed to fetch comments:", error);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  }, [task.project_id, task.id]);
+
+  // Refresh comments every time the Comments tab is opened
+  useEffect(() => {
+    if (modalTab === "Comments") {
+      fetchComments();
+    }
+  }, [modalTab, fetchComments]);
+
+  // Dynamically resolve missing user names from comments
+  useEffect(() => {
+    const missingIds = comments
+      .map(c => c.author_user_id)
+      .filter(id => id && !userMap[String(id)] && id !== 1);
+
+    if (missingIds.length === 0) return;
+
+    const uniqueMissingIds = Array.from(new Set(missingIds));
+
+    const fetchMissingUsers = async () => {
+      try {
+        const fetchedUsers = await Promise.all(
+          uniqueMissingIds.map(id => userService.getUserById(id).catch(() => null))
+        );
+
+        setUserMap(prev => {
+          const newMap = { ...prev };
+          fetchedUsers.forEach(u => {
+            if (u) {
+              const id = String(u.user_id || u.id);
+              const name = u.full_name || u.name || u.first_name || u.username;
+              if (id && name) newMap[id] = name;
+            }
+          });
+          return newMap;
+        });
+      } catch (error) {
+        console.error("Failed to fetch missing users:", error);
+      }
+    };
+
+    fetchMissingUsers();
+  }, [comments]);
+
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim() && !commentAttachment) return;
     setIsSubmitting(true);
     try {
-      // Assuming a more complete projectService exists for attachments, falling back to text if not
       await projectService.createTaskComment(task.project_id, task.id, { content: newComment });
       setNewComment("");
       setCommentAttachment(null);
       if (onAddComment) onAddComment(newComment);
       toast.success("Comment posted");
-      fetchData();
+      fetchComments(); // refresh comment list after posting
     } catch (error) {
       toast.error("Failed to post comment");
     } finally {
@@ -417,7 +485,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
               </div>
 
               <div className="flex-1 bg-[#F4F1E9] rounded-xl border border-slate-200 flex flex-col p-4 mb-4 overflow-y-auto custom-scrollbar">
-                {isFetchingDetails ? (
+                {isLoadingComments ? (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
                   </div>

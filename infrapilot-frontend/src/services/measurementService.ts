@@ -59,6 +59,20 @@ export const measurementService = {
   },
 
   /**
+   * Update only the status of a measurement
+   * PUT /api/v1/measurements/{id}/status
+   */
+  async updateMeasurementStatus(id: number, status: string): Promise<Measurement> {
+    try {
+      const response = await api.put(`/measurements/${id}/status`, { status });
+      return response.data;
+    } catch (error: any) {
+      console.error(`Update Measurement Status ${id} Error:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
    * Delete a measurement
    * DELETE /api/v1/measurements/{id}
    */

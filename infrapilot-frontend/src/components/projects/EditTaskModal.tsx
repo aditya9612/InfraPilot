@@ -36,6 +36,8 @@ const EditTaskModal = ({
     boq_id: "" as string | number,
     milestone_id: "" as string | number,
     activity_type_id: "" as string | number,
+    remove_audio: false,
+    remove_image: false,
   });
 
   const [boqItems, setBoqItems] = useState<BoqItem[]>([]);
@@ -70,6 +72,8 @@ const EditTaskModal = ({
         boq_id: task.boq_id ? String(task.boq_id) : "",
         milestone_id: task.milestone_id ? String(task.milestone_id) : "",
         activity_type_id: task.activity_type_id ? String(task.activity_type_id) : "",
+        remove_audio: false,
+        remove_image: false,
       });
       // Clear files/recordings when task changes
       setAudioBlob(null);
@@ -209,6 +213,9 @@ const EditTaskModal = ({
         if (formData.milestone_id) form.append("milestone_id", String(formData.milestone_id));
         if (formData.activity_type_id) form.append("activity_type_id", String(formData.activity_type_id));
 
+        form.append("remove_audio", String(formData.remove_audio));
+        form.append("remove_image", String(formData.remove_image));
+
         if (audioBlob) form.append("audio_file", audioBlob, "recording.webm");
         else if (audioFile) form.append("audio_file", audioFile);
 
@@ -240,6 +247,8 @@ const EditTaskModal = ({
           engineer_id: Number(formData.assigned_user_id),
           assigned_to: Number(formData.assigned_user_id),
           user_id: Number(formData.assigned_user_id),
+          remove_audio: formData.remove_audio,
+          remove_image: formData.remove_image,
         };
       }
 
@@ -335,7 +344,9 @@ const EditTaskModal = ({
 
                 {!isRecording && !audioBlob && (task?.audio_file || task?.audio_instruction_url) && (
                   <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
-                    <audio preload="none" controls src={getFullImageUrl(task?.audio_file || (task as any)?.audio_instruction_url || "")} className="h-8 max-w-[200px] w-full" />
+                    {!formData.remove_audio && (
+                      <audio preload="none" controls src={getFullImageUrl(task?.audio_file || (task as any)?.audio_instruction_url || "")} className="h-8 max-w-[200px] w-full" />
+                    )}
                     <span className="text-xs text-slate-600 font-medium whitespace-nowrap">Existing Audio</span>
                   </div>
                 )}
@@ -347,6 +358,18 @@ const EditTaskModal = ({
               <div className="mt-2">
                 <input type="file" accept="audio/*" onChange={(e) => setAudioFile(e.target.files?.[0] || null)} className="w-full text-xs font-inter file:bg-slate-100 file:border-0 file:rounded-lg file:px-3 file:py-1.5 file:mr-3 border border-slate-200 rounded-lg p-1 outline-none" />
               </div>
+              {/* remove_audio flag */}
+              {(task?.audio_file || task?.audio_instruction_url) && (
+                <label className="mt-2 flex items-center gap-2 cursor-pointer select-none w-fit">
+                  <input
+                    type="checkbox"
+                    checked={formData.remove_audio}
+                    onChange={(e) => setFormData({ ...formData, remove_audio: e.target.checked })}
+                    className="w-4 h-4 rounded accent-rose-500 cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-rose-500">Remove existing audio</span>
+                </label>
+              )}
             </div>
 
             <div>
@@ -355,7 +378,9 @@ const EditTaskModal = ({
               </label>
               {(task?.instruction_image || (task as any)?.instruction_image_url) && (
                 <div className="mb-3 flex items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                  <img src={getFullImageUrl(task?.instruction_image || (task as any)?.instruction_image_url)} alt="Existing Instruction" className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200 shrink-0" />
+                  {!formData.remove_image && (
+                    <img src={getFullImageUrl(task?.instruction_image || (task as any)?.instruction_image_url)} alt="Existing Instruction" className="h-16 w-16 object-cover rounded shadow-sm border border-slate-200 shrink-0" />
+                  )}
                   <div className="flex-1">
                     <span className="text-sm text-slate-600 font-medium">Existing Image</span>
                   </div>
@@ -368,6 +393,18 @@ const EditTaskModal = ({
                 onChange={(e) => setInstructionImage(e.target.files?.[0] || null)}
                 className="w-full px-4 py-2 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all file:bg-slate-100 file:border-0 file:rounded-lg file:px-3 file:py-1 file:mr-4 font-inter"
               />
+              {/* remove_image flag */}
+              {(task?.instruction_image || (task as any)?.instruction_image_url) && (
+                <label className="mt-2 flex items-center gap-2 cursor-pointer select-none w-fit">
+                  <input
+                    type="checkbox"
+                    checked={formData.remove_image}
+                    onChange={(e) => setFormData({ ...formData, remove_image: e.target.checked })}
+                    className="w-4 h-4 rounded accent-rose-500 cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-rose-500">Remove existing image</span>
+                </label>
+              )}
             </div>
 
             <div>

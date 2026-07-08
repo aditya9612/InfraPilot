@@ -80,6 +80,7 @@ const DocumentsPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [uploaderName, setUploaderName] = useState<string>("");
+  const [overallTotalDocs, setOverallTotalDocs] = useState<number | null>(null);
 
   const PAGE_SIZE = 10;
 
@@ -96,48 +97,62 @@ const DocumentsPage = () => {
     fetchProjects();
   }, []);
 
+  /**
+   * Fetches all documents by paginating through the API (max limit=100 per the backend).
+   * Returns the flat list of all items and the total count from meta.
+   */
+  const fetchAllDocuments = async (params: {
+    search?: string;
+    parent_id?: number | null;
+    project_id?: number | null;
+  }): Promise<{ items: any[]; total: number }> => {
+    const BATCH = 100;
+    let offset = 0;
+    let total = 0;
+    const allItems: any[] = [];
+
+    while (true) {
+      const res = await documentService.listDocuments({ ...params, limit: BATCH, offset }) as any;
+      const items: any[] = Array.isArray(res) ? res : (res.items || res.data || []);
+      const meta = res.meta;
+      if (offset === 0 && meta?.total !== undefined) total = meta.total;
+      allItems.push(...items);
+      if (items.length < BATCH) break; // last page
+      offset += BATCH;
+    }
+
+    return { items: allItems, total };
+  };
+
   const fetchDocs = useCallback(async (query = "", folderId = currentFolderId) => {
     setIsLoading(true);
     try {
-      const promises: Promise<any>[] = [
-        documentService.listDocuments({
+      // Fetch all documents (paginated) + stats + drawings in parallel
+      const [docResult, statsData, apiDrawings] = await Promise.all([
+        fetchAllDocuments({
           search: query,
           parent_id: folderId,
           ...(selectedProjectId ? { project_id: selectedProjectId } : {})
         }),
-        documentService.getStats()
-      ];
+        documentService.getStats().catch(() => null),
+        // At root level on Drawings tab, also fetch specialized drawings
+        (folderId === null && mainTab === "Drawings" && selectedProjectId)
+          ? drawingService.getVersions(selectedProjectId).catch(() => [])
+          : Promise.resolve([])
+      ]);
 
-      // At root level, fetch specialized drawings for selected project. 
-      // Note: We deliberately do not fetch for ALL projects simultaneously to avoid N+1 API request flooding.
-      if (folderId === null && mainTab === "Drawings") {
-        if (selectedProjectId) {
-          promises.push(drawingService.getVersions(selectedProjectId));
-        }
-      }
+      // Update overall total from meta
+      if (docResult.total > 0) setOverallTotalDocs(docResult.total);
 
-      const results = await Promise.allSettled(promises);
+      // Map standard Documents
+      const mappedDocs = docResult.items.map((d: any) => ({
+        ...d,
+        type: d.is_folder ? "Folder" : "Document",
+        display_name: d.title
+      }));
 
-      const docRes = results[0].status === 'fulfilled' ? results[0].value : { items: [] };
-      const statsData = results[1].status === 'fulfilled' ? results[1].value : null;
-      let apiDrawings: any[] = [];
-
-      if (results[2] && results[2].status === 'fulfilled') {
-        apiDrawings = results[2].value;
-      }
-
-      const docItems = Array.isArray(docRes) ? docRes : (docRes.items || docRes.data || []);
-
-      // Map Documents (standard) — API already scopes by parent_id, no client-side re-filter needed
-      const mappedDocs = docItems
-        .map((d: any) => ({
-          ...d,
-          type: d.is_folder ? "Folder" : "Document",
-          display_name: d.title
-        }));
-
-      // Map specialized Drawings
-      const mappedDrawings = apiDrawings.map((d: any) => ({
+      // Map specialized Drawings from drawing service
+      const mappedDrawings = (apiDrawings as any[]).map((d: any) => ({
         ...d,
         id: d.id,
         title: d.drawing_name,
@@ -151,11 +166,10 @@ const DocumentsPage = () => {
 
       const combined = [...mappedDrawings, ...mappedDocs];
 
-      // Filter by search query only (type/tab filtering is handled in filteredDocuments useMemo)
-      const filtered = combined.filter(item => {
-        if (query && !item.display_name.toLowerCase().includes(query.toLowerCase())) return false;
-        return true;
-      });
+      // Client-side search filter (type/tab filtering is in the filteredDocuments useMemo)
+      const filtered = query
+        ? combined.filter(item => (item.display_name || "").toLowerCase().includes(query.toLowerCase()))
+        : combined;
 
       setDocuments(filtered);
       if (statsData) setStats(statsData);
@@ -165,7 +179,7 @@ const DocumentsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentFolderId, selectedProjectId, typeFilter, projects, mainTab]);
+  }, [currentFolderId, selectedProjectId, projects, mainTab]);
 
   useEffect(() => {
     fetchDocs(searchTerm);
@@ -361,9 +375,11 @@ const DocumentsPage = () => {
 
     // Main tab: Drawings vs Documents
     if (mainTab === "Drawings") {
-      data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() === "drawing");
+      // Show only drawing-type items and folders
+      data = data.filter(d => d.is_folder || (d as any).type === "Drawing" || (d.document_type || "").toLowerCase() === "drawing");
     } else {
-      data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() !== "drawing");
+      // Show only non-drawing items (documents and folders)
+      data = data.filter(d => d.is_folder || ((d as any).type !== "Drawing" && (d.document_type || "").toLowerCase() !== "drawing"));
     }
 
     // Sub-tab: All, Documents (non-folders), Folders
@@ -485,7 +501,13 @@ const DocumentsPage = () => {
           <StatCard
             title="Total Documents"
             icon={<FileText className="w-5 h-5 text-emerald-500" />}
-            value={stats ? stats.total_documents.toString() : "..."}
+            value={
+              overallTotalDocs !== null
+                ? overallTotalDocs.toString()
+                : stats
+                  ? stats.total_documents.toString()
+                  : "..."
+            }
             sub="Total files in repository"
             accent="text-emerald-500"
           />
@@ -526,11 +548,10 @@ const DocumentsPage = () => {
               <select
                 value={typeFilter}
                 onChange={e => { setTypeFilter(e.target.value as TypeFilter); setCategoryFilter(""); }}
-                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${
-                  typeFilter !== "All"
-                    ? "bg-primary/10 border-primary/30 text-primary"
-                    : "bg-slate-50 border-slate-200 text-slate-600"
-                }`}
+                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${typeFilter !== "All"
+                  ? "bg-primary/10 border-primary/30 text-primary"
+                  : "bg-slate-50 border-slate-200 text-slate-600"
+                  }`}
               >
                 <option value="All">All</option>
                 <option value="Documents">{mainTab === "Drawings" ? "Drawings" : "Documents"}</option>
@@ -690,7 +711,7 @@ const DocumentsPage = () => {
           {/* Pagination */}
           <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between flex-wrap gap-3">
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Showing {documents.length > 0 ? currentPage * PAGE_SIZE + 1 : 0}–{Math.min((currentPage + 1) * PAGE_SIZE, documents.length)} of {documents.length} records
+              Showing {filteredDocuments.length > 0 ? currentPage * PAGE_SIZE + 1 : 0}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredDocuments.length)} of {filteredDocuments.length} records
             </p>
             <div className="flex items-center gap-1.5">
               <button

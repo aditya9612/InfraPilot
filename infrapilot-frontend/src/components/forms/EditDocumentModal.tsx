@@ -93,18 +93,67 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Core Document Identity</h3>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Document Title <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                required
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
-                                value={formData.title}
-                                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                            />
-                        </div>
+
+                        {!document.is_folder && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className={`space-y-1.5 ${formData.document_type === "Drawing" ? "col-span-2" : ""}`}>
+                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                        Version <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="e.g. 1.0"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
+                                        value={formData.version || ""}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                                    />
+                                </div>
+
+                                {formData.document_type !== "Drawing" && (
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                            Update File
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="file"
+                                                id="edit-file-upload"
+                                                className="hidden"
+                                                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                            />
+                                            <label
+                                                htmlFor="edit-file-upload"
+                                                className="flex items-center justify-between w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer hover:bg-slate-100 transition-all"
+                                            >
+                                                <span className="text-slate-500 font-bold truncate max-w-[120px]">
+                                                    {selectedFile ? selectedFile.name : "Choose file..."}
+                                                </span>
+                                                <div className="bg-amber-500 text-white p-1 rounded-lg transition-transform active:scale-95">
+                                                    <Save size={14} strokeWidth={3} />
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {formData.document_type === "Drawing" && (
+
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Document Title <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
+                                    value={formData.title}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                                />
+                            </div>
+                        )}
 
                         {!document.is_folder && (
                             <>

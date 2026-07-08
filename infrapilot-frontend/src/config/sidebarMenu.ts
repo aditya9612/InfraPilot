@@ -100,6 +100,11 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
           path: "/admin/inventory/stock",
           icon: "box",
         },
+        {
+          label: "Equipment Management",
+          path: "/admin/equipment",
+          icon: "tool",
+        },
       ],
     },
     {
