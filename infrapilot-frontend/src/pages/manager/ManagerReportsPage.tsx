@@ -200,8 +200,8 @@ const ManagerReportsPage = () => {
                     break;
                 case "issues":
                     blob = format === "PDF"
-                        ? await reportService.exportIssuePDF(pid)
-                        : await reportService.exportIssueExcel(pid);
+                        ? await reportService.exportIssuePDF({ project_id: pid })
+                        : await reportService.exportIssueExcel({ project_id: pid });
                     break;
                 case "assets":
                     blob = format === "PDF"
