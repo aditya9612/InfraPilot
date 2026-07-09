@@ -108,7 +108,7 @@ const ProjectManagersPage = () => {
                     is_active: u.is_active,
                     designation: u.designation || "Project Manager",
                     pan_number: u.pan_number || "",
-                    aadhaar_number: u.aadhaar_number || "",
+                    aadhaar_number: u.aadhaar_number || u.aadhar_number || "",
                     joiningDate: u.joining_date,
                     joining_date: u.joining_date,
                     profile_image: u.profile_image,

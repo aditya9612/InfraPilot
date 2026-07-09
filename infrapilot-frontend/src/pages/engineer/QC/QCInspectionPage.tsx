@@ -1080,45 +1080,45 @@ const QCInspectionPage = () => {
                             <div className="font-inter">
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">project_id</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Project</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate">{selectedQc.project_id ? (projects.find(p => Number(p.id) === Number(selectedQc.project_id))?.project_name || projects.find(p => Number(p.id) === Number(selectedQc.project_id))?.name || `Project #${selectedQc.project_id}`) : 'N/A'}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">task_id</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getTaskName(selectedQc.task_id as number)}>{getTaskName(selectedQc.task_id as number)}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">dsr_id</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getDsrName(selectedQc.dsr_id as number)}>{getDsrName(selectedQc.dsr_id as number)}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">inspection_type</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Inspection Type</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.inspection_type}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">test_type</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Test Type</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.test_type}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">result</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Result</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.result}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">standard_value</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Standard Value</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.standard_value}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">status</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Status</p>
                                         <p className={`text-sm font-bold font-inter ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
                                             {selectedQc.status}
                                         </p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">engineer_name</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Engineer Name</p>
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.engineer_name}>{selectedQc.engineer_name || 'N/A'}</p>
                                     </div>
                                     <div className="font-inter col-span-2">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">remarks</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remarks</p>
                                         <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks || 'null'}</p>
                                     </div>
                                 </div>

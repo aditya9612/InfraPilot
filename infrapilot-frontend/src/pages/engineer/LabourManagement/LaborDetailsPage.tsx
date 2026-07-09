@@ -13,12 +13,16 @@ import {
     Filter,
     Building2,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    FileSpreadsheet,
+    FileDown,
+    X
 } from "lucide-react";
 
 import { labourService } from "../../../services/labourService";
 import { projectService } from "../../../services/projectService";
 import { masterService } from "../../../services/masterService";
+import { reportService } from "../../../services/reportService";
 import type { LabourItem } from "../../../types/labour";
 
 const initialFormData = {
@@ -98,6 +102,44 @@ const LaborDetailsPage = () => {
     const [assignSelectedProjectId, setAssignSelectedProjectId] = useState<number | "">("");
     const [isAssigning, setIsAssigning] = useState(false);
     const [projectAssignmentFilter, setProjectAssignmentFilter] = useState<string>("All");
+
+    // Export States
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportModalType, setExportModalType] = useState<'excel' | 'pdf' | null>(null);
+    const [distDate, setDistDate] = useState("");
+    const [distSkill, setDistSkill] = useState("");
+
+    const handleExportDistribution = async (format: 'excel' | 'pdf') => {
+        setIsExporting(true);
+        const toastId = toast.loading(`Generating Distribution ${format.toUpperCase()}...`);
+        try {
+            const params: any = { project_id: projectId };
+            if (distDate) params.date = distDate;
+            if (distSkill) params.skill_category = distSkill;
+            
+            let blob;
+            if (format === 'excel') {
+                blob = await reportService.exportLabourExcel(params);
+            } else {
+                blob = await reportService.exportLabourPDF(params);
+            }
+            
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Labour_Distribution_${projectId}.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success(`${format.toUpperCase()} report exported!`, { id: toastId });
+            setExportModalType(null);
+        } catch (err: any) {
+            console.error("Export failed:", err);
+            toast.error("Export failed", { id: toastId });
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -487,13 +529,37 @@ const LaborDetailsPage = () => {
                             Centralized database of site workforce, performance metrics and compliance.
                         </p>
                     </div>
-                    <button
-                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Create Labour
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                        <button
+                            onClick={() => {
+                                setDistDate("");
+                                setDistSkill("");
+                                setExportModalType('excel');
+                            }}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95"
+                        >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Distribution Excel
+                        </button>
+                        <button
+                            onClick={() => {
+                                setDistDate("");
+                                setDistSkill("");
+                                setExportModalType('pdf');
+                            }}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-sm font-bold shadow-sm hover:bg-rose-100 transition-all active:scale-95"
+                        >
+                            <FileDown className="w-4 h-4" />
+                            Distribution PDF
+                        </button>
+                        <button
+                            onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Create Labour
+                        </button>
+                    </div>
                 </div>
 
                 {/* ─── Summary Stats ─────────────────────────────────────────────────── */}
@@ -537,7 +603,7 @@ const LaborDetailsPage = () => {
                     ))}
                 </div>
 
-                {/* â”€â”€ Main Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* ── Main Container ── */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -592,7 +658,6 @@ const LaborDetailsPage = () => {
                                         <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Effective Daily Wage (₹)</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap text-right">Effective OT Rate (₹)</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Assigned Project</th>
-                                        <th className="px-4 py-4 font-inter whitespace-nowrap">Contractor Name</th>
                                         <th className="px-4 py-4 font-inter whitespace-nowrap">Status</th>
                                         <th className="px-4 py-4 text-right font-inter whitespace-nowrap">Actions</th>
                                     </tr>
@@ -657,10 +722,6 @@ const LaborDetailsPage = () => {
                                             <td className="px-4 py-4">
                                                 <span className={`text-xs font-bold font-inter ${getAssignedProjectName(labor) === 'Unassigned' ? 'text-slate-400' : 'text-primary'}`}>{getAssignedProjectName(labor)}</span>
                                             </td>
-                                            {/* contractor_name */}
-                                            <td className="px-4 py-4">
-                                                <span className="text-xs text-slate-500 font-inter">{labor.contractor_name || "—"}</span>
-                                            </td>
                                             {/* status */}
                                             <td className="px-4 py-4">
                                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest font-inter whitespace-nowrap ${labor.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
@@ -704,7 +765,7 @@ const LaborDetailsPage = () => {
                             </table>
                         )}
 
-                        {/* â”€â”€ Pagination Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                        {/* ── Pagination Controls ── */}
                         {!isLoading && filteredLaborers.length > 0 && (
                             <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                                 {/* Left: Items per page */}
@@ -789,7 +850,7 @@ const LaborDetailsPage = () => {
                 </div>
             </PageTransition>
 
-            {/* â”€â”€ Form Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── Form Modal ── */}
             <Modal
                 isOpen={isFormModalOpen}
                 onClose={() => setIsFormModalOpen(false)}
@@ -931,7 +992,7 @@ const LaborDetailsPage = () => {
                 </form>
             </Modal>
 
-            {/* —————————————————————————————————— Detail Modal —————————————————————————————————— */}
+            {/* ── Detail Modal ── */}
             <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Personnel Profile" maxWidth="max-w-2xl">
                 {selectedLaborer && (
                     <div className="p-6 font-inter">
@@ -1006,7 +1067,7 @@ const LaborDetailsPage = () => {
                 )}
             </Modal>
 
-            {/* ─── Assign Project Modal ──────────────────────────────────────────────────────── */}
+            {/* ── Assign Project Modal ── */}
             <Modal
                 isOpen={isAssignModalOpen}
                 onClose={() => setIsAssignModalOpen(false)}
@@ -1056,6 +1117,75 @@ const LaborDetailsPage = () => {
             </Modal>
 
             <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteConfirm} title="Remove Personnel Entry" message="Are you sure you want to delete this labor record?" confirmText="Confirm Deletion" type="danger" isLoading={isDeleting} />
+
+            {/* ── Beautiful Export Modal ─────────────────────────────────────────── */}
+            {exportModalType && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 font-inter relative">
+                        <button
+                            onClick={() => setExportModalType(null)}
+                            className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        
+                        <h2 className="text-xl font-bold text-slate-800">
+                            Export Labour Report to {exportModalType === 'excel' ? 'Excel' : 'PDF'}
+                        </h2>
+                        <p className="text-sm text-slate-400 mt-1 mb-6">
+                            Apply filters before downloading (all fields optional)
+                        </p>
+
+                        <div className="space-y-4 mb-8">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                                    Date
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="date"
+                                        value={distDate}
+                                        onChange={e => setDistDate(e.target.value)}
+                                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                                    Skill Category
+                                </label>
+                                <select
+                                    value={distSkill}
+                                    onChange={e => setDistSkill(e.target.value)}
+                                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                                >
+                                    <option value="">All Categories</option>
+                                    <option value="Skilled">Skilled</option>
+                                    <option value="Unskilled">Unskilled</option>
+                                    <option value="Semi-Skilled">Semi-Skilled</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => { setDistDate(""); setDistSkill(""); }}
+                                className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50 transition-colors"
+                            >
+                                Clear Filters
+                            </button>
+                            <button
+                                onClick={() => handleExportDistribution(exportModalType)}
+                                disabled={isExporting}
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-60"
+                            >
+                                {exportModalType === 'excel' ? <FileSpreadsheet className="w-4 h-4" /> : <FileDown className="w-4 h-4" />}
+                                Download {exportModalType === 'excel' ? 'Excel' : 'PDF'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 };

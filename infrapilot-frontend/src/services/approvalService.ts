@@ -40,7 +40,8 @@ export const approvalService = {
     },
 
     async createApproval(data: CreateApprovalRequest) {
-        return api.post("/approvals", data).then(r => r.data).catch(() => ({ success: true, message: "Request queued internally" }));
+        const response = await api.post("/approvals", data);
+        return response.data;
     },
 
     async approve(id: number | string, remarks: string) {

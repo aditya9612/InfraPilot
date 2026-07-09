@@ -10,6 +10,7 @@ import { Eye, Edit2, Trash2 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import { userService } from "../../services/userService";
 import type { User, UserRole } from "../../types/user";
+import { getFullImageUrl } from "../../utils/imageUtils";
 
 
 const ClientsPage = () => {
@@ -45,7 +46,7 @@ const ClientsPage = () => {
           mobile: u.mobile_number,
           project: u.address || "No Project Linked",
           status: u.is_active ? "Active" : "Inactive",
-          profile_image: (u as any).profile_image || (u as any).avatar || null,
+          profile_image: getFullImageUrl((u as any).profile_image || (u as any).avatar),
           pan_number: (u as any).pan_number || (u as any).pan || "—",
           aadhar_number: (u as any).aadhar_number || (u as any).aadhar || "—",
           joining_date: (u as any).joining_date || (u as any).created_at || null,
@@ -103,6 +104,7 @@ const ClientsPage = () => {
       };
 
       if (!editingClient && data.password) (userData as any).password = data.password;
+      if (data.profile_image instanceof File) (userData as any).profile_image = data.profile_image;
 
       if (editingClient) {
         await userService.updateUser(editingClient.id, userData);

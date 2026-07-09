@@ -14,12 +14,17 @@ import {
     RotateCcw,
     Briefcase,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    FileDown,
+    FileText
 } from "lucide-react";
 
 import { issueService } from "../../../services/issueService";
+import { reportService } from "../../../services/reportService";
 import { projectService } from "../../../services/projectService";
 import type { IssueItem } from "../../../types/issue";
+import IssueFilterModal from "../../../components/dashboard/IssueFilterModal";
+import type { IssueFilterSelection } from "../../../components/dashboard/IssueFilterModal";
 
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -60,8 +65,13 @@ const IssueTrackerPage = () => {
     const [projects, setProjects] = useState<any[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [isExporting, setIsExporting] = useState(false);
+    
+    // Export Modal State
+    const [isIssueFilterOpen, setIsIssueFilterOpen] = useState(false);
+    const [issueFilterFormat, setIssueFilterFormat] = useState<"PDF" | "Excel">("PDF");
 
-    // Interactive StatCard Filter
+    // Filter states StatCard Filter
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Pending" | "High" | "Resolved">("All");
 
     // Modal State
@@ -111,6 +121,49 @@ const IssueTrackerPage = () => {
         };
         initializeProject();
     }, []);
+
+    const openExportModal = (type: 'pdf' | 'excel') => {
+        if (!projectId) {
+            toast.error("Please select a project first.");
+            return;
+        }
+        setIssueFilterFormat(type === 'pdf' ? "PDF" : "Excel");
+        setIsIssueFilterOpen(true);
+    };
+
+    const handleIssueFilterConfirm = async (filters: IssueFilterSelection) => {
+        setIsIssueFilterOpen(false);
+        setIsExporting(true);
+        const t = toast.loading(`Generating ${issueFilterFormat}...`);
+        try {
+            if (issueFilterFormat === 'PDF') {
+                const blob = await reportService.exportIssuesPdf(projectId!, filters);
+                const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', 'issue_report.pdf');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } else {
+                const blob = await reportService.exportIssuesExcel(projectId!, filters);
+                const url = URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', 'issue_report.xlsx');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
+            toast.success("Download started", { id: t });
+        } catch (e) {
+            toast.error("Export failed", { id: t });
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     const fetchIssues = useCallback(async () => {
         if (!projectId) return;
@@ -231,6 +284,12 @@ const IssueTrackerPage = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        <button onClick={() => openExportModal('pdf')} disabled={isExporting} className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 hover:bg-rose-100 disabled:opacity-50 rounded-xl text-sm font-bold transition-all border border-rose-100 shadow-sm">
+                            <FileDown className="w-4 h-4" /> PDF Report
+                        </button>
+                        <button onClick={() => openExportModal('excel')} disabled={isExporting} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50 rounded-xl text-sm font-bold transition-all border border-emerald-100 shadow-sm">
+                            <FileText className="w-4 h-4" /> Excel Sheet
+                        </button>
                         <button
                             onClick={() => {
                                 setFormMode("create");
@@ -558,6 +617,16 @@ const IssueTrackerPage = () => {
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Description</p>
                                         <div className="p-5 bg-slate-50 rounded-xl border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed shadow-inner">"{selectedIssue.description}"</div>
                                     </div>
+                                    <div className="col-span-1 sm:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Assigned To</p>
+                                            <p className="text-sm font-bold text-slate-800 uppercase tracking-widest">{selectedIssue.assigned_to ? `ID: ${selectedIssue.assigned_to}` : "Unassigned"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Resolution</p>
+                                            <p className="text-sm font-bold text-slate-800 uppercase tracking-widest">{selectedIssue.resolution || "Pending"}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div className="font-inter">
@@ -661,10 +730,14 @@ const IssueTrackerPage = () => {
                     </div>
                 </form>
             </Modal>
+            <IssueFilterModal
+                isOpen={isIssueFilterOpen}
+                onClose={() => setIsIssueFilterOpen(false)}
+                format={issueFilterFormat}
+                onConfirm={handleIssueFilterConfirm}
+            />
         </>
     );
 };
 
 export default IssueTrackerPage;
-
-

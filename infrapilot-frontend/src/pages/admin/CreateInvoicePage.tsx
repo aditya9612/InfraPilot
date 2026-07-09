@@ -42,6 +42,7 @@ import type { Quotation } from "../../types/quotation";
 
 interface InvoiceItem {
   id: string;
+  item_type?: string;
   description: string;
   unit: string;
   quantity: number;
@@ -213,7 +214,12 @@ const CreateInvoicePage = () => {
         ...prev,
         plum: { ...prev.plum, cuft, m3 }
       }));
-      updateItem("2", "quantity", m3);
+      // Find plum item by item_type or fall back to id="2"
+      setItems(prev => prev.map(item =>
+        (item.item_type === "plum_concrete" || item.id === "2")
+          ? { ...item, quantity: m3, amount: Number((m3 * item.rate).toFixed(2)) }
+          : item
+      ));
     }
   }, [measurementData.plum.l, measurementData.plum.w, measurementData.plum.h]);
 
@@ -221,15 +227,20 @@ const CreateInvoicePage = () => {
   useEffect(() => {
     const totalCuft = measurementData.stone.reduce((sum, s) => sum + (s.l * s.w * s.h), 0);
     const brass = Number((totalCuft / 100).toFixed(2));
-    updateItem("3", "quantity", brass);
+    // Find stone item by item_type or fall back to id="3"
+    setItems(prev => prev.map(item =>
+      (item.item_type === "stone_work" || item.id === "3")
+        ? { ...item, quantity: brass, amount: Number((brass * item.rate).toFixed(2)) }
+        : item
+    ));
   }, [measurementData.stone]);
 
   useEffect(() => {
     // Auto-populate from project list when selectedProjectId changes.
-    if (selectedProjectId !== 0) {
+    // Skip when editing an existing quotation (id is set) — data already loaded from API.
+    if (selectedProjectId !== 0 && !id) {
       const selectedProject = projects.find(p => p.id === selectedProjectId);
       if (selectedProject) {
-        console.log("Auto-populating from project:", selectedProject);
         setProjectDetails({
           name: selectedProject.project_name || "",
           type: (selectedProject as any).project_type || selectedProject.type || "Commercial",
@@ -250,7 +261,6 @@ const CreateInvoicePage = () => {
         if (selectedProject.owner_id) {
           const fetchClient = async () => {
             try {
-              toast.loading("Fetching client details...", { id: "client-fetch" });
               const u = await userService.getUserById(selectedProject.owner_id);
               if (u) {
                 setClientDetails({
@@ -261,18 +271,18 @@ const CreateInvoicePage = () => {
                   address: u.address || "",
                   gst: u.pan_number || ""
                 });
-                toast.success("Client details populated!", { id: "client-fetch" });
               }
-            } catch (error) {
-              console.error("Failed to auto-populate client details from project owner", error);
-              toast.error("Failed to fetch client details", { id: "client-fetch" });
+            } catch (error: any) {
+              if (error?.response?.status !== 404) {
+                console.error("Failed to auto-populate client details from project owner", error);
+              }
             }
           };
           fetchClient();
         }
       }
     }
-  }, [selectedProjectId, projects]);
+  }, [selectedProjectId, projects, id]);
 
   // Pre-populate project from URL if provided
   useEffect(() => {
@@ -370,8 +380,8 @@ const CreateInvoicePage = () => {
           });
 
           // Restore Notes, Terms and Timeline
-          setNotes(q.notes || "");
-          setTerms(q.terms_conditions || "");
+          setNotes((q as any).notes || (q as any).quotation_notes || (q as any).remarks || "");
+          setTerms(q.terms_conditions || (q as any).terms || "");
           setProjectStartEnd({
             start: q.project_start_date || "",
             end: q.project_end_date || ""
@@ -394,6 +404,7 @@ const CreateInvoicePage = () => {
           if (q.items && q.items.length > 0) {
             const mappedItems = q.items.map(item => ({
               id: String(item.id),
+              item_type: item.item_type || "",
               description: item.description || item.title || "",
               unit: item.unit || "",
               quantity: item.quantity || 0,
@@ -1571,8 +1582,12 @@ const CreateInvoicePage = () => {
                           <span className="text-xs font-black text-slate-800">Quantity (Brass)</span>
                           <input
                             type="number"
-                            value={items.find(i => i.id === "1")?.quantity || 0}
-                            onChange={(e) => updateItem("1", "quantity", parseFloat(e.target.value))}
+                            value={items[0]?.quantity || 0}
+                            onChange={(e) => {
+                              if (items[0]) {
+                                updateItem(items[0].id, "quantity", parseFloat(e.target.value) || 0);
+                              }
+                            }}
                             readOnly={isReadOnly}
                             className={`w-24 px-2 py-1 bg-slate-100 rounded-lg text-xs font-black text-slate-800 text-right outline-none focus:ring-2 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           />

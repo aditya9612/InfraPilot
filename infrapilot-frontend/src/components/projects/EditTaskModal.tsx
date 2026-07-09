@@ -58,16 +58,42 @@ const EditTaskModal = ({
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [instructionImage, setInstructionImage] = useState<File | null>(null);
 
+  const PRIORITY_LABEL_MAP: Record<string, number> = {
+    CRITICAL: 1, HIGH: 2, MEDIUM: 3, LOW: 4,
+    Critical: 1, High: 2, Medium: 3, Low: 4,
+  };
+
+  const sanitizePriority = (p: any): number => {
+    if (typeof p === 'number' && !isNaN(p)) return p;
+    if (typeof p === 'string') {
+      const asNum = parseInt(p);
+      if (!isNaN(asNum)) return asNum;
+      return PRIORITY_LABEL_MAP[p] ?? 4; // default to Low (4)
+    }
+    return 4;
+  };
+
   useEffect(() => {
     if (task) {
+      // Resolve assigned_user_id — may come from assigned_user_id or first entry in assigned_users
+      const resolvedUserId = (() => {
+        if (task.assigned_user_id) return task.assigned_user_id;
+        const users = (task as any).assigned_users;
+        if (Array.isArray(users) && users.length > 0) {
+          const u = users[0];
+          return typeof u === 'object' ? (u.user_id || u.id) : u;
+        }
+        return "";
+      })();
+
       setFormData({
         title: task.title,
         description: task.description,
-        priority: task.priority,
+        priority: sanitizePriority(task.priority),
         status: task.status,
         start_date: task.start_date,
         end_date: task.end_date,
-        assigned_user_id: task.assigned_user_id || "",
+        assigned_user_id: resolvedUserId,
         completion_percentage: task.completion_percentage,
         boq_id: task.boq_id ? String(task.boq_id) : "",
         milestone_id: task.milestone_id ? String(task.milestone_id) : "",
@@ -160,7 +186,7 @@ const EditTaskModal = ({
     setFormData((prev) => ({
       ...prev,
       [name]: ["priority", "assigned_user_id", "completion_percentage", "boq_id", "milestone_id", "activity_type_id"].includes(name)
-        ? (value ? parseInt(value) : "")
+        ? (value ? (name === "priority" ? sanitizePriority(value) : parseInt(value)) : "")
         : value,
     }));
     if (errors[name]) {
@@ -200,12 +226,11 @@ const EditTaskModal = ({
         form.append("project_id", String(task.project_id));
         form.append("title", formData.title);
         form.append("description", formData.description);
-        form.append("priority", String(formData.priority));
+        form.append("priority", String(sanitizePriority(formData.priority)));
         form.append("status", formData.status);
         form.append("start_date", formData.start_date);
         form.append("end_date", formData.end_date);
         form.append("assigned_user_id", String(formData.assigned_user_id));
-        form.append("assigned_users", JSON.stringify([formData.assigned_user_id]));
         form.append("completion_percentage", String(formData.completion_percentage));
         form.append("percentage", String(formData.completion_percentage));
 
@@ -232,12 +257,11 @@ const EditTaskModal = ({
           project_id: task.project_id,
           title: formData.title,
           description: formData.description,
-          priority: Number(formData.priority),
+          priority: sanitizePriority(formData.priority),
           status: formData.status,
           start_date: formData.start_date,
           end_date: formData.end_date,
-          assigned_user_id: Number(formData.assigned_user_id),
-          assigned_users: [Number(formData.assigned_user_id)],
+          assigned_user_id: formData.assigned_user_id ? Number(formData.assigned_user_id) : null,
           completion_percentage: Number(formData.completion_percentage),
           percentage: Number(formData.completion_percentage),
           boq_id: formData.boq_id ? Number(formData.boq_id) : null,
@@ -504,7 +528,8 @@ const EditTaskModal = ({
                   name="assigned_user_id"
                   value={formData.assigned_user_id}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-pointer"
+                  disabled
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all appearance-none cursor-not-allowed opacity-70"
                 >
                   <option value="">Select User</option>
                   {members.map((m) => (

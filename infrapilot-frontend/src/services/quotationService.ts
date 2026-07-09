@@ -291,7 +291,7 @@ export const quotationService = {
      */
     async deleteLabourItem(itemId: number): Promise<void> {
         try {
-            await api.delete(`/api/v1/quotations/labour/${itemId}`);
+            await api.delete(`/quotations/labour/${itemId}`);
         } catch (error: any) {
             console.error(`Delete Quotation Labour Item ${itemId} Error:`, error.response?.data || error.message);
             throw error;

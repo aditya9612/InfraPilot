@@ -66,32 +66,8 @@ export const workProgressService = {
    * Create a new activity
    */
   async createActivity(data: CreateActivityRequest): Promise<ActivityItem> {
-    try {
-      const response = await api.post("/work-progress/activities", data);
-      return response.data.data || response.data;
-    } catch (error: any) {
-      console.warn("createActivity API error, using virtual success fallback:", error.message);
-      const newAct: ActivityItem = {
-        id: Math.floor(Math.random() * 1000) + 200,
-        project_id: data.project_id,
-        activity_name: data.activity_name,
-        planned_quantity: data.planned_quantity,
-        unit: data.unit,
-        start_date: data.start_date,
-        end_date: data.end_date,
-        engineer_id: data.engineer_id,
-        work_order_id: data.work_order_id ?? null,
-        boq_code: data.boq_code ?? null,
-        total_completed: 0,
-        remaining_quantity: data.planned_quantity,
-        completion_percentage: 0,
-        status: data.status || "Not Started",
-        created_at: new Date().toISOString()
-      };
-      mockActivities.unshift(newAct);
-      persistMockData();
-      return newAct;
-    }
+    const response = await api.post("/work-progress/activities", data);
+    return response.data.data || response.data;
   },
 
   /**
