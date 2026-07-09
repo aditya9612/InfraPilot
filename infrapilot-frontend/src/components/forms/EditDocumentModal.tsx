@@ -5,7 +5,7 @@ import type { Document, DocumentUpdateParams } from "../../types/document";
 interface EditDocumentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (id: number, data: DocumentUpdateParams) => Promise<void>;
+    onSubmit: (id: number, data: any) => Promise<void>;
     document: Document | null;
 }
 
@@ -22,6 +22,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         remarks: "",
         status: "PENDING",
         version: "1.0",
+        date: new Date().toISOString().split('T')[0],
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -33,6 +34,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                 remarks: document.remarks || "",
                 status: document.status || "PENDING",
                 version: document.version || "1.0",
+                date: (document as any).date || (document.uploaded_at ? document.uploaded_at.split('T')[0] : new Date().toISOString().split('T')[0]),
             });
             setSelectedFile(null);
         }
@@ -46,12 +48,21 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
         setIsSubmitting(true);
         try {
-            const data: any = { ...formData };
             if (selectedFile) {
-                data.file = selectedFile;
+                const fd = new FormData();
+                fd.append("title", formData.title || "");
+                fd.append("document_type", formData.document_type || "");
+                fd.append("remarks", formData.remarks || "");
+                fd.append("status", formData.status || "");
+                fd.append("version", formData.version || "");
+                if (formData.date) {
+                    fd.append("date", formData.date);
+                }
+                fd.append("file", selectedFile);
+                await onSubmit(document.id, fd);
+            } else {
+                await onSubmit(document.id, formData);
             }
-
-            await onSubmit(document.id, data);
             onClose();
         } catch (error) {
             console.error("Update Error:", error);
@@ -93,67 +104,18 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                             <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Core Document Identity</h3>
                         </div>
 
-
-                        {!document.is_folder && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className={`space-y-1.5 ${formData.document_type === "Drawing" ? "col-span-2" : ""}`}>
-                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                        Version <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        placeholder="e.g. 1.0"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
-                                        value={formData.version || ""}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
-                                    />
-                                </div>
-
-                                {formData.document_type !== "Drawing" && (
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                            Update File
-                                        </label>
-                                        <div className="relative">
-                                            <input
-                                                type="file"
-                                                id="edit-file-upload"
-                                                className="hidden"
-                                                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                            />
-                                            <label
-                                                htmlFor="edit-file-upload"
-                                                className="flex items-center justify-between w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer hover:bg-slate-100 transition-all"
-                                            >
-                                                <span className="text-slate-500 font-bold truncate max-w-[120px]">
-                                                    {selectedFile ? selectedFile.name : "Choose file..."}
-                                                </span>
-                                                <div className="bg-amber-500 text-white p-1 rounded-lg transition-transform active:scale-95">
-                                                    <Save size={14} strokeWidth={3} />
-                                                </div>
-                                            </label>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {formData.document_type === "Drawing" && (
-
-                            <div className="space-y-1.5">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                    Document Title <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold"
-                                    value={formData.title}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                                />
-                            </div>
-                        )}
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                {document.is_folder ? "Folder Name" : "Document Title"} <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
+                                value={formData.title}
+                                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                            />
+                        </div>
 
                         {!document.is_folder && (
                             <>
@@ -196,7 +158,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
+                                    <div className={`space-y-1.5 ${formData.document_type === "Drawing" ? "col-span-1" : "col-span-1"}`}>
                                         <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                             Version <span className="text-rose-500">*</span>
                                         </label>
@@ -210,63 +172,91 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                         />
                                     </div>
 
-                                    <div className="space-y-1.5">
-                                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                            Update File
-                                        </label>
-                                        <input
-                                            type="file"
-                                            id="edit-file-upload"
-                                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-medium text-slate-600 cursor-pointer"
-                                            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                        />
-                                    </div>
+                                    {formData.document_type === "Drawing" ? (
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                                Engineering Release Date <span className="text-rose-500">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                required
+                                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-bold text-slate-800"
+                                                value={formData.date || ""}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                                Update File
+                                            </label>
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    id="edit-file-upload"
+                                                    className="hidden"
+                                                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                                />
+                                                <label
+                                                    htmlFor="edit-file-upload"
+                                                    className="flex items-center justify-between w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer hover:bg-slate-100 transition-all font-bold text-slate-800"
+                                                >
+                                                    <span className="text-slate-500 font-bold truncate max-w-[120px]">
+                                                        {selectedFile ? selectedFile.name : "Choose file..."}
+                                                    </span>
+                                                    <div className="bg-amber-500 text-white p-1 rounded-lg transition-transform active:scale-95">
+                                                        <Save size={14} strokeWidth={3} />
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         )}
-                    </div>
 
-                    <div className="space-y-4 pt-2">
-                        <div className="flex items-center gap-2 mb-2">
-                            <FileText className="w-4 h-4 text-amber-500" />
-                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Technical Specifications</h3>
+                        <div className="space-y-4 pt-2">
+                            <div className="flex items-center gap-2 mb-2">
+                                <FileText className="w-4 h-4 text-amber-500" />
+                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Technical Specifications</h3>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                    Remarks
+                                </label>
+                                <textarea
+                                    rows={3}
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-medium resize-none text-slate-800"
+                                    value={formData.remarks || ""}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                                />
+                            </div>
                         </div>
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                Remarks
-                            </label>
-                            <textarea
-                                rows={3}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 transition-all font-medium resize-none text-slate-800"
-                                value={formData.remarks || ""}
-                                onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-                            />
-                        </div>
-                    </div>
 
-                    <div className="pt-4 flex gap-4">
-                        <button
-                            type="button"
-                            disabled={isSubmitting}
-                            onClick={onClose}
-                            className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting || !formData.title}
-                            className="flex-[2] px-8 py-4 bg-amber-500 text-white rounded-2xl text-sm font-black shadow-xl shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                            {isSubmitting ? (
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            ) : (
-                                <>
-                                    <Save size={18} strokeWidth={3} />
-                                    Save Changes
-                                </>
-                            )}
-                        </button>
+                        <div className="pt-4 flex gap-4">
+                            <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={onClose}
+                                className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || !formData.title}
+                                className="flex-[2] px-8 py-4 bg-amber-500 text-white rounded-2xl text-sm font-black shadow-xl shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting ? (
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                ) : (
+                                    <>
+                                        <Save size={18} strokeWidth={3} />
+                                        Save Changes
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

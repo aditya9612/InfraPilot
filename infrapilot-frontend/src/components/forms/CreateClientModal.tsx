@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
 import { Eye, EyeOff, ShieldCheck, ShieldAlert, Shield } from "lucide-react";
+import { getFullImageUrl } from "../../utils/imageUtils";
 
 interface CreateClientModalProps {
   isOpen: boolean;
@@ -68,7 +69,7 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
           is_active: initialData.is_active ?? (initialData.status === "Active"),
           password: "",
         });
-        setPhotoUrl(initialData.profile_image || "");
+        setPhotoUrl(getFullImageUrl(initialData.profile_image) || "");
       } else {
         setFormData({
           user_id: 0,
@@ -432,24 +433,35 @@ const CreateClientModal: React.FC<CreateClientModalProps> = ({
               <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden flex-shrink-0 border-2 border-white shadow-sm">
                 {previewUrl ? (
                   <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                ) : photoUrl && !photoUrl.startsWith("blob:") ? (
+                ) : photoUrl ? (
                   <img src={photoUrl} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400">
+                  <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100">
                     <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
                 )}
               </div>
-              <input type="file" id="client-photo-upload" className="hidden" accept="image/*" onChange={handlePhotoChange} />
-              <button
-                type="button"
-                onClick={() => document.getElementById("client-photo-upload")?.click()}
-                className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-all"
-              >
-                {photoUrl || photo ? "Change Photo" : "Upload Photo"}
-              </button>
+              <div className="flex flex-col gap-2">
+                <input type="file" id="client-photo-upload" className="hidden" accept="image/*" onChange={handlePhotoChange} />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById("client-photo-upload")?.click()}
+                  className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-all"
+                >
+                  {photoUrl || photo ? "Change Photo" : "Upload Photo"}
+                </button>
+                {(previewUrl || photo) && (
+                  <button
+                    type="button"
+                    onClick={() => { setPhoto(null); setPreviewUrl(""); }}
+                    className="px-4 py-2 text-xs font-bold text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-100 transition-all"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

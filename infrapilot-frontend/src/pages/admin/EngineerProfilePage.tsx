@@ -7,8 +7,8 @@ import {
     Camera, Package, Wind, Droplets,
     Thermometer, Users, ChevronLeft, Calendar,
     TrendingUp, MapPin, Phone, Mail,
-    CreditCard, Fingerprint, FileText,
-    LayoutGrid, LayoutList
+    CreditCard, Fingerprint,
+    LayoutGrid, LayoutList, AlertTriangle
 } from "lucide-react";
 import { userService } from "../../services/userService";
 import { dsrService } from "../../services/dsrService";
@@ -28,11 +28,16 @@ const EngineerProfilePage: React.FC = () => {
     const [engineer, setEngineer] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [dsrData, setDsrData] = useState<any[]>([]);
+    const [dsrPage, setDsrPage] = useState(0);
+    const DSR_PAGE_SIZE = 10;
+    const [materialPage, setMaterialPage] = useState(0);
+    const MATERIAL_PAGE_SIZE = 10;
     const [materialLogs, setMaterialLogs] = useState<any[]>([]);
     const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
     const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
     const [engineerData, setEngineerData] = useState<any>(null);
     const [sitePhotos, setSitePhotos] = useState<any[]>([]);
+    const [issueAnalytics, setIssueAnalytics] = useState<{ total_reports: number; reports_with_issues: number } | null>(null);
     const [vitals, setVitals] = useState<any>({
         total_labour_today: 0,
         skilled_labour: 0,
@@ -141,12 +146,30 @@ const EngineerProfilePage: React.FC = () => {
                     labourService.getAttendanceList(activeProjectId, today, today).catch(() => ({ items: [] })),
                     issueService.listIssuesByProject(activeProjectId, { limit: 1000 }).catch(() => ({ items: [] })),
                     expenseService.getExpensesByProject(activeProjectId).catch(() => []),
-                    dsrService.getDsrByProject(activeProjectId).catch(() => ({ items: [] as any[] })),
+                    dsrService.getDsrByProject(activeProjectId, { limit: 100, offset: 0 }).catch(() => ({ items: [] as any[] })),
                     sitePhotoService.getPhotos({ project_id: activeProjectId, limit: 20 }).catch(() => ({ items: [] as any[] }))
                 ]);
 
+                // Fetch issue analytics separately (non-blocking)
+                dsrService.getIssueAnalytics(activeProjectId).then(setIssueAnalytics).catch(() => setIssueAnalytics(null));
+
                 const dsrsList = (dsrsRes as any)?.items || [];
-                const latestDsr = dsrsList[0];
+                const dsrTotal = (dsrsRes as any)?.total || dsrsList.length;
+                let allDsrs = [...dsrsList];
+
+                // Fetch remaining pages if total > 100
+                if (dsrTotal > 100) {
+                    const extraPages = Math.ceil((dsrTotal - 100) / 100);
+                    const extraRequests = Array.from({ length: extraPages }, (_, i) =>
+                        dsrService.getDsrByProject(activeProjectId, { limit: 100, offset: (i + 1) * 100 }).catch(() => ({ items: [] }))
+                    );
+                    const extraResults = await Promise.all(extraRequests);
+                    extraResults.forEach(r => {
+                        allDsrs = allDsrs.concat((r as any)?.items || []);
+                    });
+                }
+
+                const latestDsr = allDsrs[0];
 
                 const attendance = (attendanceRes as any)?.items || (Array.isArray(attendanceRes) ? attendanceRes : []);
 
@@ -181,7 +204,7 @@ const EngineerProfilePage: React.FC = () => {
                 const expenses = Array.isArray(expensesRes) ? expensesRes : ((expensesRes as any)?.items || []);
                 const totalExpenses = (expenses as any[]).reduce((sum: number, e: any) => sum + (e.amount || e.total_amount || 0), 0);
 
-                const mlRes = await materialService.getLogs({ project_id: activeProjectId, limit: 10 }).catch(() => []);
+                const mlRes = await materialService.getLogs({ project_id: activeProjectId, limit: 100 }).catch(() => []);
                 setMaterialLogs(Array.isArray(mlRes) ? mlRes : []);
 
                 setVitals({
@@ -207,13 +230,15 @@ const EngineerProfilePage: React.FC = () => {
                     setLiveWeather(prev => ({ ...prev, condition: "Cloudy", temperature: 28 }));
                 }
 
-                // Using dsrsList directly for data state
-                setDsrData(dsrsList);
+                // Using allDsrs for data state
+                setDsrData(allDsrs);
+                setDsrPage(0);
+                setMaterialPage(0);
                 setSitePhotos((photos as any)?.items || []);
 
                 const u = engineerData;
                 const activeProject = assignedProjects.find(p => p.id === activeProjectId);
-                const activeTask = activeActivities[0]?.activity_name || dsrsList[0]?.work_done?.split('.')[0] || "Site Supervision";
+                const activeTask = activeActivities[0]?.activity_name || allDsrs[0]?.work_done?.split('.')[0] || "Site Supervision";
 
                 setEngineer({
                     id: u.user_id,
@@ -232,7 +257,7 @@ const EngineerProfilePage: React.FC = () => {
                     status: u.is_active ? "On Site" : "Leave",
                     specialization: u.designation || "Site Engineer",
                     pan_number: u.pan_number || "NOT_SET",
-                    aadhaar_number: u.aadhaar_number || "NOT_SET",
+                    aadhaar_number: u.aadhaar_number || u.aadhar_number || u.aadhaar || u.aadhar || "NOT_SET",
                     lastDsr: latestDsr?.report_date || u.updated_at || new Date().toISOString(),
                     laborCount: activeLabourCount,
                     activeTask,
@@ -398,299 +423,298 @@ const EngineerProfilePage: React.FC = () => {
 
 
 
-    const handleExportProjectDsrExcel = () => {
-        if (!activeProjectId) return;
-        const toastId = toast.loading("Compiling DSR Registry Excel...");
-        dsrService.exportDsrExcel(activeProjectId)
-            .then(() => toast.success("DSR Registry Exported!", { id: toastId }))
-            .catch(() => toast.error("Excel Export Failed", { id: toastId }));
-    };
-
-    const handleExportIndividualDsrPdf = (dsrId: number) => {
-        const toastId = toast.loading("Generating DSR PDF...");
-        dsrService.exportDsrPdf(dsrId)
-            .then(() => toast.success("DSR Report Downloaded!", { id: toastId }))
-            .catch(() => toast.error("PDF Export Failed", { id: toastId }));
-    };
-
     return (
         <>
-            <Navbar
-                title="Engineer Intelligence"
-                breadcrumb={["Admin", "Staff", engineer.name]}
-            />
+            <Navbar title="Engineer Intelligence" breadcrumb={["Admin", "Staff", engineer.name]} />
+            <PageTransition className="bg-slate-100 min-h-screen">
 
-            <PageTransition className="p-6 md:p-10 bg-slate-50 min-h-screen">
-                {/* Back Button & Header Actions */}
-                <div className="flex items-center justify-between mb-8">
-                    <button
-                        onClick={() => navigate("/admin/engineers")}
-                        className="flex items-center gap-2 text-slate-500 hover:text-primary transition-all font-bold text-sm bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm"
-                    >
-                        <ChevronLeft className="w-4 h-4" /> Back to Staff Force
-                    </button>
-
-                    <div className="flex gap-4">
-                        <button
-                            onClick={handleExport}
-                            className="px-5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 transition-all"
-                        >
-                            Export Site Report
+                {/* ── Hero Header ───────────────────────────────────────── */}
+                <div className="bg-gradient-to-r from-indigo-900 via-blue-900 to-slate-900 px-6 md:px-10 pt-8 pb-0 relative overflow-hidden -mt-20 pt-[calc(5rem+2rem)]">
+                    <div className="absolute inset-0 opacity-10">
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full translate-y-1/2 -translate-x-1/4" />
+                    </div>
+                    <div className="relative z-10">
+                        <button onClick={() => navigate("/admin/engineers")}
+                            className="flex items-center gap-2 text-white/70 hover:text-white transition-colors font-bold text-sm mb-6">
+                            <ChevronLeft className="w-4 h-4" /> Back to Staff Force
                         </button>
-
+                        <div className="flex flex-col md:flex-row md:items-end gap-6 pb-8">
+                            <div className="w-24 h-24 rounded-2xl bg-white/20 border-4 border-white/30 shadow-2xl overflow-hidden shrink-0">
+                                {engineerData?.profile_image ? (
+                                    <img src={getFullImageUrl(engineerData.profile_image)} alt={engineer.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-white text-3xl font-black">{engineer.name.charAt(0)}</div>
+                                )}
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                    <span className="px-2.5 py-1 bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-lg">{engineer.status}</span>
+                                    {engineer.experience && <span className="px-2.5 py-1 bg-white/10 text-white/70 text-[10px] font-bold uppercase tracking-widest rounded-lg">{engineer.experience} Exp</span>}
+                                </div>
+                                <h1 className="text-3xl font-black text-white tracking-tight">{engineer.name}</h1>
+                                <p className="text-white/60 text-sm font-semibold mt-1">{engineer.specialization}</p>
+                            </div>
+                            <button onClick={handleExport}
+                                className="shrink-0 px-5 py-2.5 bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all active:scale-95">
+                                Export Site Report
+                            </button>
+                        </div>
+                        {/* 4-stat strip */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/10 rounded-t-2xl overflow-hidden">
+                            {[
+                                { label: "Labour Today", value: vitals.total_labour_today, icon: <Users className="w-4 h-4" />, color: "text-white" },
+                                { label: "Active Tasks",  value: vitals.active_activities,  icon: <TrendingUp className="w-4 h-4" />, color: "text-emerald-300" },
+                                { label: "Open Issues",   value: vitals.open_issues?.total ?? 0, icon: <AlertTriangle className="w-4 h-4" />, color: "text-amber-300" },
+                                { label: "Progress",      value: `${vitals.progress}%`,     icon: <Camera className="w-4 h-4" />, color: "text-blue-200" },
+                            ].map(s => (
+                                <div key={s.label} className="bg-white/10 px-5 py-4 flex items-center gap-3">
+                                    <span className={s.color}>{s.icon}</span>
+                                    <div>
+                                        <p className="text-white/50 text-[9px] font-black uppercase tracking-widest">{s.label}</p>
+                                        <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
-
-                <div className="flex flex-col xl:flex-row gap-8 items-start">
-                    {/* ── Left Column: Profile Card & Vitals ─────────────────────── */}
-                    <div className="w-full xl:w-[340px] shrink-0 space-y-8">
-                        {/* Executive Profile Card */}
-                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-
-                            <div className="flex flex-col items-center text-center space-y-4 relative z-10">
-                                <div className="w-32 h-32 rounded-[2.5rem] bg-slate-900 flex items-center justify-center text-white text-4xl font-black shadow-2xl border-4 border-white overflow-hidden">
-                                    {engineerData?.profile_image ? (
-                                        <img src={getFullImageUrl(engineerData.profile_image)} alt={engineer.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        engineer.name.charAt(0)
-                                    )}
+                {/* ── Main Content ────────────────────────────────────── */}
+                <div className="p-6 md:p-10 grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-8 items-start bg-slate-100">
+                    {/* LEFT SIDEBAR */}
+                    <div className="space-y-5">
+                        {/* Contact card */}
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact Information</h3>
+                            <ContactItem icon={<Phone className="w-4 h-4" />} label="Mobile" value={engineer.mobile} />
+                            <ContactItem icon={<Mail className="w-4 h-4" />} label="Email" value={engineer.email} />
+                            <ContactItem icon={<MapPin className="w-4 h-4" />} label="Deployed At" value={engineer.projects} />
+                            <ContactItem icon={<Calendar className="w-4 h-4" />} label="Joining Date" value={engineer.joiningDate} />
+                            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-50">
+                                <ContactItem icon={<CreditCard className="w-4 h-4" />} label="PAN" value={engineer.pan_number} />
+                                <ContactItem icon={<Fingerprint className="w-4 h-4" />} label="Aadhaar" value={engineer.aadhaar_number} />
+                            </div>
+                        </div>
+                        {/* Weather card */}
+                        <div className="bg-slate-900 rounded-2xl p-5 text-white relative overflow-hidden">
+                            <div className="absolute bottom-0 right-0 w-28 h-28 bg-primary/30 rounded-full blur-2xl -mb-14 -mr-14" />
+                            <h3 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-4">Site Weather</h3>
+                            <div className="grid grid-cols-2 gap-4 relative z-10 mb-4">
+                                <div>
+                                    <div className="flex items-center gap-1.5 text-amber-400 mb-1">
+                                        <Thermometer className="w-3.5 h-3.5" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Temp</span>
+                                    </div>
+                                    <p className="text-2xl font-black">{liveWeather.temperature}°C</p>
                                 </div>
                                 <div>
-                                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">{engineer.name}</h2>
-                                    <p className="text-primary font-bold text-xs uppercase tracking-[0.2em] mt-1">{engineer.specialization}</p>
-                                </div>
-
-                                <div className="flex gap-2 pt-2">
-                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100">
-                                        {engineer.status}
-                                    </span>
-                                    {engineer.experience && (
-                                        <span className="px-3 py-1 bg-slate-50 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-100">
-                                            {engineer.experience} Exp
-                                        </span>
-                                    )}
+                                    <div className="flex items-center gap-1.5 text-blue-400 mb-1">
+                                        <Droplets className="w-3.5 h-3.5" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Humidity</span>
+                                    </div>
+                                    <p className="text-2xl font-black">{liveWeather.humidity}%</p>
                                 </div>
                             </div>
-
-                            {/* Quick Contacts */}
-                            <div className="mt-8 space-y-4 pt-8 border-t border-slate-50">
-                                <ContactItem icon={<Phone className="w-4 h-4" />} label="Mobile" value={engineer.mobile} />
-                                <ContactItem icon={<Mail className="w-4 h-4" />} label="Official Email" value={engineer.email} />
-                                <div className="flex items-center justify-between group cursor-pointer" onClick={() => activeProjectId && window.open(`/admin/projects/${activeProjectId}`, '_blank')}>
-                                    <ContactItem icon={<MapPin className="w-4 h-4" />} label="Deployment(s)" value={engineer.projects} />
-                                    {activeProjectId && <div className="text-[9px] font-bold text-primary group-hover:underline">View Active</div>}
+                            <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Wind className="w-4 h-4 text-slate-400" />
+                                    <span className="text-sm font-bold">{liveWeather.windSpeed} km/h</span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <ContactItem icon={<CreditCard className="w-4 h-4" />} label="PAN ID" value={engineer.pan_number} />
-                                    <ContactItem icon={<Fingerprint className="w-4 h-4" />} label="Aadhaar" value={engineer.aadhaar_number} />
-                                </div>
-                                <ContactItem icon={<Calendar className="w-4 h-4" />} label="Joining Date" value={engineer.joiningDate} />
+                                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">{liveWeather.condition}</span>
                             </div>
                         </div>
 
-                        {/* Site Environment Snapshot */}
-                        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
-                            <div className="absolute bottom-0 right-0 w-48 h-48 bg-primary/20 rounded-full blur-3xl -mb-24 -mr-24" />
-                            <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-6">Site Environments</h4>
-
-                            <div className="grid grid-cols-2 gap-8 relative z-10">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2 text-amber-400">
-                                        <Thermometer className="w-4 h-4" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Temperature</span>
-                                    </div>
-                                    <p className="text-3xl font-black">{liveWeather.temperature}°C</p>
+                        {/* Labour card */}
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                    <Users className="w-4 h-4" />
                                 </div>
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2 text-blue-400">
-                                        <Droplets className="w-4 h-4" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Humidity</span>
-                                    </div>
-                                    <p className="text-3xl font-black">{liveWeather.humidity}%</p>
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-800">Labour Density</h3>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total: {vitals.total_labour_today}</p>
                                 </div>
                             </div>
-
-                            <div className="mt-8 p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <Wind className="w-5 h-5 text-slate-400" />
-                                    <div>
-                                        <p className="text-[9px] font-black text-white/40 uppercase tracking-tighter">Wind Speed</p>
-                                        <p className="text-sm font-bold">{liveWeather.windSpeed} km/h</p>
-                                    </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-primary/5 rounded-xl text-center">
+                                    <p className="text-2xl font-black text-primary">{vitals.skilled_labour}</p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Skilled</p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-[9px] font-black text-white/40 uppercase tracking-tighter">Conditions</p>
-                                    <p className="text-sm font-bold text-emerald-400">Favorable</p>
+                                <div className="p-3 bg-slate-50 rounded-xl text-center">
+                                    <p className="text-2xl font-black text-slate-600">{vitals.unskilled_labour}</p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Helpers</p>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    {/* ── Right Column: Site Intelligence Feed ────────────────────── */}
-                    <div className="flex-1 min-w-0 flex flex-col gap-8">
-                        {/* Force Distribution & Active Task */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-                                <div className="flex items-center gap-3 mb-6">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                                        <Users className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Labour Density</h4>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total: {vitals.total_labour_today} Staff</p>
-                                    </div>
+                        {/* Issue Analytics */}
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-8 h-8 rounded-xl bg-rose-100 flex items-center justify-center text-rose-500">
+                                    <AlertTriangle className="w-4 h-4" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-4 bg-slate-50 rounded-2xl text-center">
-                                        <p className="text-xl font-black text-primary">
-                                            {vitals.skilled_labour}
-                                        </p>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Skilled Staff</p>
-                                    </div>
-                                    <div className="p-4 bg-slate-50 rounded-2xl text-center">
-                                        <p className="text-xl font-black text-slate-600">
-                                            {vitals.unskilled_labour}
-                                        </p>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Helpers</p>
-                                    </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-800">Issue Analytics</h3>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">DSR Summary</p>
                                 </div>
                             </div>
-
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col justify-between">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
-                                        <TrendingUp className="w-5 h-5" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-slate-50 rounded-xl text-center">
+                                    <p className="text-2xl font-black text-slate-800">{issueAnalytics ? issueAnalytics.total_reports : vitals.open_issues?.total ?? 0}</p>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Reports</p>
+                                </div>
+                                <div className="p-3 bg-rose-50 rounded-xl text-center">
+                                    <p className="text-2xl font-black text-rose-600">{issueAnalytics ? issueAnalytics.reports_with_issues : vitals.open_issues?.high_priority ?? 0}</p>
+                                    <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mt-1">With Issues</p>
+                                </div>
+                            </div>
+                            {issueAnalytics && issueAnalytics.total_reports > 0 && (
+                                <div className="mt-3 pt-3 border-t border-slate-100">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Issue Rate</span>
+                                        <span className="text-[10px] font-black text-rose-500">{Math.round((issueAnalytics.reports_with_issues / issueAnalytics.total_reports) * 100)}%</span>
                                     </div>
-                                    <div>
-                                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Live Supervision</h4>
-                                        <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest animate-pulse">Session Active</p>
+                                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-rose-400 rounded-full transition-all duration-700" style={{ width: `${Math.round((issueAnalytics.reports_with_issues / issueAnalytics.total_reports) * 100)}%` }} />
                                     </div>
                                 </div>
-                                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
-                                    <p className="text-sm font-bold text-slate-700">{engineer.activeTask}</p>
+                            )}
+                        </div>
+                        {/* Active task */}
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
+                                    <TrendingUp className="w-4 h-4" />
                                 </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-800">Live Supervision</h3>
+                                    <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest animate-pulse">Session Active</p>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                <p className="text-sm font-bold text-slate-700">{engineer.activeTask}</p>
                             </div>
                         </div>
+                    </div>{/* end LEFT SIDEBAR */}
 
-                        {/* Site Mirror Experience */}
-                        <div className="flex-1 bg-white rounded-[3rem] shadow-sm border border-slate-100 flex flex-col overflow-hidden min-h-[600px]">
-                            {/* Mirror Navigation */}
-                            <div className="px-8 pt-8 flex items-start justify-between border-b border-slate-50 pb-0 shrink-0 flex-nowrap gap-4">
-                                <div className="flex items-start gap-6 flex-nowrap min-w-0">
-                                    <div className="flex gap-6 flex-nowrap shrink-0">
-                                        <MirrorTab
-                                            active={mirrorFilter === "photos"}
-                                            onClick={() => setMirrorFilter("photos")}
-                                            label="Site Photos"
-                                            count={sitePhotos.length + dsrData.filter(d => d.dsr_image).length}
-                                        />
-                                        <MirrorTab
-                                            active={mirrorFilter === "materials"}
-                                            onClick={() => setMirrorFilter("materials")}
-                                            label="Material Log"
-                                        />
-                                        <MirrorTab
-                                            active={mirrorFilter === "dsr"}
-                                            onClick={() => setMirrorFilter("dsr")}
-                                            label="Daily Reports"
-                                        />
-                                    </div>
-
-                                    {mirrorFilter === "dsr" && (
-                                        <></>
-                                    )}
-
-                                    {assignedProjects.length > 1 && (
-                                        <div className="flex items-center gap-2 pl-8 border-l border-slate-100 self-start pt-1">
-                                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Active Site:</span>
-                                            <select
-                                                className="bg-slate-50 border-none text-[10px] font-black text-primary uppercase tracking-tight rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-slate-100 transition-colors"
-                                                value={activeProjectId || ""}
-                                                onChange={(e) => setActiveProjectId(Number(e.target.value))}
-                                            >
-                                                {assignedProjects.map(p => (
-                                                    <option key={p.id} value={p.id}>{p.project_name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-                                </div>
-                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] whitespace-nowrap shrink-0 pt-1">
-                                    {assignedProjects.length > 1 ? "Multi-Project Sync" : "Live Site Mirror"}
-                                </span>
+                    {/* RIGHT MAIN PANEL */}
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 7rem)', position: 'sticky', top: '1rem' }}>
+                        {/* Tab Bar */}
+                        <div className="px-6 pt-5 pb-0 flex items-center justify-between border-b border-slate-100 flex-wrap gap-3">
+                            <div className="flex gap-1">
+                                {[
+                                    { key: "photos",    label: "Site Photos",   count: sitePhotos.length + dsrData.filter(d => d.dsr_image).length },
+                                    { key: "materials", label: "Material Log",  count: undefined },
+                                    { key: "dsr",       label: "Daily Reports", count: dsrData.length },
+                                ].map(tab => (
+                                    <button key={tab.key} onClick={() => setMirrorFilter(tab.key as any)}
+                                        className={`relative px-4 py-3 text-xs font-black uppercase tracking-widest rounded-t-xl transition-all flex items-center gap-2 ${
+                                            mirrorFilter === tab.key ? "bg-primary text-white" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                                        }`}>
+                                        {tab.label}
+                                        {tab.count !== undefined && tab.count > 0 && (
+                                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${mirrorFilter === tab.key ? "bg-white/20 text-white" : "bg-slate-100 text-slate-400"}`}>{tab.count}</span>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
+                            {assignedProjects.length > 1 && (
+                                <div className="flex items-center gap-2 pb-2">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Active Site:</span>
+                                    <select className="bg-slate-50 border border-slate-200 text-xs font-bold text-primary rounded-lg px-3 py-1.5 outline-none cursor-pointer hover:bg-slate-100"
+                                        value={activeProjectId || ""} onChange={(e) => setActiveProjectId(Number(e.target.value))}>
+                                        {assignedProjects.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
 
-                            <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-                                {mirrorFilter === "photos" && (() => {
-                                    // Merge sitePhotoService photos + DSR images
-                                    const dsrPhotos = dsrData
-                                        .filter(d => d.dsr_image)
-                                        .map((d: any) => ({
-                                            url: sitePhotoService.resolveUrl(d.dsr_image),
-                                            caption: d.report_date,
-                                            sub: d.work_done
-                                        }));
-                                    const spPhotos = sitePhotos.map((p: any) => ({
-                                        url: sitePhotoService.resolveUrl(p.url || p.photo_url),
-                                        caption: p.date || p.activity_tag || "Site Photo",
-                                        sub: p.description || p.location_tag || ""
-                                    }));
-                                    const allPhotos = [...spPhotos, ...dsrPhotos];
-                                    return (
-                                        <PhotoGallery photos={allPhotos} />
-                                    );
-                                })()}
+                        {/* Tab Content */}
+                        <div className="flex-1 overflow-hidden p-6 flex flex-col min-h-0">
+                            {mirrorFilter === "photos" && (() => {
+                                const dsrPhotos = dsrData.filter(d => d.dsr_image).map((d: any) => ({
+                                    url: sitePhotoService.resolveUrl(d.dsr_image), caption: d.report_date, sub: d.work_done
+                                }));
+                                const spPhotos = sitePhotos.map((p: any) => ({
+                                    url: sitePhotoService.resolveUrl(p.url || p.photo_url),
+                                    caption: p.date || p.activity_tag || "Site Photo",
+                                    sub: p.description || p.location_tag || ""
+                                }));
+                                return <div className="flex-1 overflow-y-auto"><PhotoGallery photos={[...spPhotos, ...dsrPhotos]} /></div>;
+                            })()}
 
-                                {mirrorFilter === "materials" && (
-                                    <div className="space-y-4">
-                                        {materialLogs.length > 0 ? (
-                                            materialLogs.map((log, i) => (
-                                                <div key={i} className="p-6 bg-slate-50 rounded-3xl flex items-center justify-between hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all border border-transparent hover:border-slate-100 group">
-                                                    <div className="flex items-center gap-6">
-                                                        <div className={`w-14 h-14 rounded-2xl ${log.type === "IN" ? "bg-emerald-500" : "bg-blue-500"}/10 flex items-center justify-center text-${log.type === "IN" ? "emerald" : "blue"}-600 group-hover:scale-110 transition-transform`}>
-                                                            <Package className="w-7 h-7" />
+                            {mirrorFilter === "materials" && (() => {
+                                const totalMatPages = Math.ceil(materialLogs.length / MATERIAL_PAGE_SIZE);
+                                const pagedMats = materialLogs.slice(materialPage * MATERIAL_PAGE_SIZE, (materialPage + 1) * MATERIAL_PAGE_SIZE);
+                                return (
+                                    <div className="flex flex-col h-full">
+                                        {/* Scrollable list */}
+                                        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                                            {materialLogs.length > 0 ? pagedMats.map((log, i) => (
+                                                <div key={log.id || i} className="p-4 bg-slate-50 rounded-xl flex items-center justify-between hover:bg-white hover:shadow-sm transition-all border border-transparent hover:border-slate-100">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${(log.type || "").toUpperCase() === "IN" ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"}`}>
+                                                            <Package className="w-5 h-5" />
                                                         </div>
                                                         <div>
-                                                            <p className="text-base font-black text-slate-800">{log.material_name}</p>
-                                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-tight mt-0.5">{log.type === "IN" ? "Receipt" : "Consumption"} | {new Date(log.created_at).toLocaleString()}</p>
+                                                            <p className="text-sm font-black text-slate-800">{log.material_name || `Material #${log.material_id}`}</p>
+                                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mt-0.5">{log.issue_type || log.type || "CONSUMPTION"} · {new Date(log.created_at).toLocaleString()}</p>
+                                                            {log.total_amount > 0 && <p className="text-[10px] text-slate-400">₹{log.total_amount?.toLocaleString("en-IN")}</p>}
                                                         </div>
                                                     </div>
-                                                    <p className="text-xl font-black text-slate-800">{log.quantity} {log.unit || "units"}</p>
+                                                    <div className="text-right shrink-0">
+                                                        <p className={`text-base font-black ${(log.type || "").toUpperCase() === "IN" ? "text-emerald-600" : "text-blue-600"}`}>
+                                                            {(log.type || "").toUpperCase() === "IN" ? "+" : ""}{log.quantity} units
+                                                        </p>
+                                                        {log.payment_pending > 0 && <p className="text-[10px] text-amber-500 font-bold">₹{log.payment_pending?.toLocaleString("en-IN")} pending</p>}
+                                                    </div>
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-center py-10 text-slate-400 font-bold uppercase tracking-widest text-xs">No material logs found</div>
+                                            )) : (
+                                                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                                                    <Package className="w-10 h-10 mb-3 opacity-30" />
+                                                    <p className="font-bold uppercase tracking-widest text-xs">No material logs found</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {/* Always-visible pagination footer */}
+                                        {totalMatPages > 1 && (
+                                            <div className="shrink-0 pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{materialPage * MATERIAL_PAGE_SIZE + 1}–{Math.min((materialPage + 1) * MATERIAL_PAGE_SIZE, materialLogs.length)} of {materialLogs.length} logs</p>
+                                                <div className="flex items-center gap-1.5">
+                                                    <button onClick={() => setMaterialPage(p => Math.max(0, p - 1))} disabled={materialPage === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed">
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                                                    </button>
+                                                    {Array.from({ length: totalMatPages }, (_, i) => i).slice(Math.max(0, materialPage - 2), Math.min(totalMatPages, materialPage + 3)).map(p => (
+                                                        <button key={p} onClick={() => setMaterialPage(p)} className={`w-7 h-7 flex items-center justify-center rounded-lg text-[11px] font-bold transition-all ${materialPage === p ? "bg-primary text-white shadow-sm" : "border border-slate-200 text-slate-500 hover:bg-slate-50"}`}>{p + 1}</button>
+                                                    ))}
+                                                    <button onClick={() => setMaterialPage(p => Math.min(totalMatPages - 1, p + 1))} disabled={materialPage >= totalMatPages - 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed">
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
-                                )}
+                                );
+                            })()}
 
-                                {mirrorFilter === "dsr" && (
-                                    <div className="space-y-10 relative pl-4">
-                                        <div className="absolute top-0 bottom-0 left-4 w-0.5 bg-slate-100" />
-                                        {dsrData.length > 0 ? (
-                                            dsrData.slice(0, 5).map((dsr, i) => (
-                                                <div key={i} className={`relative pl-10 border-l-4 ${i === 0 ? "border-primary" : "border-slate-300"} py-2`}>
-                                                    <div className="absolute top-4 -left-[10px] w-4 h-4 rounded-full bg-white border-4 border-slate-200" />
-                                                    <div className="flex justify-between items-start mb-4">
-                                                        <div>
-                                                            <h5 className="text-lg font-black text-slate-800 tracking-tight">{dsr.work_done?.split('.')[0] || "Site Activity"}</h5>
-                                                            <div className="flex items-center gap-3 mt-1">
-                                                                <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{dsr.status || "Submitted"}</span>
-                                                                <button
-                                                                    onClick={() => handleExportIndividualDsrPdf(dsr.id)}
-                                                                    className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors px-2 py-0.5 bg-slate-50 rounded border border-slate-100"
-                                                                    title="Download PDF Report"
-                                                                >
-                                                                    <FileText className="w-3 h-3" />
-                                                                    PDF
-                                                                </button>
-                                                            </div>
+                            {mirrorFilter === "dsr" && (() => {
+                                const totalDsrPages = Math.ceil(dsrData.length / DSR_PAGE_SIZE);
+                                const pagedDsrs = dsrData.slice(dsrPage * DSR_PAGE_SIZE, (dsrPage + 1) * DSR_PAGE_SIZE);
+                                return (
+                                    <div className="flex flex-col h-full">
+                                        {/* Scrollable DSR list */}
+                                        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                                            {dsrData.length > 0 ? pagedDsrs.map((dsr, i) => (
+                                                <div key={dsr.id || i} className="bg-slate-50 rounded-xl border border-slate-100 overflow-hidden hover:shadow-sm transition-all">
+                                                    <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`w-2 h-2 rounded-full shrink-0 ${dsr.status === "Submitted" ? "bg-primary" : dsr.status === "Approved" ? "bg-emerald-500" : "bg-amber-400"}`} />
+                                                            <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{dsr.status || "Submitted"}</span>
                                                         </div>
-                                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{new Date(dsr.report_date).toLocaleDateString()}</span>
+                                                        <span className="text-[11px] font-bold text-slate-400">{new Date(dsr.report_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
                                                     </div>
-                                                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                                                        <p className="text-sm text-slate-600 leading-relaxed font-medium">{dsr.work_done}</p>
+                                                    <div className="px-5 py-4">
+                                                        <p className="text-sm font-bold text-slate-800 mb-1">{dsr.work_done?.split('.')[0] || "Site Activity"}</p>
+                                                        <p className="text-xs text-slate-500 leading-relaxed">{dsr.work_done}</p>
                                                         {dsr.issues && (
                                                             <div className="mt-3 pt-3 border-t border-slate-200">
                                                                 <p className="text-[9px] font-black text-rose-500 uppercase tracking-widest mb-1">Issue Reported</p>
@@ -699,16 +723,33 @@ const EngineerProfilePage: React.FC = () => {
                                                         )}
                                                     </div>
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-center py-10 text-slate-400 font-bold uppercase tracking-widest text-xs">No daily reports found</div>
+                                            )) : (
+                                                <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest text-xs">No daily reports found</div>
+                                            )}
+                                        </div>
+                                        {/* Always-visible pagination footer */}
+                                        {totalDsrPages > 1 && (
+                                            <div className="shrink-0 pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{dsrPage * DSR_PAGE_SIZE + 1}–{Math.min((dsrPage + 1) * DSR_PAGE_SIZE, dsrData.length)} of {dsrData.length} reports</p>
+                                                <div className="flex items-center gap-1.5">
+                                                    <button onClick={() => setDsrPage(p => Math.max(0, p - 1))} disabled={dsrPage === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed">
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                                                    </button>
+                                                    {Array.from({ length: totalDsrPages }, (_, i) => i).slice(Math.max(0, dsrPage - 2), Math.min(totalDsrPages, dsrPage + 3)).map(p => (
+                                                        <button key={p} onClick={() => setDsrPage(p)} className={`w-7 h-7 flex items-center justify-center rounded-lg text-[11px] font-bold transition-all ${dsrPage === p ? "bg-primary text-white shadow-sm" : "border border-slate-200 text-slate-500 hover:bg-slate-50"}`}>{p + 1}</button>
+                                                    ))}
+                                                    <button onClick={() => setDsrPage(p => Math.min(totalDsrPages - 1, p + 1))} disabled={dsrPage >= totalDsrPages - 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed">
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
-                                )}
-                            </div>
+                                );
+                            })()}
                         </div>
-                    </div>
-                </div>
+                    </div>{/* end RIGHT MAIN PANEL */}
+                </div>{/* end grid */}
             </PageTransition>
         </>
     );
@@ -857,22 +898,5 @@ const PhotoGallery: React.FC<{ photos: { url: string | null; caption: string; su
         </>
     );
 };
-
-const MirrorTab: React.FC<{ active: boolean; onClick: () => void; label: string; count?: number }> = ({ active, onClick, label, count }) => (
-    <button
-        onClick={onClick}
-        className={`relative pb-6 transition-all group ${active ? "text-primary" : "text-slate-400 hover:text-slate-600"}`}
-    >
-        <div className="flex items-center gap-2">
-            <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap">{label}</span>
-            {count && (
-                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${active ? "bg-primary text-white" : "bg-slate-100 text-slate-400"}`}>
-                    {count}
-                </span>
-            )}
-        </div>
-        {active && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-full" />}
-    </button>
-);
 
 export default EngineerProfilePage;

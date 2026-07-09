@@ -21,7 +21,10 @@ import CreateTaskModal from "../../components/projects/CreateTaskModal";
 import TaskListView from "../../components/projects/TaskListView";
 import EditTaskModal from "../../components/projects/EditTaskModal";
 import TaskDetailsModal from "../../components/projects/TaskDetailsModal";
+import PassTaskModal from "../../components/projects/PassTaskModal";
 import { LayoutGrid, List as ListIcon } from "lucide-react";
+import PLPeriodModal from "../../components/dashboard/PLPeriodModal";
+import type { PLPeriodSelection } from "../../components/dashboard/PLPeriodModal";
 
 const ProjectDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -67,6 +70,7 @@ const ProjectDetailsPage = () => {
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
   const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
   const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
+  const [isPassTaskModalOpen, setIsPassTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
   const [taskStatusFilter, setTaskStatusFilter] = useState("All");
@@ -76,6 +80,10 @@ const ProjectDetailsPage = () => {
   const [expenses, _setExpenses] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+
+  // Profit & Loss export modal
+  const [isPLPeriodModalOpen, setIsPLPeriodModalOpen] = useState(false);
+  const [plPeriodFormat, setPlPeriodFormat] = useState<"PDF" | "Excel">("PDF");
   const [isLogsLoading, setIsLogsLoading] = useState(false);
 
   const [photoViewMode, setPhotoViewMode] = useState<"grid" | "list">("grid");
@@ -279,6 +287,28 @@ const ProjectDetailsPage = () => {
     }
   };
 
+  const handleTaskStatusChange = async (taskId: number, newStatus: string) => {
+    try {
+      await projectService.updateTaskStatus(projectId, taskId, newStatus);
+      toast.success("Task status updated");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to update status");
+    }
+  };
+
+  const handlePassTask = async (data: { new_user_id: number; remark: string }) => {
+    if (!selectedTask) return;
+    try {
+      await projectService.passTask(projectId, selectedTask.id, data);
+      toast.success("Task passed successfully");
+      fetchProjectData();
+    } catch (error) {
+      toast.error("Failed to pass task");
+    }
+  };
+
+
   const handleTaskProgressUpdate = async (
     taskId: number,
     percentage: number,
@@ -396,6 +426,36 @@ const ProjectDetailsPage = () => {
     }
   };
 
+  const handlePLPeriodConfirm = async (selection: PLPeriodSelection) => {
+    const toastId = toast.loading(`Generating ${plPeriodFormat} report...`);
+    try {
+      const filters = {
+        year: selection.year ?? null,
+        quarter: selection.type === "quarterly" ? (selection.quarter ?? null) : null,
+        start_date: selection.start_date ?? null,
+        end_date: selection.end_date ?? null,
+      };
+      const blob = plPeriodFormat === "PDF"
+        ? await reportService.exportProfitLossPdf(projectId, filters)
+        : await reportService.exportProfitLossExcel(projectId, filters);
+
+      if (blob && !blob.type?.includes("json")) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.setAttribute("download", `ProfitLoss_${project?.project_name.replace(/\s+/g, '_')}_${selection.type}_${selection.year}.${plPeriodFormat === "PDF" ? "pdf" : "xlsx"}`);
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Report exported successfully", { id: toastId });
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch {
+      toast.error("Export failed", { id: toastId });
+    }
+  };
 
   if (loading) {
     return (
@@ -465,7 +525,7 @@ const ProjectDetailsPage = () => {
             </p>
           </div>
 
-          <div className="flex gap-3">
+          {activeTab === "Overview" && <div className="flex gap-3">
             <button
               onClick={() => setIsEditModalOpen(true)}
               className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all active:scale-95"
@@ -521,7 +581,7 @@ const ProjectDetailsPage = () => {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
               PDF
             </button>
-          </div>
+          </div>}
         </div>
 
         {/* Tabs Navigation */}
@@ -740,6 +800,8 @@ const ProjectDetailsPage = () => {
                   onEdit={(task) => { setSelectedTask(task); setIsEditTaskModalOpen(true); }}
                   onDelete={handleDeleteTask}
                   onView={(task) => { setSelectedTask(task); setIsViewTaskModalOpen(true); }}
+                  onStatusChange={handleTaskStatusChange}
+                  onPassDelegate={(task) => { setSelectedTask(task); setIsPassTaskModalOpen(true); }}
                 />
               </div>
             </div>
@@ -789,22 +851,9 @@ const ProjectDetailsPage = () => {
                     {/* Download Buttons */}
                     <div className="flex items-center gap-2 mt-3">
                       <button
-                        onClick={async () => {
-                          const toastId = toast.loading("Generating Excel...");
-                          try {
-                            const blob = await reportService.exportProfitLossExcel(projectId);
-                            const url = window.URL.createObjectURL(new Blob([blob]));
-                            const link = document.createElement("a");
-                            link.href = url;
-                            link.setAttribute("download", `ProfitLoss_${project.project_name.replace(/\s+/g, '_')}.xlsx`);
-                            document.body.appendChild(link);
-                            link.click();
-                            link.remove();
-                            window.URL.revokeObjectURL(url);
-                            toast.success("Excel downloaded!", { id: toastId });
-                          } catch {
-                            toast.error("Failed to download Excel", { id: toastId });
-                          }
+                        onClick={() => {
+                          setPlPeriodFormat("Excel");
+                          setIsPLPeriodModalOpen(true);
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg transition-all active:scale-95 shadow-md"
                       >
@@ -812,22 +861,9 @@ const ProjectDetailsPage = () => {
                         Excel
                       </button>
                       <button
-                        onClick={async () => {
-                          const toastId = toast.loading("Generating PDF...");
-                          try {
-                            const blob = await reportService.exportProfitLossPDF(projectId);
-                            const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
-                            const link = document.createElement("a");
-                            link.href = url;
-                            link.setAttribute("download", `ProfitLoss_${project.project_name.replace(/\s+/g, '_')}.pdf`);
-                            document.body.appendChild(link);
-                            link.click();
-                            link.remove();
-                            window.URL.revokeObjectURL(url);
-                            toast.success("PDF downloaded!", { id: toastId });
-                          } catch {
-                            toast.error("Failed to download PDF", { id: toastId });
-                          }
+                        onClick={() => {
+                          setPlPeriodFormat("PDF");
+                          setIsPLPeriodModalOpen(true);
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-lg transition-all active:scale-95 border border-white/20"
                       >
@@ -1113,6 +1149,29 @@ const ProjectDetailsPage = () => {
           onAddComment={() => fetchProjectData()}
         />
       )}
+      {isPassTaskModalOpen && selectedTask && (
+        <PassTaskModal
+          isOpen={isPassTaskModalOpen}
+          onClose={() => {
+            setIsPassTaskModalOpen(false);
+            setSelectedTask(null);
+          }}
+          task={selectedTask}
+          members={members}
+          onSubmit={handlePassTask}
+        />
+      )}
+
+      <PLPeriodModal
+        isOpen={isPLPeriodModalOpen}
+        onClose={() => setIsPLPeriodModalOpen(false)}
+        reportName="Profit & Loss Statement"
+        format={plPeriodFormat}
+        onConfirm={(selection: PLPeriodSelection) => {
+          setIsPLPeriodModalOpen(false);
+          handlePLPeriodConfirm(selection);
+        }}
+      />
     </>
   );
 };

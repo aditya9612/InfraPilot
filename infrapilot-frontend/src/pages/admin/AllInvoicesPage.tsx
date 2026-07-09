@@ -88,13 +88,12 @@ const AllInvoicesPage = () => {
     const load = async () => {
       setIsLoading(true);
       try {
-        const [quotData, invData, projData, ownersRes] = await Promise.all([
-          quotationService.getQuotations(),
-          financeService.getInvoices(200),
-          projectService.getProjects(100, 0),
-          ownerService.getOwners()
+        // Fetch invoices, projects and owners first — don't block on slow quotation API
+        const [invData, projData, ownersRes] = await Promise.all([
+          financeService.getInvoices(200).catch(() => []),
+          projectService.getProjects(100, 0).catch(() => []),
+          ownerService.getOwners().catch(() => [])
         ]);
-        setQuotations(quotData);
         setInvoices(Array.isArray(invData) ? invData : []);
         const projList = Array.isArray(projData)
           ? projData
@@ -102,11 +101,18 @@ const AllInvoicesPage = () => {
         setProjects(projList);
         setOwners(ownersRes);
       } catch (error) {
-        console.error("Failed to load data", error);
-        toast.error("Failed to load invoice data");
+        console.error("Failed to load invoices/projects", error);
       } finally {
         setIsLoading(false);
       }
+
+      // Fetch quotations independently — a timeout won't block the invoice tab
+      quotationService.getQuotations()
+        .then(quotData => setQuotations(quotData))
+        .catch(error => {
+          console.error("Failed to load quotations", error);
+          toast.error("Quotations timed out — invoices still available. Try refreshing the page.");
+        });
     };
     load();
   }, []);
@@ -618,6 +624,7 @@ const AllInvoicesPage = () => {
         invoice={viewingInvoice}
         projects={projects}
         owners={owners}
+        quotations={quotations}
         onMarkPaid={async (id) => {
           try {
             await financeService.markInvoicePaid(id);

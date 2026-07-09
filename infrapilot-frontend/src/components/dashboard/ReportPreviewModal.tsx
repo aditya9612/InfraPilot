@@ -208,7 +208,7 @@ const ReportPreviewModal = ({
             footer={footer}
         >
             <div className="p-2">
-                <div className="bg-slate-900 rounded-2xl p-6 mb-8 text-white relative overflow-hidden">
+                <div className="bg-slate-900 rounded-2xl p-6 mb-4 text-white relative overflow-hidden">
                     <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-2">
                             <FileText className="text-primary" size={24} />
@@ -220,10 +220,6 @@ const ReportPreviewModal = ({
                     <div className="absolute right-[-20px] top-[-20px] opacity-10">
                         <FileText size={160} />
                     </div>
-                </div>
-
-                <div className="max-h-[60vh] overflow-y-auto pr-4 custom-scrollbar">
-                    {renderData()}
                 </div>
             </div>
         </Modal>

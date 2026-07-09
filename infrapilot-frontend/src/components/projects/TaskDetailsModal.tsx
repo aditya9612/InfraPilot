@@ -52,7 +52,7 @@ const TaskDetailsModal = ({ task, onClose, onUpdateProgress: _onUpdateProgress, 
         projectService.getTaskProgressHistory(task.project_id, task.id),
         projectService.getTaskComments(task.project_id, task.id),
         projectService.getProjectMembers(task.project_id).catch(() => []),
-        userService.getAllUsers(200, 0).catch(() => [])
+        userService.getAllUsers(100, 0).catch(() => [])
       ]);
       setTaskDetails(tData);
       setHistory(Array.isArray(hData) ? hData : (hData.items || hData.data || []));
