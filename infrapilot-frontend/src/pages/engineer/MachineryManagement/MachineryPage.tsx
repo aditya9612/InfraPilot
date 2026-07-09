@@ -374,7 +374,7 @@ const MachineryPage = () => {
         e.preventDefault();
         if (!formData.equipment_id || !formData.project_id) return;
         try {
-            await equipmentService.transferEquipment({ equipment_id: formData.equipment_id, to_project_id: formData.project_id });
+            await equipmentService.transferEquipment({ equipment_id: formData.equipment_id, to_project_id: formData.project_id, transfer_date: new Date().toISOString().split('T')[0] });
             toast.success("Equipment transferred successfully!");
             setIsTransferModalOpen(false);
             const res = await equipmentService.listEquipment({ limit: 100 });
@@ -2001,8 +2001,8 @@ const MachineryPage = () => {
                         <div className={`rounded-2xl p-6 mb-6 text-white shadow-lg relative overflow-hidden ${rentalToView.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-500'}`}>
                             <div className="relative z-10">
                                 <div className="flex flex-col mb-1">
-                                    <h3 className="text-2xl font-bold tracking-tight">{rentalToView.client_name}</h3>
-                                    <p className="text-sm opacity-90 mt-1">{equipmentList.find(e => e.id === rentalToView.equipment_id)?.equipment_name || `Equipment ID: ${rentalToView.equipment_id}`}</p>
+                                    <h3 className="text-2xl font-bold tracking-tight">{equipmentList.find(e => e.id === rentalToView.equipment_id)?.equipment_name || `Equipment ID: ${rentalToView.equipment_id}`}</h3>
+                                    <p className="text-sm opacity-90 mt-1">Client: {rentalToView.client_name || 'N/A'}</p>
                                 </div>
                                 <span className="inline-block px-2.5 py-1 bg-white/20 rounded-lg text-[10px] font-bold uppercase tracking-widest mt-2">
                                     Status: {rentalToView.status || 'COMPLETED'}
@@ -2014,13 +2014,11 @@ const MachineryPage = () => {
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Start Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.start_date}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">End Date</p><p className="text-sm font-bold text-slate-800">{rentalToView.end_date}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Duration</p><p className="text-sm font-bold text-slate-800">{rentalToView.duration} days</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Client Name</p><p className="text-sm font-bold text-slate-800">{rentalToView.client_name || 'N/A'}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.project_id ? (projects.find(p => p.id === rentalToView.project_id)?.project_name || `Project #${rentalToView.project_id}`) : 'N/A'}</p></div>
+                            <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p><p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.boq_item_id ? (boqsList.find(b => b.id === rentalToView.boq_item_id)?.item_name || `BOQ Item #${rentalToView.boq_item_id}`) : 'N/A'}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rental Cost</p><p className="text-sm font-bold text-purple-600">₹{rentalToView.rental_cost?.toLocaleString()}</p></div>
                             <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Per Day Cost</p><p className="text-sm font-bold text-blue-600">₹{rentalToView.per_day_cost?.toLocaleString()}</p></div>
-                            <div className="col-span-2">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">BOQ Item</p>
-                                <p className="text-sm font-bold text-slate-800 font-mono">{rentalToView.boq_item_id ? (boqsList.find(b => b.id === rentalToView.boq_item_id)?.item_name || `BOQ Item #${rentalToView.boq_item_id}`) : 'N/A'}</p>
-                            </div>
                             <div className="col-span-2">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</p>
                                 <p className="text-sm font-medium text-slate-700 whitespace-pre-wrap bg-white p-3 rounded-lg border border-slate-200">{rentalToView.notes || 'No notes provided.'}</p>

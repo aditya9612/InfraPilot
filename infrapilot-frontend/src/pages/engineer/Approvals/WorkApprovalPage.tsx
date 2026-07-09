@@ -138,8 +138,8 @@ const WorkApprovalPage = () => {
                 } else if (formData.entity_type === 'drawing') {
                     const res: any = await drawingService.getVersions(pId);
                     items = Array.isArray(res) ? res : [];
-                } else if (formData.entity_type === 'documents') {
-                    const res: any = await documentService.listDocuments({ project_id: pId });
+                } else if (formData.entity_type === 'document') {
+                    const res: any = await documentService.listDocuments({ project_id: pId, limit: 100 });
                     items = res.data || res.items || res || [];
                 } else if (formData.entity_type === 'qc') {
                     const res: any = await qcService.listQc(pId);
@@ -827,7 +827,7 @@ const WorkApprovalPage = () => {
                                     <option value="labour">Labour</option>
                                     <option value="equipment">Equipment</option>
                                     <option value="drawing">Drawing</option>
-                                    <option value="documents">Documents</option>
+                                    <option value="document">Document</option>
                                     <option value="qc">QC</option>
                                     <option value="safety">Safety</option>
                                 </select>

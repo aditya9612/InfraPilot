@@ -140,7 +140,7 @@ export const chatService = {
     },
 
     async editMessage(messageId: number, newText: string): Promise<{ status: string }> {
-        const response = await api.put<{ status: string }>(`/chats/messages/${messageId}/edit`, { new_text: newText });
+        const response = await api.put<{ status: string }>(`/chats/messages/${messageId}/edit?new_text=${encodeURIComponent(newText)}`);
         return response.data;
     },
 
@@ -154,7 +154,7 @@ export const chatService = {
     },
 
     async forwardMessage(messageId: number, targetChatId: number): Promise<{ status: string; message_id: number }> {
-        const response = await api.post<{ status: string; message_id: number }>(`/chats/messages/${messageId}/forward`, { target_chat_id: targetChatId });
+        const response = await api.post<{ status: string; message_id: number }>(`/chats/messages/${messageId}/forward?target_chat_id=${targetChatId}`);
         return response.data;
     },
 
@@ -190,17 +190,47 @@ export const chatService = {
     },
 
     async getGroupMembers(chatId: number): Promise<GroupMember[]> {
-        const response = await api.get<GroupMember[]>(`/chats/group/${chatId}/members`);
-        return response.data;
+        let members: any[] = [];
+        try {
+            const response = await api.get<any>(`/chats/group/${chatId}/members`);
+            const data = response.data;
+            members = Array.isArray(data) ? data : data?.members || data?.data || data?.items || data?.group_members || [];
+        } catch (e) {
+            console.warn("[chatService] getGroupMembers primary failed", e);
+        }
+
+        if (members.length === 0) {
+            try {
+                const response = await api.get<any>(`/chats/${chatId}/members`);
+                const data = response.data;
+                members = Array.isArray(data) ? data : data?.members || data?.data || data?.items || data?.group_members || [];
+            } catch (e) {
+                console.warn("[chatService] getGroupMembers secondary failed", e);
+            }
+        }
+        if (members.length === 0) {
+            try {
+                const response = await api.get<any>(`/chats/group/${chatId}`);
+                const data = response.data;
+                members = Array.isArray(data) ? data : data?.members || data?.data || data?.items || data?.group_members || data?.users || [];
+            } catch (e) {
+                console.warn("[chatService] getGroupMembers tertiary failed", e);
+            }
+        }
+        
+        return members;
     },
 
-    async updateGroup(chatId: number, payload: { name: string; avatar_url?: string }): Promise<{ status: string }> {
-        const response = await api.put<{ status: string }>(`/chats/group/${chatId}`, payload);
+    async updateGroup(chatId: number, payload: { name?: string; avatar_url?: string }): Promise<{ status: string }> {
+        const queryParams = new URLSearchParams();
+        if (payload.name) queryParams.append('name', payload.name);
+        if (payload.avatar_url) queryParams.append('avatar_url', payload.avatar_url);
+        const response = await api.put<{ status: string }>(`/chats/group/${chatId}?${queryParams.toString()}`);
         return response.data;
     },
 
     async addMember(chatId: number, userId: number): Promise<{ status: string }> {
-        const response = await api.post<{ status: string }>(`/chats/group/${chatId}/add`, { user_id: userId });
+        const response = await api.post<{ status: string }>(`/chats/group/${chatId}/add?user_id=${userId}`);
         return response.data;
     },
 
@@ -210,9 +240,10 @@ export const chatService = {
     },
 
     async removeMember(chatId: number, userId: number): Promise<{ status: string }> {
-        const response = await api.post<{ status: string }>(`/chats/group/${chatId}/remove`, { user_id: userId });
+        const response = await api.post<{ status: string }>(`/chats/group/${chatId}/remove?user_id=${userId}`);
         return response.data;
     },
+
 
     async removeMultipleMembers(chatId: number, memberIds: number[]): Promise<{ status: string; removed_members: number[] }> {
         const response = await api.delete<{ status: string; removed_members: number[] }>(`/chats/group/${chatId}/members`, { data: { member_ids: memberIds } });
@@ -220,7 +251,7 @@ export const chatService = {
     },
 
     async kickMember(chatId: number, userId: number): Promise<{ status: string }> {
-        const response = await api.post<{ status: string }>(`/chats/group/${chatId}/kick`, { user_id: userId });
+        const response = await api.post<{ status: string }>(`/chats/group/${chatId}/kick?user_id=${userId}`);
         return response.data;
     },
 
@@ -230,7 +261,7 @@ export const chatService = {
     },
 
     async transferAdmin(chatId: number, newAdminId: number): Promise<{ status: string }> {
-        const response = await api.post<{ status: string }>(`/chats/group/${chatId}/transfer-admin`, { new_admin_id: newAdminId });
+        const response = await api.post<{ status: string }>(`/chats/group/${chatId}/transfer-admin?new_admin_id=${newAdminId}`);
         return response.data;
     },
 
