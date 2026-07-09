@@ -12,7 +12,7 @@ import type { Document, DocumentUpdateParams } from "../../types/document";
 import {
     Download, ChevronLeft, ChevronRight, Folder, FolderPlus,
     Upload, Trash2, X, FileImage, FileSpreadsheet, Filter,
-    Edit2, History, FileText, RefreshCcw, Eye, Loader2, Search
+    Edit2, History, FileText, RefreshCcw, Eye, Loader2, Search, Info
 } from "lucide-react";
 import { drawingService } from "../../services/drawingService";
 import ProjectSelector from "../../components/common/ProjectSelector";
@@ -246,6 +246,25 @@ const ManagerDocumentsPage = () => {
             toast.success("Download started.", { id: toastId });
         } catch {
             toast.error("Download failed.", { id: toastId });
+        }
+    };
+
+    const handleViewDocumentFile = async (doc: Document) => {
+        const toastId = toast.loading(`Opening ${doc.title}...`);
+        try {
+            let res;
+            if (mainTab === "Drawings" || (doc.document_type || "").toLowerCase() === "drawing") {
+                res = await drawingService.viewDocument(doc.id);
+            } else {
+                res = await documentService.viewDocument(doc.id);
+            }
+
+            const url = window.URL.createObjectURL(new Blob([res.data], { type: res.contentType }));
+            window.open(url, "_blank");
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000 * 60);
+            toast.dismiss(toastId);
+        } catch {
+            toast.error("Failed to open document.", { id: toastId });
         }
     };
 
@@ -546,8 +565,8 @@ const ManagerDocumentsPage = () => {
                                         value={categoryFilter}
                                         onChange={e => setCategoryFilter(e.target.value)}
                                         className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${categoryFilter
-                                                ? "bg-primary/10 border-primary/30 text-primary"
-                                                : "bg-slate-50 border-slate-200 text-slate-600"
+                                            ? "bg-primary/10 border-primary/30 text-primary"
+                                            : "bg-slate-50 border-slate-200 text-slate-600"
                                             }`}
                                     >
                                         <option value="">All Types</option>
@@ -658,11 +677,18 @@ const ManagerDocumentsPage = () => {
                                                                     {!doc.is_folder && (
                                                                         <>
                                                                             <button
+                                                                                onClick={() => handleViewDocumentFile(doc)}
+                                                                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                                                title="View File"
+                                                                            >
+                                                                                <Eye className="w-4 h-4" />
+                                                                            </button>
+                                                                            <button
                                                                                 onClick={() => { setViewingDoc(doc); setIsViewModalOpen(true); }}
                                                                                 className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
                                                                                 title="View Details"
                                                                             >
-                                                                                <Eye className="w-4 h-4" />
+                                                                                <Info className="w-4 h-4" />
                                                                             </button>
                                                                             <button
                                                                                 onClick={() => handleViewHistory(doc)}
@@ -929,10 +955,10 @@ const ManagerDocumentsPage = () => {
                             <div key={label} className="flex justify-between items-start border-b border-slate-50 pb-3 last:border-0">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 mr-4">{label}</span>
                                 <span className={`text-sm font-bold text-right max-w-[60%] ${label === "Status"
-                                        ? value === "APPROVED" ? "text-emerald-600"
-                                            : value === "REJECTED" ? "text-rose-600"
-                                                : "text-amber-600"
-                                        : "text-slate-800"
+                                    ? value === "APPROVED" ? "text-emerald-600"
+                                        : value === "REJECTED" ? "text-rose-600"
+                                            : "text-amber-600"
+                                    : "text-slate-800"
                                     }`}>{value}</span>
                             </div>
                         ))}
@@ -954,10 +980,16 @@ const ManagerDocumentsPage = () => {
                         )}
 
                         {viewingDoc.file_url && (
-                            <button onClick={() => handleDownload(viewingDoc)}
-                                className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-all">
-                                <Download className="w-4 h-4" /> Download File
-                            </button>
+                            <div className="flex items-center gap-2 mt-4">
+                                <button onClick={() => handleViewDocumentFile(viewingDoc)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 border border-blue-200 text-sm font-bold rounded-xl hover:bg-blue-100 transition-all">
+                                    <Eye className="w-4 h-4" /> View File
+                                </button>
+                                <button onClick={() => handleDownload(viewingDoc)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-all">
+                                    <Download className="w-4 h-4" /> Download File
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}
