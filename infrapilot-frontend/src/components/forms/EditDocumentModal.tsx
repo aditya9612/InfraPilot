@@ -24,7 +24,6 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         version: "1.0",
         date: new Date().toISOString().split('T')[0],
     });
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     useEffect(() => {
         if (document) {
@@ -36,7 +35,6 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                 version: document.version || "1.0",
                 date: (document as any).date || (document.uploaded_at ? document.uploaded_at.split('T')[0] : new Date().toISOString().split('T')[0]),
             });
-            setSelectedFile(null);
         }
     }, [document]);
 
@@ -48,12 +46,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
         setIsSubmitting(true);
         try {
-            const data: any = { ...formData };
-            if (selectedFile) {
-                data.file = selectedFile;
-            }
-
-            await onSubmit(document.id, data);
+            await onSubmit(document.id, formData);
             onClose();
         } catch (error) {
             console.error("Update Error:", error);
@@ -143,7 +136,7 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
                     {!document.is_folder && (
                         <div className="grid grid-cols-2 gap-4">
-                            <div className={`space-y-1.5 ${formData.document_type === "Drawing" ? "col-span-2" : ""}`}>
+                            <div className="col-span-2 space-y-1.5">
                                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                     Version <span className="text-rose-500">*</span>
                                 </label>
@@ -156,33 +149,6 @@ const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                                     onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
                                 />
                             </div>
-
-                            {formData.document_type !== "Drawing" && (
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                        Update File
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type="file"
-                                            id="edit-file-upload"
-                                            className="hidden"
-                                            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                        />
-                                        <label
-                                            htmlFor="edit-file-upload"
-                                            className="flex items-center justify-between w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm cursor-pointer hover:bg-slate-100 transition-all"
-                                        >
-                                            <span className="text-slate-500 font-bold truncate max-w-[120px]">
-                                                {selectedFile ? selectedFile.name : "Choose file..."}
-                                            </span>
-                                            <div className="bg-amber-500 text-white p-1 rounded-lg transition-transform active:scale-95">
-                                                <Save size={14} strokeWidth={3} />
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     )}
 

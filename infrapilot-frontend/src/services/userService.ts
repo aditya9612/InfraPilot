@@ -75,8 +75,14 @@ export const userService = {
    * GET /api/v1/users/{user_id}
    */
   async getUserById(userId: number) {
-    const response = await api.get(`/users/${userId}`);
-    return response.data;
+    try {
+      const response = await api.get(`/users/${userId}`);
+      return response.data;
+    } catch (error: any) {
+      // Silently return null for 404 — user may not exist
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
   },
 
   /**

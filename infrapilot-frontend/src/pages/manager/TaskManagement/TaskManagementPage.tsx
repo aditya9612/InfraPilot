@@ -481,7 +481,11 @@ const TaskManagementPage = () => {
         const descStr = formData.get('description') as string;
         if (descStr) payload.append('description', descStr);
 
-        payload.append('priority', String(parseInt(formData.get('priority') as string) || 1));
+        const priorityRaw = formData.get('priority') as string;
+        const PMAP: Record<string, number> = { CRITICAL: 1, HIGH: 2, MEDIUM: 3, LOW: 4, Critical: 1, High: 2, Medium: 3, Low: 4 };
+        const priorityNum = parseInt(priorityRaw);
+        const safePriority = !isNaN(priorityNum) ? priorityNum : (PMAP[priorityRaw] ?? 4);
+        payload.append('priority', String(safePriority));
 
         const startDateStr = formData.get('start_date') as string;
         if (startDateStr) payload.append('start_date', startDateStr);
