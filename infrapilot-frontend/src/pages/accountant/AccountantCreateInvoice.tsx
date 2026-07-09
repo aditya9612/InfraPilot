@@ -43,6 +43,7 @@ import type { Quotation } from "../../types/quotation";
 
 interface InvoiceItem {
   id: string;
+  item_type?: string;
   description: string;
   unit: string;
   quantity: number;
@@ -226,7 +227,12 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         ...prev,
         plum: { ...prev.plum, cuft, m3 }
       }));
-      updateItem("2", "quantity", m3);
+      // Find plum item by item_type or fall back to id="2"
+      setItems(prev => prev.map(item =>
+        (item.item_type === "plum_concrete" || item.id === "2")
+          ? { ...item, quantity: m3, amount: Number((m3 * item.rate).toFixed(2)) }
+          : item
+      ));
     }
   }, [measurementData.plum.l, measurementData.plum.w, measurementData.plum.h]);
 
@@ -234,12 +240,18 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
   useEffect(() => {
     const totalCuft = measurementData.stone.reduce((sum, s) => sum + (s.l * s.w * s.h), 0);
     const brass = Number((totalCuft / 100).toFixed(2));
-    updateItem("3", "quantity", brass);
+    // Find stone item by item_type or fall back to id="3"
+    setItems(prev => prev.map(item =>
+      (item.item_type === "stone_work" || item.id === "3")
+        ? { ...item, quantity: brass, amount: Number((brass * item.rate).toFixed(2)) }
+        : item
+    ));
   }, [measurementData.stone]);
 
   useEffect(() => {
     // Auto-populate from project list when selectedProjectId changes.
-    if (selectedProjectId !== 0) {
+    // Skip when editing an existing quotation (id is set) — data already loaded from API.
+    if (selectedProjectId !== 0 && !id) {
       const selectedProject = projects.find(p => p.id === selectedProjectId);
       if (selectedProject) {
         setProjectDetails({
@@ -273,8 +285,11 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   gst: u.pan_number || ""
                 });
               }
-            } catch (error) {
-              console.error("Failed to auto-populate client details from project owner", error);
+            } catch (error: any) {
+              // Silently ignore 404 — owner user may not exist in users endpoint
+              if (error?.response?.status !== 404) {
+                console.error("Failed to auto-populate client details from project owner", error);
+              }
             }
           };
           fetchClient();
@@ -393,9 +408,14 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
           setMaterialItems(q.material_items || []);
           setExtraChargeItems(q.extra_charge_items || []);
 
+          // Restore Notes and Terms
+          setNotes((q as any).notes || (q as any).quotation_notes || (q as any).remarks || "");
+          setTerms(q.terms_conditions || (q as any).terms || "");
+
           if (q.items && q.items.length > 0) {
             const mappedItems = q.items.map(item => ({
               id: String(item.id),
+              item_type: item.item_type || "",
               description: item.description || item.title || "",
               unit: item.unit || "",
               quantity: item.quantity || 0,
@@ -841,8 +861,8 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
       due_date: q.due_date || ""
     });
 
-    setNotes(q.notes || "");
-    setTerms(q.terms_conditions || "");
+    setNotes((q as any).notes || (q as any).quotation_notes || (q as any).remarks || "");
+    setTerms(q.terms_conditions || (q as any).terms || "");
 
     setIsImportModalOpen(false);
     toast.success("Estimate imported successfully!");
@@ -1479,8 +1499,12 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                           <span className="text-xs font-black text-slate-800">Quantity (Brass)</span>
                           <input
                             type="number"
-                            value={items.find(i => i.id === "1")?.quantity || 0}
-                            onChange={(e) => updateItem("1", "quantity", parseFloat(e.target.value))}
+                            value={items[0]?.quantity || 0}
+                            onChange={(e) => {
+                              if (items[0]) {
+                                updateItem(items[0].id, "quantity", parseFloat(e.target.value) || 0);
+                              }
+                            }}
                             readOnly={isReadOnly}
                             className={`w-24 px-2 py-1 bg-slate-100 rounded-lg text-xs font-black text-slate-800 text-right outline-none focus:ring-2 focus:ring-indigo-200 ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                           />

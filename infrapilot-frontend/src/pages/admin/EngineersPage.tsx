@@ -138,7 +138,7 @@ const EngineersPage = () => {
             specialization: u.designation || "Site Engineer",
             designation: u.designation || "Site Engineer",
             pan_number: u.pan_number || "",
-            aadhaar_number: u.aadhaar_number || "",
+            aadhaar_number: u.aadhaar_number || u.aadhar_number || "",
             joiningDate: u.joining_date,
             profile_image: u.profile_image,
             ...vitals
@@ -301,7 +301,7 @@ const EngineersPage = () => {
           specialization: u.designation || "Site Engineer",
           designation: u.designation || "Site Engineer",
           pan_number: u.pan_number || "",
-          aadhaar_number: u.aadhaar_number || "",
+          aadhaar_number: u.aadhaar_number || u.aadhar_number || "",
           joiningDate: u.joining_date,
           profile_image: u.profile_image,
           ...vitals

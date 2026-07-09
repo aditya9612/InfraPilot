@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import Modal from "../common/Modal";
-import { Eye, EyeOff, ShieldCheck, ShieldAlert, Shield, MapPin } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, ShieldAlert, Shield } from "lucide-react";
 
 interface CreateEngineerModalProps {
   isOpen: boolean;
@@ -39,8 +39,6 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState<string>("");
-  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
-  const [projectSearch, setProjectSearch] = useState("");
 
   const getPasswordStrength = (pass: string) => {
     if (!pass) return { score: 0, label: "Empty" };
@@ -485,66 +483,18 @@ const CreateEngineerModal: React.FC<CreateEngineerModalProps> = ({
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none text-gray-600"
               />
             </div>
-            <div className="md:col-span-2 relative">
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-600 mb-1">
-                Assigned Project <span className="text-rose-500">*</span>
+                Full Address
               </label>
-              <div
-                onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
-                className={`w-full px-4 py-2 bg-gray-50 border ${errors.address ? "border-rose-500" : "border-gray-200 focus:ring-primary/20"} rounded-xl outline-none cursor-pointer flex items-center justify-between min-h-[42px]`}
-              >
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-slate-400" />
-                  <span className={formData.address ? "text-gray-700 font-medium" : "text-gray-400"}>
-                    {formData.address || "Select Project for Deployment"}
-                  </span>
-                </div>
-                <svg className={`w-4 h-4 text-gray-400 transition-transform ${isProjectDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-
-              {isProjectDropdownOpen && (
-                <div className="absolute top-[calc(100%+4px)] left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl z-[120] overflow-hidden animate-in fade-in slide-in-from-top-1">
-                  <div className="p-2 border-b border-gray-100 bg-gray-50/50">
-                    <input
-                      type="text"
-                      autoFocus
-                      placeholder="Search projects..."
-                      value={projectSearch}
-                      onChange={(e) => setProjectSearch(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary/10"
-                    />
-                  </div>
-                  <div className="max-h-60 overflow-y-auto">
-                    <div
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, address: "Global Unassigned" }));
-                        setIsProjectDropdownOpen(false);
-                        setProjectSearch("");
-                      }}
-                      className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer border-b border-gray-50 font-medium"
-                    >
-                      Global Unassigned
-                    </div>
-                    {projectsList
-                      .filter((p: any) => (p.project_name || p.name || "").toLowerCase().includes(projectSearch.toLowerCase()))
-                      .map((project: any) => (
-                        <div
-                          key={project.id}
-                          onClick={() => {
-                            setFormData(prev => ({ ...prev, address: project.project_name || project.name }));
-                            setIsProjectDropdownOpen(false);
-                            setProjectSearch("");
-                          }}
-                          className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 font-medium"
-                        >
-                          {project.project_name || project.name}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
+              <textarea
+                name="address"
+                rows={2}
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="Enter full residential address..."
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 focus:ring-primary/20 rounded-xl outline-none resize-none text-gray-700"
+              />
             </div>
           </div>
         </div>
