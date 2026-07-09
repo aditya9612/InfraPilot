@@ -417,7 +417,7 @@ const LabourRegistryPage = () => {
                         <ProjectSelector variant="page" />
                         {activeTab === "Registry" && (
                             <button onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
-                                <Plus className="w-4 h-4" /> Register Personnel
+                                <Plus className="w-4 h-4" /> Register Labour
                             </button>
                         )}
                         <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
@@ -480,7 +480,7 @@ const LabourRegistryPage = () => {
             <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setDeletingId(null); }} onConfirm={handleDeleteConfirm} title="Delete Worker" message="This will permanently remove the worker record." confirmText="Delete" type="danger" isLoading={isDeleting} />
 
             {/* Create / Edit Form Modal — exact Site Engineer fields */}
-            <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={formMode === "edit" ? "Edit Personnel" : "Register Personnel"} maxWidth="max-w-2xl"
+            <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={formMode === "edit" ? "Edit Personnel" : "Register Labour"} maxWidth="max-w-2xl"
                 footer={<div className="flex justify-end gap-3"><button onClick={() => setIsFormModalOpen(false)} disabled={isSubmitting} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl">Cancel</button><button form="personnel-form" type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all">{isSubmitting ? "Saving..." : formMode === "edit" ? "Save Changes" : "Register"}</button></div>}>
                 <form id="personnel-form" onSubmit={handleSubmit}>
                     <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
