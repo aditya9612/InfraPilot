@@ -44,7 +44,7 @@ interface ReportType {
 
 const REPORT_TYPES: ReportType[] = [
     // Operations
-    { id: "daily", name: "Daily Progress Report", category: "Operations", description: "Detailed site activities, weather conditions, and work completed per shift.", icon: <FileText size={20} className="text-blue-500" />, exportType: "PDF", requiresDate: true },
+    { id: "daily", name: "Daily Progress Report", category: "Operations", description: "Detailed site activities, weather conditions, and work completed per shift.", icon: <FileText size={20} className="text-blue-500" />, exportType: "Both", requiresDate: true },
     { id: "weekly", name: "Project Report", category: "Operations", description: "Weekly, monthly, or quarterly project progress and performance report.", icon: <BarChart3 size={20} className="text-indigo-500" />, exportType: "Both" },
     { id: "issues", name: "Issue Analysis", category: "Operations", description: "Analysis of open site issues, delay causes, and resolution trends.", icon: <AlertCircle size={20} className="text-rose-500" />, exportType: "Both" },
 
@@ -274,7 +274,7 @@ const ManagerReportsPage = () => {
             const today = selectedDate || new Date().toISOString().split('T')[0];
 
             switch (report.id) {
-                case "daily": data = await reportService.getDailyReport(pid, today); break;
+                case "daily": data = await reportService.getProjectReport(pid, "daily", undefined, undefined); break;
                 case "cost-comparison": data = await boqService.getBoqComparison(pid); break;
                 case "financial-summary": data = await reportService.getFinancialSummary(pid); break;
                 case "project-report": data = await reportService.getProjectReport(pid); break;

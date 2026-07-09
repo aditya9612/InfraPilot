@@ -47,8 +47,8 @@ const getFullUrl = (url: string | null) => {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     if (url.startsWith('data:image')) return url;
-    const baseUrl = import.meta.env.VITE_API_URL 
-        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '') 
+    const baseUrl = import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '')
         : 'http://127.0.0.1:8000';
     return `${baseUrl}/${url.replace(/^\/+/, '')}`;
 };
@@ -160,10 +160,10 @@ const LaborDetailsPage = () => {
                     offset: offset,
                     status: statusFilter === "All" ? undefined : statusFilter
                 });
-                
+
                 const items = response.items || [];
                 allItems = [...allItems, ...items];
-                
+
                 if (items.length < 50) {
                     hasMore = false;
                 } else {
@@ -445,7 +445,7 @@ const LaborDetailsPage = () => {
                         className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
                     >
                         <Plus className="w-4 h-4" />
-                        Register Personnel
+                        Register Labour
                     </button>
                 </div>
 
@@ -828,9 +828,9 @@ const LaborDetailsPage = () => {
                             {/* labour_type_id * */}
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type <span className="text-rose-500">*</span></label>
-                                <select 
-                                    value={formData.labour_type_id || ""} 
-                                    onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })} 
+                                <select
+                                    value={formData.labour_type_id || ""}
+                                    onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })}
                                     className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`}
                                 >
                                     <option value="" disabled>Select Labour Type</option>
