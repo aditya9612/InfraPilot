@@ -7,6 +7,7 @@ import {
     CheckCircle, Clock, XCircle, List, Grid,
     Eye,
     Play,
+    Pause,
     Volume2,
     ChevronLeft,
     ChevronRight
@@ -46,6 +47,89 @@ const MyTasksPage: React.FC = () => {
     const [pageSize] = useState(10);
     const [totalTasks, setTotalTasks] = useState(0);
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+    const [playingTaskId, setPlayingTaskId] = useState<string | null>(null);
+    const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+    const handlePlayAudio = (task: Task) => {
+        if (playingTaskId === task.id) {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            setPlayingTaskId(null);
+            return;
+        }
+
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+        }
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+
+        if (task.audioUrl) {
+            const audio = new Audio(task.audioUrl);
+            audioRef.current = audio;
+            setPlayingTaskId(task.id);
+            
+            audio.onended = () => {
+                setPlayingTaskId(null);
+                audioRef.current = null;
+            };
+            audio.onerror = () => {
+                setPlayingTaskId(null);
+                audioRef.current = null;
+                toast.error("Failed to play audio instruction");
+            };
+            audio.play().catch(err => {
+                console.error("Audio playback error:", err);
+                setPlayingTaskId(null);
+                audioRef.current = null;
+            });
+        } else if (task.description && task.description !== 'NA') {
+            setPlayingTaskId(task.id);
+            
+            if (!window.speechSynthesis) {
+                setPlayingTaskId(null);
+                return;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(task.description);
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(v =>
+                v.lang.includes('en') && (v.name.includes('Google') || v.name.includes('Female'))
+            );
+            if (preferredVoice) utterance.voice = preferredVoice;
+
+            utterance.onend = () => {
+                setPlayingTaskId(null);
+            };
+            utterance.onerror = () => {
+                setPlayingTaskId(null);
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+            }
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+        };
+    }, []);
 
 
 
@@ -415,26 +499,25 @@ return (
                                                 {!task.audioUrl && (!task.description || task.description === 'NA') ? (
                                                     <span className="text-xs font-bold text-slate-300 italic uppercase">null</span>
                                                 ) : (
-                                                    <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-2 w-fit relative">
-                                                        {/* Play triangle */}
+                                                    <div className={`flex items-center gap-2 rounded-full px-3 py-2 w-fit relative transition-all ${playingTaskId === task.id ? 'bg-indigo-50 border border-indigo-100 shadow-sm shadow-indigo-50/50' : 'bg-slate-100'}`}>
+                                                        {/* Play / Pause button */}
                                                         <button
                                                             onClick={(e) => { 
                                                                 e.stopPropagation(); 
-                                                                if (task.audioUrl) {
-                                                                    const audio = new Audio(task.audioUrl);
-                                                                    audio.play();
-                                                                } else {
-                                                                    speak(task.description || ''); 
-                                                                }
+                                                                handlePlayAudio(task);
                                                             }}
-                                                            className="flex items-center justify-center text-slate-800 hover:text-slate-600 flex-shrink-0"
+                                                            className={`flex items-center justify-center flex-shrink-0 transition-colors ${playingTaskId === task.id ? 'text-indigo-600 hover:text-indigo-800' : 'text-slate-800 hover:text-slate-600'}`}
                                                         >
-                                                            <Play className="w-3 h-3 fill-current" />
+                                                            {playingTaskId === task.id ? (
+                                                                <Pause className="w-3 h-3 fill-current" />
+                                                            ) : (
+                                                                <Play className="w-3 h-3 fill-current" />
+                                                            )}
                                                         </button>
                                                         {/* Dash / progress line */}
-                                                        <div className="w-8 h-0.5 bg-slate-400 rounded-full flex-shrink-0" />
+                                                        <div className={`w-8 h-0.5 rounded-full flex-shrink-0 transition-colors ${playingTaskId === task.id ? 'bg-indigo-300' : 'bg-slate-400'}`} />
                                                         {/* Icon indicator */}
-                                                        <Volume2 className="w-3 h-3 text-slate-400" />
+                                                        <Volume2 className={`w-3 h-3 transition-colors ${playingTaskId === task.id ? 'text-indigo-500 animate-bounce' : 'text-slate-400'}`} />
                                                     </div>
                                                 )}
                                             </td>
@@ -464,7 +547,7 @@ return (
                                             <td className="px-6 py-5 whitespace-nowrap">
                                                 {task.status !== 'Completed' && (
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); handleTaskClick(task); }}
+                                                        onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailModalOpen(true); }}
                                                         className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
                                                         title="View Task Details"
                                                     >
@@ -492,14 +575,29 @@ return (
                                             </span>
                                             <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); speak(task.description || 'No voice message available for this task'); }}
-                                                    className="p-2 bg-slate-50 group-hover:bg-indigo-50 text-slate-300 group-hover:text-indigo-500 rounded-lg transition-colors"
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        if (!task.audioUrl && (!task.description || task.description === 'NA')) {
+                                                            toast.error("No voice message available for this task");
+                                                            return;
+                                                        }
+                                                        handlePlayAudio(task); 
+                                                    }}
+                                                    className={`p-2 rounded-lg transition-all border ${
+                                                        playingTaskId === task.id
+                                                            ? 'bg-indigo-50 text-indigo-600 border-indigo-100 shadow-sm'
+                                                            : 'bg-slate-50 group-hover:bg-indigo-50 text-slate-300 group-hover:text-indigo-500 border-transparent'
+                                                    }`}
                                                 >
-                                                    <Play className="w-3 h-3 fill-current" />
+                                                    {playingTaskId === task.id ? (
+                                                        <Pause className="w-3 h-3 fill-current animate-pulse" />
+                                                    ) : (
+                                                        <Play className="w-3 h-3 fill-current" />
+                                                    )}
                                                 </button>
                                                                                                  {task.status !== 'Completed' && (
                                                     <button
-                                                     onClick={(e) => { e.stopPropagation(); handleTaskClick(task); }}
+                                                     onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setIsDetailModalOpen(true); }}
                                                      className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
                                                      title="View Task Details"
                                                  >

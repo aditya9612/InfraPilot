@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, MoreVertical, Circle, Calendar } from 'lucide-react';
+import { Clock, Eye, Circle, Calendar } from 'lucide-react';
 import type { Task } from '../../types/task';
 
 interface TaskListProps {
@@ -40,7 +40,6 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                 <table className="w-full text-left">
                     <thead>
                         <tr className="bg-slate-50/50">
-                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Task ID</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Project Name</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Task Name</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Status</th>
@@ -60,9 +59,6 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                                     className={`transition-colors group ${task.status === 'Completed' ? 'cursor-default' : 'hover:bg-slate-50/50 cursor-pointer'}`}
                                     onClick={() => task.status !== 'Completed' && onSelectTask(task)}
                                 >
-                                    <td className="px-8 py-6">
-                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{task.id}</span>
-                                    </td>
                                     <td className="px-8 py-6">
                                         <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{task.project}</p>
                                     </td>
@@ -108,7 +104,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                                     <td className="px-8 py-6 text-right">
                                         {task.status !== 'Completed' && (
                                             <button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
-                                                <MoreVertical className="w-5 h-5" />
+                                                <Eye className="w-5 h-5" />
                                             </button>
                                         )}
                                     </td>

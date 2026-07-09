@@ -350,6 +350,7 @@ const ClientDocumentsPage = () => {
     let docsCount = 0;
     let drawingsCount = 0;
     let pendingCount = 0;
+    let approvedCount = 0;
 
     drawingData.forEach(d => {
       allCount++;
@@ -363,6 +364,8 @@ const ClientDocumentsPage = () => {
       const s = (d.approval_status || "").toLowerCase();
       if (s === "pending" || s === "under review" || s === "under_review" || s === "submitted") {
         pendingCount++;
+      } else if (s === "approved" || s === "verified" || s === "converted") {
+        approvedCount++;
       }
     });
 
@@ -370,7 +373,8 @@ const ClientDocumentsPage = () => {
       all: allCount,
       documents: docsCount,
       drawings: drawingsCount,
-      pending: pendingCount
+      pending: pendingCount,
+      approved: approvedCount
     };
   }, [drawingData]);
 
@@ -430,11 +434,11 @@ const ClientDocumentsPage = () => {
               <span className="text-xs text-slate-500 font-medium mt-1">Awaiting Review</span>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Storage Used</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Approved Approvals</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-indigo-500 tracking-tight">{formatBytes(totalStorageBytes)}</span>
+                <span className="text-3xl font-black text-emerald-500 tracking-tight">{stats.approved}</span>
               </div>
-              <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption</span>
+              <span className="text-xs text-slate-500 font-medium mt-1">Verified & Approved</span>
             </div>
           </div>
         ) : (

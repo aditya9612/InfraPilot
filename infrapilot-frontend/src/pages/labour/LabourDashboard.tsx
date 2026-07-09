@@ -62,11 +62,17 @@ const LabourDashboard: React.FC = () => {
                 const data = await dashboardService.getLabourDashboard();
                 console.log('LabourDashboard: Received data:', data);
                 if (data) {
+                    const rawEarnings = data.this_month_earnings ?? data.earnings_current_month ?? data.earnings ?? data.total_earnings ?? 0;
+                    const numEarnings = typeof rawEarnings === 'number' ? rawEarnings : parseFloat(rawEarnings);
+                    const formattedEarnings = !isNaN(numEarnings) 
+                        ? Number(numEarnings.toFixed(2)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+                        : '0';
+
                     setStatsData({
                         total: data.total_tasks ?? data.total ?? data.tasks_total ?? 0,
                         completed: data.completed_tasks ?? data.completed ?? data.tasks_completed ?? 0,
                         pending: data.pending_tasks ?? data.pending ?? data.tasks_pending ?? 0,
-                        earnings: `₹${(data.earnings_current_month ?? data.earnings ?? data.total_earnings ?? 0).toLocaleString()}`
+                        earnings: `₹${formattedEarnings}`
                     });
                     if (data.project_name) setProjectName(data.project_name);
                     if (data.contractor_name) setContractorName(data.contractor_name);
@@ -268,10 +274,6 @@ const LabourDashboard: React.FC = () => {
                         <div className="flex items-center gap-3 mb-6 px-1">
                             <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Recent Activity</h2>
                             <div className="h-px flex-1 bg-slate-100" />
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Live</span>
-                            </div>
                         </div>
 
                         {/* Card — matches TaskList card exactly */}

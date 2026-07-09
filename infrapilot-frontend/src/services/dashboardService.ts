@@ -71,6 +71,7 @@ export interface LabourDashboardResponse {
   completed_tasks?: number;
   pending_tasks?: number;
   earnings_current_month?: number;
+  this_month_earnings?: number;
   tasks?: any[];
   // Alternative field names the API may use
   total?: number;

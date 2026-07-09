@@ -195,6 +195,7 @@ const ClientReportsPage = () => {
       // API returns ProjectSummary: { total_activities, completed_activities, delayed_activities, on_track_activities, not_started_activities, completion_percentage }
       const totalActivities = weekly?.total_activities || 0;
       const completedActivities = weekly?.completed_activities || 0;
+      const delayedActivities = weekly?.delayed_activities || 0;
       const overallCompletion = weekly?.completion_percentage !== undefined 
         ? weekly.completion_percentage 
         : (totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0);
@@ -202,6 +203,7 @@ const ClientReportsPage = () => {
         tasks: [],
         total_activities: totalActivities,
         completed_activities: completedActivities,
+        delayed_activities: delayedActivities,
         overall_completion: overallCompletion
       });
 
@@ -219,18 +221,18 @@ const ClientReportsPage = () => {
         }
         return acc;
       }, []);
-      const finalMaterials = uniqueMaterials.filter((m: any) => m.material_name || m.name).slice(0, 23);
+      const finalMaterials = uniqueMaterials.filter((m: any) => m.material_name || m.name);
       const calcPurchased  = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.quantity_purchased || item.total_purchased || 0), 0);
       const calcUsed       = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.quantity_used || item.total_used || 0), 0);
       const calcStock      = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.remaining_stock || 0), 0);
       const calcValue      = finalMaterials.reduce((acc: number, item: any) => acc + Number(item.total_amount || item.total_cost || 0), 0);
       setMaterialSummary({
         items:           finalMaterials,
-        total_items:     summaryInfo?.total_items     ?? finalMaterials.length,
+        total_items:     summaryInfo?.total_materials ?? summaryInfo?.total_items ?? finalMaterials.length,
         total_purchased: summaryInfo?.total_purchased ?? calcPurchased,
         total_used:      summaryInfo?.total_used      ?? calcUsed,
         total_qty:       summaryInfo?.total_stock     ?? summaryInfo?.remaining_stock ?? calcStock,
-        total_value:     summaryInfo?.total_value     ?? calcValue
+        total_value:     summaryInfo?.total_value     ?? summaryInfo?.total_stock_value ?? calcValue
       });
 
       // ── ISSUES ─────────────────────────────────────────────────────────────
@@ -370,7 +372,7 @@ const ClientReportsPage = () => {
         { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 33}%` },
         { label: "COMPLETED ACTIVITIES", value: weeklyProgress?.completed_activities ?? 0 },
         { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 8 },
-        { label: "STATUS", value: weeklyProgress?.overall_completion >= 100 ? "Completed" : "In Progress" }
+        { label: "DELAYED ACTIVITIES", value: weeklyProgress?.delayed_activities ?? 0 }
       ],
       onPDF: () => setShowWeeklyPdfModal(true),
       onExcel: () => setShowWeeklyExcelModal(true),
@@ -386,7 +388,7 @@ const ClientReportsPage = () => {
             { label: "OVERALL COMPLETION", value: `${weeklyProgress?.overall_completion ?? 33}%`, color: "text-blue-600" },
             { label: "COMPLETED ACTIVITIES", value: weeklyProgress?.completed_activities ?? 0 },
             { label: "TOTAL ACTIVITIES", value: weeklyProgress?.total_activities ?? 8 },
-            { label: "STATUS", value: weeklyProgress?.overall_completion >= 100 ? "Completed" : "In Progress", color: "text-green-600" }
+            { label: "DELAYED ACTIVITIES", value: weeklyProgress?.delayed_activities ?? 0, color: "text-rose-500" }
           ]
         });
         setShowInsight(true);
@@ -1182,7 +1184,7 @@ const ClientReportsPage = () => {
           />
           <OverviewCard
             title="GENERATED TODAY"
-            value={[(dailyReport ? 1 : 0), (labourSummary ? 1 : 0), (materialSummary ? 1 : 0)].filter(v => v > 0).length || 3}
+            value={allReports.filter(r => r.level === "DAILY").length}
             sub="Recent Site Logs"
             active={activeTab === "daily"}
             onClick={() => { setActiveTab("daily"); setFrequency("Daily"); }}

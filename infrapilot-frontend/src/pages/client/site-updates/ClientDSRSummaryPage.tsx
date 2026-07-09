@@ -647,25 +647,29 @@ const ClientDSRSummaryPage = () => {
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/95 backdrop-blur-xl p-4 transition-all duration-300 animate-in fade-in font-inter"
           onClick={() => setSelectedPhoto(null)}
         >
+          {/* Floating Controls at Top Right of Viewport */}
+          <div className="absolute top-6 right-6 flex gap-4 font-inter z-[110]" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={handleDeletePhoto}
+              className="w-12 h-12 bg-white/10 hover:bg-rose-600 rounded-full flex items-center justify-center text-white transition-all shadow-xl hover:scale-105 active:scale-95"
+              title="Delete Photo"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setSelectedPhoto(null)}
+              className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all shadow-xl hover:scale-105 active:scale-95"
+              title="Close Preview"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
           <div className="relative w-full max-w-6xl flex flex-col items-center gap-4 font-inter" onClick={e => e.stopPropagation()}>
-            <div className="absolute -top-14 right-0 flex gap-4 font-inter">
-              <button 
-                onClick={handleDeletePhoto}
-                className="w-12 h-12 bg-white/10 hover:bg-rose-600 rounded-full flex items-center justify-center text-white transition-all shadow-xl"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={() => setSelectedPhoto(null)}
-                className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all shadow-xl"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
             <img 
               src={selectedPhoto.url} 
               alt="Site Record" 
-              className="max-h-[88vh] w-full object-contain rounded-2xl shadow-2xl border-2 border-white/10 select-none animate-in zoom-in-95 duration-500" 
+              className="max-h-[80vh] w-full object-contain rounded-2xl shadow-2xl border-2 border-white/10 select-none animate-in zoom-in-95 duration-500" 
             />
             <div className="bg-white/10 backdrop-blur-md px-10 py-4 rounded-full border border-white/10 font-inter">
               <p className="text-[11px] font-black text-white uppercase tracking-[0.4em]">Official Field Documentation</p>
