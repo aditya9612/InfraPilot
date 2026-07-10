@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { projectService } from '../../services/projectService';
 import { taskRequestService } from '../../services/taskRequestService';
 import type { TaskRequest } from '../../services/taskRequestService';
+import Modal from '../../components/common/Modal';
 import {
     Send,
     RotateCcw,
@@ -17,9 +18,10 @@ import {
     Loader2,
     Calendar,
     RefreshCw,
-    MoreVertical,
     Edit3,
-    XCircle
+    XCircle,
+    Eye,
+    Trash2
 } from 'lucide-react';
 
 interface Project {
@@ -29,6 +31,15 @@ interface Project {
 
 const TaskRequestsPage: React.FC = () => {
     const { user } = useAuth();
+
+    const formatDate = (dateStr?: string) => {
+        const date = dateStr ? new Date(dateStr) : new Date();
+        if (isNaN(date.getTime())) return dateStr || '';
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+    };
 
     const [title, setTitle] = useState('');
     const [project, setProject] = useState('');
@@ -46,6 +57,7 @@ const TaskRequestsPage: React.FC = () => {
     const [isLoadingRequests, setIsLoadingRequests] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingRequest, setEditingRequest] = useState<TaskRequest | null>(null);
+    const [viewingRequest, setViewingRequest] = useState<TaskRequest | null>(null);
 
     const fetchRequests = React.useCallback(async () => {
         setIsLoadingRequests(true);
@@ -145,6 +157,19 @@ const TaskRequestsPage: React.FC = () => {
 
         // Scroll to form
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!window.confirm("Are you sure you want to delete this task request?")) return;
+        try {
+            await taskRequestService.deleteRequest(id);
+            toast.success("Task request deleted successfully!");
+            fetchRequests(); // Refresh the list
+        } catch (err: any) {
+            const msg = err?.response?.data?.detail || "Failed to delete request";
+            toast.error(msg);
+            console.error("Delete request error:", err);
+        }
     };
 
     const handleReset = () => {
@@ -383,9 +408,11 @@ const TaskRequestsPage: React.FC = () => {
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className="bg-slate-50/50 border-b border-slate-50">
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Task Details</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Title</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Priority</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Attachment URL</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date Submitted</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
@@ -395,23 +422,17 @@ const TaskRequestsPage: React.FC = () => {
                                             {requests.map((req, idx) => (
                                                 <tr key={req.id || idx} className="hover:bg-slate-50/30 transition-colors group">
                                                     <td className="px-8 py-6">
-                                                        <div>
-                                                            <h4 className="text-sm font-bold text-slate-800 mb-0.5">{req.title}</h4>
-                                                            <p className="text-[11px] text-slate-400 font-medium line-clamp-1">{req.description}</p>
-                                                            {req.attachment_url && (
-                                                                <a href={req.attachment_url} target="_blank" rel="noopener noreferrer" className="text-[9px] font-black text-indigo-600 uppercase mt-1 inline-block hover:underline">
-                                                                    View Attachment
-                                                                </a>
-                                                            )}
-                                                        </div>
+                                                        <h4 className="text-sm font-bold text-slate-800">{req.title}</h4>
                                                     </td>
                                                     <td className="px-8 py-6">
-                                                        <div className="flex flex-col">
-                                                            <span className="px-3 py-1 bg-slate-50 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-tight w-fit">
-                                                                {req.category}
-                                                            </span>
-                                                            <span className="text-[9px] text-slate-300 font-bold mt-1 uppercase">Assigned: {req.assigned_to || 'None'}</span>
-                                                        </div>
+                                                        <p className="text-sm text-slate-600 font-medium max-w-[200px] truncate" title={req.description}>
+                                                            {req.description}
+                                                        </p>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <span className="px-3 py-1 bg-slate-50 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-tight w-fit">
+                                                            {req.category}
+                                                        </span>
                                                     </td>
                                                     <td className="px-8 py-6">
                                                         <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${req.priority === 'High' ? 'text-rose-500' :
@@ -424,9 +445,18 @@ const TaskRequestsPage: React.FC = () => {
                                                         </div>
                                                     </td>
                                                     <td className="px-8 py-6">
+                                                        {req.attachment_url ? (
+                                                            <a href={req.attachment_url} target="_blank" rel="noopener noreferrer" className="text-xs font-black text-indigo-600 hover:text-indigo-850 uppercase hover:underline max-w-[150px] truncate block">
+                                                                {req.attachment_url}
+                                                            </a>
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Attachment</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-8 py-6">
                                                         <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
                                                             <Calendar className="w-3.5 h-3.5 text-slate-300" />
-                                                            {req.created_at ? new Date(req.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : 'Today'}
+                                                            {formatDate(req.created_at)}
                                                         </div>
                                                     </td>
                                                     <td className="px-8 py-6">
@@ -445,14 +475,25 @@ const TaskRequestsPage: React.FC = () => {
                                                     </td>
                                                     <td className="px-8 py-6 text-right flex items-center justify-end gap-2">
                                                         <button
+                                                            onClick={() => setViewingRequest(req)}
+                                                            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                                                            title="View Details"
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </button>
+                                                        <button
                                                             onClick={() => handleEdit(req)}
-                                                            className="p-2.5 rounded-xl border border-slate-100 text-slate-400 hover:text-amber-500 hover:border-amber-100 transition-all"
+                                                            className="p-2 text-slate-400 hover:text-amber-500 transition-colors"
                                                             title="Edit Request"
                                                         >
                                                             <Edit3 className="w-4 h-4" />
                                                         </button>
-                                                        <button className="p-2.5 rounded-xl border border-slate-100 text-slate-300 hover:text-indigo-600 hover:border-indigo-100 transition-all">
-                                                            <MoreVertical className="w-4 h-4" />
+                                                        <button
+                                                            onClick={() => handleDelete(req.id)}
+                                                            className="p-2 text-slate-400 hover:text-rose-600 transition-colors"
+                                                            title="Delete Request"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -464,6 +505,125 @@ const TaskRequestsPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* View Request Details Modal */}
+                <Modal
+                    isOpen={viewingRequest !== null}
+                    onClose={() => setViewingRequest(null)}
+                    title="Task Request Details"
+                    maxWidth="max-w-xl"
+                >
+                    {viewingRequest && (
+                        <div className="space-y-6 p-2 font-inter text-slate-700">
+                            <div>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                    Task Title
+                                </span>
+                                <h3 className="text-xl font-bold text-slate-800">
+                                    {viewingRequest.title}
+                                </h3>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                    Description
+                                </span>
+                                <p className="text-sm font-medium text-slate-600 bg-slate-50 p-4 rounded-xl whitespace-pre-line border border-slate-100">
+                                    {viewingRequest.description}
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                        Category
+                                    </span>
+                                    <span className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-black uppercase tracking-wider inline-block">
+                                        {viewingRequest.category}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                        Priority
+                                    </span>
+                                    <span className={`inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest ${
+                                        viewingRequest.priority === 'High' ? 'text-rose-500' :
+                                        viewingRequest.priority === 'Medium' ? 'text-amber-500' : 'text-emerald-500'
+                                    }`}>
+                                        <span className={`w-2 h-2 rounded-full ${
+                                            viewingRequest.priority === 'High' ? 'bg-rose-500' :
+                                            viewingRequest.priority === 'Medium' ? 'bg-amber-500' : 'bg-emerald-500'
+                                        }`} />
+                                        {viewingRequest.priority}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                        Project ID
+                                    </span>
+                                    <span className="text-sm font-bold text-slate-800">
+                                        {viewingRequest.project_id || 'N/A'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                        Date Submitted
+                                    </span>
+                                    <span className="text-sm font-bold text-slate-800">
+                                        {formatDate(viewingRequest.created_at)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                    Status
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    {viewingRequest.status?.toLowerCase() === 'approved' ? (
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                    ) : viewingRequest.status?.toLowerCase() === 'rejected' ? (
+                                        <AlertCircle className="w-4 h-4 text-rose-500" />
+                                    ) : (
+                                        <Clock className="w-4 h-4 text-amber-500" />
+                                    )}
+                                    <span className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                                        {viewingRequest.status || 'Pending'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {viewingRequest.attachment_url && (
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
+                                        Attachment URL
+                                    </span>
+                                    <a
+                                        href={viewingRequest.attachment_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-wider hover:underline break-all"
+                                    >
+                                        {viewingRequest.attachment_url}
+                                    </a>
+                                </div>
+                            )}
+
+                            <div className="pt-4 border-t border-slate-100 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewingRequest(null)}
+                                    className="px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-all"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </Modal>
             </PageTransition>
         </div>
     );

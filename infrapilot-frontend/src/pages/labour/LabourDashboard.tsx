@@ -40,8 +40,8 @@ const LabourDashboard: React.FC = () => {
     const { speak } = useTextToAudio();
     const navigate = useNavigate();
     const [isCheckedIn, setIsCheckedIn] = useState(false);
-    const [isCheckedOut, setIsCheckedOut] = useState(false);
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [_isCheckedOut, setIsCheckedOut] = useState(false);
+    const [selectedTask, _setSelectedTask] = useState<Task | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [tasks, setTasks] = useState<Task[]>([]);

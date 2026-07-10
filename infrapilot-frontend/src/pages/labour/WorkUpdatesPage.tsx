@@ -30,6 +30,7 @@ const base64ToFile = (base64String: string, filename: string): File => {
 };
 
 const WorkUpdatesPage: React.FC = () => {
+
     const query = new URLSearchParams(useLocation().search);
     const taskId = query.get('taskId');
     const projectId = query.get('projectId') || '92';

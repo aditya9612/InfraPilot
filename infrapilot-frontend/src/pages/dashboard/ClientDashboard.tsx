@@ -163,14 +163,14 @@ const ClientDashboard = () => {
         {/* Vital Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {[
-            { label: "Overall Progress", value: dashboardData ? `${Number(dashboardData.progress_percent).toFixed(2)}%` : "—", sub: "Progress Percent" },
-            { label: "Total Budget", value: dashboardData ? `₹${dashboardData.budget_total.toLocaleString("en-IN")}` : "—", sub: "Project Budget" },
-            { label: "Remaining Budget", value: dashboardData ? `₹${dashboardData.remaining_budget.toLocaleString("en-IN")}` : "—", sub: "Remaining" },
-            { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed} / ${dashboardData.milestones_total}` : "—", sub: "Completed / Total" },
-            { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed} / ${dashboardData.tasks_total}` : "—", sub: "Completed / Total" },
+            { label: "Overall Progress", value: dashboardData ? `${Number(dashboardData.progress_percent ?? 0).toFixed(2)}%` : "—", sub: "Progress Percent" },
+            { label: "Total Budget", value: dashboardData ? `₹${(dashboardData.budget_total ?? 0).toLocaleString("en-IN")}` : "—", sub: "Project Budget" },
+            { label: "Remaining Budget", value: dashboardData ? `₹${(dashboardData.remaining_budget ?? 0).toLocaleString("en-IN")}` : "—", sub: "Remaining" },
+            { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed ?? 0} / ${dashboardData.milestones_total ?? 0}` : "—", sub: "Completed / Total" },
+            { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed ?? 0} / ${dashboardData.tasks_total ?? 0}` : "—", sub: "Completed / Total" },
             { label: "Start Date", value: dashboardData ? formatDate(dashboardData.start_date) : "—", sub: "Project Start" },
             { label: "End Date", value: dashboardData ? formatDate(dashboardData.end_date) : "—", sub: "Project End" },
-            { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining}` : "—", sub: "Days Remaining" },
+            { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining ?? 0}` : "—", sub: "Days Remaining" },
           ].map((card: any, i) => (
             <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md group flex flex-col justify-between min-h-[140px]">
               <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{card.label}</p>

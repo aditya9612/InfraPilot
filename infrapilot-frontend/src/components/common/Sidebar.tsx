@@ -1190,6 +1190,21 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   const { user, logout } = useAuth();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [isWorkUpdatesUnlocked, setIsWorkUpdatesUnlocked] = useState(() => {
+    return localStorage.getItem('work_updates_page_unlocked') === 'true';
+  });
+
+  useEffect(() => {
+    const handleUnlockEvent = () => {
+      setIsWorkUpdatesUnlocked(localStorage.getItem('work_updates_page_unlocked') === 'true');
+    };
+    window.addEventListener('sidebar-unlock', handleUnlockEvent);
+    window.addEventListener('storage', handleUnlockEvent);
+    return () => {
+      window.removeEventListener('sidebar-unlock', handleUnlockEvent);
+      window.removeEventListener('storage', handleUnlockEvent);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -1206,7 +1221,10 @@ const Sidebar = ({ onClose }: SidebarProps) => {
   }, []);
 
   if (!user) return null;
-  const menu = sidebarMenus[user.role];
+  let menu = sidebarMenus[user.role];
+  if (user.role === 'Labour' && !isWorkUpdatesUnlocked) {
+    menu = menu.filter(item => item.path !== '/labour/work-updates');
+  }
 
   const rolePaths: Record<string, string> = {
     Admin: "/admin",

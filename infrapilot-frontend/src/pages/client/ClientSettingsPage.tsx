@@ -141,11 +141,11 @@ const ClientSettingsPage = () => {
             let settingsError: any = null;
             let profileError: any = null;
 
-                try {
-                    await settingsService.updateSettings({
-                        ...settings,
-                        default_project_id: activeProjectId
-                    });
+            try {
+                await settingsService.updateSettings({
+                    ...settings,
+                    default_project_id: activeProjectId
+                });
                 
                 // Persist notification preferences locally to ensure consistency across refreshes
                 localStorage.setItem("client_notif_email", String(settings.preferences?.notif_email ?? true));

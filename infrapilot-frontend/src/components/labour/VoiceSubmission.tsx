@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, Square, Play, Trash2, Send, Save } from 'lucide-react';
+import { Mic, Square, Trash2, Send } from 'lucide-react';
 import { useAudioRecorder } from '../../utils/useAudioRecorder';
 import toast from 'react-hot-toast';
 

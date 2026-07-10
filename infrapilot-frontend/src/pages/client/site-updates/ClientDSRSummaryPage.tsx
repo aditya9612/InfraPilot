@@ -284,12 +284,6 @@ const ClientDSRSummaryPage = () => {
                         <p className="text-sm font-bold text-slate-700 leading-snug break-words max-w-sm">
                           {report.work_done || "No summary provided"}
                         </p>
-                        <div className="flex items-center gap-1.5 text-slate-400">
-                          <MapPin className="w-3 h-3" />
-                          <p className="text-[10px] font-bold uppercase tracking-tight truncate max-w-xs">
-                            {report.contractor_name ? `${report.contractor_name} · ` : ""}{report.site_location || ""}
-                          </p>
-                        </div>
                       </div>
                     </td>
                     <td className="p-8">

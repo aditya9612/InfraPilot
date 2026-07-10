@@ -7,7 +7,7 @@ interface ActivityDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   activity: ActivityItem | null;
-  onEdit: () => void;
+  onEdit?: () => void;
 }
 
 const statusBadge: Record<string, string> = {
@@ -152,12 +152,14 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
         {/* Footer Actions */}
         <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
           <button onClick={onClose} className="px-6 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all">Close</button>
-          <button
-            onClick={() => { onClose(); onEdit(); }}
-            className="px-6 py-2 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-          >
-            Edit Activity
-          </button>
+          {onEdit && (
+            <button
+              onClick={() => { onClose(); onEdit(); }}
+              className="px-6 py-2 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+            >
+              Edit Activity
+            </button>
+          )}
         </div>
       </div>
     </Modal>

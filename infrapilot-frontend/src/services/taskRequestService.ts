@@ -111,6 +111,16 @@ export const taskRequestService = {
         const response = await api.put(`projects/${requestId}`, body);
         return response.data;
     },
+
+    /**
+     * Delete an existing task request
+     * DELETE /api/v1/projects/{request_id}
+     */
+    async deleteRequest(requestId: number | string) {
+        console.log(`[taskRequestService] DELETE /api/v1/projects/${requestId}`);
+        const response = await api.delete(`projects/${requestId}`);
+        return response.data;
+    },
 };
 
 export default taskRequestService;

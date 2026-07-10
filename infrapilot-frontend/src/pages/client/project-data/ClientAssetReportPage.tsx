@@ -111,8 +111,8 @@ const ClientAssetReportPage = () => {
                           </div>
                         </td>
                         <td className="px-8 py-5 text-sm font-medium text-slate-500">{asset.purchase_date}</td>
-                        <td className="px-8 py-5 text-sm font-black text-slate-700 text-right tracking-tight">₹{asset.purchase_value.toLocaleString()}</td>
-                        <td className="px-8 py-5 text-sm font-black text-blue-600 text-right tracking-tight">₹{asset.current_value.toLocaleString()}</td>
+                        <td className="px-8 py-5 text-sm font-black text-slate-700 text-right tracking-tight">₹{(asset.purchase_value ?? 0).toLocaleString()}</td>
+                        <td className="px-8 py-5 text-sm font-black text-blue-600 text-right tracking-tight">₹{(asset.current_value ?? 0).toLocaleString()}</td>
                         <td className="px-8 py-5 text-center">
                           <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest">{asset.depreciation_rate}%</span>
                         </td>

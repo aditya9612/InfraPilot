@@ -353,11 +353,10 @@ const ClientNotificationsPage = () => {
               handleSetActiveTab("All");
               handleSetFilter("Unread");
             }}
-            className={`cursor-pointer transition-all duration-200 bg-white rounded-2xl p-6 border ${
-              filter === "Unread" && activeTab === "All"
-                ? "border-2 border-blue-600 shadow-md scale-[1.02]"
-                : "border-slate-100 hover:shadow-sm"
-            }`}
+            className={`cursor-pointer transition-all duration-200 bg-white rounded-2xl p-6 border ${filter === "Unread" && activeTab === "All"
+              ? "border-2 border-blue-600 shadow-md scale-[1.02]"
+              : "border-slate-100 hover:shadow-sm"
+              }`}
           >
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">UNREAD MESSAGES</p>
             <h3 className="text-3xl font-black text-rose-505 mt-2">
@@ -372,11 +371,10 @@ const ClientNotificationsPage = () => {
               handleSetActiveTab("All");
               handleSetFilter("Read");
             }}
-            className={`cursor-pointer transition-all duration-200 bg-white rounded-2xl p-6 border ${
-              filter === "Read" && activeTab === "All"
-                ? "border-2 border-blue-600 shadow-md scale-[1.02]"
-                : "border-slate-100 hover:shadow-sm"
-            }`}
+            className={`cursor-pointer transition-all duration-200 bg-white rounded-2xl p-6 border ${filter === "Read" && activeTab === "All"
+              ? "border-2 border-blue-600 shadow-md scale-[1.02]"
+              : "border-slate-100 hover:shadow-sm"
+              }`}
           >
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">READ MESSAGES</p>
             <h3 className="text-3xl font-black text-emerald-500 mt-2">
@@ -391,11 +389,10 @@ const ClientNotificationsPage = () => {
               handleSetActiveTab("Delayed Tasks");
               handleSetFilter("All");
             }}
-            className={`cursor-pointer transition-all duration-200 bg-white rounded-2xl p-6 border ${
-              activeTab === "Delayed Tasks"
-                ? "border-2 border-blue-600 shadow-md scale-[1.02]"
-                : "border-slate-100 hover:shadow-sm"
-            }`}
+            className={`cursor-pointer transition-all duration-200 bg-white rounded-2xl p-6 border ${activeTab === "Delayed Tasks"
+              ? "border-2 border-blue-600 shadow-md scale-[1.02]"
+              : "border-slate-100 hover:shadow-sm"
+              }`}
           >
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">DELAYED TASKS</p>
             <h3 className="text-3xl font-black text-blue-500 mt-2">
@@ -410,11 +407,10 @@ const ClientNotificationsPage = () => {
               handleSetActiveTab("All");
               handleSetFilter("All");
             }}
-            className={`cursor-pointer transition-all duration-200 bg-white rounded-2xl p-6 border ${
-              filter === "All" && activeTab === "All"
-                ? "border-2 border-blue-600 shadow-md scale-[1.02]"
-                : "border-slate-100 hover:shadow-sm"
-            }`}
+            className={`cursor-pointer transition-all duration-200 bg-white rounded-2xl p-6 border ${filter === "All" && activeTab === "All"
+              ? "border-2 border-blue-600 shadow-md scale-[1.02]"
+              : "border-slate-100 hover:shadow-sm"
+              }`}
           >
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TOTAL ALERTS</p>
             <h3 className="text-3xl font-black text-blue-500 mt-2">
@@ -500,13 +496,12 @@ const ClientNotificationsPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                              isTypeAlert
-                                ? "bg-rose-50 text-rose-500 border border-rose-100"
-                                : isTypeSuccess
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isTypeAlert
+                              ? "bg-rose-50 text-rose-500 border border-rose-100"
+                              : isTypeSuccess
                                 ? "bg-emerald-50 text-emerald-500 border border-emerald-100"
                                 : "bg-blue-50 text-blue-500 border border-blue-100"
-                            }`}>
+                              }`}>
                               <Bell className="w-4 h-4" />
                             </div>
                             {!notif.is_read && (

@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
+import { Eye } from "lucide-react";
+import ActivityDetailModal from "../../components/WorkProgress/ActivityDetailModal";
 
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
@@ -9,6 +11,7 @@ const ClientProgressPage = () => {
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
   const { projectId } = useClientProjectId();
 
   useEffect(() => {
@@ -85,7 +88,7 @@ const ClientProgressPage = () => {
           <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time construction progress tracking</p>
         </div>
 
-        {/* Status Filter Cards — Redesigned to match requested format */}
+        {/* Status Filter Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
             { id: "ALL", label: "Total Activities", sub: "All time records", count: stats.all, color: "text-slate-800" },
@@ -132,13 +135,14 @@ const ClientProgressPage = () => {
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">% Completion</th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit</th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Timeline</th>
-                  <th className="p-4 pr-8 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="p-4 pr-8 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {loadingActivities ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-400 text-sm">
+                    <td colSpan={8} className="p-8 text-center text-slate-400 text-sm">
                       <div className="flex items-center justify-center gap-3">
                         <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -150,7 +154,7 @@ const ClientProgressPage = () => {
                   </tr>
                 ) : activities.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-400 text-sm">No activities found.</td>
+                    <td colSpan={8} className="p-8 text-center text-slate-400 text-sm">No activities found.</td>
                   </tr>
                 ) : (
                   paginatedActivities.map((act, i) => {
@@ -188,11 +192,20 @@ const ClientProgressPage = () => {
                         <td className="p-4 whitespace-nowrap">
                           <p className="text-[10px] font-bold text-slate-500">{act.start_date} to {act.end_date}</p>
                         </td>
-                        <td className="p-4 pr-8">
+                        <td className="p-4">
                           <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${statusBg}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${statusColor}`}></span>
                             {act.status.replace(/_/g, ' ')}
                           </span>
+                        </td>
+                        <td className="p-4 pr-8 text-right">
+                          <button
+                            onClick={() => setSelectedActivity(act)}
+                            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                            title="View Details"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -269,8 +282,16 @@ const ClientProgressPage = () => {
           )}
         </div>
       </div>
+
+      {/* Activity Details Modal */}
+      <ActivityDetailModal
+        isOpen={selectedActivity !== null}
+        onClose={() => setSelectedActivity(null)}
+        activity={selectedActivity}
+      />
     </>
   );
 };
 
 export default ClientProgressPage;
+

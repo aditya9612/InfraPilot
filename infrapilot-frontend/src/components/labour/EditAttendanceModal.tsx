@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
-import { Mail, Briefcase, Phone, FileText } from "lucide-react";
 import type { AttendanceRecord } from "../../types/labour";
 
 interface EditAttendanceModalProps {

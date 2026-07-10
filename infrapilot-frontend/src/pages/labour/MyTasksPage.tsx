@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { projectService } from '../../services/projectService';
 import { useAuth } from '../../context/AuthContext';
-import { useTextToAudio } from '../../utils/useTextToAudio';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
 import TaskDetailModal from '../../components/labour/TaskDetailModal';
@@ -33,7 +32,6 @@ const getFullUrl = (path: string | null | undefined): string | undefined => {
 const MyTasksPage: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { speak } = useTextToAudio();
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [activeTab, setActiveTab] = useState('All Tasks');
     const [searchQuery, setSearchQuery] = useState('');

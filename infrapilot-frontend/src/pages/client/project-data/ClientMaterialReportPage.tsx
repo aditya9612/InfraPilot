@@ -182,7 +182,7 @@ const ClientMaterialReportPage = () => {
                             </div>
                         </td>
                         <td className="py-6 px-6 text-right">
-                          <span className="text-sm font-black text-slate-800">₹{item.total_cost.toLocaleString()}</span>
+                          <span className="text-sm font-black text-slate-800">₹{(item.total_cost ?? 0).toLocaleString()}</span>
                         </td>
                       </tr>
                     ))}

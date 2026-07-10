@@ -37,7 +37,7 @@ interface TaskDetailModalProps {
     onUpdateStatus: (id: string, status: string) => void;
 }
 
-const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose }) => {
+const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, isOpen, onClose, onUpdateStatus }) => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState<'Details' | 'Activity' | 'Comments'>('Details');
     const [comments, setComments] = useState<any[]>([]);
@@ -47,6 +47,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     const [progressUpdate, setProgressUpdate] = useState({ percentage: 0, description: '' });
     
     const { speak } = useTextToAudio();
+
+    const [detailedTask, setDetailedTask] = useState<Task | null>(null);
+    const [isLoadingTask, setIsLoadingTask] = useState(false);
 
     // Audio player state
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -63,13 +66,59 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
         }
-    }, [task?.id]);
+    }, [initialTask?.id]);
 
     const formatTime = (secs: number) => {
         if (!secs || isNaN(secs)) return '0:00';
         const m = Math.floor(secs / 60);
         const s = Math.floor(secs % 60);
         return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    const displayTask = detailedTask || initialTask;
+    const task = displayTask;
+
+    const [localStatusVal, setLocalStatusVal] = useState<string>('Pending');
+    const [quickCommentText, setQuickCommentText] = useState('');
+    const [isSubmittingStatus, setIsSubmittingStatus] = useState(false);
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+    useEffect(() => {
+        if (task) {
+            setLocalStatusVal(task.status === 'Pending' ? 'Planned' : task.status);
+        }
+    }, [task?.id, task?.status]);
+
+    const handleUpdateStatusClick = async () => {
+        if (!onUpdateStatus) return;
+        setIsSubmittingStatus(true);
+        try {
+            let backendStatus = localStatusVal;
+            if (localStatusVal === 'Planned') backendStatus = 'Pending';
+            
+            await onUpdateStatus(task.id, backendStatus);
+            setDetailedTask(prev => prev ? { ...prev, status: localStatusVal as any } : null);
+        } catch (e) {
+            console.error('Failed to update status:', e);
+        } finally {
+            setIsSubmittingStatus(false);
+        }
+    };
+
+    const handleQuickCommentSubmit = async () => {
+        if (!quickCommentText.trim()) return;
+        setIsSubmittingComment(true);
+        try {
+            await projectService.createTaskComment(projectId, taskId, { comment: quickCommentText });
+            setQuickCommentText('');
+            toast.success('Comment created successfully');
+            fetchComments();
+            setActiveTab('Comments');
+        } catch (err) {
+            toast.error('Failed to create comment');
+        } finally {
+            setIsSubmittingComment(false);
+        }
     };
 
     const handlePlayPause = () => {
@@ -102,20 +151,74 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     const projectId = task?.project_id ? Number(task.project_id) : 92;
     const taskId = task?.id ? Number(task.id) : 0;
 
+    useEffect(() => {
+        if (isOpen && initialTask) {
+            const fetchTaskDetail = async () => {
+                setIsLoadingTask(true);
+                try {
+                    const rawProjId = initialTask.project_id ? Number(initialTask.project_id) : 92;
+                    const rawTaskId = Number(initialTask.id);
+                    if (!isNaN(rawTaskId)) {
+                        const data = await projectService.getTask(rawProjId, rawTaskId);
+                        if (data) {
+                            const assignee = data.assigned_users && data.assigned_users.length > 0
+                                ? data.assigned_users.map((u: any) => u.full_name || u.name || u.username).join(', ')
+                                : 'Unassigned';
+
+                            setDetailedTask({
+                                id: String(data.id || initialTask.id),
+                                project_id: data.project_id || initialTask.project_id || rawProjId,
+                                name: data.title || data.name || initialTask.name,
+                                project: data.project_name || initialTask.project,
+                                description: data.description || initialTask.description,
+                                status: (() => {
+                                    const statusStr = data.status || 'Pending';
+                                    if (statusStr.toLowerCase() === 'completed') return 'Completed';
+                                    if (statusStr.toLowerCase() === 'in_progress' || statusStr.toLowerCase() === 'in progress') return 'In Progress';
+                                    if (statusStr.toLowerCase() === 'hold' || statusStr.toLowerCase() === 'on_hold') return 'Hold';
+                                    if (statusStr.toLowerCase() === 'planned') return 'Planned';
+                                    return 'Pending';
+                                })() as any,
+                                priority: data.priority || initialTask.priority,
+                                startDate: data.start_date || initialTask.startDate,
+                                endDate: data.end_date || initialTask.endDate,
+                                progress: data.progress !== undefined ? data.progress : (data.completion_percentage || 0),
+                                audioUrl: data.audio_instruction_url || (data as any).audio_url || initialTask.audioUrl,
+                                imageUrl: (data as any).instruction_image_url || (data as any).image_url || initialTask.imageUrl
+                            });
+                        } else {
+                            setDetailedTask(initialTask);
+                        }
+                    } else {
+                        setDetailedTask(initialTask);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch detailed task:', err);
+                    setDetailedTask(initialTask);
+                } finally {
+                    setIsLoadingTask(false);
+                }
+            };
+            fetchTaskDetail();
+        } else {
+            setDetailedTask(null);
+        }
+    }, [isOpen, initialTask?.id]);
+
     React.useEffect(() => {
-        if (isOpen && task) {
+        if (isOpen && task?.id) {
             if (activeTab === 'Comments') {
                 fetchComments();
             } else if (activeTab === 'Activity') {
                 fetchActivity();
             }
         }
-    }, [isOpen, task, activeTab]);
+    }, [isOpen, task?.id, activeTab]);
 
     const fetchComments = async () => {
         try {
             const data = await projectService.getTaskComments(projectId, taskId);
-            setComments(Array.isArray(data) ? data : (data.items || []));
+            setComments(Array.isArray(data) ? data : (data.items || data.data || []));
         } catch (err) {
             console.error('Failed to fetch comments');
         }
@@ -124,7 +227,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     const fetchActivity = async () => {
         try {
             const data = await projectService.getTaskProgressHistory(projectId, taskId);
-            setActivities(Array.isArray(data) ? data : (data.items || []));
+            setActivities(Array.isArray(data) ? data : (data.items || data.data || []));
         } catch (err) {
             console.error('Failed to fetch activities');
         }
@@ -186,6 +289,59 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                     <p className="text-sm text-slate-500 font-medium leading-relaxed">
                         {task.description && task.description !== 'NA' ? task.description : 'No description provided.'}
                     </p>
+                </div>
+            </div>
+
+            {/* Task Actions (Update Status & Create Comment Buttons) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Task Actions</span>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Update Status Actions */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-700 uppercase tracking-tight block">Update Status</label>
+                        <div className="flex gap-2">
+                            <select
+                                value={localStatusVal}
+                                onChange={(e) => setLocalStatusVal(e.target.value)}
+                                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400"
+                            >
+                                <option value="Planned">Planned</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Hold">Hold</option>
+                            </select>
+                            <button
+                                onClick={handleUpdateStatusClick}
+                                disabled={isSubmittingStatus || localStatusVal === (task.status === 'Pending' ? 'Planned' : task.status)}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors disabled:bg-slate-100 disabled:text-slate-400 flex items-center justify-center min-w-[110px]"
+                            >
+                                {isSubmittingStatus ? 'Updating...' : 'Update Status'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Create Comment Actions */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-black text-slate-700 uppercase tracking-tight block">Quick Comment</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                placeholder="Add a comment..."
+                                value={quickCommentText}
+                                onChange={(e) => setQuickCommentText(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleQuickCommentSubmit()}
+                                className="flex-1 pl-3 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 placeholder:text-slate-300"
+                            />
+                            <button
+                                onClick={handleQuickCommentSubmit}
+                                disabled={isSubmittingComment || !quickCommentText.trim()}
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors disabled:bg-slate-100 disabled:text-slate-400 flex items-center justify-center min-w-[110px]"
+                            >
+                                {isSubmittingComment ? 'Sending...' : 'Create Comment'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -266,8 +422,30 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                     </div>
                 </div>
                 <div className="flex items-center gap-2 px-1">
-                    <div className="w-2 h-2 rounded-full bg-slate-400" />
-                    <span className="text-sm font-medium text-slate-500">{task.status === 'Pending' ? 'Planned' : task.status}</span>
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        task.status === 'Completed' ? 'bg-emerald-500' : 
+                        task.status === 'In Progress' ? 'bg-blue-500' : 
+                        task.status === 'Hold' ? 'bg-amber-500' : 
+                        'bg-slate-400'
+                    }`} />
+                    {onUpdateStatus ? (
+                        <select
+                            value={task.status === 'Pending' ? 'Planned' : task.status}
+                            onChange={(e) => {
+                                let newStatus = e.target.value;
+                                if (newStatus === 'Planned') newStatus = 'Pending';
+                                onUpdateStatus(task.id, newStatus);
+                            }}
+                            className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 outline-none cursor-pointer hover:border-slate-300 transition-all focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400"
+                        >
+                            <option value="Planned">Planned</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Hold">Hold</option>
+                        </select>
+                    ) : (
+                        <span className="text-sm font-medium text-slate-500">{task.status === 'Pending' ? 'Planned' : task.status}</span>
+                    )}
                 </div>
             </div>
 
@@ -538,9 +716,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6 bg-white shadow-inner custom-scrollbar">
-                    {activeTab === 'Details' && renderDetails()}
-                    {activeTab === 'Activity' && renderActivity()}
-                    {activeTab === 'Comments' && renderComments()}
+                    {isLoadingTask ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-4">
+                            <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading details...</p>
+                        </div>
+                    ) : (
+                        <>
+                            {activeTab === 'Details' && renderDetails()}
+                            {activeTab === 'Activity' && renderActivity()}
+                            {activeTab === 'Comments' && renderComments()}
+                        </>
+                    )}
                 </div>
             </div>
         </div>

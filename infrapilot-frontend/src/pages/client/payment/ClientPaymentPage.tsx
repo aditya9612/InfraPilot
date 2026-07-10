@@ -234,7 +234,7 @@ const ClientPaymentPage = () => {
                 startY: 105,
                 head: [['Field Description', 'Transaction Value']],
                 body: [
-                    ['Amount (INR)', `Rs. ${expense.amount.toLocaleString()}`],
+                    ['Amount (INR)', `Rs. ${(expense.amount ?? 0).toLocaleString()}`],
                     ['Payment Date', new Date(expense.date).toLocaleDateString('en-GB')],
                     ['Payment Mode', expense.payment_method || 'UPI/Cash'],
                     ['Category', expense.type || 'Client Cost'],
@@ -353,7 +353,7 @@ const ClientPaymentPage = () => {
                             
                             <div className="mt-12 text-center">
                                 <p className="text-blue-200 text-[10px] font-black tracking-[0.2em] uppercase mb-2">Checkout Summary</p>
-                                <h1 className="text-5xl font-black tracking-tight mb-2">₹ {selectedRequest.amount.toLocaleString()}</h1>
+                                <h1 className="text-5xl font-black tracking-tight mb-2">₹ {(selectedRequest.amount ?? 0).toLocaleString()}</h1>
                                 <p className="text-blue-100/60 text-xs font-medium">Transaction Reference: <span className="text-white">#{selectedRequest.id}</span></p>
                             </div>
                         </div>

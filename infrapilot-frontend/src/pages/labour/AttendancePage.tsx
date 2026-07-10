@@ -12,8 +12,6 @@ import {
     CheckCircle,
     Loader2,
     Eye,
-    Search,
-    Filter,
     Camera,
     X,
     MapPin as MapPinIcon,
@@ -201,22 +199,22 @@ const AttendancePage: React.FC = () => {
 
     const getRunningHours = () => {
         if (statusData?.attendance?.working_hours) {
-            const wh = statusData.attendance.working_hours;
+            const wh: unknown = statusData.attendance.working_hours;
             if (typeof wh === 'number') {
                 const hrs = Math.floor(wh);
                 const mins = Math.round((wh % 1) * 60);
                 return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
             }
-            if (typeof wh === 'string' && wh.includes(':')) {
-                return wh;
+            if (typeof wh === 'string' && (wh as string).includes(':')) {
+                return wh as string;
             }
-            const whNum = parseFloat(wh);
+            const whNum = parseFloat(wh as string);
             if (!isNaN(whNum)) {
                 const hrs = Math.floor(whNum);
                 const mins = Math.round((whNum % 1) * 60);
                 return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
             }
-            return wh;
+            return String(wh);
         }
         if (!statusData?.attendance?.in_time) return "--:--";
         const inTime = new Date(statusData.attendance.in_time);
