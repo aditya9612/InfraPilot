@@ -55,13 +55,19 @@ const DSRApprovalPage = () => {
         try {
             await dsrService.approveDsr(dsr.id);
 
-            // Financial Sync: Auto-create measurement from approved DSR progress
             await measurementService.createMeasurement({
                 project_id: dsr.project_id,
+                task_id: 0,
+                boq_item_id: 0,
                 final_area: Math.random() * 100, // Simulated progress volume
                 approved_rate: 450, // Mock rate from BOQ
                 extra_area: 0,
-                extra_rate: 0
+                extra_rate: 0,
+                measured_qty: 0,
+                certified_qty: 0,
+                rejected_qty: 0,
+                retention_amount: 0,
+                status: "DRAFT"
             });
 
             setDsrs(prev => prev.map(d => d.id === dsr.id ? { ...d, status: "Approved" } : d));

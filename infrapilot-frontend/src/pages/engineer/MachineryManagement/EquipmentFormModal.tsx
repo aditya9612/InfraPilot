@@ -95,17 +95,23 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                     </div>
                     {!formData.id && <p className="text-[11px] text-blue-500 mb-4 ml-6">Equipment create hone ke baad automatically project assign ho jayega</p>}
                     <div className="ml-6">
-                        <label className={labelClasses}>SELECT PROJECT (OPTIONAL)</label>
-                        <select
-                            value={formData.project_id || ''}
-                            onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
-                            className={inputClasses}
-                        >
-                            <option value="">-- Select your project --</option>
-                            {projects.map(p => (
-                                <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                            ))}
-                        </select>
+                        <label className={labelClasses}>ASSIGNED PROJECT</label>
+                        {formData.project_id ? (
+                            <div className="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
+                                {projects.find(p => Number(p.id) === Number(formData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(formData.project_id))?.name || `Project ${formData.project_id}`}
+                            </div>
+                        ) : (
+                            <select
+                                value={formData.project_id || ''}
+                                onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
+                                className={inputClasses}
+                            >
+                                <option value="">-- Select your project --</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                 </div>
 
@@ -130,14 +136,6 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                                 <option value="">Select condition</option>
                                 {Object.keys(conditionDisplay).map(k => <option key={k} value={k}>{conditionDisplay[k]}</option>)}
                             </select>
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Working Hours *</label>
-                            <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className={inputClasses} />
-                        </div>
-                        <div>
-                            <label className={labelClasses}>Fuel Used (L) *</label>
-                            <input type="number" min="0" required value={formData.fuel_used || ''} onChange={(e) => setFormData({ ...formData, fuel_used: Number(e.target.value) })} className={inputClasses} />
                         </div>
                         <div>
                             <label className={labelClasses}>Rental Cost (₹) *</label>

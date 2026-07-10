@@ -299,7 +299,7 @@ const TaskManagementPage = () => {
                 }
                 const creator = actualCreatedId ? membersList.find(m => m.user_id === actualCreatedId) : undefined;
                 if (creator) {
-                    assigner.name = creator.full_name || creator.name;
+                    assigner.name = creator.full_name;
                     assigner.role = creator.role || "Manager";
                 } else if (typeof (t as any).created_by === 'object' && (t as any).created_by !== null) {
                     assigner.name = ((t as any).created_by as any).full_name || ((t as any).created_by as any).name || "Unknown";

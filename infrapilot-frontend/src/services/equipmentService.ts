@@ -231,12 +231,13 @@ export const equipmentService = {
     // ==========================================
     // 4. Maintenance
     // ==========================================
-    async createMaintenance(equipment_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string }): Promise<MaintenanceItem> {
+    async createMaintenance(equipment_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string, project_id?: number }): Promise<MaintenanceItem> {
         const payload = {
             description: data.description,
             maintenance_date: data.maintenance_date,
             cost: data.cost,
-            next_maintenance_date: data.next_maintenance_date
+            next_maintenance_date: data.next_maintenance_date,
+            project_id: data.project_id
         };
         const response = await api.post<MaintenanceItem>(`/equipment/${equipment_id}/maintenance`, payload);
         return response.data;
