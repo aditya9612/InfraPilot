@@ -33,6 +33,7 @@ const ManagerQualityPage = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [tasks, setTasks] = useState<{ id: number; title: string }[]>([]);
     const [dsrs, setDsrs] = useState<{ id: number; label: string }[]>([]);
+    const [engineers, setEngineers] = useState<{ id: number; label: string }[]>([]);
 
     // ── UI States ─────────────────────────────────────────────────
     const [filterStatus, setFilterStatus] = useState("All");
@@ -65,7 +66,6 @@ const ManagerQualityPage = () => {
         status: string;
         engineer_name: string;
         remarks: string;
-        report_file: File | string;
     }
 
     const [formData, setFormData] = useState<QcFormData>({
@@ -73,7 +73,7 @@ const ManagerQualityPage = () => {
         task_id: null, dsr_id: null,
         inspection_type: "General", test_type: "Visual Check",
         result: "", standard_value: "",
-        status: "Pass", engineer_name: "", remarks: "", report_file: ""
+        status: "Pass", engineer_name: "", remarks: ""
     });
 
     // ── DATA FETCH ────────────────────────────────────────────────
@@ -115,6 +115,36 @@ const ManagerQualityPage = () => {
         };
         fetchTasks();
     }, [selectedProjectId]);
+
+    // ── Fetch engineers for selected project in form ─────────────
+    useEffect(() => {
+        const fetchEngineers = async () => {
+            if (!formData.project_id) {
+                setEngineers([]);
+                return;
+            }
+            try {
+                const members = await projectService.getProjectMembers(Number(formData.project_id));
+                const list = Array.isArray(members) ? members : (members?.items || members?.data || []);
+
+                const mapped = list.map((m: any) => {
+                    const u = m.user || {};
+                    const id = u.id || m.user_id || m.userId;
+                    const name = u.full_name || u.username || `User #${id}`;
+                    return { id, label: name };
+                }).filter((e: any) => e.id);
+
+                // Deduplicate by id if needed
+                const unique = Array.from(new Map(mapped.map((item: any) => [item.id, item])).values());
+
+                setEngineers(unique as { id: number; label: string }[]);
+            } catch (err) {
+                console.error("Failed to fetch engineers:", err);
+                setEngineers([]);
+            }
+        };
+        fetchEngineers();
+    }, [formData.project_id]);
 
     // ── ACTIONS ───────────────────────────────────────────────────
     const handleCreateSubmit = async (e?: React.FormEvent) => {
@@ -169,7 +199,7 @@ const ManagerQualityPage = () => {
     const resetForm = () => setFormData({
         project_id: selectedProjectId || "", task_id: null, dsr_id: null,
         inspection_type: "General", test_type: "Visual Check",
-        result: "", standard_value: "", status: "Pass", engineer_name: "", remarks: "", report_file: ""
+        result: "", standard_value: "", status: "Pass", engineer_name: "", remarks: ""
     });
 
     const handleViewDetails = async (qc: QcItem) => {
@@ -192,7 +222,7 @@ const ManagerQualityPage = () => {
             inspection_type: qc.inspection_type, test_type: qc.test_type,
             result: qc.result, standard_value: qc.standard_value,
             status: qc.status, engineer_name: qc.engineer_name,
-            remarks: qc.remarks || "", report_file: qc.report_file || ""
+            remarks: qc.remarks || ""
         });
         setIsEditModalOpen(true);
     };
@@ -601,18 +631,20 @@ const ManagerQualityPage = () => {
                         </div>
                         <div>
                             <label className={labelCls}>Engineer In-Charge</label>
-                            <input type="text" value={formData.engineer_name} onChange={e => setFormData(p => ({ ...p, engineer_name: e.target.value }))} placeholder="Er. Full Name" className={inputCls} />
+                            <CustomDropdown
+                                value={engineers.find(e => e.label === formData.engineer_name)?.id || null}
+                                onChange={val => {
+                                    const eng = engineers.find(e => e.id === val);
+                                    setFormData(p => ({ ...p, engineer_name: eng ? eng.label : "" }));
+                                }}
+                                options={engineers.map(e => ({ value: e.id, label: e.label }))}
+                                placeholder="Select Engineer"
+                                inputCls={inputCls}
+                            />
                         </div>
                         <div className="md:col-span-2">
                             <label className={labelCls}>Remarks</label>
                             <textarea value={formData.remarks} onChange={e => setFormData(p => ({ ...p, remarks: e.target.value }))} placeholder="Additional observations..." rows={3} className={inputCls + " resize-none"} />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className={labelCls}>Report File</label>
-                            <input type="file" onChange={e => {
-                                const file = e.target.files?.[0];
-                                if (file) setFormData(p => ({ ...p, report_file: file }));
-                            }} className={inputCls} />
                         </div>
                     </div>
                 </form>

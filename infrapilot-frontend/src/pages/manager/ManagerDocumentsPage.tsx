@@ -12,8 +12,9 @@ import type { Document, DocumentUpdateParams } from "../../types/document";
 import {
     Download, ChevronLeft, ChevronRight, Folder, FolderPlus,
     Upload, Trash2, X, FileImage, FileSpreadsheet, Filter,
-    Edit2, History, FileText, RefreshCcw, Eye, Loader2, Search
+    Edit2, History, FileText, RefreshCcw, Eye, Loader2, Search, Info
 } from "lucide-react";
+import SortDropdown from "../../components/common/SortDropdown";
 import { drawingService } from "../../services/drawingService";
 import ProjectSelector from "../../components/common/ProjectSelector";
 
@@ -246,6 +247,25 @@ const ManagerDocumentsPage = () => {
             toast.success("Download started.", { id: toastId });
         } catch {
             toast.error("Download failed.", { id: toastId });
+        }
+    };
+
+    const handleViewDocumentFile = async (doc: Document) => {
+        const toastId = toast.loading(`Opening ${doc.title}...`);
+        try {
+            let res;
+            if (mainTab === "Drawings" || (doc.document_type || "").toLowerCase() === "drawing") {
+                res = await drawingService.viewDocument(doc.id);
+            } else {
+                res = await documentService.viewDocument(doc.id);
+            }
+
+            const url = window.URL.createObjectURL(new Blob([res.data], { type: res.contentType }));
+            window.open(url, "_blank");
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000 * 60);
+            toast.dismiss(toastId);
+        } catch {
+            toast.error("Failed to open document.", { id: toastId });
         }
     };
 
@@ -518,51 +538,33 @@ const ManagerDocumentsPage = () => {
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                             {/* Toolbar */}
                             <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4">
-                                <div className="relative flex-1 max-w-md">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search documents..."
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                                    />
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Filter className="w-4 h-4 text-slate-400 shrink-0" />
-                                    <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
-                                        {(["All", "Documents", "Folders"] as TypeFilter[]).map(tabName => (
-                                            <button
-                                                key={tabName}
-                                                onClick={() => { handleTabChange(tabName); setCategoryFilter(""); }}
-                                                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${typeFilter === tabName ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                                            >
-                                                {tabName === "Documents" && mainTab === "Drawings" ? "Drawings" : tabName}
-                                            </button>
-                                        ))}
+                                <div className="flex flex-1 items-center gap-3 min-w-0">
+                                    <div className="relative flex-1 max-w-md">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={searchTerm}
+                                            onChange={e => setSearchTerm(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                                        />
                                     </div>
-                                    {/* Category type filter — shows actual document_type values from data */}
+                                </div>
+                                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
+                                    <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
                                     <select
-                                        value={categoryFilter}
-                                        onChange={e => setCategoryFilter(e.target.value)}
-                                        className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${categoryFilter
-                                                ? "bg-primary/10 border-primary/30 text-primary"
-                                                : "bg-slate-50 border-slate-200 text-slate-600"
-                                            }`}
+                                        value={typeFilter}
+                                        onChange={e => { setTypeFilter(e.target.value as TypeFilter); setCategoryFilter(""); }}
+                                        className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${typeFilter !== "All"
+                                            ? "bg-primary/10 border-primary/30 text-primary"
+                                            : "bg-slate-50 border-slate-200 text-slate-600"
+                                        }`}
                                     >
-                                        <option value="">All Types</option>
-                                        {availableCategories.map(t => (
-                                            <option key={t} value={t}>{t}</option>
-                                        ))}
+                                        <option value="All">All</option>
+                                        <option value="Documents">{mainTab === "Drawings" ? "Drawings" : "Documents"}</option>
+                                        <option value="Folders">Folders</option>
                                     </select>
-                                    <select
-                                        value={sortOrder}
-                                        onChange={e => setSortOrder(e.target.value as SortOrder)}
-                                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 outline-none"
-                                    >
-                                        <option value="latest">Latest First</option>
-                                        <option value="oldest">Oldest First</option>
-                                    </select>
+                                    <SortDropdown value={sortOrder} onChange={setSortOrder} />
                                 </div>
                             </div>
 
@@ -658,11 +660,18 @@ const ManagerDocumentsPage = () => {
                                                                     {!doc.is_folder && (
                                                                         <>
                                                                             <button
+                                                                                onClick={() => handleViewDocumentFile(doc)}
+                                                                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                                                title="View File"
+                                                                            >
+                                                                                <Eye className="w-4 h-4" />
+                                                                            </button>
+                                                                            <button
                                                                                 onClick={() => { setViewingDoc(doc); setIsViewModalOpen(true); }}
                                                                                 className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
                                                                                 title="View Details"
                                                                             >
-                                                                                <Eye className="w-4 h-4" />
+                                                                                <Info className="w-4 h-4" />
                                                                             </button>
                                                                             <button
                                                                                 onClick={() => handleViewHistory(doc)}
@@ -920,6 +929,7 @@ const ManagerDocumentsPage = () => {
                             ["Title", viewingDoc.title],
                             ["Project", viewingDoc.project_name || `Project #${viewingDoc.project_id}`],
                             ["Type", viewingDoc.document_type || "—"],
+                            ["Folder", viewingDoc.is_folder ? "Yes" : "No"],
                             ["Status", viewingDoc.status || "PENDING"],
                             ["Version", viewingDoc.version || "v1.0"],
                             ["Uploaded", viewingDoc.uploaded_at ? new Date(viewingDoc.uploaded_at).toLocaleString() : "—"],
@@ -929,10 +939,10 @@ const ManagerDocumentsPage = () => {
                             <div key={label} className="flex justify-between items-start border-b border-slate-50 pb-3 last:border-0">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 mr-4">{label}</span>
                                 <span className={`text-sm font-bold text-right max-w-[60%] ${label === "Status"
-                                        ? value === "APPROVED" ? "text-emerald-600"
-                                            : value === "REJECTED" ? "text-rose-600"
-                                                : "text-amber-600"
-                                        : "text-slate-800"
+                                    ? value === "APPROVED" ? "text-emerald-600"
+                                        : value === "REJECTED" ? "text-rose-600"
+                                            : "text-amber-600"
+                                    : "text-slate-800"
                                     }`}>{value}</span>
                             </div>
                         ))}
@@ -954,10 +964,16 @@ const ManagerDocumentsPage = () => {
                         )}
 
                         {viewingDoc.file_url && (
-                            <button onClick={() => handleDownload(viewingDoc)}
-                                className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-all">
-                                <Download className="w-4 h-4" /> Download File
-                            </button>
+                            <div className="flex items-center gap-2 mt-4">
+                                <button onClick={() => handleViewDocumentFile(viewingDoc)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 border border-blue-200 text-sm font-bold rounded-xl hover:bg-blue-100 transition-all">
+                                    <Eye className="w-4 h-4" /> View File
+                                </button>
+                                <button onClick={() => handleDownload(viewingDoc)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-all">
+                                    <Download className="w-4 h-4" /> Download File
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}
@@ -1034,35 +1050,37 @@ const ManagerDocumentsPage = () => {
                         <textarea value={editForm.remarks} onChange={e => setEditForm(p => ({ ...p, remarks: e.target.value }))}
                             placeholder="Update notes..." rows={3} className={inputCls + " resize-none"} />
                     </div>
-                    <div>
-                        <label className={labelCls}>Replace File <span className="text-slate-400 font-medium normal-case tracking-normal">(optional)</span></label>
-                        <div
-                            onClick={() => editFileInputRef.current?.click()}
-                            className="w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
-                        >
-                            {editFile ? (
-                                <div className="flex items-center justify-center gap-3">
-                                    <FileText className="w-5 h-5 text-primary" />
-                                    <div className="text-left">
-                                        <p className="text-sm font-bold text-slate-800">{editFile.name}</p>
-                                        <p className="text-xs text-slate-400">{(editFile.size / 1024).toFixed(1)} KB</p>
+                    {mainTab !== "Drawings" && (
+                        <div>
+                            <label className={labelCls}>Replace File <span className="text-slate-400 font-medium normal-case tracking-normal">(optional)</span></label>
+                            <div
+                                onClick={() => editFileInputRef.current?.click()}
+                                className="w-full border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all"
+                            >
+                                {editFile ? (
+                                    <div className="flex items-center justify-center gap-3">
+                                        <FileText className="w-5 h-5 text-primary" />
+                                        <div className="text-left">
+                                            <p className="text-sm font-bold text-slate-800">{editFile.name}</p>
+                                            <p className="text-xs text-slate-400">{(editFile.size / 1024).toFixed(1)} KB</p>
+                                        </div>
+                                        <button onClick={e => { e.stopPropagation(); setEditFile(null); }}
+                                            className="ml-auto p-1 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors">
+                                            <X className="w-4 h-4" />
+                                        </button>
                                     </div>
-                                    <button onClick={e => { e.stopPropagation(); setEditFile(null); }}
-                                        className="ml-auto p-1 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors">
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
-                                    <Upload className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
-                                    <p className="text-xs font-bold text-slate-500">Click to select a new file</p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">PDF, DOC, DWG, Images supported</p>
-                                </>
-                            )}
+                                ) : (
+                                    <>
+                                        <Upload className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
+                                        <p className="text-xs font-bold text-slate-500">Click to select a new file</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">PDF, DOC, DWG, Images supported</p>
+                                    </>
+                                )}
+                            </div>
+                            <input ref={editFileInputRef} type="file" className="hidden"
+                                onChange={e => { if (e.target.files?.[0]) setEditFile(e.target.files[0]); }} />
                         </div>
-                        <input ref={editFileInputRef} type="file" className="hidden"
-                            onChange={e => { if (e.target.files?.[0]) setEditFile(e.target.files[0]); }} />
-                    </div>
+                    )}
                 </div>
             </Modal>
 

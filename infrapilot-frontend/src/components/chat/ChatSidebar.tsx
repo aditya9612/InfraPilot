@@ -4,7 +4,7 @@ import { chatService } from "../../services/chatService";
 import type { ChatUser } from "../../types/chat";
 import {
     Search, Plus, MessageCircle, Users, Archive, Star,
-    Filter, Check, X, UserPlus, ChevronLeft, BellOff, ArchiveRestore
+    Filter, Check, X, UserPlus, ChevronLeft, BellOff, ArchiveRestore, Pin
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -62,6 +62,12 @@ const ChatSidebar: React.FC = () => {
             !searchQuery ||
             (c.name || c.other_user_name || "").toLowerCase().includes(searchQuery.toLowerCase());
         return matchesFilter && matchesSearch;
+    });
+
+    const sortedConversations = [...filteredConversations].sort((a, b) => {
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+        return 0; // maintain original order otherwise
     });
 
 
@@ -315,7 +321,7 @@ const ChatSidebar: React.FC = () => {
                             </button>
                         </div>
                     ) : (
-                        filteredConversations.map(c => (
+                        sortedConversations.map(c => (
                             <div
                                 key={c.id}
                                 role="button"
@@ -342,9 +348,12 @@ const ChatSidebar: React.FC = () => {
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0 text-left">
                                         <div className="flex items-center gap-1.5 mb-0.5">
-                                            <h3 className={`text-sm font-black truncate ${c.id === activeChatId ? 'text-primary' : 'text-slate-700'}`}>
+                                            <h3 className={`text-sm font-black truncate flex items-center gap-1 ${c.id === activeChatId ? 'text-primary' : 'text-slate-700'}`}>
                                                 {c.name || c.other_user_name || "Anonymous"}
                                             </h3>
+                                            {c.is_pinned && (
+                                                <Pin className="w-3 h-3 text-slate-400 shrink-0 rotate-45" />
+                                            )}
                                             {(c.is_muted || (c as any).muted || (c as any).isMuted || (c as any).is_mute) && (
                                                 <BellOff className="w-3 h-3 text-rose-500 shrink-0" />
                                             )}

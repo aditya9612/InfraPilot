@@ -51,8 +51,8 @@ const getFullUrl = (url: string | null) => {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     if (url.startsWith('data:image')) return url;
-    const baseUrl = import.meta.env.VITE_API_URL 
-        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '') 
+    const baseUrl = import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace('/api/v1', '').replace(/\/+$/, '')
         : 'http://127.0.0.1:8000';
     return `${baseUrl}/${url.replace(/^\/+/, '')}`;
 };
@@ -219,7 +219,7 @@ const LaborDetailsPage = () => {
                     project_id: item.project_id || projectId || 92
                 }));
                 allItems = [...allItems, ...items];
-                
+
                 if (items.length < 50) {
                     hasMore = false;
                 } else {
@@ -529,37 +529,13 @@ const LaborDetailsPage = () => {
                             Centralized database of site workforce, performance metrics and compliance.
                         </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                        <button
-                            onClick={() => {
-                                setDistDate("");
-                                setDistSkill("");
-                                setExportModalType('excel');
-                            }}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-bold shadow-sm hover:bg-emerald-100 transition-all active:scale-95"
-                        >
-                            <FileSpreadsheet className="w-4 h-4" />
-                            Distribution Excel
-                        </button>
-                        <button
-                            onClick={() => {
-                                setDistDate("");
-                                setDistSkill("");
-                                setExportModalType('pdf');
-                            }}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-sm font-bold shadow-sm hover:bg-rose-100 transition-all active:scale-95"
-                        >
-                            <FileDown className="w-4 h-4" />
-                            Distribution PDF
-                        </button>
-                        <button
-                            onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Create Labour
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setAssignSelectedProjectId(""); setIsFormModalOpen(true); }}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Register Labour
+                    </button>
                 </div>
 
                 {/* ─── Summary Stats ─────────────────────────────────────────────────── */}
@@ -926,9 +902,9 @@ const LaborDetailsPage = () => {
                             {/* labour_type_id * */}
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Labour Type <span className="text-rose-500">*</span></label>
-                                <select 
-                                    value={formData.labour_type_id || ""} 
-                                    onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })} 
+                                <select
+                                    value={formData.labour_type_id || ""}
+                                    onChange={(e) => setFormData({ ...formData, labour_type_id: Number(e.target.value) })}
                                     className={`w-full px-4 py-2.5 bg-white border ${errors.labour_type_id ? 'border-rose-300' : 'border-slate-200'} rounded-xl text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20`}
                                 >
                                     <option value="" disabled>Select Labour Type</option>

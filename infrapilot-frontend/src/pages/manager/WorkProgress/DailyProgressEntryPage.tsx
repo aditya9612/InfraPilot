@@ -16,6 +16,8 @@ import {
 import { useAuth } from "../../../context/AuthContext";
 import { useProject } from "../../../context/ProjectContext";
 import { workProgressService } from "../../../services/workProgressService";
+import { reportService } from "../../../services/reportService";
+import { userService } from "../../../services/userService";
 import type { ActivityItem, DailyEntry } from "../../../types/workProgress";
 
 
@@ -50,6 +52,7 @@ const DailyProgressEntryPage = () => {
   const [allEntries, setAllEntries] = useState<DailyEntry[]>([]);
   const [activityHistory, setActivityHistory] = useState<any[]>([]);
   const [activitiesList, setActivitiesList] = useState<ActivityItem[]>([]); // for dropdown
+  const [usersMap, setUsersMap] = useState<Record<number, string>>({});
   const [projectSummary, setProjectSummary] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -89,7 +92,18 @@ const DailyProgressEntryPage = () => {
   const loadActivities = useCallback(async () => {
     if (!projectId) return;
     try {
-      const data = await workProgressService.listActivities(projectId);
+      // Backend caps limit at 100, so paginate to get all activities
+      let allActivities: any[] = [];
+      let offset = 0;
+      const batchSize = 100;
+      while (true) {
+        const batch = await workProgressService.listActivities(projectId, undefined, batchSize, offset);
+        if (!batch || batch.length === 0) break;
+        allActivities = allActivities.concat(batch);
+        if (batch.length < batchSize) break; // last page
+        offset += batchSize;
+      }
+      const data = allActivities;
       const normalizedData = data.map((a: any) => {
         let status = a.status;
         if (status) {
@@ -116,7 +130,7 @@ const DailyProgressEntryPage = () => {
       if (!hasLoadedToday) {
         setLoading(true);
       }
-      const res = await workProgressService.getTodayProgress(undefined, projectId);
+      const res = await workProgressService.getTodayProgress(engineer_id, projectId);
       const entries = res?.data || res || [];
       setTodayActivities(entries as DailyEntry[]);
       setAllEntries(entries as DailyEntry[]);
@@ -135,8 +149,26 @@ const DailyProgressEntryPage = () => {
         setLoading(true);
       }
       const res = await workProgressService.listDailyEntries(undefined, undefined, projectId);
-      setAllEntries(res || []);
+      const entries = res || [];
+      setAllEntries(entries);
       setHasLoadedAll(true);
+
+      // Resolve created_by IDs to names using per-user fetch (works with PM role)
+      const uniqueUserIds = [...new Set(
+        entries.map((e: any) => e.created_by).filter((id: any) => id && typeof id === 'number')
+      )] as number[];
+      if (uniqueUserIds.length > 0) {
+        const newMap: Record<number, string> = {};
+        await Promise.all(
+          uniqueUserIds.map(async (uid) => {
+            try {
+              const u = await userService.getUserById(uid);
+              if (u) newMap[uid] = u.full_name || u.username || `User #${uid}`;
+            } catch { /* silently skip unresolvable users */ }
+          })
+        );
+        setUsersMap(prev => ({ ...prev, ...newMap }));
+      }
     } catch (err) {
       console.error("Load Entries Error:", err);
       toast.error("Failed to load progress logs");
@@ -484,6 +516,40 @@ const DailyProgressEntryPage = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ProjectSelector variant="page" />
+            {/* PDF Export */}
+            <button
+              onClick={async () => {
+                if (!projectId) { toast.error("Select a project first"); return; }
+                const toastId = toast.loading("Generating PDF...");
+                try {
+                  await reportService.exportWeeklyPDF(projectId);
+                  toast.success("PDF downloaded!", { id: toastId });
+                } catch {
+                  toast.error("PDF export failed", { id: toastId });
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+              PDF
+            </button>
+            {/* Excel Export */}
+            <button
+              onClick={async () => {
+                if (!projectId) { toast.error("Select a project first"); return; }
+                const toastId = toast.loading("Generating Excel...");
+                try {
+                  await reportService.exportWeeklyExcel(projectId);
+                  toast.success("Excel downloaded!", { id: toastId });
+                } catch {
+                  toast.error("Excel export failed", { id: toastId });
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              Excel
+            </button>
             {activeTab === 'all' && (
               <button
                 onClick={() => setIsLogModalOpen(true)}
@@ -609,6 +675,7 @@ const DailyProgressEntryPage = () => {
                           <th className="px-6 py-4 font-inter whitespace-nowrap">DATE</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">PROGRESS ADDED</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">REMARKS</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">CREATED BY</th>
                           <th className="px-6 py-4 font-inter whitespace-nowrap">LOGGED AT</th>
                           {activeTab === 'all' && <th className="px-6 py-4 font-inter whitespace-nowrap text-right">ACTIONS</th>}
                         </tr>
@@ -623,6 +690,7 @@ const DailyProgressEntryPage = () => {
                           </tr>
                         ) : (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).length > 0 ? (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).map((e) => {
                           const currentActivity = activitiesList.find(a => a.id === e.activity_id);
+                          const creatorName = e.created_by ? (usersMap[e.created_by] || `User #${e.created_by}`) : "-";
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-slate-700 whitespace-nowrap">
@@ -634,6 +702,7 @@ const DailyProgressEntryPage = () => {
                                 {e.today_progress} {currentActivity?.unit || ""}
                               </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600 max-w-[250px] truncate" title={e.remarks}>{e.remarks || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-700 whitespace-nowrap">{creatorName}</td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-500">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
                               {activeTab === 'all' && (
                                 <td className="px-6 py-6 font-inter">

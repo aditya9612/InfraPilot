@@ -194,14 +194,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
   ],
   ProjectManager: [
     { label: "Dashboard", path: "/manager", icon: "grid" },
-    {
-      label: "Projects",
-      path: "/manager/projects",
-      icon: "folder",
-      subNav: [
-        { label: "Project List", path: "/manager/projects/list", icon: "list" },
-      ]
-    },
+    { label: "Projects", path: "/manager/projects", icon: "folder" },
     {
       label: "Work Progress",
       path: "/manager/work-progress",
@@ -274,7 +267,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/manager/approvals",
       icon: "check-circle",
     },
-    { label: "Reports", path: "/manager/reports", icon: "bar-chart", subNav: [{ label: "Progress Report", path: "/manager/reports/progress", icon: "trending-up" }, { label: "Cost Report", path: "/manager/reports/cost", icon: "dollar-sign" }, { label: "Resource Report", path: "/manager/reports/resource", icon: "users" },] },
+    { label: "Reports", path: "/manager/reports", icon: "bar-chart" },
     { label: "Chat", path: "/chat", icon: "message-circle" },
     { label: "Settings", path: "/manager/settings", icon: "settings" },
   ],
