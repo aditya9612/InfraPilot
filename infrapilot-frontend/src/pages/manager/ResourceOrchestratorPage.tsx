@@ -4,6 +4,7 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { projectService } from "../../services/projectService";
 import { labourService } from "../../services/labourService";
+import { userService } from "../../services/userService";
 import { equipmentService } from "../../services/equipmentService";
 import { materialService } from "../../services/materialService";
 import ResourceTransferModal from "../../components/modals/ResourceTransferModal";
@@ -37,11 +38,14 @@ const ResourceOrchestratorPage = () => {
     const [loading, setLoading] = useState(true);
     const [assetViewMode, setAssetViewMode] = useState<"grid" | "list">("grid");
     const [workforcePage, setWorkforcePage] = useState(0);
+    const [engineerPage, setEngineerPage] = useState(0);
     const [assetPage, setAssetPage] = useState(0);
     const [supplyChainPage, setSupplyChainPage] = useState(0);
     const PAGE_SIZE = 10;
+    const [workforceSubTab, setWorkforceSubTab] = useState<"labour" | "engineer">("labour");
 
     const [workforceData, setWorkforceData] = useState<{ labours: any[], attendance: any[] }>({ labours: [], attendance: [] });
+    const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
     const [assetsData, setAssetsData] = useState<{ equipment: any[], utilization: any[] }>({ equipment: [], utilization: [] });
     const [supplyChainData, setSupplyChainData] = useState<{ stock: any[], transfers: any[] }>({ stock: [], transfers: [] });
 
@@ -95,10 +99,33 @@ const ResourceOrchestratorPage = () => {
                         labourService.getLabours(projId),
                         labourService.getAttendanceList(projId ? Number(projId) : null)
                     ]);
-                    setWorkforceData({
-                        labours: Array.isArray(labRes) ? labRes : labRes.items || [],
-                        attendance: Array.isArray(attRes) ? attRes : attRes.items || []
-                    });
+
+                    const labourItems = Array.isArray(labRes) ? labRes : labRes.items || [];
+                    const attendanceItems = Array.isArray(attRes) ? attRes : attRes.items || [];
+                    setWorkforceData({ labours: labourItems, attendance: attendanceItems });
+
+                    let engineerRecords: any[] = [];
+                    try {
+                        const userRes = await userService.getAllUsers(100, 0);
+                        const allUsers = Array.isArray(userRes) ? userRes : userRes.items || userRes.data || [];
+                        engineerRecords = (allUsers as any[]).filter((u: any) => {
+                            const role = typeof u.role === "string" ? u.role : u.role?.name || "";
+                            const normalizedRole = role.toLowerCase().replace(/\s/g, "");
+                            return normalizedRole === "siteengineer" || normalizedRole === "engineer";
+                        });
+                    } catch (error: any) {
+                        console.warn("Unable to fetch site engineers, skipping engineer roster.", error);
+                        toast.error("Site engineer list unavailable for this account.");
+                    }
+
+                    if (projId) {
+                        const membersRes = await projectService.getProjectMembers(Number(projId));
+                        const projectMembers = Array.isArray(membersRes) ? membersRes : membersRes?.items || membersRes?.data || [];
+                        const memberIds = new Set(projectMembers.map((m: any) => m.user_id || m.id || m.user?.id));
+                        setSiteEngineers(engineerRecords.filter((e: any) => memberIds.has(e.user_id || e.id)));
+                    } else {
+                        setSiteEngineers(engineerRecords);
+                    }
                 } else if (activeTab === "assets") {
                     const [eqRes, utilRes] = await Promise.all([
                         equipmentService.listEquipment(projId ? { project_id: Number(projId) } : undefined),
@@ -185,9 +212,14 @@ const ResourceOrchestratorPage = () => {
                             {activeTab === "workforce" && (
                                 <WorkforceView
                                     data={workforceData}
+                                    engineers={siteEngineers}
+                                    subTab={workforceSubTab}
+                                    onSubTabChange={setWorkforceSubTab}
                                     onMobilize={(d) => openTransfer('labour', d)}
-                                    currentPage={workforcePage}
-                                    onPageChange={setWorkforcePage}
+                                    labourPage={workforcePage}
+                                    onLabourPageChange={setWorkforcePage}
+                                    engineerPage={engineerPage}
+                                    onEngineerPageChange={setEngineerPage}
                                     pageSize={PAGE_SIZE}
                                 />
                             )}
@@ -226,7 +258,7 @@ const ResourceOrchestratorPage = () => {
     );
 };
 
-const WorkforceView = ({ data, onMobilize, currentPage, onPageChange, pageSize }: { data: { labours: any[], attendance: any[] }, onMobilize: (d: any) => void, currentPage: number, onPageChange: (p: number) => void, pageSize: number }) => (
+const WorkforceView = ({ data, engineers, subTab, onSubTabChange, onMobilize, labourPage, onLabourPageChange, engineerPage, onEngineerPageChange, pageSize }: { data: { labours: any[], attendance: any[] }, engineers: any[], subTab: "labour" | "engineer", onSubTabChange: (tab: "labour" | "engineer") => void, onMobilize: (d: any) => void, labourPage: number, onLabourPageChange: (p: number) => void, engineerPage: number, onEngineerPageChange: (p: number) => void, pageSize: number }) => (
     <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <StatCard title="Total Personnel" value={data.labours.length.toString()} sub="Registered Workforce" icon={<Users className="w-5 h-5 text-primary" />} />
@@ -236,8 +268,22 @@ const WorkforceView = ({ data, onMobilize, currentPage, onPageChange, pageSize }
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">Deployment Registry</h2>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+                    <div>
+                        <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">Deployment Registry</h2>
+                        <div className="mt-3 inline-flex rounded-2xl bg-slate-100 p-1">
+                            <button
+                                onClick={() => onSubTabChange("labour")}
+                                className={`px-4 py-2 text-xs font-bold rounded-2xl transition-all ${subTab === "labour" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-900"}`}>
+                                Labour
+                            </button>
+                            <button
+                                onClick={() => onSubTabChange("engineer")}
+                                className={`px-4 py-2 text-xs font-bold rounded-2xl transition-all ${subTab === "engineer" ? "bg-white shadow-sm text-slate-900" : "text-slate-500 hover:text-slate-900"}`}>
+                                Site Engineers
+                            </button>
+                        </div>
+                    </div>
                     <button className="bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all">Audit Logs</button>
                 </div>
                 <div className="overflow-x-auto">
@@ -251,41 +297,53 @@ const WorkforceView = ({ data, onMobilize, currentPage, onPageChange, pageSize }
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {data.labours.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((l, i) => {
-                                const isPresent = data.attendance.some(a => String(a.labour_id) === String(l.id) || String(a.user_id) === String(l.id));
-                                const attendanceRecord = data.attendance.find(a => String(a.labour_id) === String(l.id) || String(a.user_id) === String(l.id));
+                            {(subTab === "labour" ? data.labours : engineers).slice((subTab === "labour" ? labourPage : engineerPage) * pageSize, ((subTab === "labour" ? labourPage : engineerPage) + 1) * pageSize).map((l, i) => {
+                                const isEngineer = subTab === "engineer";
+                                const isPresent = isEngineer ? false : data.attendance.some(a => String(a.labour_id) === String(l.id) || String(a.user_id) === String(l.id));
+                                const attendanceRecord = isEngineer ? null : data.attendance.find(a => String(a.labour_id) === String(l.id) || String(a.user_id) === String(l.id));
 
                                 return (
                                     <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-xs font-black text-primary border border-slate-200">
-                                                    {l.labour_name?.charAt(0)}
+                                                    {isEngineer ? (l.full_name || l.name || "E").charAt(0) : (l.labour_name || "L").charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-bold text-slate-800">{l.labour_name}</p>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase">{l.worker_code}</p>
+                                                    <p className="text-sm font-bold text-slate-800">{isEngineer ? (l.full_name || l.name || "Unknown Engineer") : l.labour_name}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase">
+                                                        {isEngineer ? (l.designation || l.role || "Site Engineer") : l.worker_code}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-slate-600 uppercase tracking-tight">{l.skill_type || "General"}</span>
-                                                <span className="text-[8px] font-bold text-slate-400 uppercase">Daily Rate: ₹{l.daily_wage_rate}</span>
+                                                <span className="text-xs font-bold text-slate-600 uppercase tracking-tight">{isEngineer ? (l.projects || l.designation || "Site Engineer") : (l.skill_type || "General")}</span>
+                                                <span className="text-[8px] font-bold text-slate-400 uppercase">
+                                                    {isEngineer ? `Projects: ${l.projects || "Unassigned"}` : `Daily Rate: ₹${l.daily_wage_rate}`}
+                                                </span>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-1.5 h-1.5 rounded-full ${isPresent ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-slate-300"}`} />
-                                                <div className="flex flex-col">
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isPresent ? "text-emerald-600" : "text-slate-400"}`}>
-                                                        {isPresent ? "Present" : "Off-Site"}
-                                                    </span>
-                                                    {isPresent && attendanceRecord && (
-                                                        <span className="text-[8px] font-bold text-slate-400 uppercase">IN: {attendanceRecord.in_time}</span>
-                                                    )}
+                                            {isEngineer ? (
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">{l.status || "Active"}</span>
+                                                    <span className="text-[8px] font-bold text-slate-400 uppercase">{l.email || l.mobile || "No contact"}</span>
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${isPresent ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-slate-300"}`} />
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${isPresent ? "text-emerald-600" : "text-slate-400"}`}>
+                                                            {isPresent ? "Present" : "Off-Site"}
+                                                        </span>
+                                                        {isPresent && attendanceRecord && (
+                                                            <span className="text-[8px] font-bold text-slate-400 uppercase">IN: {attendanceRecord.in_time}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button
@@ -302,24 +360,30 @@ const WorkforceView = ({ data, onMobilize, currentPage, onPageChange, pageSize }
                         </tbody>
                     </table>
                 </div>
-                <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex items-center justify-between">
+                <div className="p-4 border-t border-slate-50 bg-slate-50/30 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">
-                        Showing {currentPage * pageSize + 1}–{Math.min((currentPage + 1) * pageSize, data.labours.length)} of {data.labours.length} Registry
+                        Showing {(subTab === "labour" ? labourPage : engineerPage) * pageSize + 1}–{Math.min(((subTab === "labour" ? labourPage : engineerPage) + 1) * pageSize, (subTab === "labour" ? data.labours.length : engineers.length))} of {(subTab === "labour" ? data.labours.length : engineers.length)} Registry
                     </p>
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={() => onPageChange(Math.max(0, currentPage - 1))}
-                            disabled={currentPage === 0}
+                            onClick={() => {
+                                if (subTab === "labour") onLabourPageChange(Math.max(0, labourPage - 1));
+                                else onEngineerPageChange(Math.max(0, engineerPage - 1));
+                            }}
+                            disabled={(subTab === "labour" ? labourPage === 0 : engineerPage === 0)}
                             className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
                             <ChevronLeft className="w-3.5 h-3.5" />
                         </button>
                         <div className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-[10px] font-black text-slate-700">
-                            {currentPage + 1}
+                            {(subTab === "labour" ? labourPage : engineerPage) + 1}
                         </div>
                         <button
-                            onClick={() => onPageChange(Math.min(Math.ceil(data.labours.length / pageSize) - 1, currentPage + 1))}
-                            disabled={currentPage >= Math.ceil(data.labours.length / pageSize) - 1}
+                            onClick={() => {
+                                if (subTab === "labour") onLabourPageChange(Math.min(Math.ceil(data.labours.length / pageSize) - 1, labourPage + 1));
+                                else onEngineerPageChange(Math.min(Math.ceil(engineers.length / pageSize) - 1, engineerPage + 1));
+                            }}
+                            disabled={(subTab === "labour" ? labourPage >= Math.ceil(data.labours.length / pageSize) - 1 : engineerPage >= Math.ceil(engineers.length / pageSize) - 1)}
                             className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
                             <ChevronRight className="w-3.5 h-3.5" />

@@ -209,7 +209,17 @@ export const paymentService = {
         console.log("GET /api/v1/labour/payroll Request Params:", cleanParams);
         const response = await api.get("labour/payroll", { params: cleanParams });
         console.log("GET /api/v1/labour/payroll Raw Response Body:", response.data);
-        return response.data;
+        const responseData = response.data;
+        if (Array.isArray(responseData)) return responseData;
+        if (Array.isArray(responseData?.data)) return responseData.data;
+        if (Array.isArray(responseData?.items)) return responseData.items;
+        if (Array.isArray(responseData?.payroll)) return responseData.payroll;
+        if (Array.isArray(responseData?.results)) return responseData.results;
+        if (responseData && typeof responseData === 'object') {
+            const arrayProp = Object.values(responseData).find((value: any) => Array.isArray(value));
+            if (Array.isArray(arrayProp)) return arrayProp;
+        }
+        return [];
     },
 
     /**

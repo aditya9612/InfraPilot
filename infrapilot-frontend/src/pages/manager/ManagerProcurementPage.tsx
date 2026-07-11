@@ -1,12 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
 import PageTransition from "../../components/common/PageTransition";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { useProject } from "../../context/ProjectContext";
 import {
-    ShoppingCart, Package, Plus, Search,
+    Package, Search,
     Clock, CheckCircle2,
     Download, FileText, Eye, Check, X, ChevronLeft, ChevronRight, RotateCcw
 } from "lucide-react";
@@ -17,10 +16,8 @@ import type { PurchaseOrder } from "../../services/materialService";
 import ProjectSelector from "../../components/common/ProjectSelector";
 
 const ManagerProcurementPage = () => {
-    const navigate = useNavigate();
-    const { tab } = useParams();
-    const activeTab = tab || "material";
     const { selectedProjectId } = useProject();
+    const activeTab: string = "material";
 
     // ── Data States ───────────────────────────────────────────────
     const [materialRequests, setMaterialRequests] = useState<SiteRequestResponse[]>([]);
@@ -111,10 +108,6 @@ const ManagerProcurementPage = () => {
         }
     };
 
-    const tabs = [
-        { id: "material", label: "Material Requests", icon: <Package className="w-4 h-4" /> },
-        { id: "purchase-order", label: "Purchase Orders", icon: <ShoppingCart className="w-4 h-4" /> },
-    ];
 
     const activeTabData = useMemo(() => {
         if (activeTab === "material") {
@@ -156,7 +149,7 @@ const ManagerProcurementPage = () => {
         <div className="min-h-screen bg-slate-50 font-inter">
             <Navbar
                 title="Supply Chain Hub"
-                breadcrumb={["Manager", "Procurement", tabs.find(t => t.id === activeTab)?.label || "Material Requests"]}
+                breadcrumb={["Manager", "Procurement", "Material Requests"]}
             />
 
             <PageTransition className="p-6">
@@ -168,14 +161,6 @@ const ManagerProcurementPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <ProjectSelector variant="page" />
-                        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-                            <Download className="w-4 h-4 text-primary" /> Export
-                        </button>
-                        {activeTab === "purchase-order" && (
-                            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 opacity-50 cursor-not-allowed">
-                                <Plus className="w-4 h-4" /> New Order
-                            </button>
-                        )}
                     </div>
                 </div>
 
@@ -183,7 +168,7 @@ const ManagerProcurementPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     {[
                         { title: "Pending Requests", value: stats.pendingReq.toString(), sub: "Awaiting Action", accent: "text-amber-500", icon: <Clock className="w-5 h-5 text-amber-500" />, filter: "Pending" },
-                        { title: "Open Orders", value: stats.openPO.toString(), sub: "In Pipeline", accent: "text-primary", icon: <ShoppingCart className="w-5 h-5 text-primary" />, filter: "Open" },
+                        { title: "Open Orders", value: stats.openPO.toString(), sub: "In Pipeline", accent: "text-primary", icon: <Package className="w-5 h-5 text-primary" />, filter: "Open" },
                         { title: "Delivered", value: stats.deliveredMonth.toString(), sub: "Completed POs", accent: "text-emerald-500", icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />, filter: "All" },
                         { title: "Project Spend", value: stats.totalSpend, sub: "Total Commitment", accent: "text-slate-900", icon: <FileText className="w-5 h-5 text-slate-700" />, filter: "All" },
                     ].map(s => (
@@ -199,16 +184,6 @@ const ManagerProcurementPage = () => {
                     ))}
                 </div>
 
-                {/* ── Tab Switcher ── */}
-                <div className="flex p-1.5 bg-white border border-slate-200 rounded-2xl mb-8 w-fit shadow-sm overflow-x-auto scrollbar-none">
-                    {tabs.map((t) => (
-                        <button key={t.id} onClick={() => navigate(`/manager/procurement/${t.id}`)}
-                            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === t.id ? "text-slate-800 bg-slate-100 shadow-inner" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}>
-                            {t.icon}
-                            <span>{t.label}</span>
-                        </button>
-                    ))}
-                </div>
 
                 {/* ── Main List Container ── */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-6">
