@@ -274,7 +274,7 @@ const ManagerReportsPage = () => {
             const today = selectedDate || new Date().toISOString().split('T')[0];
 
             switch (report.id) {
-                case "daily": data = await reportService.getProjectReport(pid, "daily", undefined, undefined); break;
+                case "daily": data = await reportService.getDailyReport(pid, today); break;
                 case "cost-comparison": data = await boqService.getBoqComparison(pid); break;
                 case "financial-summary": data = await reportService.getFinancialSummary(pid); break;
                 case "project-report": data = await reportService.getProjectReport(pid); break;
@@ -282,6 +282,10 @@ const ManagerReportsPage = () => {
                 case "material": data = await reportService.getMaterialReport(pid); break;
                 case "profit-loss": data = await reportService.getProfitLoss(); break;
                 default: data = { message: "Advanced summary metrics are being calculated." };
+            }
+
+            if (report.id === "daily" && data) {
+                data = data.dsr !== undefined ? data.dsr : data;
             }
 
             setViewingReport({ name: report.name, data, id: report.id, exportType: report.exportType });

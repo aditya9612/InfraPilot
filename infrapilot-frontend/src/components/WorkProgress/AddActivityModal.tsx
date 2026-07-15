@@ -121,7 +121,31 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
           .filter((u: any) => {
             const role = typeof u.role === 'string' ? u.role : u.role?.name || u.user?.role || '';
             const normalizedRole = role.toLowerCase().replace(/\s/g, '');
-            return normalizedRole === 'siteengineer' || normalizedRole === 'engineer' || normalizedRole === 'member';
+            const isEngineerRole = normalizedRole === 'siteengineer' || normalizedRole === 'engineer' || normalizedRole === 'member';
+
+            // Ensure the user is assigned to the project. projectService.getProjectMembers
+            // usually returns project-specific members, but add extra safety checks
+            // for common shapes of member objects.
+            const belongsToProject = (() => {
+              try {
+                if (!projectIdToFetch) return false;
+                if (u.project_id && Number(u.project_id) === Number(projectIdToFetch)) return true;
+                if (u.user && (u.user.project_id && Number(u.user.project_id) === Number(projectIdToFetch))) return true;
+                const assigned = u.assigned_projects || u.projects || u.user?.assigned_projects || u.user?.projects;
+                if (Array.isArray(assigned) && assigned.length > 0) {
+                  return assigned.some((ap: any) => {
+                    const id = ap?.id || ap?.project_id || ap;
+                    return Number(id) === Number(projectIdToFetch);
+                  });
+                }
+              } catch (e) {
+                return false;
+              }
+              // fallback: if projectService returned members, assume they belong
+              return true;
+            })();
+
+            return isEngineerRole && belongsToProject;
           })
           .map((u: any) => ({
             id: u.user_id || u.id || u.user?.id,
