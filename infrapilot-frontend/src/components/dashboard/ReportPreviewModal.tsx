@@ -221,6 +221,10 @@ const ReportPreviewModal = ({
                         <FileText size={160} />
                     </div>
                 </div>
+
+                <div className="bg-white rounded-3xl p-6 shadow-sm">
+                    {renderData()}
+                </div>
             </div>
         </Modal>
     );

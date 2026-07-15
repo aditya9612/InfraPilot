@@ -109,7 +109,7 @@ const ProjectDetailsPage = () => {
       // Stage 2: Load secondary data modules in parallel
       // We don't await this entire block before showing the page
       const loadSecondaryData = async () => {
-        const [mData, msData, tData, sData, prData, plData, phData, lData, eData] = await Promise.all([
+        const [mData, msData, tData, sData, prData, plData, fsData, phData, lData, eData] = await Promise.all([
           projectService.getProjectMembers(projectId).catch((err) => {
             console.warn("Members Load Failure:", err);
             return [];
@@ -125,6 +125,7 @@ const ProjectDetailsPage = () => {
           projectService.getProjectSchedule(projectId).catch(() => null),
           projectService.getProjectProgress(projectId).catch(() => null),
           projectService.getProjectProfitLoss(projectId).catch(() => null),
+          reportService.getFinancialSummary(projectId).catch(() => null),
           sitePhotoService.getPhotos({ project_id: projectId }).catch(() => ({ items: [] })),
           projectService.getProjectLogs(projectId).catch(() => []),
           expenseService.getExpensesByProject(projectId).catch((err) => {
@@ -152,7 +153,17 @@ const ProjectDetailsPage = () => {
         // Process Schedule, Progress & Finance
         setSchedule(sData);
         setProgress(prData);
-        setProfitLoss(plData);
+        const mergedFinancial = {
+          ...plData,
+          ...fsData,
+          total_invoice: fsData?.total_invoice ?? plData?.total_invoice ?? 0,
+          total_expense: fsData?.total_expense ?? plData?.total_expense ?? 0,
+          paid_invoice: fsData?.paid_invoice ?? plData?.paid_invoice ?? 0,
+          pending_invoice: fsData?.pending_invoice ?? plData?.pending_invoice ?? 0,
+          profit: fsData?.profit ?? plData?.profit ?? ((fsData?.total_invoice ?? plData?.total_invoice ?? 0) - (fsData?.total_expense ?? plData?.total_expense ?? 0)),
+          status: fsData?.status ?? plData?.status ?? (((fsData?.total_invoice ?? plData?.total_invoice ?? 0) - (fsData?.total_expense ?? plData?.total_expense ?? 0)) >= 0 ? 'profit' : 'loss'),
+        };
+        setProfitLoss(mergedFinancial);
         // Process Photos & Logs defensively
         const normalizedPhotos = Array.isArray(phData) ? phData : ((phData as any)?.items || (phData as any)?.data || []);
         const normalizedLogs = Array.isArray(lData) ? lData : ((lData as any)?.items || (lData as any)?.data || []);

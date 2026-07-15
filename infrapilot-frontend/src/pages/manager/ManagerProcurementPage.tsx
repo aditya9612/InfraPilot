@@ -7,16 +7,16 @@ import { useProject } from "../../context/ProjectContext";
 import {
     Package, Search,
     Clock, CheckCircle2,
-    Download, FileText, Eye, Check, X, ChevronLeft, ChevronRight, RotateCcw
+    FileText, Eye, Check, X, ChevronLeft, ChevronRight, RotateCcw
 } from "lucide-react";
 import { siteRequestService } from "../../services/siteRequestService";
-import type { SiteRequestResponse } from "../../services/siteRequestService";
+import type { CreateSiteRequest, SiteRequestResponse } from "../../services/siteRequestService";
 import { materialService } from "../../services/materialService";
 import type { PurchaseOrder } from "../../services/materialService";
 import ProjectSelector from "../../components/common/ProjectSelector";
 
 const ManagerProcurementPage = () => {
-    const { selectedProjectId } = useProject();
+    const { selectedProjectId, selectedProject } = useProject();
     const activeTab: string = "material";
 
     // ── Data States ───────────────────────────────────────────────
@@ -28,6 +28,7 @@ const ManagerProcurementPage = () => {
     // ── UI States ─────────────────────────────────────────────────
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("All");
+    const [requestTypeFilter, setRequestTypeFilter] = useState("All");
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalItems, setTotalItems] = useState(0);
@@ -36,6 +37,11 @@ const ManagerProcurementPage = () => {
     // ── Modal States ──────────────────────────────────────────────
     const [selectedRequest, setSelectedRequest] = useState<SiteRequestResponse | null>(null);
     const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [requestType, setRequestType] = useState<CreateSiteRequest["request_type"]>("Material");
+    const [requestDescription, setRequestDescription] = useState("");
+    const [requestQuantity, setRequestQuantity] = useState(1);
+    const [isCreatingRequest, setIsCreatingRequest] = useState(false);
 
     // ── DATA FETCH ────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
@@ -108,12 +114,49 @@ const ManagerProcurementPage = () => {
         }
     };
 
+    const handleCreateRequest = async () => {
+        if (!selectedProjectId) {
+            toast.error("Please select a project before creating a request.");
+            return;
+        }
+        if (!requestDescription.trim()) {
+            toast.error("Please enter a description for the request.");
+            return;
+        }
+        if (requestQuantity <= 0) {
+            toast.error("Quantity must be greater than zero.");
+            return;
+        }
+
+        setIsCreatingRequest(true);
+        try {
+            const payload: CreateSiteRequest = {
+                project_id: selectedProjectId,
+                request_type: requestType,
+                description: requestDescription.trim(),
+                quantity: requestQuantity
+            };
+            const created = await siteRequestService.createRequest(payload);
+            setMaterialRequests(prev => [created, ...prev]);
+            toast.success("Request created successfully.");
+            setIsCreateModalOpen(false);
+            setRequestType("Material");
+            setRequestDescription("");
+            setRequestQuantity(1);
+            fetchData();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.detail || "Failed to create request.");
+        } finally {
+            setIsCreatingRequest(false);
+        }
+    };
 
     const activeTabData = useMemo(() => {
         if (activeTab === "material") {
             let data = materialRequests;
             if (activeStatFilter === "Pending") data = data.filter(r => r.status === "Pending");
             if (filterStatus !== "All") data = data.filter(r => r.status === filterStatus);
+            if (requestTypeFilter !== "All") data = data.filter(r => r.request_type === requestTypeFilter);
             if (searchTerm) {
                 const s = searchTerm.toLowerCase();
                 data = data.filter(r => r.description.toLowerCase().includes(s) || r.request_type.toLowerCase().includes(s) || String(r.id).includes(s));
@@ -129,7 +172,7 @@ const ManagerProcurementPage = () => {
             }
             return data.sort((a, b) => b.id - a.id);
         }
-    }, [activeTab, materialRequests, purchaseOrders, searchTerm, filterStatus, activeStatFilter]);
+    }, [activeTab, materialRequests, purchaseOrders, searchTerm, filterStatus, activeStatFilter, requestTypeFilter]);
 
     const paginatedData = useMemo(() => {
         if (activeTab === "purchase-order") return purchaseOrders; // Already paginated server-side
@@ -161,6 +204,9 @@ const ManagerProcurementPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <ProjectSelector variant="page" />
+                        <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                            <FileText className="w-4 h-4" /> Create Request
+                        </button>
                     </div>
                 </div>
 
@@ -214,6 +260,19 @@ const ManagerProcurementPage = () => {
                                     </>
                                 )}
                             </select>
+                            {activeTab === "material" && (
+                                <select value={requestTypeFilter} onChange={e => setRequestTypeFilter(e.target.value)}
+                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none shadow-sm cursor-pointer hover:border-primary/50 transition-colors">
+                                    <option value="All">All Types</option>
+                                    <option value="Material">Material</option>
+                                    <option value="Doc">Doc</option>
+                                    <option value="Drawing">Drawing</option>
+                                    <option value="BOQ">BOQ</option>
+                                    <option value="Bill">Bill</option>
+                                    <option value="Equipment">Equipment</option>
+                                    <option value="Labour">Labour</option>
+                                </select>
+                            )}
                             {activeStatFilter !== "All" && (
                                 <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 bg-white border border-slate-200 rounded-xl shadow-sm transition-all hover:bg-rose-50">
                                     <RotateCcw className="w-4 h-4" />
@@ -407,6 +466,50 @@ const ManagerProcurementPage = () => {
                         </div>
                     </div>
                 )}
+            </Modal>
+
+            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create Site Request" maxWidth="max-w-lg">
+                <div className="p-6 space-y-6">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Assigned Project</p>
+                        <p className="text-sm font-bold text-slate-900 mt-1">{selectedProject?.project_name || "No project selected"}</p>
+                    </div>
+
+                    <div className="grid gap-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Request Type</label>
+                            <select value={requestType} onChange={e => setRequestType(e.target.value)}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+                                <option value="Material">Material</option>
+                                <option value="Labour">Labour</option>
+                                <option value="Equipment">Equipment</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Description</label>
+                            <textarea value={requestDescription} onChange={e => setRequestDescription(e.target.value)} rows={4}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Describe the request" />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quantity</label>
+                            <input type="number" min={1} value={requestQuantity} onChange={e => setRequestQuantity(Number(e.target.value))}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                        <button type="button" onClick={() => setIsCreateModalOpen(false)}
+                            className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">
+                            Cancel
+                        </button>
+                        <button type="button" onClick={handleCreateRequest} disabled={isCreatingRequest}
+                            className="rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50">
+                            {isCreatingRequest ? "Creating..." : "Create Request"}
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </div>
     );
