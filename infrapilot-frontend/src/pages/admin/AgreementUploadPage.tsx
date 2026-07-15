@@ -163,12 +163,12 @@ export default function AgreementUploadPage() {
     const term = searchTerm.toLowerCase().trim();
     const filtered = term
       ? agreements.filter(a =>
-          (a.document_id || "").toLowerCase().includes(term) ||
-          (a.owner_name || "").toLowerCase().includes(term) ||
-          (a.project_name || "").toLowerCase().includes(term) ||
-          (a.type || "").toLowerCase().includes(term) ||
-          (a.status || "").toLowerCase().includes(term)
-        )
+        (a.document_id || "").toLowerCase().includes(term) ||
+        (a.owner_name || "").toLowerCase().includes(term) ||
+        (a.project_name || "").toLowerCase().includes(term) ||
+        (a.type || "").toLowerCase().includes(term) ||
+        (a.status || "").toLowerCase().includes(term)
+      )
       : agreements;
 
     return [...filtered].sort((a, b) => {
