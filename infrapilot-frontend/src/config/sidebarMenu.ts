@@ -215,7 +215,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "users",
       subNav: [
         { label: "Resource Hub", path: "/manager/resources/orchestrator", icon: "grid" },
-        { label: "Labour", path: "/manager/resources/labour", icon: "users" },
+        { label: "Site Engineer & Labour", path: "/manager/resources/labour", icon: "users" },
         { label: "Equipment", path: "/manager/resources/equipment", icon: "tool" },
         { label: "Materials", path: "/manager/resources/materials", icon: "package" },
       ]
@@ -234,9 +234,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       path: "/manager/procurement",
       icon: "shopping-cart",
       subNav: [
-        { label: "Material Requests", path: "/manager/procurement/requests", icon: "package" },
-        { label: "Purchase Requests", path: "/manager/procurement/purchase-requests", icon: "file-text" },
-        { label: "Purchase Orders", path: "/manager/procurement/purchase-orders", icon: "clipboard" },
+        { label: "Site Requests", path: "/manager/procurement/requests", icon: "package" },
       ]
     },
     {

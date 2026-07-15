@@ -7,12 +7,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://infrapilot.in',
+        target: 'https://api-testing.infrapilot.in',
         changeOrigin: true,
         secure: false,
       },
       '/uploads': {
-        target: 'https://infrapilot.in',
+        target: 'https://api-testing.infrapilot.in',
         changeOrigin: true,
         secure: false,
       }

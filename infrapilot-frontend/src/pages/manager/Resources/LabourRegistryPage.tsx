@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import PageTransition from "../../../components/common/PageTransition";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
@@ -8,9 +8,11 @@ import ProjectSelector from "../../../components/common/ProjectSelector";
 import toast from "react-hot-toast";
 import {
     Search, Trash2, RotateCcw, FileDown, Activity, CreditCard, AlertCircle,
-    LogIn, LogOut, Camera, MapPin, Eye, Filter, Calendar, Plus, Edit2
+    LogIn, LogOut, Camera, MapPin, Eye, Filter, Calendar, Plus, Edit2,
+    IndianRupee, Briefcase, UserPlus, Users
 } from "lucide-react";
 import { labourService } from "../../../services/labourService";
+import { paymentService } from "../../../services/paymentService";
 import { masterService } from "../../../services/masterService";
 import { useProject } from "../../../context/ProjectContext";
 import { useAuth } from "../../../context/AuthContext";
@@ -18,7 +20,7 @@ import type { LabourItem } from "../../../types/labour";
 import CheckInModal from "../../../components/labour/CheckInModal";
 import CheckOutModal from "../../../components/labour/CheckOutModal";
 
-type TabType = "Registry" | "Attendance" | "Performance" | "Payroll" | "Alerts";
+type TabType = "Registry" | "Attendance" | "Payroll";
 
 const formatAadhaar = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 12);
@@ -56,11 +58,25 @@ const LabourRegistryPage = () => {
     const [activeTab, setActiveTab] = useState<TabType>("Registry");
     const [laborers, setLaborers] = useState<LabourItem[]>([]);
     const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+    const [payrollList, setPayrollList] = useState<any[]>([]);
+    const [payrollStats, setPayrollStats] = useState<any>(null);
+    const [contractorLiability, setContractorLiability] = useState<any>(null);
+    const [weeklyVelocity, setWeeklyVelocity] = useState<any[]>([]);
+    const [disbursementHistory, setDisbursementHistory] = useState<any[]>([]);
+    const [fiscalSummary, setFiscalSummary] = useState<any>(null);
+    const [payrollMomentum, setPayrollMomentum] = useState<any[]>([]);
+    const [aggregateReport, setAggregateReport] = useState<any[]>([]);
+    const [contractorFilter, setContractorFilter] = useState("All");
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter] = useState("All");
     const [currentPage, setCurrentPage] = useState(0);
     const PAGE_SIZE = 10;
+    const [payrollMonth, setPayrollMonth] = useState(new Date().getMonth() + 1);
+    const [payrollYear, setPayrollYear] = useState(new Date().getFullYear());
+    const [isGeneratingPayroll, setIsGeneratingPayroll] = useState(false);
+    const [isExportingPayroll, setIsExportingPayroll] = useState(false);
+    const [payingId, setPayingId] = useState<number | null>(null);
 
     // Attendance filters
     const [empDurationFilter, setEmpDurationFilter] = useState("Today");
@@ -86,6 +102,14 @@ const LabourRegistryPage = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // Assign Labour to Project
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [allAvailableLabours, setAllAvailableLabours] = useState<LabourItem[]>([]);
+    const [assignSearchTerm, setAssignSearchTerm] = useState("");
+    const [selectedAssignLabourId, setSelectedAssignLabourId] = useState<string | number>("");
+    const [isAssigning, setIsAssigning] = useState(false);
+    const [isFetchingAll, setIsFetchingAll] = useState(false);
 
     // Create/Edit form
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -115,6 +139,48 @@ const LabourRegistryPage = () => {
         }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    // ─── Fetch All Labours (for Assign Modal) ────────────────────────────────
+    const fetchAllLabours = async () => {
+        setIsFetchingAll(true);
+        try {
+            // Paginate in batches of 100 to stay within backend limit constraint
+            let allItems: LabourItem[] = [];
+            let offset = 0;
+            const batchSize = 100;
+            while (true) {
+                const response = await labourService.getLabours(undefined, { limit: batchSize, offset });
+                const batch = response.items || [];
+                allItems = [...allItems, ...batch];
+                if (batch.length < batchSize) break;
+                offset += batchSize;
+            }
+            // Filter out labourers who are already assigned to this project
+            const currentIds = new Set(laborers.map((l: any) => l.id));
+            setAllAvailableLabours(allItems.filter((l: any) => !currentIds.has(l.id)));
+        } catch {
+            setAllAvailableLabours([]);
+        } finally {
+            setIsFetchingAll(false);
+        }
+    };
+
+    const handleAssignLabour = async () => {
+        if (!selectedAssignLabourId || !projectId) return;
+        setIsAssigning(true);
+        try {
+            await labourService.assignLabourToProject(selectedAssignLabourId, projectId);
+            toast.success("Labour assigned to project successfully!");
+            setIsAssignModalOpen(false);
+            setSelectedAssignLabourId("");
+            setAssignSearchTerm("");
+            setTimeout(() => fetchLaborers(), 800);
+        } catch (err: any) {
+            toast.error(err?.response?.data?.detail || "Failed to assign labour to project.");
+        } finally {
+            setIsAssigning(false);
+        }
     };
 
     // ─── Fetch Registry ───────────────────────────────────────────────────────
@@ -189,7 +255,96 @@ const LabourRegistryPage = () => {
         finally { setIsLoading(false); }
     }, [projectId, empDurationFilter]);
 
-    useEffect(() => { if (!isProjectLoading && projectId) { if (activeTab === "Registry") fetchLaborers(); else if (activeTab === "Attendance") fetchAttendance(); } }, [activeTab, fetchLaborers, fetchAttendance, isProjectLoading, projectId]);
+    const fetchPayrollData = useCallback(async () => {
+        if (!projectId) return;
+        setIsLoading(true);
+        const params = {
+            project_id: projectId,
+            month: payrollMonth.toString().padStart(2, '0'),
+            year: payrollYear.toString(),
+        };
+        try {
+            const payrollRes = await paymentService.getActivePayroll(params);
+            setPayrollList(Array.isArray(payrollRes) ? payrollRes : ((payrollRes as any).items || (payrollRes as any).data || (payrollRes as any).payroll || (payrollRes as any).results || []));
+
+            const results = await Promise.allSettled([
+                paymentService.getPayrollStats(params),
+                paymentService.getPendingDues(params),
+                paymentService.getWeeklyVelocity(params),
+                paymentService.getPaymentHistory(params),
+                paymentService.getFiscalSummary(params),
+                paymentService.getPayrollMomentum(params),
+                paymentService.getAggregateReport(params)
+            ]);
+
+            const [statsRes, liabilityRes, weeklyRes, historyRes, fiscalRes, momentumRes, aggregateRes] = results.map((result) => result.status === 'fulfilled' ? result.value : null);
+            setPayrollStats(statsRes || null);
+            setContractorLiability(liabilityRes || null);
+            setWeeklyVelocity(Array.isArray(weeklyRes) ? weeklyRes : ((weeklyRes as any)?.items || []));
+            setDisbursementHistory(Array.isArray(historyRes) ? historyRes : ((historyRes as any)?.items || []));
+            setFiscalSummary(fiscalRes || null);
+            setPayrollMomentum(Array.isArray(momentumRes) ? momentumRes : ((momentumRes as any)?.items || []));
+            setAggregateReport(Array.isArray(aggregateRes) ? aggregateRes : ((aggregateRes as any)?.items || []));
+        } catch (err) {
+            toast.error("Failed to load payroll data");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [projectId, payrollMonth, payrollYear]);
+
+    useEffect(() => {
+        if (!isProjectLoading && projectId) {
+            if (activeTab === "Registry") fetchLaborers();
+            else if (activeTab === "Attendance") fetchAttendance();
+            else if (activeTab === "Payroll") fetchPayrollData();
+        }
+    }, [activeTab, fetchLaborers, fetchAttendance, fetchPayrollData, isProjectLoading, projectId]);
+
+    const handleGeneratePayroll = async () => {
+        if (!projectId) return;
+        setIsGeneratingPayroll(true);
+        try {
+            await paymentService.generatePayroll({ month: payrollMonth, year: payrollYear });
+            toast.success("Payroll generated successfully.");
+            fetchPayrollData();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.detail || "Failed to generate payroll.");
+        } finally {
+            setIsGeneratingPayroll(false);
+        }
+    };
+
+    const handleExportPayroll = async () => {
+        if (!projectId) return;
+        setIsExportingPayroll(true);
+        try {
+            await paymentService.exportPayroll(payrollMonth, payrollYear);
+            toast.success("Payroll export started.");
+        } catch (err: any) {
+            toast.error(err?.response?.data?.detail || "Failed to export payroll.");
+        } finally {
+            setIsExportingPayroll(false);
+        }
+    };
+
+    const handlePaySalary = async (labour: any) => {
+        if (!labour?.labour_id) return;
+        setPayingId(labour.labour_id);
+        try {
+            const amount = Number(labour.total_wage_earned || labour.daily_wage || 0);
+            if (amount <= 0) {
+                toast.error("Cannot pay zero amount.");
+                return;
+            }
+            await paymentService.paySalary({ labour_id: labour.labour_id, payment_amount: amount });
+            toast.success("Salary payment recorded.");
+            fetchPayrollData();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.detail || "Failed to pay salary.");
+        } finally {
+            setPayingId(null);
+        }
+    };
     useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm]);
     useEffect(() => { if (activeTab === "Attendance") fetchAttendance(); }, [empDurationFilter]);
 
@@ -211,6 +366,21 @@ const LabourRegistryPage = () => {
         } catch (err: any) {
             toast.error(err?.response?.data?.detail || "Failed to delete worker.");
         } finally { setIsDeleting(false); }
+    };
+
+    const handleViewLabour = async (labor: any) => {
+        const labourId = Number(labor.id ?? labor.labour_id);
+        if (!labourId) {
+            toast.error("Unable to determine labour id for details.");
+            return;
+        }
+        try {
+            const labourDetails = await labourService.getLabourById(labourId);
+            setSelectedLabour(labourDetails);
+            setIsViewModalOpen(true);
+        } catch (err: any) {
+            toast.error(err?.response?.data?.detail || "Failed to fetch labour details.");
+        }
     };
 
     const handleEditClick = (labor: any) => {
@@ -274,7 +444,21 @@ const LabourRegistryPage = () => {
         if (searchTerm) return (a.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase());
         return true;
     });
-    const currentListData = activeTab === "Registry" ? filteredLaborers : activeTab === "Attendance" ? filteredAttendance : [];
+    const showPayrollContractorFilter = useMemo(() => payrollList.some((item: any) => item.contractor_id || item.contractor_name), [payrollList]);
+    const filteredPayrollList = useMemo(() => {
+        return payrollList.filter((item: any) => {
+            const matchesSearch = !searchTerm || (item.labour_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || String(item.labour_id || item.worker_code || "").toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesContractor = !showPayrollContractorFilter || contractorFilter === "All" || String(item.contractor_id) === contractorFilter || String(item.contractor_name || "").toLowerCase() === contractorFilter.toLowerCase();
+            return matchesSearch && matchesContractor;
+        });
+    }, [payrollList, searchTerm, contractorFilter, showPayrollContractorFilter]);
+    const currentListData = activeTab === "Registry"
+        ? filteredLaborers
+        : activeTab === "Attendance"
+            ? filteredAttendance
+            : activeTab === "Payroll"
+                ? filteredPayrollList
+                : [];
     const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     const getProjectName = () => selectedProject?.project_name || `Project #${projectId}`;
@@ -307,6 +491,7 @@ const LabourRegistryPage = () => {
                             <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${labor.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>{labor.status}</span></td>
                             <td className="px-6 py-4 text-right">
                                 <div className="flex justify-end gap-2">
+                                    <button onClick={() => handleViewLabour(labor)} className="p-2 text-slate-400 hover:text-primary rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
                                     <button onClick={() => handleEditClick(labor)} className="p-2 text-slate-400 hover:text-primary rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
                                     <button onClick={() => handleDeleteClick(labor.id)} className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                                 </div>
@@ -412,13 +597,26 @@ const LabourRegistryPage = () => {
             <Navbar title="Personnel Registry" breadcrumb={["Manager", "Resources", "Personnel"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <div><h1 className="text-2xl font-bold text-slate-800 tracking-tight">Personnel & Workforce</h1><p className="text-slate-500 text-sm">Deployment oversight, attendance metrics, and payroll compliance auditing.</p></div>
+                    <div><h1 className="text-2xl font-bold text-slate-800 tracking-tight">Site Engineer & Labour</h1><p className="text-slate-500 text-sm">Deployment oversight, attendance metrics, and payroll compliance auditing.</p></div>
                     <div className="flex items-center gap-3">
                         <ProjectSelector variant="page" />
                         {activeTab === "Registry" && (
-                            <button onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
-                                <Plus className="w-4 h-4" /> Register Labour
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        setAssignSearchTerm("");
+                                        setSelectedAssignLabourId("");
+                                        setIsAssignModalOpen(true);
+                                        fetchAllLabours();
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+                                >
+                                    <UserPlus className="w-4 h-4 text-primary" /> Assign Labour
+                                </button>
+                                <button onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                                    <Plus className="w-4 h-4" /> Register Labour
+                                </button>
+                            </div>
                         )}
                         <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
                             <button onClick={() => handleExport("pdf")} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 border-r border-slate-100 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-rose-500" /> PDF</button>
@@ -428,7 +626,7 @@ const LabourRegistryPage = () => {
                 </div>
 
                 <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 overflow-x-auto max-w-full no-scrollbar">
-                    {(["Registry", "Attendance", "Performance", "Payroll", "Alerts"] as TabType[]).map(tab => (
+                    {(["Registry", "Attendance", "Payroll"] as TabType[]).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-inner" : "text-slate-500 hover:bg-slate-50"}`}>{tab}</button>
                     ))}
                 </div>
@@ -461,20 +659,220 @@ const LabourRegistryPage = () => {
                                     </div>
                                 </>
                             )}
-                            <button onClick={() => activeTab === "Attendance" ? fetchAttendance() : fetchLaborers()} className="p-2 text-slate-400 hover:text-primary transition-all"><RotateCcw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} /></button>
+                            {activeTab === "Payroll" && showPayrollContractorFilter && (
+                                <div className="relative">
+                                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+                                    <select value={contractorFilter} onChange={e => setContractorFilter(e.target.value)} className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none bg-white">
+                                        <option value="All">All Contractors</option>
+                                        {Array.from(new Set(payrollList.map((item: any) => item.contractor_id || item.contractor_name))).map((value: any) => (
+                                            <option key={value} value={value}>{typeof value === 'number' ? `Contractor ${value}` : value}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            {activeTab === "Payroll" && (
+                                <div className="flex items-center gap-2">
+                                    <select value={payrollMonth} onChange={e => setPayrollMonth(Number(e.target.value))} className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                                            <option key={month} value={month}>{new Date(0, month - 1).toLocaleString("default", { month: "short" })}</option>
+                                        ))}
+                                    </select>
+                                    <select value={payrollYear} onChange={e => setPayrollYear(Number(e.target.value))} className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map(year => (
+                                            <option key={year} value={year}>{year}</option>
+                                        ))}
+                                    </select>
+                                    <button onClick={handleGeneratePayroll} disabled={isGeneratingPayroll || isLoading} className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                        {isGeneratingPayroll ? "Generating..." : "Generate Payroll"}
+                                    </button>
+                                    <button onClick={handleExportPayroll} disabled={isExportingPayroll || isLoading} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                        {isExportingPayroll ? "Exporting..." : "Export Payroll"}
+                                    </button>
+                                </div>
+                            )}
+                            <div className="text-xs text-slate-400 font-medium">
+                                {activeTab === "Payroll" && `${filteredPayrollList.length} items found`}
+                            </div>
+                            <button onClick={() => {
+                                if (activeTab === "Attendance") fetchAttendance();
+                                else if (activeTab === "Payroll") fetchPayrollData();
+                                else fetchLaborers();
+                            }} className="p-2 text-slate-400 hover:text-primary transition-all"><RotateCcw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} /></button>
                         </div>
                     </div>
 
                     <div className="flex-1 overflow-auto">
                         {activeTab === "Registry" && renderRegistry()}
                         {activeTab === "Attendance" && renderAttendance()}
-                        {activeTab === "Payroll" && <div className="p-12 text-center text-slate-400"><CreditCard className="w-12 h-12 mx-auto mb-4 opacity-20" /><h3 className="text-lg font-bold text-slate-600">Payroll Oversight</h3></div>}
-                        {activeTab === "Alerts" && <div className="p-12 text-center text-slate-400"><AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-20 text-rose-500" /><h3 className="text-lg font-bold text-slate-600">Compliance & Alerts</h3></div>}
-                        {activeTab === "Performance" && <div className="p-12 text-center text-slate-400"><Activity className="w-12 h-12 mx-auto mb-4 opacity-20" /><h3 className="text-lg font-bold text-slate-600">Performance Analytics</h3></div>}
+                        {activeTab === "Payroll" && (
+                            <div className="overflow-x-auto font-inter">
+                                <table className="w-full text-left min-w-[1200px]">
+                                    <thead className="bg-slate-50/80 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
+                                        <tr>
+                                            <th className="px-6 py-4">Labour Name</th>
+                                            <th className="px-6 py-4">Skill Type</th>
+                                            <th className="px-6 py-4 text-center">Daily Wage</th>
+                                            <th className="px-6 py-4 text-center">Days Present</th>
+                                            <th className="px-6 py-4 text-center">OT Hours</th>
+                                            <th className="px-6 py-4 text-center">Total Wage Earned</th>
+                                            <th className="px-6 py-4 text-center">Status</th>
+                                            <th className="px-6 py-4 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {isLoading ? (
+                                            <tr><td colSpan={8} className="p-20 text-center text-slate-400">Syncing payroll intelligence...</td></tr>
+                                        ) : currentListData.length === 0 ? (
+                                            <tr><td colSpan={8} className="p-12 text-center text-slate-400">No payroll data available</td></tr>
+                                        ) : pagedData.map((labour: any, index: number) => (
+                                            <tr key={labour.labour_id ?? index} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs">{(labour.labour_name || "?").charAt(0)}</div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-bold text-slate-800">{labour.labour_name || "Unknown"}</span>
+                                                            <span className="text-[10px] text-slate-400 uppercase tracking-widest">{String(labour.labour_id || labour.worker_code || "—")}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">{labour.skill_category || "—"}</td>
+                                                <td className="px-6 py-4 text-center text-slate-500">₹{(labour.daily_wage?.toLocaleString?.() ?? labour.daily_wage) || "—"}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="text-sm font-bold text-slate-700">{labour.days_present != null ? `${labour.days_present}` : "—"}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className="text-sm font-bold text-slate-700 tabular-nums">{labour.ot_hours != null ? `${labour.ot_hours}h` : "—"}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center text-slate-800 font-bold">₹{(labour.total_wage_earned || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${labour.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-500"}`}>
+                                                        {labour.status || "Inactive"}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="inline-flex items-center gap-2 justify-end">
+                                                        <button onClick={() => handlePaySalary(labour)} disabled={payingId === labour.labour_id || isLoading} className="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                                            {payingId === labour.labour_id ? "Paying..." : "Pay"}
+                                                        </button>
+                                                        <button onClick={handleExportPayroll} disabled={isExportingPayroll || isLoading} className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                                            {isExportingPayroll ? "Exporting..." : "Export"}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                     {activeTab !== "Attendance" && <Pagination currentPage={currentPage} totalItems={currentListData.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} label={activeTab === "Registry" ? "Workers" : "Records"} />}
                 </div>
             </PageTransition>
+
+            {/* Assign Labour to Project Modal */}
+            <Modal
+                isOpen={isAssignModalOpen}
+                onClose={() => { setIsAssignModalOpen(false); setSelectedAssignLabourId(""); setAssignSearchTerm(""); }}
+                title="Assign Labour to Project"
+                maxWidth="max-w-md"
+                footer={
+                    <div className="flex justify-end gap-3">
+                        <button
+                            onClick={() => { setIsAssignModalOpen(false); setSelectedAssignLabourId(""); setAssignSearchTerm(""); }}
+                            className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleAssignLabour}
+                            disabled={!selectedAssignLabourId || isAssigning}
+                            className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isAssigning ? "Assigning..." : "Assign"}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="p-5 space-y-5">
+                    {/* Project info banner */}
+                    <div className="bg-slate-50 rounded-xl border border-slate-100 p-3 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <Users className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assigning to Project</p>
+                            <p className="text-sm font-bold text-slate-800">{getProjectName()}</p>
+                        </div>
+                    </div>
+
+                    {/* Search input */}
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Search Labour</label>
+                        <div className="relative">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search by name or worker code..."
+                                value={assignSearchTerm}
+                                onChange={e => { setAssignSearchTerm(e.target.value); setSelectedAssignLabourId(""); }}
+                                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Labour list */}
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Select Labour</label>
+                        {isFetchingAll ? (
+                            <div className="flex items-center justify-center h-24 text-slate-400">
+                                <div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin mr-2" />
+                                <span className="text-xs font-medium">Loading available labour...</span>
+                            </div>
+                        ) : (() => {
+                            const filtered = allAvailableLabours.filter(l => {
+                                const term = assignSearchTerm.toLowerCase();
+                                return !term ||
+                                    (l.labour_name || "").toLowerCase().includes(term) ||
+                                    (l.worker_code || "").toLowerCase().includes(term);
+                            });
+                            return filtered.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-24 text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                                    <Users className="w-6 h-6 mb-1" />
+                                    <span className="text-xs font-medium">{allAvailableLabours.length === 0 ? "No unassigned labour found" : "No matches found"}</span>
+                                </div>
+                            ) : (
+                                <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-50">
+                                    {filtered.map((l: any) => (
+                                        <button
+                                            key={l.id}
+                                            type="button"
+                                            onClick={() => setSelectedAssignLabourId(l.id)}
+                                            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all hover:bg-slate-50 ${selectedAssignLabourId === l.id
+                                                ? "bg-primary/5 border-l-2 border-primary"
+                                                : ""
+                                                }`}
+                                        >
+                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0">
+                                                {(l.labour_name || "U").charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-sm font-bold text-slate-800 truncate">{l.labour_name}</span>
+                                                <span className="text-[10px] font-mono text-slate-400">{l.worker_code}</span>
+                                            </div>
+                                            {selectedAssignLabourId === l.id && (
+                                                <div className="ml-auto w-4 h-4 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                                    <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </div>
+            </Modal>
 
             {/* Delete Confirm */}
             <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setDeletingId(null); }} onConfirm={handleDeleteConfirm} title="Delete Worker" message="This will permanently remove the worker record." confirmText="Delete" type="danger" isLoading={isDeleting} />
@@ -527,16 +925,52 @@ const LabourRegistryPage = () => {
                 <CheckOutModal isOpen={isCheckOutOpen} onClose={() => { setIsCheckOutOpen(false); setSelectedLabour(null); }} attendanceId={selectedLabour.id || (selectedLabour as any).labour_id} onSubmit={async (data) => { await labourService.checkOut(selectedLabour.id || (selectedLabour as any).labour_id, data); setIsCheckOutOpen(false); setSelectedLabour(null); fetchAttendance(); }} />
             )}
 
-            {/* Attendance Detail Modal */}
-            <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Attendance Details" maxWidth="max-w-md">
+            {/* View Details Modal */}
+            <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title={selectedLabour?.attendance_date ? "Attendance Details" : "Labour Details"} maxWidth="max-w-md">
                 {selectedLabour && (
-                    <div className="p-6 space-y-3">
-                        {[["Labour", selectedLabour.labour_name || "—"], ["Date", selectedLabour.attendance_date || "—"], ["Contractor", selectedLabour.contractor_name || "—"], ["Department", selectedLabour.department || selectedLabour.skill_type || "—"], ["Check In", selectedLabour.in_time || "—"], ["Check Out", selectedLabour.out_time || "—"], ["Hours", selectedLabour.working_hours ? `${selectedLabour.working_hours} hrs` : "—"], ["Status", selectedLabour.status || "—"]].map(([label, value]) => (
-                            <div key={label} className="flex justify-between items-start border-b border-slate-50 pb-2 last:border-0">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
-                                <span className="text-sm font-bold text-slate-800">{value}</span>
-                            </div>
-                        ))}
+                    <div className="p-6 space-y-4">
+                        {selectedLabour.attendance_date ? (
+                            <>
+                                {[["Labour", selectedLabour.labour_name || "—"], ["Date", selectedLabour.attendance_date || "—"], ["Contractor", selectedLabour.contractor_name || "—"], ["Department", selectedLabour.department || selectedLabour.skill_type || "—"], ["Check In", selectedLabour.in_time || "—"], ["Check Out", selectedLabour.out_time || "—"], ["Working Hours", selectedLabour.working_hours != null ? `${selectedLabour.working_hours} hrs` : "—"], ["Overtime Hours", selectedLabour.overtime_hours != null ? `${selectedLabour.overtime_hours} hrs` : "—"], ["Overtime Rate", selectedLabour.overtime_rate != null ? `₹${selectedLabour.overtime_rate}` : "—"], ["Task ID", selectedLabour.task_id != null ? selectedLabour.task_id : "—"], ["Task Description", selectedLabour.task_description || "—"], ["Remarks", selectedLabour.remarks || "—"], ["Work Summary", selectedLabour.work_summary || "—"], ["Approved", typeof selectedLabour.is_approved === "boolean" ? (selectedLabour.is_approved ? "Yes" : "No") : "—"], ["Approved By", selectedLabour.approved_by_id != null ? selectedLabour.approved_by_id : "—"], ["Late", typeof selectedLabour.is_late === "boolean" ? (selectedLabour.is_late ? "Yes" : "No") : "—"], ["Late Minutes", selectedLabour.late_minutes != null ? selectedLabour.late_minutes : "—"], ["Early Minutes", selectedLabour.early_minutes != null ? selectedLabour.early_minutes : "—"], ["Work Location", selectedLabour.work_location_type || "—"], ["Status", selectedLabour.status || "—"]].map(([label, value]) => (
+                                    <div key={label as string} className="flex justify-between items-start border-b border-slate-50 pb-2 last:border-0">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
+                                        <span className="text-sm font-bold text-slate-800">{value}</span>
+                                    </div>
+                                ))}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {selectedLabour.check_in_image && (
+                                        <button type="button" onClick={() => setPreviewImage({ url: selectedLabour.check_in_image, title: "Check-In Image" })} className="group rounded-2xl border border-slate-200 p-3 text-left hover:border-primary hover:bg-slate-50 transition-all">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Check-In Image</p>
+                                            <div className="h-28 overflow-hidden rounded-2xl bg-slate-100 flex items-center justify-center">
+                                                <img src={selectedLabour.check_in_image} alt="Check In" className="h-full object-cover" />
+                                            </div>
+                                        </button>
+                                    )}
+                                    {selectedLabour.check_out_image && (
+                                        <button type="button" onClick={() => setPreviewImage({ url: selectedLabour.check_out_image, title: "Check-Out Image" })} className="group rounded-2xl border border-slate-200 p-3 text-left hover:border-primary hover:bg-slate-50 transition-all">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Check-Out Image</p>
+                                            <div className="h-28 overflow-hidden rounded-2xl bg-slate-100 flex items-center justify-center">
+                                                <img src={selectedLabour.check_out_image} alt="Check Out" className="h-full object-cover" />
+                                            </div>
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {[["Labour ID", selectedLabour.id ?? "—"], ["Name", selectedLabour.labour_name || "—"], ["Worker Code", selectedLabour.worker_code || "—"], ["Labour Type", selectedLabour.labour_type_name || selectedLabour.skill_type || "—"], ["Contractor", selectedLabour.contractor_name || "—"], ["Status", selectedLabour.status || "—"], ["Aadhaar", selectedLabour.aadhaar_number || "—"], ["PAN", selectedLabour.pan_number || "—"], ["Mobile", selectedLabour.mobile_number || "—"], ["Email", selectedLabour.email || "—"], ["Address", selectedLabour.address || "—"], ["Daily Wage", selectedLabour.custom_daily_wage_rate || selectedLabour.daily_wage_rate ? `₹${selectedLabour.custom_daily_wage_rate || selectedLabour.daily_wage_rate}` : "—"], ["OT Rate", selectedLabour.custom_ot_rate_per_hour != null ? `₹${selectedLabour.custom_ot_rate_per_hour}` : "—"], ["Notes", selectedLabour.notes || "—"]].map(([label, value]) => (
+                                    <div key={label as string} className="flex justify-between items-start border-b border-slate-50 pb-2 last:border-0">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
+                                        <span className="text-sm font-bold text-slate-800">{value}</span>
+                                    </div>
+                                ))}
+                                {selectedLabour.profile_image && (
+                                    <div className="rounded-2xl border border-slate-200 overflow-hidden bg-slate-100">
+                                        <img src={selectedLabour.profile_image} alt="Profile" className="w-full h-64 object-cover" />
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 )}
             </Modal>
