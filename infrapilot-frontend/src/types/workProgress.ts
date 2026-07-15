@@ -36,6 +36,9 @@ export interface ProjectSummary {
   total_activities: number;
   completed_activities: number;
   delayed_activities: number;
+  on_track_activities?: number;
+  not_started_activities?: number;
+  completion_percentage?: number;
 }
 
 export interface CreateActivityRequest {
