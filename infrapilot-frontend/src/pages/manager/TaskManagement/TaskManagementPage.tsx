@@ -14,6 +14,7 @@ import ConfirmModal from "../../../components/common/ConfirmModal";
 // import ConfirmModal from "../../../components/common/ConfirmModal";
 import CreateTaskDrawer from './CreateTaskDrawer';
 import AudioRecordModal from './AudioRecordModal';
+import TaskRequestModal from '../../../components/projects/TaskRequestModal';
 import Modal from '../../../components/common/Modal';
 import { projectService } from '../../../services/projectService';
 import { boqService } from '../../../services/boqService';
@@ -114,6 +115,8 @@ const TaskManagementPage = () => {
     // Project Accordion State
     const [expandedProjects, setExpandedProjects] = useState<number[]>([]);
     const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
+    const [projectTasksMap, setProjectTasksMap] = useState<Record<number, FrontendTask[]>>({});
+    const [projectLoadingMap, setProjectLoadingMap] = useState<Record<number, boolean>>({});
 
     const [projectMilestones, setProjectMilestones] = useState<any[]>([]);
     const [projectBoqs, setProjectBoqs] = useState<any[]>([]);
@@ -190,6 +193,12 @@ const TaskManagementPage = () => {
     const [passRemark, setPassRemark] = useState("");
     const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
 
+    // Task Request Modal State
+    const [isTaskRequestModalOpen, setIsTaskRequestModalOpen] = useState(false);
+    const [taskRequests, setTaskRequests] = useState<any[]>([]);
+    const [selectedTaskRequest, setSelectedTaskRequest] = useState<any | null>(null);
+    const [isLoadingTaskRequests, setIsLoadingTaskRequests] = useState(false);
+
     useEffect(() => {
         if (projectId) {
             projectService.getProjectMembers(projectId).then(res => {
@@ -218,6 +227,26 @@ const TaskManagementPage = () => {
         };
         fetchDetails();
     }, [selectedTask, modalTab, projectId]);
+
+    // Fetch Task Requests when Project Tasks tab is active
+    useEffect(() => {
+        if (activeTab === "Project Tasks" && projectId) {
+            fetchTaskRequests();
+        }
+    }, [activeTab, projectId]);
+
+    const fetchTaskRequests = async () => {
+        setIsLoadingTaskRequests(true);
+        try {
+            const requests = await projectService.getTaskRequests(projectId!);
+            setTaskRequests(Array.isArray(requests) ? requests : (requests?.items || requests?.data || []));
+        } catch (error) {
+            console.error("Failed to fetch task requests:", error);
+            setTaskRequests([]);
+        } finally {
+            setIsLoadingTaskRequests(false);
+        }
+    };
 
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -309,10 +338,15 @@ const TaskManagementPage = () => {
                 const creatorName = assigner.name;
 
                 const assignedNames = Array.isArray((t as any).assigned_users)
-                    ? (t as any).assigned_users.map((id: any) => {
-                        const m = membersList.find(member => member.user_id === id);
-                        return m ? m.full_name : id;
-                    })
+                    ? (t as any).assigned_users.map((item: any) => {
+                        // Handle both numeric IDs and user objects
+                        const userId = typeof item === 'number' ? item : (typeof item === 'object' && item !== null ? (item.user_id || item.id) : item);
+                        const userName = typeof item === 'object' && item !== null ? (item.full_name || item.name) : null;
+                        
+                        if (userName) return userName;
+                        const m = membersList.find(member => member.user_id === userId);
+                        return m ? m.full_name : (userId || "Unknown");
+                    }).filter((name: string) => name && name !== "Unknown" && name !== "[object Object]")
                     : [];
 
                 const milestone = milestonesList.find((m: any) => m.id === (t as any).milestone_id);
@@ -355,26 +389,33 @@ const TaskManagementPage = () => {
     }, [selectedProjectId]);
 
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        let localProjects: any[] = [];
-        if (userStr) {
+        const fetchUserAssignedProjects = async () => {
             try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (!userStr) {
+                    console.warn("No user data in localStorage");
+                    return;
+                }
+                
                 const user = JSON.parse(userStr);
-                localProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
-            } catch (e) {
-                console.error("Failed to resolve project ID", e);
+                const userId = user.id || user.user_id;
+                
+                if (!userId) {
+                    console.warn("No user ID found");
+                    return;
+                }
+                
+                console.log(`Fetching assigned projects for user ${userId}`);
+                const projects = await projectService.getAssignedProjects(userId);
+                console.log("Assigned projects fetched:", projects);
+                setAssignedProjects(Array.isArray(projects) ? projects : (projects?.items || projects?.data || []));
+            } catch (error) {
+                console.error("Failed to fetch assigned projects:", error);
+                setAssignedProjects([]);
             }
-        }
+        };
 
-        projectService.getProjects(100, 0)
-            .then(data => {
-                const apiProjects = Array.isArray(data) ? data : (data.items || []);
-                setAssignedProjects(apiProjects.length > 0 ? apiProjects : localProjects);
-            })
-            .catch(err => {
-                console.error("Failed to load projects", err);
-                setAssignedProjects(localProjects);
-            });
+        fetchUserAssignedProjects();
     }, []);
 
     useEffect(() => {
@@ -545,9 +586,88 @@ const TaskManagementPage = () => {
 
 
     const toggleProject = (id: number) => {
+        const willExpand = !expandedProjects.includes(id);
         setExpandedProjects(prev =>
             prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
         );
+        if (willExpand) {
+            // load tasks for project if not already loaded
+            if (!projectTasksMap[id]) {
+                fetchProjectTasks(id).catch(err => console.error('Failed to load project tasks', err));
+            }
+        }
+    };
+
+    const fetchProjectTasks = async (projId: number) => {
+        try {
+            setProjectLoadingMap(prev => ({ ...prev, [projId]: true }));
+            const [fetchedTasks, fetchedMembers] = await Promise.all([
+                projectService.getTasks(projId).catch(() => []),
+                projectService.getProjectMembers(projId).catch(() => [])
+            ]);
+
+            const membersList: any[] = Array.isArray(fetchedMembers) ? fetchedMembers : (fetchedMembers?.items || fetchedMembers?.data || []);
+            const tasksList = Array.isArray(fetchedTasks) ? fetchedTasks : (fetchedTasks?.items || fetchedTasks?.data || []);
+
+            const mapped = tasksList.map((t: any) => {
+                const rawAssignedId = (t as any).assigned_user || t.assigned_user_id;
+                const actualAssignedId = (typeof rawAssignedId === 'object' && rawAssignedId !== null)
+                    ? (rawAssignedId.user_id || rawAssignedId.id)
+                    : rawAssignedId;
+                const assignee = membersList.find(m => m.user_id === actualAssignedId);
+                const assigner = { name: "System / Admin", role: "Manager" };
+
+                let actualCreatedId = undefined;
+                if ((t as any).created_by) {
+                    actualCreatedId = (typeof (t as any).created_by === 'object' && (t as any).created_by !== null)
+                        ? (((t as any).created_by as any).user_id || ((t as any).created_by as any).id)
+                        : (t as any).created_by;
+                }
+                const creator = actualCreatedId ? membersList.find((m: any) => m.user_id === actualCreatedId) : undefined;
+                if (creator) {
+                    assigner.name = creator.full_name;
+                    assigner.role = creator.role || "Manager";
+                } else if (typeof (t as any).created_by === 'object' && (t as any).created_by !== null) {
+                    assigner.name = ((t as any).created_by as any).full_name || ((t as any).created_by as any).name || "Unknown";
+                    assigner.role = ((t as any).created_by as any).role || "Manager";
+                }
+
+                const assignedNames = Array.isArray((t as any).assigned_users)
+                    ? (t as any).assigned_users.map((item: any) => {
+                        const userId = typeof item === 'number' ? item : (typeof item === 'object' && item !== null ? (item.user_id || item.id) : item);
+                        const userName = typeof item === 'object' && item !== null ? (item.full_name || item.name) : null;
+                        if (userName) return userName;
+                        const m = membersList.find(member => member.user_id === userId);
+                        return m ? m.full_name : (userId || "Unknown");
+                    }).filter((name: string) => name && name !== "Unknown" && name !== "[object Object]")
+                    : [];
+
+                return {
+                    ...t,
+                    priority: mapPriority(t.priority),
+                    assignedBy: assigner,
+                    assignedTo: {
+                        name: assignee?.full_name || "Unassigned",
+                        role: assignee?.role || "Engineer"
+                    },
+                    hasHistory: false,
+                    projectName: (t as any).project_name || (`Project ${t.project_id || projId}`),
+                    audio_data: getFullUrl(t.audio_data || (t as any).audio_instruction_url || (t as any).audio_url),
+                    instruction_image_url: getFullUrl((t as any).instruction_image_url || (t as any).image_url),
+                    milestoneName: undefined,
+                    boqName: undefined,
+                    creatorName: assigner.name,
+                    assignedNames
+                } as FrontendTask;
+            });
+
+            setProjectTasksMap(prev => ({ ...prev, [projId]: mapped }));
+        } catch (error) {
+            console.error('Error fetching project tasks for', projId, error);
+            setProjectTasksMap(prev => ({ ...prev, [projId]: [] }));
+        } finally {
+            setProjectLoadingMap(prev => ({ ...prev, [projId]: false }));
+        }
     };
 
     const openTaskModal = async (task: FrontendTask) => {
@@ -632,6 +752,58 @@ const TaskManagementPage = () => {
         } catch (error) {
             toast.error("Failed to pass task.");
         }
+    };
+
+    // Task Request Handlers
+    const handleSaveTaskRequest = async (formData: any) => {
+        if (!projectId) return;
+
+        try {
+            if (selectedTaskRequest) {
+                // Update existing task request
+                await projectService.updateTaskRequest(projectId, selectedTaskRequest.id, formData);
+                toast.success("Task request updated successfully!");
+            } else {
+                // Create new task request
+                await projectService.createTaskRequest(projectId, formData);
+                toast.success("Task request created successfully!");
+            }
+            setSelectedTaskRequest(null);
+            fetchTaskRequests();
+        } catch (error) {
+            toast.error("Failed to save task request.");
+            console.error("Error:", error);
+        }
+    };
+
+    const handleDeleteTaskRequest = async (requestId: number) => {
+        if (!projectId) return;
+
+        if (confirm("Are you sure you want to delete this task request?")) {
+            try {
+                await projectService.deleteTaskRequest(projectId, requestId);
+                toast.success("Task request deleted successfully!");
+                fetchTaskRequests();
+            } catch (error) {
+                toast.error("Failed to delete task request.");
+                console.error("Error:", error);
+            }
+        }
+    };
+
+    const handleEditTaskRequest = (request: any) => {
+        setSelectedTaskRequest(request);
+        setIsTaskRequestModalOpen(true);
+    };
+
+    const handleNewTaskRequest = () => {
+        setSelectedTaskRequest(null);
+        setIsTaskRequestModalOpen(true);
+    };
+
+    const handleCloseTaskRequestModal = () => {
+        setIsTaskRequestModalOpen(false);
+        setSelectedTaskRequest(null);
     };
 
     const handleSaveAudio = async (audioBase64: string) => {
@@ -730,7 +902,6 @@ const TaskManagementPage = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <ProjectSelector variant="page" />
                         {activeTab !== "Project Tasks" && (
                             <>
                                 <button
@@ -1148,8 +1319,8 @@ const TaskManagementPage = () => {
                                                                 <span className="text-[10px] text-slate-500">End: <span className="text-xs font-bold text-slate-800">{(task as any).actual_end_date || 'NA'}</span></span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName || 'NA'}</td>
-                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length ? task.assignedNames.join(', ') : 'Unassigned'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.creatorName && task.creatorName !== '[object Object]' ? task.creatorName : 'NA'}</td>
+                                                        <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.assignedNames?.length && task.assignedNames.some(n => n && n !== '[object Object]') ? task.assignedNames.filter(n => n && n !== '[object Object]').join(', ') : 'Unassigned'}</td>
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).completion_percentage || 0}</td>
 
                                                         <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{(task as any).delay_days || 0}</td>
@@ -1345,13 +1516,31 @@ const TaskManagementPage = () => {
                                             <option value="My Projects">My Projects</option>
                                         </select>
                                     </div>
+                                    <button
+                                        onClick={handleNewTaskRequest}
+                                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all whitespace-nowrap"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        Task Request
+                                    </button>
                                 </div>
                             </div>
 
                             {/* Project List */}
                             <div className="p-6 bg-slate-50 flex-1 space-y-4">
-                                {[{ id: projectId || 92, name: currentProjectName, tasksCount: filteredTasks.length, status: 'Planned' as ProjectStatus, tasks: filteredTasks }].map(project => {
-                                    const isExpanded = expandedProjects.includes(project.id);
+                                {assignedProjects
+                                    .filter((p: any) => {
+                                        if (!searchQuery) return true;
+                                        const name = (p.project_name || p.name || '').toString().toLowerCase();
+                                        return name.includes(searchQuery.toLowerCase());
+                                    })
+                                    .map((p: any) => {
+                                    const projectIdKey = (p.id || p.project_id) as number;
+                                    const projectName = p.project_name || p.name || `Project ${projectIdKey}`;
+                                    const projectTasks = projectTasksMap[projectIdKey] || [];
+                                    const isExpanded = expandedProjects.includes(projectIdKey);
+                                    const isProjLoading = !!projectLoadingMap[projectIdKey];
+                                    const project = { id: projectIdKey, name: projectName, tasksCount: projectTasks.length, status: p.status || 'Planned', tasks: projectTasks };
                                     return (
                                         <div key={project.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                                             <div
@@ -1396,7 +1585,16 @@ const TaskManagementPage = () => {
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="block md:table-row-group">
-                                                                {project.tasks.length > 0 ? (
+                                                                {isProjLoading ? (
+                                                                    <tr className="block md:table-row">
+                                                                        <td colSpan={6} className="p-12 text-center text-sm font-bold text-slate-800 bg-white block md:table-cell">
+                                                                            <div className="flex items-center justify-center gap-2">
+                                                                                <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                                                                                <span>Loading tasks...</span>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ) : project.tasks.length > 0 ? (
                                                                     project.tasks.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((task) => (
                                                                         <tr key={task.id} className="block md:table-row border-b border-slate-100 hover:bg-slate-50/50 transition-colors p-4 md:p-0">
                                                                             <td className="p-4 block md:table-cell">
@@ -1538,6 +1736,80 @@ const TaskManagementPage = () => {
                                                             </div>
                                                         </div>
                                                     )}
+
+                                                    {/* Task Requests Section */}
+                                                    <div className="border-t border-slate-200 p-6">
+                                                        <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center">
+                                                                <FileText className="w-4 h-4 text-amber-600" />
+                                                            </div>
+                                                            Task Requests ({taskRequests.length})
+                                                        </h4>
+
+                                                        {isLoadingTaskRequests ? (
+                                                            <div className="flex items-center justify-center py-8">
+                                                                <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                                                            </div>
+                                                        ) : taskRequests.length > 0 ? (
+                                                            <div className="space-y-3">
+                                                                {taskRequests.map((request) => (
+                                                                    <div
+                                                                        key={request.id}
+                                                                        className="p-4 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors flex items-start justify-between"
+                                                                    >
+                                                                        <div className="flex-1">
+                                                                            <h5 className="font-bold text-sm text-slate-800 mb-1">{request.title}</h5>
+                                                                            <p className="text-xs text-slate-500 mb-2 line-clamp-2">{request.description}</p>
+                                                                            <div className="flex items-center gap-3 flex-wrap">
+                                                                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                                                                                    request.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
+                                                                                    request.priority === 'MEDIUM' ? 'bg-blue-100 text-blue-700' :
+                                                                                    'bg-emerald-100 text-emerald-700'
+                                                                                }`}>
+                                                                                    {request.priority || 'MEDIUM'}
+                                                                                </span>
+                                                                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                                                                    request.status === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                                                                                    request.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' :
+                                                                                    'bg-rose-100 text-rose-700'
+                                                                                }`}>
+                                                                                    {request.status || 'PENDING'}
+                                                                                </span>
+                                                                                {request.due_date && (
+                                                                                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                                                                                        <Calendar className="w-3 h-3" />
+                                                                                        {new Date(request.due_date).toLocaleDateString()}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 ml-4">
+                                                                            <button
+                                                                                onClick={() => handleEditTaskRequest(request)}
+                                                                                className="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center hover:bg-blue-100 transition-colors"
+                                                                                title="Edit"
+                                                                            >
+                                                                                <Edit2 className="w-4 h-4" />
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => handleDeleteTaskRequest(request.id)}
+                                                                                className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-100 transition-colors"
+                                                                                title="Delete"
+                                                                            >
+                                                                                <Trash2 className="w-4 h-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-center py-8 text-slate-500">
+                                                                <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                                                <p className="text-sm font-bold">No task requests yet</p>
+                                                                <p className="text-xs mt-1">Create your first task request to get started</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -1548,6 +1820,18 @@ const TaskManagementPage = () => {
                     )}
                 </div>
             </PageTransition>
+
+            {/* Task Request Modal */}
+            <TaskRequestModal
+                isOpen={isTaskRequestModalOpen}
+                onClose={handleCloseTaskRequestModal}
+                onSubmit={handleSaveTaskRequest}
+                projectMembers={projectMembers}
+                editingRequest={selectedTaskRequest}
+                isLoading={isLoadingTaskRequests}
+                projectId={projectId || undefined}
+                assignedProjects={assignedProjects}
+            />
 
             {/* Task Detail Modal */}
             {selectedTask && (
@@ -2393,11 +2677,9 @@ const TaskManagementPage = () => {
                                 required
                             >
                                 <option value="">-- Select Team Member --</option>
-                                {projectMembers
-                                    .filter(m => (m.role || "").toLowerCase() === "labour")
-                                    .map(m => (
-                                        <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
-                                    ))}
+                                {projectMembers.map(m => (
+                                    <option key={m.user_id} value={m.user_id}>{m.full_name} ({m.role})</option>
+                                ))}
                             </select>
                             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
                                 <ChevronDown className="w-4 h-4" />

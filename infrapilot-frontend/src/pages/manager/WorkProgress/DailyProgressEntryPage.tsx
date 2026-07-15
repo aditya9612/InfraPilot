@@ -39,7 +39,7 @@ const statusBadge: Record<string, string> = {
 
 const DailyProgressEntryPage = () => {
   const { user } = useAuth();
-  const engineer_id = Number(user?.id) || 1;
+  const engineer_id = user?.id ? Number(user.id) : undefined;
   const { selectedProjectId: projectId } = useProject();
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay'>('all');
@@ -75,6 +75,11 @@ const DailyProgressEntryPage = () => {
     setHasLoadedAll(false);
     setHasLoadedHistory(false);
     setSelectedActivityId("all");
+    setTodayActivities([]);
+    setAllEntries([]);
+    setActivityHistory([]);
+    setDelayActivities([]);
+    setProjectSummary(null);
   }, [projectId]);
 
   // Input states for Tab 1 cards
@@ -125,7 +130,7 @@ const DailyProgressEntryPage = () => {
   }, [projectId, engineer_id]);
 
   const loadTodayProgress = useCallback(async () => {
-    if (!projectId) return;
+    if (!projectId || !engineer_id) return;
     try {
       if (!hasLoadedToday) {
         setLoading(true);
@@ -140,7 +145,7 @@ const DailyProgressEntryPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [projectId, hasLoadedToday]);
+  }, [projectId, hasLoadedToday, engineer_id]);
 
   const loadAllEntries = useCallback(async () => {
     if (!projectId) return;
@@ -221,9 +226,10 @@ const DailyProgressEntryPage = () => {
   useEffect(() => {
     loadActivities();
     loadProjectSummary();
-  }, [loadActivities, loadProjectSummary]);
+  }, [loadActivities, loadProjectSummary, projectId]);
 
   useEffect(() => {
+    if (!projectId) return;
     if (activeTab === 'today') {
       loadTodayProgress();
     } else if (activeTab === 'all') {
@@ -235,7 +241,7 @@ const DailyProgressEntryPage = () => {
     } else if (activeTab === 'summary') {
       loadProjectSummary();
     }
-  }, [activeTab, loadTodayProgress, loadAllEntries, loadDelayReport, loadActivityHistory, loadProjectSummary]);
+  }, [activeTab, loadTodayProgress, loadAllEntries, loadDelayReport, loadActivityHistory, loadProjectSummary, projectId]);
 
   const handleLogModalSubmit = async (data: any) => {
     try {

@@ -14,6 +14,7 @@ import { boqService } from "../../services/boqService";
 import { drawingService } from "../../services/drawingService";
 import { documentService } from "../../services/documentService";
 import { equipmentService } from "../../services/equipmentService";
+import { userService } from "../../services/userService";
 
 const ApprovalsPage = () => {
     const location = useLocation();
@@ -142,6 +143,45 @@ const ApprovalsPage = () => {
     useEffect(() => {
         fetchApprovals();
     }, [fetchApprovals]);
+
+    useEffect(() => {
+        const numericId = (value: any) => {
+            if (typeof value === "number") return value;
+            if (typeof value === "string" && /^\d+$/.test(value.trim())) return Number(value.trim());
+            return null;
+        };
+
+        const toFetchIds = new Set<number>();
+        approvals.forEach((item) => {
+            const requesterId = numericId(item.requested_by);
+            if (requesterId) toFetchIds.add(requesterId);
+            const approverId = numericId(item.approved_by);
+            if (approverId) toFetchIds.add(approverId);
+        });
+
+        const missingIds = Array.from(toFetchIds).filter(id => !usersMap[String(id)]);
+        if (missingIds.length === 0) return;
+
+        const fetchUsersById = async () => {
+            const resolved: Record<string, string> = {};
+            await Promise.all(missingIds.map(async (id) => {
+                try {
+                    const user = await userService.getUserById(id);
+                    if (user) {
+                        const fullName = user.full_name || user.name || user.user?.full_name || user.user?.name;
+                        if (fullName) resolved[String(id)] = fullName;
+                    }
+                } catch (error) {
+                    console.warn(`Failed to resolve approval user ${id}`, error);
+                }
+            }));
+            if (Object.keys(resolved).length > 0) {
+                setUsersMap(prev => ({ ...prev, ...resolved }));
+            }
+        };
+
+        fetchUsersById();
+    }, [approvals, usersMap]);
 
     const filteredApprovals = useMemo(() => {
         const term = searchTerm.toLowerCase();

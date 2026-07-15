@@ -566,5 +566,95 @@ export const projectService = {
       cache.clear();
     }
     projectService._saveCache(cache);
+  },
+
+  /**
+   * Create a new task request
+   * POST /api/v1/projects/task-requests
+   */
+  async createTaskRequest(projectId: number, requestData: any) {
+    try {
+      const endpoint = `projects/task-requests`;
+      const payload = {
+        ...requestData,
+        project_id: projectId
+      };
+      console.log(`Creating task request at: ${endpoint}`, payload);
+      const response = await api.post(endpoint, payload);
+      return response.data;
+    } catch (error: any) {
+      console.error("Create Task Request API Error:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        endpoint: `projects/task-requests`
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Get all task requests for a project
+   * GET /api/v1/projects/task-requests?project_id={project_id}
+   */
+  async getTaskRequests(projectId: number) {
+    try {
+      const endpoint = `projects/task-requests`;
+      console.log(`Fetching task requests from: ${endpoint}?project_id=${projectId}`);
+      const response = await api.get(endpoint, { params: { project_id: projectId } });
+      const data = response.data;
+      return Array.isArray(data) ? data : (data?.items || data?.data || []);
+    } catch (error: any) {
+      console.error("Get Task Requests API Error:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        endpoint: `projects/task-requests?project_id=${projectId}`
+      });
+      return [];
+    }
+  },
+
+  /**
+   * Update a task request
+   * PUT /api/v1/projects/task-requests/{request_id}
+   */
+  async updateTaskRequest(projectId: number, requestId: number, requestData: any) {
+    try {
+      const endpoint = `projects/task-requests/${requestId}`;
+      const payload = {
+        ...requestData,
+        project_id: projectId
+      };
+      console.log(`Updating task request at: ${endpoint}`, payload);
+      const response = await api.put(endpoint, payload);
+      return response.data;
+    } catch (error: any) {
+      console.error("Update Task Request API Error:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        endpoint: `projects/task-requests/${requestId}`
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a task request
+   * DELETE /api/v1/projects/task-requests/{request_id}
+   */
+  async deleteTaskRequest(projectId: number, requestId: number) {
+    try {
+      const endpoint = `projects/task-requests/${requestId}`;
+      console.log(`Deleting task request at: ${endpoint}`);
+      const response = await api.delete(endpoint);
+      return response.data;
+    } catch (error: any) {
+      console.error("Delete Task Request API Error:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        endpoint: `projects/task-requests/${requestId}`
+      });
+      throw error;
+    }
   }
 };

@@ -224,12 +224,20 @@ const ProjectsPage = () => {
       ? projects
       : projects.filter((p) => p.status?.toLowerCase() === filterStatus.toLowerCase());
 
-    return [...list].sort((a, b) => {
+    const searchTerm = search.trim().toLowerCase();
+    const searchFiltered = searchTerm
+      ? list.filter((p) =>
+          (p.project_name || "").toLowerCase().includes(searchTerm) ||
+          (p.description || "").toLowerCase().includes(searchTerm)
+        )
+      : list;
+
+    return [...searchFiltered].sort((a, b) => {
       const aVal = a.id;
       const bVal = b.id;
       return sortOrder === "latest" ? bVal - aVal : aVal - bVal;
     });
-  }, [projects, filterStatus, sortOrder]);
+  }, [projects, filterStatus, sortOrder, search]);
 
   const filtered = sortedProjects;
 
