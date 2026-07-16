@@ -22,6 +22,28 @@ export interface BoqItem {
   activity_type_id?: number;
 }
 
+export interface BoqGroupItem {
+  id: number;
+  group_id?: number;
+  boq_id?: number;
+  project_id?: number;
+  item_name: string;
+  category?: string;
+  description?: string;
+  quantity: number | string;
+  unit?: string;
+  unit_cost: number | string;
+  total_cost?: number | string;
+  actual_quantity?: number | string;
+  actual_cost?: number | string;
+  variance_cost?: number | string;
+  status?: string;
+  approval_status?: string;
+  activity_type_id?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface BoqSummary {
   total_items: number;
   estimated: number;
