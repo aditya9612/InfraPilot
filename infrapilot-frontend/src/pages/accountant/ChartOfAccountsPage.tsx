@@ -1,164 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import CreateAccountModal from "../../components/forms/accounting/CreateAccountModal";
+import LedgerModal from "../../components/forms/accounting/LedgerModal";
+import ViewAccountModal from "../../components/forms/accounting/ViewAccountModal";
 import toast from "react-hot-toast";
+import { accountingService } from "../../services/accountingService";
 import type { ChartAccount, AccountType } from "../../types/accounting";
 
-// Full COA Structure for Construction ERP
-const MOCK_COA: ChartAccount[] = [
-  {
-    id: "1",
-    account_name: "Assets",
-    account_code: "AST",
-    account_type: "Asset",
-    opening_balance: 0,
-    current_balance: 0,
-    is_active: true,
-    description: "All company assets",
-    children: [
-      {
-        id: "1-1",
-        account_name: "Current Assets",
-        account_code: "AST-100",
-        account_type: "Asset",
-        parent_account_id: "1",
-        opening_balance: 0,
-        current_balance: 0,
-        is_active: true,
-        children: [
-          { id: "AST001", account_name: "Cash in Hand", account_code: "AST001", account_type: "Asset", parent_account_id: "1-1", opening_balance: 50000, current_balance: 50000, is_active: true },
-          { id: "AST002", account_name: "Petty Cash", account_code: "AST002", account_type: "Asset", parent_account_id: "1-1", opening_balance: 10000, current_balance: 10000, is_active: true },
-          { id: "AST003", account_name: "Bank Accounts", account_code: "AST003", account_type: "Asset", parent_account_id: "1-1", opening_balance: 200000, current_balance: 200000, is_active: true },
-          { id: "AST004", account_name: "Client Receivables", account_code: "AST004", account_type: "Asset", parent_account_id: "1-1", opening_balance: 150000, current_balance: 150000, is_active: true },
-          { id: "AST005", account_name: "GST Receivable", account_code: "AST005", account_type: "Asset", parent_account_id: "1-1", opening_balance: 25000, current_balance: 25000, is_active: true },
-          { id: "AST013", account_name: "Advance to Vendors", account_code: "AST013", account_type: "Asset", parent_account_id: "1-1", opening_balance: 0, current_balance: 0, is_active: true }
-        ]
-      },
-      {
-        id: "1-2",
-        account_name: "Fixed Assets",
-        account_code: "AST-200",
-        account_type: "Asset",
-        parent_account_id: "1",
-        opening_balance: 0,
-        current_balance: 0,
-        is_active: true,
-        children: [
-          { id: "AST006", account_name: "Land", account_code: "AST006", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true },
-          { id: "AST007", account_name: "Buildings", account_code: "AST007", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true },
-          { id: "AST008", account_name: "Machinery", account_code: "AST008", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true },
-          { id: "AST009", account_name: "Vehicles", account_code: "AST009", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true },
-          { id: "AST010", account_name: "Equipment", account_code: "AST010", account_type: "Asset", parent_account_id: "1-2", opening_balance: 0, current_balance: 0, is_active: true }
-        ]
-      },
-      {
-        id: "1-3",
-        account_name: "Other Assets",
-        account_code: "AST-300",
-        account_type: "Asset",
-        parent_account_id: "1",
-        opening_balance: 0,
-        current_balance: 0,
-        is_active: true,
-        children: [
-          { id: "AST011", account_name: "Security Deposits", account_code: "AST011", account_type: "Asset", parent_account_id: "1-3", opening_balance: 0, current_balance: 0, is_active: true },
-          { id: "AST012", account_name: "Advances Given", account_code: "AST012", account_type: "Asset", parent_account_id: "1-3", opening_balance: 0, current_balance: 0, is_active: true }
-        ]
-      }
-    ]
-  },
-  {
-    id: "2",
-    account_name: "Liabilities",
-    account_code: "LIA",
-    account_type: "Liability",
-    opening_balance: 0,
-    current_balance: 0,
-    is_active: true,
-    children: [
-      {
-        id: "2-1",
-        account_name: "Current Liabilities",
-        account_code: "LIA-100",
-        account_type: "Liability",
-        parent_account_id: "2",
-        opening_balance: 0,
-        current_balance: 0,
-        is_active: true,
-        children: [
-          { id: "LIA001", account_name: "Vendor Payables", account_code: "LIA001", account_type: "Liability", parent_account_id: "2-1", opening_balance: 150000, current_balance: 150000, is_active: true },
-          { id: "LIA002", account_name: "Contractor Payables", account_code: "LIA002", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true },
-          { id: "LIA003", account_name: "Salary Payable", account_code: "LIA003", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true },
-          { id: "LIA004", account_name: "GST Payable", account_code: "LIA004", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true },
-          { id: "LIA005", account_name: "TDS Payable", account_code: "LIA005", account_type: "Liability", parent_account_id: "2-1", opening_balance: 0, current_balance: 0, is_active: true }
-        ]
-      },
-      {
-        id: "2-2",
-        account_name: "Loans",
-        account_code: "LIA-200",
-        account_type: "Liability",
-        parent_account_id: "2",
-        opening_balance: 0,
-        current_balance: 0,
-        is_active: true,
-        children: [
-          { id: "LIA006", account_name: "Bank Loan", account_code: "LIA006", account_type: "Liability", parent_account_id: "2-2", opening_balance: 0, current_balance: 0, is_active: true },
-          { id: "LIA007", account_name: "Director Loan", account_code: "LIA007", account_type: "Liability", parent_account_id: "2-2", opening_balance: 0, current_balance: 0, is_active: true }
-        ]
-      },
-      {
-        id: "2-3",
-        account_name: "Other Liabilities",
-        account_code: "LIA-300",
-        account_type: "Liability",
-        parent_account_id: "2",
-        opening_balance: 0,
-        current_balance: 0,
-        is_active: true,
-        children: []
-      }
-    ]
-  },
-  {
-    id: "3",
-    account_name: "Income",
-    account_code: "INC",
-    account_type: "Income",
-    opening_balance: 0,
-    current_balance: 0,
-    is_active: true,
-    children: [
-      { id: "INC001", account_name: "Project Revenue", account_code: "INC001", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "INC002", account_name: "RA Bill Revenue", account_code: "INC002", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "INC003", account_name: "Material Sales", account_code: "INC003", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "INC004", account_name: "Equipment Rental Income", account_code: "INC004", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "INC006", account_name: "Other Income", account_code: "INC006", account_type: "Income", parent_account_id: "3", opening_balance: 0, current_balance: 0, is_active: true }
-    ]
-  },
-  {
-    id: "4",
-    account_name: "Expenses",
-    account_code: "EXP",
-    account_type: "Expense",
-    opening_balance: 0,
-    current_balance: 0,
-    is_active: true,
-    children: [
-      { id: "EXP001", account_name: "Material Expenses", account_code: "EXP001", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "EXP002", account_name: "Labor Expenses", account_code: "EXP002", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "EXP003", account_name: "Contractor Expenses", account_code: "EXP003", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "EXP004", account_name: "Equipment Expenses", account_code: "EXP004", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "EXP005", account_name: "Fuel Expenses", account_code: "EXP005", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "EXP006", account_name: "Office Expenses", account_code: "EXP006", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "EXP007", account_name: "Travel Expenses", account_code: "EXP007", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "EXP008", account_name: "Legal Expenses", account_code: "EXP008", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true },
-      { id: "EXP009", account_name: "Miscellaneous Expenses", account_code: "EXP009", account_type: "Expense", parent_account_id: "4", opening_balance: 0, current_balance: 0, is_active: true }
-    ]
-  }
-];
+// We will fetch from API instead of mock
+const MOCK_COA: ChartAccount[] = [];
+
 
 const accountTypeStyle: Record<string, string> = {
   Asset: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -195,6 +48,55 @@ const ChartOfAccountsPage = () => {
   // Left side selection
   const [selectedFolder, setSelectedFolder] = useState<ChartAccount | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["1", "2", "3", "4", "1-1", "1-2", "2-1"]));
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // New Modals and Data State
+  const [isListView, setIsListView] = useState(false);
+  
+  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
+  const [ledgerAccount, setLedgerAccount] = useState<any | null>(null);
+  const [ledgerData, setLedgerData] = useState<any[] | null>(null);
+
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewData, setViewData] = useState<any | null>(null);
+
+  const handleExportCOA = async () => {
+    try {
+      await accountingService.exportAccounts();
+      toast.success("Chart of Accounts exported successfully!");
+    } catch (e) {
+      toast.error("Failed to export Chart of Accounts");
+    }
+  };
+
+  const handleImportCOA = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const formData = new FormData();
+    formData.append("file", e.target.files[0]);
+    try {
+      await accountingService.importAccounts(formData);
+      toast.success("Chart of Accounts imported successfully!");
+      fetchAccounts();
+    } catch (err) {
+      toast.error("Failed to import Chart of Accounts");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const data = isListView ? await accountingService.getAccounts() : await accountingService.getAccountsTree();
+      // Ensure backend array format
+      setCoa(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      toast.error("Failed to fetch chart of accounts");
+    }
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+  }, [isListView]); // Refetch when toggling List/Tree view
 
   useEffect(() => {
     if (category) {
@@ -219,57 +121,48 @@ const ChartOfAccountsPage = () => {
     });
   };
 
-  const handleCreateAccount = (newAccountData: any) => {
-    const newAccount: ChartAccount = {
-      ...newAccountData,
-      id: editingAccount ? editingAccount.id : Math.random().toString(36).substr(2, 9),
-      current_balance: newAccountData.opening_balance || 0,
-      is_active: newAccountData.status === "Active",
-    };
-
-    // Recursive update/add logic
-    const updateNode = (nodes: ChartAccount[]): ChartAccount[] => {
-      // If editing
-      if (editingAccount) {
-        return nodes.map(node => {
-          if (node.id === editingAccount.id) return { ...node, ...newAccount };
-          if (node.children) return { ...node, children: updateNode(node.children) };
-          return node;
-        });
-      }
-
-      // If creating
-      if (!newAccount.parent_account_id) {
-        return [...nodes, newAccount];
-      }
-      return nodes.map(node => {
-        if (node.id === newAccount.parent_account_id) {
-          return { ...node, children: [...(node.children || []), newAccount] };
-        }
-        if (node.children) {
-          return { ...node, children: updateNode(node.children) };
-        }
-        return node;
-      });
-    };
-
-    setCoa(updateNode(coa));
+  const handleCreateAccount = () => {
+    fetchAccounts();
     toast.success(editingAccount ? "Account updated successfully!" : "Account created successfully!");
     setIsModalOpen(false);
     setEditingAccount(null);
   };
 
-  const handleDeleteAccount = (id: string) => {
-    const deleteNode = (nodes: ChartAccount[]): ChartAccount[] => {
-      return nodes.filter(node => node.id !== id).map(node => {
-        if (node.children) {
-          return { ...node, children: deleteNode(node.children) };
-        }
-        return node;
-      });
-    };
-    setCoa(deleteNode(coa));
-    toast.success("Account deleted!");
+  const handleDeleteAccount = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this account?")) return;
+    
+    try {
+      await accountingService.deleteAccount(id);
+      toast.success("Account deleted!");
+      fetchAccounts();
+    } catch (err) {
+      toast.error("Failed to delete account");
+    }
+  };
+
+  const handleViewAccount = async (id: string) => {
+    setIsViewModalOpen(true);
+    setViewData(null);
+    try {
+      const data = await accountingService.getAccountDetail(id);
+      setViewData(data);
+    } catch (err) {
+      toast.error("Failed to fetch account details");
+      setIsViewModalOpen(false);
+    }
+  };
+
+  const handleViewLedger = async (acc: any) => {
+    setLedgerAccount(acc);
+    setIsLedgerModalOpen(true);
+    setLedgerData(null);
+    try {
+      const data = await accountingService.getAccountLedger(acc.id);
+      setLedgerData(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      toast.error("Failed to fetch ledger");
+      setIsLedgerModalOpen(false);
+    }
   };
 
   const filteredCOA = activeTab === "All" ? coa : coa.filter((acc) => acc.account_type === activeTab);
@@ -344,6 +237,10 @@ const ChartOfAccountsPage = () => {
             <p className="text-slate-500 text-sm mt-1">Manage hierarchical general ledger accounts for the organization.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-xl cursor-pointer hover:bg-slate-50 transition-all">
+              <input type="checkbox" className="w-4 h-4 rounded text-primary border-slate-300" checked={isListView} onChange={(e) => setIsListView(e.target.checked)} />
+              List View
+            </label>
             <div className="relative">
               <input
                 type="text"
@@ -354,14 +251,12 @@ const ChartOfAccountsPage = () => {
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
             </div>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <input type="file" ref={fileInputRef} onChange={handleImportCOA} className="hidden" accept=".csv,.xlsx" />
+            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
               <span className="text-lg">📥</span> Import COA
             </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <button onClick={handleExportCOA} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
               <span className="text-lg">📤</span> Export COA
-            </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📒</span> View Ledger
             </button>
             <button
               onClick={() => { setEditingAccount(null); setIsModalOpen(true); }}
@@ -464,7 +359,8 @@ const ChartOfAccountsPage = () => {
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            <button onClick={() => toast.success("Viewing Account Details!")} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View">👁</button>
+                            <button onClick={() => handleViewAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-all" title="View Detail">👁</button>
+                            <button onClick={() => handleViewLedger(acc)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all" title="View Ledger">📒</button>
                             <button onClick={() => { setEditingAccount(acc); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Edit">✏️</button>
                             <button onClick={() => handleDeleteAccount(acc.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all" title="Delete">🗑</button>
                           </div>
@@ -488,10 +384,21 @@ const ChartOfAccountsPage = () => {
       <CreateAccountModal
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setEditingAccount(null); }}
-        onSuccess={() => { }}
-        parentAccounts={coa}
-        onSubmitMock={handleCreateAccount}
+        onSuccess={handleCreateAccount}
         initialData={editingAccount}
+      />
+
+      <LedgerModal
+        isOpen={isLedgerModalOpen}
+        onClose={() => setIsLedgerModalOpen(false)}
+        account={ledgerAccount}
+        ledgerData={ledgerData}
+      />
+
+      <ViewAccountModal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        accountData={viewData}
       />
     </>
   );

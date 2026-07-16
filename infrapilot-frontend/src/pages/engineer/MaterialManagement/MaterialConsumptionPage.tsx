@@ -107,11 +107,11 @@ const MaterialConsumptionPage = () => {
 
     const fetchTransactions = async () => {
         setIsLoading(true);
-        try { 
+        try {
             const params: any = { project_id: projectId };
             if (selectedMaterialId) params.material_id = Number(selectedMaterialId);
-            const data = await materialService.getLogs(params); 
-            setTransactions(data as any); 
+            const data = await materialService.getLogs(params);
+            setTransactions(data as any);
         }
         catch (e) { toast.error("Failed to load transactions"); }
         finally { setIsLoading(false); }
@@ -310,8 +310,8 @@ const MaterialConsumptionPage = () => {
                                 <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                             </div>
                             {activeTab === "Transactions" && (
-                                <select 
-                                    value={selectedMaterialId} 
+                                <select
+                                    value={selectedMaterialId}
                                     onChange={e => setSelectedMaterialId(e.target.value)}
                                     className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600"
                                 >

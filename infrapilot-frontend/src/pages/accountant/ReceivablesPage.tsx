@@ -312,7 +312,7 @@ const InvoicesSection = ({
             <table className="w-full text-left min-w-max">
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
-                  {["Quotation No", "Project ID", "Client Name", "Company Name", "Mobile Number", "Site Address", "Project Name", "Project Type", "Subtotal", "GST Amt", "TDS Amt", "Discount", "Grand Total", "Advance Paid", "Balance Due", "Payment Mode", "Status", "Created At", "Due Date", "Actions"].map(h => (
+                  {["Quotation No", "Client Name", "Company Name", "Mobile Number", "Site Address", "Project Name", "Project Type", "Subtotal", "GST Amt", "TDS Amt", "Discount", "Grand Total", "Advance Paid", "Balance Due", "Payment Mode", "Status", "Created At", "Due Date", "Actions"].map(h => (
                     <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -321,7 +321,6 @@ const InvoicesSection = ({
                 {paginatedInvoices.map(inv => (
                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
                     <td className="px-4 py-3 text-xs font-bold text-primary">{inv.quotation_no || inv.invoice_number}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.project_id || '-'}</td>
                     <td className="px-4 py-3 text-xs font-semibold text-slate-700">{inv.client_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.company_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.mobile_number}</td>
@@ -507,7 +506,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
         let pRes: any = [];
         try { pRes = await projPromise; } catch (e) { console.error(e); }
 
-        const projList = Array.isArray(pRes) ? pRes : (pRes.items || []);
+        const projList = Array.isArray(pRes) ? pRes : (pRes.data || pRes.items || []);
         setProjects(projList);
 
         let invRes: any = { data: [] };
@@ -732,8 +731,8 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                     <td colSpan={14} className="px-4 py-8 text-center text-slate-400 text-sm">No invoices found.</td>
                   </tr>
                 ) : paginatedInvoices.map(inv => {
-                  const p = projects.find(proj => proj.id === inv.project_id);
-                  const projName = p ? (p.project_name || p.name) : inv.project_id;
+                  const p = projects.find(proj => String(proj.id) === String(inv.project_id));
+                  const projName = p ? (p.name || p.project_name || p.client_name) : inv.project_id;
                   return (
                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
                     <td className="px-4 py-3 text-xs text-slate-600">{projName}</td>
@@ -1406,15 +1405,6 @@ const ReceivablesPage = () => {
             <p className="text-slate-500 text-sm mt-1">Manage invoices, running bills, collections, client ledger &amp; reports.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📥</span> Import
-            </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📤</span> Export
-            </button>
-            <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-              <span className="text-base leading-none">+</span> New Receivable
-            </button>
           </div>
         </div>
 

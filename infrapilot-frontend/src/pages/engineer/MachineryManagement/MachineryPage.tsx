@@ -1344,10 +1344,10 @@ const MachineryPage = () => {
             <div className="flex justify-between items-center">
                 <h2 className="text-lg font-bold text-slate-800">Intelligence & Export</h2>
                 <div className="flex gap-3">
-                    <button onClick={async () => { toast.loading("Generating PDF...", { id: 'pdf' }); try { await equipmentService.exportPdf(selectedProjectId || undefined); toast.success("PDF downloaded!", { id: 'pdf' }); } catch(e) { toast.error("Failed to generate PDF", { id: 'pdf' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
+                    <button onClick={async () => { toast.loading("Generating PDF...", { id: 'pdf' }); try { await equipmentService.exportPdf(selectedProjectId || undefined); toast.success("PDF downloaded!", { id: 'pdf' }); } catch (e) { toast.error("Failed to generate PDF", { id: 'pdf' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
                         <FileText className="w-4 h-4 text-rose-500" /> Export PDF
                     </button>
-                    <button onClick={async () => { toast.loading("Generating Excel...", { id: 'xl' }); try { await equipmentService.exportExcel(selectedProjectId || undefined); toast.success("Excel downloaded!", { id: 'xl' }); } catch(e) { toast.error("Failed to generate Excel", { id: 'xl' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
+                    <button onClick={async () => { toast.loading("Generating Excel...", { id: 'xl' }); try { await equipmentService.exportExcel(selectedProjectId || undefined); toast.success("Excel downloaded!", { id: 'xl' }); } catch (e) { toast.error("Failed to generate Excel", { id: 'xl' }); } }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 shadow-sm">
                         <Download className="w-4 h-4 text-emerald-500" /> Export Excel
                     </button>
                 </div>
