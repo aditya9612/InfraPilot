@@ -10,7 +10,7 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import { boqService } from "../../services/boqService";
 import { approvalService } from "../../services/approvalService";
 import { projectService } from "../../services/projectService";
-import type { BoqItem, BoqSummary } from "../../types/boq";
+import type { BoqItem, BoqSummary, BoqGroupItem } from "../../types/boq";
 import type { Project } from "../../types/project";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -50,6 +50,8 @@ const BOQPage = () => {
 
   // Data States
   const [boqData, setBoqData] = useState<BoqItem[]>([]);
+  const [selectedBoq, setSelectedBoq] = useState<BoqItem | null>(null);
+  const [groupItems, setGroupItems] = useState<BoqGroupItem[]>([]);
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [projectMap, setProjectMap] = useState<Record<number, string>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -152,6 +154,18 @@ const BOQPage = () => {
   const refreshBoqs = async () => {
     setIsLoading(true);
     try {
+      if (isSetup && selectedBoq) {
+        const items = await boqService.getGroupItems(selectedBoq.id);
+        const activeItems = items.filter((item: any) =>
+          item.status?.toLowerCase() !== 'deleted' &&
+          item.status?.toLowerCase() !== 'inactive'
+        );
+        setGroupItems(activeItems);
+        setTotalItems(activeItems.length);
+        setSummaryData(null);
+        return;
+      }
+
       const filters: any = {
         search: searchTerm || null,
         status: statusFilter === "all" ? null : statusFilter,
@@ -215,6 +229,7 @@ const BOQPage = () => {
     projectFilter,
     currentPage,
     isSetup,
+    selectedBoq,
   ]);
 
   // Reset page when filters change
@@ -224,24 +239,38 @@ const BOQPage = () => {
 
   const handleCreateOrUpdateBOQ = async (data: any) => {
     try {
-      if (editingItem) {
-        await boqService.updateBoqItem(editingItem.id, data);
-        toast.success("BOQ item updated successfully!");
+      if (selectedBoq) {
+        // Add/Edit item in BOQ
+        if (editingItem) {
+          await boqService.updateBoqItem(editingItem.id, data);
+          toast.success("Item updated successfully!");
+        } else {
+          // Inject project_id from the parent BOQ since backend requires it
+          const itemData = { ...data, project_id: selectedBoq.project_id };
+          await boqService.addBoqItem(selectedBoq.id, itemData);
+          toast.success("Item added successfully!");
+        }
       } else {
-        const newItem = await boqService.createBoq(data);
-        toast.success("BOQ item created successfully!");
+        // Master BOQ creation/edit
+        if (editingItem) {
+          await boqService.updateBoqItem(editingItem.id, data);
+          toast.success("BOQ updated successfully!");
+        } else {
+          const newItem = await boqService.createBoq(data);
+          toast.success("BOQ created successfully!");
 
-        // Automatically request approval for new items
-        try {
-          await approvalService.createApproval({
-            entity_type: "boq",
-            entity_id: newItem.id,
-            remarks: `Initial approval request for ${newItem.item_name}`,
-          });
-          toast.success("Approval request initiated!");
-        } catch (approveErr) {
-          console.error("Auto-approval error:", approveErr);
-          toast.error("Failed to auto-initiate approval. Use manual action.");
+          // Automatically request approval for new master items
+          try {
+            await approvalService.createApproval({
+              entity_type: "boq",
+              entity_id: newItem.id,
+              remarks: `Initial approval request for ${newItem.item_name}`,
+            });
+            toast.success("Approval request initiated!");
+          } catch (approveErr) {
+            console.error("Auto-approval error:", approveErr);
+            toast.error("Failed to auto-initiate approval. Use manual action.");
+          }
         }
       }
       await refreshBoqs();
@@ -249,13 +278,20 @@ const BOQPage = () => {
       setEditingItem(null);
     } catch (error) {
       toast.error(
-        editingItem ? "Failed to update BOQ" : "Failed to create BOQ",
+        editingItem ? "Failed to update" : "Failed to create"
       );
     }
   };
 
   const handleViewDetails = (item: BoqItem) => {
-    navigate(`/admin/boq/${item.project_id}`);
+    setSelectedBoq(item);
+    setCurrentPage(1);
+    setSearchTerm("");
+  };
+
+  const handleBackToMaster = () => {
+    setSelectedBoq(null);
+    setCurrentPage(1);
   };
 
   const handleRequestApproval = async (item: BoqItem) => {
@@ -391,8 +427,7 @@ const BOQPage = () => {
         search: searchTerm || null,
         status: statusFilter === "all" ? null : statusFilter,
         category: categoryFilter === "all" ? null : categoryFilter,
-        version_no:
-          selectedVersion === "latest" ? null : Number(selectedVersion),
+        version_no: null,
       };
 
       toast.loading(`Preparing ${format.toUpperCase()}...`, { id: "export" });
@@ -515,10 +550,10 @@ const BOQPage = () => {
     setIsHistoryModalOpen(true);
   };
 
-  // Memoized Filtered Logic (Frontend fallback filtering if needed,
-  // but we are using server-side filtering now via refreshBoqs)
+  // Memoized Filtered Logic
   const filteredBoqData = useMemo(() => {
-    return [...boqData].sort((a, b) => {
+    const dataToFilter = selectedBoq ? groupItems : boqData;
+    return [...dataToFilter].sort((a, b: any) => {
       const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
 
@@ -527,7 +562,7 @@ const BOQPage = () => {
       }
       return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
     });
-  }, [boqData, sortOrder]);
+  }, [boqData, groupItems, selectedBoq, sortOrder]);
 
   // Filtered Activities Logic
   const filteredActivities = useMemo(() => {
@@ -601,8 +636,19 @@ const BOQPage = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>
             <div className="flex items-center gap-2 h-8">
+              {selectedBoq && (
+                <button
+                  onClick={handleBackToMaster}
+                  className="mr-2 p-1.5 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+                  title="Back to BOQ List"
+                >
+                  <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+              )}
               <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                {isSetup ? "BOQ Master Setup" : "Project Activity List"}
+                {isSetup ? (selectedBoq ? selectedBoq.item_name : "BOQ Master Setup") : "Project Activity List"}
               </h1>
               <div className={`transition-all duration-300 ${projectFilter === "all" ? "w-0 opacity-0 overflow-hidden" : "w-24 opacity-100"}`}>
                 <span className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-wider rounded-md border border-emerald-100 animate-pulse whitespace-nowrap">
@@ -665,7 +711,7 @@ const BOQPage = () => {
               }}
               className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
             >
-              {isSetup ? "+ Add BOQ Item" : "+ New Activity"}
+              {isSetup ? (selectedBoq ? "+ Add BOQ Item" : "+ Create Master BOQ") : "+ New Activity"}
             </button>
           </div>
         </div>
@@ -870,11 +916,12 @@ const BOQPage = () => {
                 <thead>
                   <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
                     <th className="px-6 py-4">Item Name</th>
-                    <th className="px-6 py-4">Category</th>
-                    <th className="px-6 py-4">Qty & Unit</th>
-                    <th className="px-6 py-4">Unit Cost</th>
-                    <th className="px-6 py-4">Est. Total</th>
-                    <th className="px-6 py-4">Variance</th>
+                    {selectedBoq && <th className="px-6 py-4">Category</th>}
+                    {selectedBoq && <th className="px-6 py-4">Qty & Unit</th>}
+                    {selectedBoq && <th className="px-6 py-4">Unit Cost</th>}
+                    {selectedBoq && <th className="px-6 py-4">Est. Total</th>}
+                    {selectedBoq && <th className="px-6 py-4">Variance</th>}
+                    {!selectedBoq && <th className="px-6 py-4">Description</th>}
                     <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4 text-center">Approval</th>
                     <th className="px-6 py-4 text-right">Actions</th>
@@ -895,32 +942,47 @@ const BOQPage = () => {
                               </p>
                             </div>
                             <p className="text-[10px] text-slate-400 font-medium line-clamp-1">
-                              {projectMap[item.project_id] || "N/A"}
+                              {projectMap[item.project_id as number] || "N/A"}
                             </p>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase">
-                            {item.category}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-medium text-slate-600">
-                          {parseFloat(
-                            item.quantity?.toString() || "0",
-                          ).toLocaleString()}{" "}
-                          <span className="text-[10px] text-slate-400 font-bold">
-                            {item.unit}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-bold text-slate-700">
-                          {formatCompactCurrency(Number(item.unit_cost) || 0)}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-bold text-primary">
-                          {formatCompactCurrency(Number(item.total_cost) || 0)}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-bold text-rose-500">
-                          {formatCompactCurrency(Number(item.variance_cost) || 0)}
-                        </td>
+                        {selectedBoq && (
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[10px] font-bold uppercase">
+                              {item.category || "N/A"}
+                            </span>
+                          </td>
+                        )}
+                        {selectedBoq && (
+                          <td className="px-6 py-4 text-sm font-medium text-slate-600">
+                            {parseFloat(
+                              item.quantity?.toString() || "0",
+                            ).toLocaleString()}{" "}
+                            <span className="text-[10px] text-slate-400 font-bold">
+                              {item.unit}
+                            </span>
+                          </td>
+                        )}
+                        {selectedBoq && (
+                          <td className="px-6 py-4 text-sm font-bold text-slate-700">
+                            {formatCompactCurrency(Number(item.unit_cost) || 0)}
+                          </td>
+                        )}
+                        {selectedBoq && (
+                          <td className="px-6 py-4 text-sm font-bold text-primary">
+                            {formatCompactCurrency(Number(item.total_cost) || 0)}
+                          </td>
+                        )}
+                        {selectedBoq && (
+                          <td className="px-6 py-4 text-sm font-bold text-rose-500">
+                            {formatCompactCurrency(Number(item.variance_cost) || 0)}
+                          </td>
+                        )}
+                        {!selectedBoq && (
+                          <td className="px-6 py-4 text-xs font-medium text-slate-500 max-w-[200px] truncate">
+                            {item.description || "N/A"}
+                          </td>
+                        )}
                         <td className="px-6 py-4 text-center">
                           <span
                             className={`px-2 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status?.toUpperCase() === "ONGOING" ||
@@ -948,7 +1010,7 @@ const BOQPage = () => {
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-3">
                             <button
-                              onClick={() => openActualsModal(item)}
+                              onClick={() => openActualsModal(item as BoqItem)}
                               className="p-1.5 text-slate-400 hover:text-emerald-500 transition-all duration-200"
                               title="Update Actuals"
                             >
@@ -961,7 +1023,7 @@ const BOQPage = () => {
                               item.approval_status === "DRAFT" ||
                               !item.approval_status) && (
                                 <button
-                                  onClick={() => handleRequestApproval(item)}
+                                  onClick={() => handleRequestApproval(item as BoqItem)}
                                   className="p-1.5 text-slate-400 hover:text-blue-500 transition-all duration-200"
                                   title="Request Approval"
                                 >
@@ -972,7 +1034,7 @@ const BOQPage = () => {
                                 </button>
                               )}
                             <button
-                              onClick={() => openHistoryModal(item)}
+                              onClick={() => openHistoryModal(item as BoqItem)}
                               className="p-1.5 text-slate-400 hover:text-violet-500 transition-all duration-200"
                               title="View History"
                             >
@@ -981,15 +1043,17 @@ const BOQPage = () => {
                                 strokeWidth={1.5}
                               />
                             </button>
+                            {!selectedBoq && (
+                              <button
+                                onClick={() => handleViewDetails(item as BoqItem)}
+                                className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
+                                title="View Details"
+                              >
+                                <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
+                              </button>
+                            )}
                             <button
-                              onClick={() => handleViewDetails(item)}
-                              className="p-1.5 text-slate-400 hover:text-primary transition-all duration-200"
-                              title="View Details"
-                            >
-                              <Eye className="w-4.5 h-4.5" strokeWidth={1.5} />
-                            </button>
-                            <button
-                              onClick={() => handleEditClick(item)}
+                              onClick={() => handleEditClick(item as BoqItem)}
                               className="p-1.5 text-slate-400 hover:text-amber-500 transition-all duration-200"
                               title="Update BOQ"
                             >
@@ -1149,6 +1213,7 @@ const BOQPage = () => {
         }}
         onSubmit={handleCreateOrUpdateBOQ}
         initialData={editingItem}
+        mode={selectedBoq ? 'item' : 'master'}
       />
 
       <AddActivityModal
