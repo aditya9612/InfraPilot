@@ -4,6 +4,7 @@ import api from "./api";
 import type {
   BoqFilters,
   BoqItem,
+  BoqGroupItem,
   CreateBoqRequest,
   UpdateBoqRequest,
   BoqResponse,
@@ -260,6 +261,45 @@ export const boqService = {
     } catch (error: any) {
       console.error(
         "Add Item Error:",
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Get all items inside a specific BOQ group
+   * GET /api/v1/boq/groups/{group_id}/items
+   */
+  async getGroupItems(groupId: number): Promise<BoqGroupItem[]> {
+    try {
+      const response = await api.get(`/boq/groups/${groupId}/items`);
+      const data = response.data;
+      return Array.isArray(data) ? data : data.items || data.data || [];
+    } catch (error: any) {
+      console.error(
+        `Get Group Items for ${groupId} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Import Excel file into a BOQ group
+   * POST /api/v1/boq/groups/{group_id}/import/excel
+   */
+  async importGroupExcel(groupId: number, file: File): Promise<any> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post(`/boq/groups/${groupId}/import/excel`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Import Excel for Group ${groupId} Error:`,
         error.response?.data || error.message,
       );
       throw error;

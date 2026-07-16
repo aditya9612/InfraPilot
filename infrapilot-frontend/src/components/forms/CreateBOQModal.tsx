@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import Modal from '../common/Modal';
 
 import type { Project } from '../../types/project';
-import type { BoqItem } from '../../types/boq';
+import type { BoqItem, BoqGroupItem } from '../../types/boq';
 
 import { masterService, type MasterEntity } from '../../services/masterService';
 
@@ -12,10 +12,22 @@ interface CreateBOQModalProps {
   onClose: () => void;
   onSubmit: (boqData: any) => Promise<void>;
   projects: Project[];
-  initialData?: BoqItem | null;
+  initialData?: BoqItem | BoqGroupItem | null;
+  /**
+   * "master" = creating a top-level BOQ (name + project + description + status)
+   * "item"   = adding/editing an item inside a BOQ group (qty, unit_cost, activity_type etc.)
+   */
+  mode?: 'master' | 'item';
 }
 
-const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubmit, projects, initialData }) => {
+const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  projects,
+  initialData,
+  mode = 'item',
+}) => {
   const [formData, setFormData] = React.useState({
     project_id: '',
     item_name: '',
@@ -47,7 +59,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
   React.useEffect(() => {
     if (initialData) {
       setFormData({
-        project_id: initialData.project_id?.toString() || '',
+        project_id: (initialData as BoqItem).project_id?.toString() || '',
         item_name: initialData.item_name || '',
         category: initialData.category || '',
         description: initialData.description || '',
@@ -79,22 +91,17 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     let error = '';
     switch (name) {
       case 'project_id':
-        if (!value) error = 'Project selection is required.';
+        if (mode === 'master' && !value) error = 'Project selection is required.';
         break;
       case 'item_name':
-        if (!value.trim()) error = 'Item name is required.';
-        else if (value.trim().length < 2) error = 'Item name must be at least 2 characters.';
-        break;
-      case 'description':
-        // Optional
+        if (!value.trim()) error = 'Name is required.';
+        else if (value.trim().length < 2) error = 'Name must be at least 2 characters.';
         break;
       case 'quantity':
         if (value && isNaN(Number(value))) error = 'Enter a valid quantity.';
-        else if (value && !/^\d+$/.test(value.toString())) error = 'Quantity must be a whole number.';
         break;
       case 'unit_cost':
         if (value && isNaN(Number(value))) error = 'Enter a valid unit cost.';
-        else if (value && !/^\d+$/.test(value.toString())) error = 'Unit cost must be a whole number.';
         break;
       case 'activity_type_id':
         if (!value) error = 'Activity Type is required.';
@@ -137,8 +144,12 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
   };
 
   const validateAll = () => {
+    const fieldsToCheck = mode === 'master'
+      ? ['item_name', 'project_id', 'activity_type_id']
+      : ['item_name', 'activity_type_id'];
+
     const newErrors: Record<string, string> = {};
-    Object.keys(formData).forEach((key) => {
+    fieldsToCheck.forEach((key) => {
       const error = validateField(key, formData[key as keyof typeof formData]);
       if (error) newErrors[key] = error;
     });
@@ -151,8 +162,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     if (validateAll()) {
       setIsLoading(true);
       try {
-        const submissionData = {
-          project_id: Number(formData.project_id),
+        const submissionData: any = {
           item_name: formData.item_name,
           description: formData.description || undefined,
           quantity: formData.quantity ? Number(formData.quantity) : undefined,
@@ -160,6 +170,11 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
           status: formData.status,
           activity_type_id: Number(formData.activity_type_id),
         };
+
+        if (mode === 'master') {
+          submissionData.project_id = Number(formData.project_id);
+        }
+
         await onSubmit(submissionData);
         setFormData({
           project_id: '',
@@ -181,6 +196,16 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
       toast.error("Please fix the errors in the form.");
     }
   };
+
+  const isMaster = mode === 'master';
+
+  const modalTitle = isMaster
+    ? (initialData ? "Edit BOQ" : "Create New BOQ")
+    : (initialData ? "Update BOQ Item" : "Add Item to BOQ");
+
+  const submitLabel = isMaster
+    ? (initialData ? 'Update BOQ' : 'Create BOQ')
+    : (initialData ? 'Update Item' : 'Add Item');
 
   const modalFooter = (
     <>
@@ -206,9 +231,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             </svg>
             Processing...
           </>
-        ) : (
-          initialData ? 'Update BOQ Item' : 'Add BOQ Item'
-        )}
+        ) : submitLabel}
       </button>
     </>
   );
@@ -217,81 +240,47 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={initialData ? "Update BOQ Item" : "Create New BOQ Item"}
+      title={modalTitle}
       footer={modalFooter}
       maxWidth="max-w-2xl"
     >
       <form id="boq-form" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Project <span className="text-rose-500">*</span></label>
-            <select
-              name="project_id"
-              value={formData.project_id}
-              onChange={handleChange}
-              className={`w-full px-4 py-2.5 bg-white border ${errors.project_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
-            >
-              <option value="">Select a Project</option>
-              {projects?.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
-            </select>
-            {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.project_id}</p>}
-          </div>
 
-          <div className="md:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Item Name <span className="text-rose-500">*</span></label>
+          {/* Project selector — only shown in master mode */}
+          {isMaster && (
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Project <span className="text-rose-500">*</span></label>
+              <select
+                name="project_id"
+                value={formData.project_id}
+                onChange={handleChange}
+                className={`w-full px-4 py-2.5 bg-white border ${errors.project_id ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all appearance-none`}
+              >
+                <option value="">Select a Project</option>
+                {projects?.map(p => <option key={p.id} value={p.id}>{p.project_name}</option>)}
+              </select>
+              {errors.project_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.project_id}</p>}
+            </div>
+          )}
+
+          {/* BOQ / Item Name */}
+          <div className={isMaster ? 'md:col-span-2' : 'md:col-span-1'}>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+              {isMaster ? 'BOQ Name' : 'Item Name'} <span className="text-rose-500">*</span>
+            </label>
             <input
               type="text"
               name="item_name"
               value={formData.item_name}
               onChange={handleChange}
-              placeholder="e.g. Cement Bags"
+              placeholder={isMaster ? "e.g. Foundation Works BOQ" : "e.g. Cement Bags"}
               className={`w-full px-4 py-2.5 bg-white border ${errors.item_name ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all`}
             />
             {errors.item_name && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.item_name}</p>}
           </div>
 
-
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Description</label>
-            <textarea
-              name="description"
-              rows={2}
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Provide details about the material or labor..."
-              className={`w-full px-4 py-2.5 bg-white border ${errors.description ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all resize-none`}
-            />
-            {errors.description && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.description}</p>}
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Quantity</label>
-            <input
-              type="text"
-              name="quantity"
-              value={formData.quantity}
-              onChange={handleChange}
-              placeholder="0"
-              className={`w-full px-4 py-2.5 bg-white border ${errors.quantity ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all`}
-            />
-            {errors.quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.quantity}</p>}
-          </div>
-
-
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit Cost (₹)</label>
-            <input
-              type="text"
-              name="unit_cost"
-              value={formData.unit_cost}
-              onChange={handleChange}
-              placeholder="0"
-              className={`w-full px-4 py-2.5 bg-white border ${errors.unit_cost ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all`}
-            />
-            {errors.unit_cost && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.unit_cost}</p>}
-          </div>
-
-
+          {/* Activity Type */}
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Activity Type <span className="text-rose-500">*</span></label>
             <select
@@ -308,7 +297,48 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             {errors.activity_type_id && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.activity_type_id}</p>}
           </div>
 
+          {/* Description */}
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Description</label>
+            <textarea
+              name="description"
+              rows={2}
+              value={formData.description}
+              onChange={handleChange}
+              placeholder={isMaster ? "Describe the scope of this BOQ..." : "Provide details about the material or labor..."}
+              className={`w-full px-4 py-2.5 bg-white border ${errors.description ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all resize-none`}
+            />
+          </div>
+
+          {/* Quantity + Unit Cost */}
           <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Quantity</label>
+            <input
+              type="text"
+              name="quantity"
+              value={formData.quantity}
+              onChange={handleChange}
+              placeholder="0"
+              className={`w-full px-4 py-2.5 bg-white border ${errors.quantity ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all`}
+            />
+            {errors.quantity && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.quantity}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Unit Cost (₹)</label>
+            <input
+              type="text"
+              name="unit_cost"
+              value={formData.unit_cost}
+              onChange={handleChange}
+              placeholder="0"
+              className={`w-full px-4 py-2.5 bg-white border ${errors.unit_cost ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'} rounded-xl text-sm outline-none transition-all`}
+            />
+            {errors.unit_cost && <p className="mt-1 text-[10px] text-rose-500 font-bold ml-1">{errors.unit_cost}</p>}
+          </div>
+
+          {/* Status */}
+          <div className={isMaster ? 'md:col-span-2' : ''}>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Status</label>
             <select
               name="status"
@@ -324,6 +354,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
             </select>
           </div>
 
+          {/* Estimated total */}
           <div className="md:col-span-2 p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Estimated Total Cost</p>
@@ -337,6 +368,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({ isOpen, onClose, onSubm
               </svg>
             </div>
           </div>
+
         </div>
       </form>
     </Modal>
