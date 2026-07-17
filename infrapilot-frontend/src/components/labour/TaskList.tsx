@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Circle, Calendar } from 'lucide-react';
+import { Clock, Circle, Calendar, Eye } from 'lucide-react';
 import type { Task } from '../../types/task';
 
 interface TaskListProps {
@@ -53,6 +53,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Progress</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Start Date</th>
                             <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">End Date</th>
+                            <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -105,6 +106,13 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, onSelectTask }) => {
                                             <Calendar className="w-3.5 h-3.5 text-blue-300" />
                                             {task.endDate}
                                         </div>
+                                    </td>
+                                    <td className="px-8 py-6 text-right">
+                                        {task.status !== 'Completed' && (
+                                            <button className="p-2 rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                                                <Eye className="w-5 h-5" />
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             );

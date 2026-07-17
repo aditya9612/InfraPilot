@@ -1,796 +1,1492 @@
 import { useState, useEffect } from "react";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  ResponsiveContainer, Cell, PieChart, Pie, Legend
+} from "recharts";
 import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
 import { quotationService } from "../../../services/quotationService";
-import { projectService } from "../../../services/projectService";
-import { expenseService } from "../../../services/expenseService";
+import { paymentService } from "../../../services/paymentService";
 import { useParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
+import {
+  Search, Calendar, RotateCcw, Plus, FileSpreadsheet, FileText, ChevronLeft,
+  ChevronRight, Eye, History, Download, DollarSign, Clock,
+  TrendingUp, BarChart3, ArrowRight, Sparkles, CheckCircle2, AlertTriangle,
+  ArrowUpRight, Pencil, Trash2,
+} from "lucide-react";
+
+interface ClientPayment {
+  paymentId: string;
+  invoiceNo: string;
+  clientName: string;
+  clientEmail: string;
+  projectName: string;
+  invoiceDate: string;
+  dueDate: string;
+  amount: number;
+  paidAmount: number;
+  status: "PAID" | "PARTIAL" | "PENDING" | "OVERDUE";
+  paymentDate: string;
+}
+
+const mapApiPayment = (p: any): ClientPayment => {
+  const statusRaw = (p.status || "PENDING").toUpperCase();
+  const status = ["PAID", "PARTIAL", "PENDING", "OVERDUE"].includes(statusRaw)
+    ? statusRaw as ClientPayment["status"]
+    : "PENDING";
+
+  const formatDate = (dStr: any) => {
+    if (!dStr) return "-";
+    const date = new Date(dStr);
+    if (isNaN(date.getTime())) return String(dStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  return {
+    paymentId: p.paymentId || p.payment_id || `PAY-${p.id || Math.random().toString(36).substring(2, 9)}`,
+    invoiceNo: p.invoiceNo || p.invoice_no || p.invoice_id || `INV-${p.id || ""}`,
+    clientName: p.clientName || p.client_name || p.client || "Client",
+    clientEmail: p.clientEmail || p.client_email || p.email || "client@example.com",
+    projectName: p.projectName || p.project_name || p.project || "Project Infrastructure Support",
+    invoiceDate: formatDate(p.invoiceDate || p.invoice_date || p.created_at),
+    dueDate: formatDate(p.dueDate || p.due_date),
+    amount: Number(p.amount ?? p.total_amount ?? 0),
+    paidAmount: Number(p.paidAmount ?? p.paid_amount ?? 0),
+    status,
+    paymentDate: formatDate(p.paymentDate || p.payment_date),
+  };
+};
+
+const generateFallbackAnalytics = () => {
+  return {
+    totalRevenue: 2800000,
+    totalReceived: 2150000,
+    totalPending: 480000,
+    totalOverdue: 170000,
+    monthlyTrend: [
+      { month: "Jan", billed: 320000, received: 300000 },
+      { month: "Feb", billed: 450000, received: 410000 },
+      { month: "Mar", billed: 580000, received: 500000 },
+      { month: "Apr", billed: 420000, received: 380000 },
+      { month: "May", billed: 610000, received: 560000 },
+      { month: "Jun", billed: 420000, received: 320000 }
+    ],
+    statusShares: [
+      { name: "Paid", value: 20, fill: "#10B981" },
+      { name: "Partial", value: 5, fill: "#3B82F6" },
+      { name: "Pending", value: 4, fill: "#F59E0B" },
+      { name: "Overdue", value: 7, fill: "#EF4444" }
+    ]
+  };
+};
+
+const generateMockPayments = (): ClientPayment[] => {
+  const clients = ["Rohit", "Client", "Rahul Sharma", "Priya Patel", "Aman Verma"];
+  const emails = ["rohit@example.com", "client@example.com", "rahul.s@example.com", "priya.p@example.com", "aman.v@example.com"];
+  const projects = [
+    "Initial approval request for base",
+    "Approval requested for drawing: Front",
+    "Approved after site review",
+    "Approval requested for drawing: Layout plan V2",
+    "Initial approval request for cement",
+    "Excavation and foundation work",
+    "Superstructure slab casting",
+    "Interior plastering and finishing",
+    "MEP plumbing and electrical phase 1",
+  ];
+
+  const list: ClientPayment[] = [
+    { paymentId: "PAY-2026-0056", invoiceNo: "INV-2026-0145", clientName: "Rohit", clientEmail: "rohit@example.com", projectName: projects[0], invoiceDate: "12/06/2026", dueDate: "20/06/2026", amount: 125000, paidAmount: 125000, status: "PAID", paymentDate: "13/06/2026" },
+    { paymentId: "PAY-2026-0055", invoiceNo: "INV-2026-0144", clientName: "Client", clientEmail: "client@example.com", projectName: projects[1], invoiceDate: "11/06/2026", dueDate: "18/06/2026", amount: 85000, paidAmount: 25000, status: "PARTIAL", paymentDate: "12/06/2026" },
+    { paymentId: "PAY-2026-0054", invoiceNo: "INV-2026-0143", clientName: "Client", clientEmail: "client@example.com", projectName: projects[2], invoiceDate: "10/06/2026", dueDate: "17/06/2026", amount: 45000, paidAmount: 0, status: "PENDING", paymentDate: "-" },
+    { paymentId: "PAY-2026-0053", invoiceNo: "INV-2026-0142", clientName: "Client", clientEmail: "client@example.com", projectName: projects[3], invoiceDate: "09/06/2026", dueDate: "16/06/2026", amount: 110000, paidAmount: 0, status: "OVERDUE", paymentDate: "-" },
+    { paymentId: "PAY-2026-0052", invoiceNo: "INV-2026-0141", clientName: "Rohit", clientEmail: "rohit@example.com", projectName: projects[4], invoiceDate: "09/06/2026", dueDate: "15/06/2026", amount: 75000, paidAmount: 75000, status: "PAID", paymentDate: "09/06/2026" },
+  ];
+
+  const statusPool: ClientPayment["status"][] = [
+    ...Array(20).fill("PAID"),
+    ...Array(5).fill("PARTIAL"),
+    ...Array(4).fill("PENDING"),
+    ...Array(7).fill("OVERDUE"),
+  ];
+
+  statusPool.forEach((status, idx) => {
+    const ci = idx % clients.length;
+    const pi = idx % projects.length;
+    const day = String((idx % 25) + 1).padStart(2, "0");
+    const month = idx % 2 === 0 ? "04" : "05";
+    const amount = 40000 + idx * 3000;
+    const paidAmount = status === "PAID" ? amount : status === "PARTIAL" ? Math.round((amount * 0.4) / 1000) * 1000 : 0;
+    list.push({
+      paymentId: `PAY-2026-${String(51 - idx).padStart(4, "0")}`,
+      invoiceNo: `INV-2026-${String(140 - idx).padStart(4, "0")}`,
+      clientName: clients[ci],
+      clientEmail: emails[ci],
+      projectName: projects[pi],
+      invoiceDate: `${day}/${month}/2026`,
+      dueDate: `${String(((idx + 7) % 25) + 1).padStart(2, "0")}/${month}/2026`,
+      amount,
+      paidAmount,
+      status,
+      paymentDate: paidAmount > 0 ? `${String(((idx + 2) % 25) + 1).padStart(2, "0")}/${month}/2026` : "-",
+    });
+  });
+
+  return list;
+};
 
 const ClientPaymentPage = () => {
-    const { tab } = useParams();
-    const { projectId } = useClientProjectId();
-    const [projectName, setProjectName] = useState("NEW SARA CITY");
-    const activeTab = tab || "quotation";
+  const { tab } = useParams();
+  const { projectId } = useClientProjectId();
+  const [projectName, setProjectName] = useState("Loading...");
+  const activeTab = tab || "quotation";
 
-    const [loading, setLoading] = useState(true);
-    const [quotations, setQuotations] = useState<any[]>([]);
-    const [payments, setPayments] = useState<any[]>([]);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("All Status");
-    const [sortOrder, setSortOrder] = useState("Latest First");
-    const [selectedRequest, setSelectedRequest] = useState<any>(null);
-    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const [pdfLoading, setPdfLoading] = useState(false);
-    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-    const [showPaymentPortal, setShowPaymentPortal] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'Check'>('UPI');
-    const [checkFile, setCheckFile] = useState<File | null>(null);
+  // ── Quotation / old-expense state ──
+  const [loading, setLoading] = useState(true);
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All Status");
+  const [sortOrder, setSortOrder] = useState("Latest First");
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [showPaymentPortal, setShowPaymentPortal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"UPI" | "Check">("UPI");
+  const [checkFile, setCheckFile] = useState<File | null>(null);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                if (activeTab === "quotation") {
-                    // Server-side project filter: GET /api/v1/quotations/?project_id={projectId}
-                    const data = await quotationService.getQuotations(100, 0, projectId ? Number(projectId) : null);
+  // ── Payment History redesigned state ──
+  const [clientPayments, setClientPayments] = useState<ClientPayment[]>(() => generateMockPayments());
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [paymentClientFilter, setPaymentClientFilter] = useState("All Clients");
+  const [paymentProjectFilter, setPaymentProjectFilter] = useState("All Projects");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("All Status");
+  const [paymentStartDate, setPaymentStartDate] = useState("");
+  const [paymentEndDate, setPaymentEndDate] = useState("");
+  const [paymentTab, setPaymentTab] = useState("All Payments");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<ClientPayment | null>(null);
 
-                    // Hard client-side guard — only show quotations for the active project
-                    const projectFiltered = projectId
-                        ? data.filter((q: any) => Number(q.project_id) === Number(projectId))
-                        : data;
+  // ── Edit form state ──
+  const [editPaidAmount, setEditPaidAmount] = useState("");
+  const [editStatus, setEditStatus] = useState<ClientPayment["status"]>("PENDING");
+  const [editPaymentDate, setEditPaymentDate] = useState("");
+  const [editPaymentMethod, setEditPaymentMethod] = useState("UPI");
+  const [editBankName, setEditBankName] = useState("");
 
-                    const mapped = projectFiltered.map((q: any) => ({
-                        ...q,
-                        entity_title: 'QUOTATION',
-                        id: q.id,
-                        entity_id_display: q.quotation_no,
-                        requested_by_name: q.client_name || q.company_name || 'Admin',
-                        remarks_details: q.project_name || 'No project description',
-                        status: q.is_approved ? 'Approved' : (q.status === 'rejected' ? 'Rejected' : 'Pending'),
-                        approved_by_name: q.is_approved ? 'CLIENT' : '-',
-                        created_at: q.created_at || new Date().toISOString()
-                    }));
-                    setQuotations(mapped);
-                } else {
-                    const rawExpenses = await expenseService.getExpensesByProject(projectId || 1, { is_client: true });
-                    // Strictly filter for expenses with the "Client" category
-                    const clientOnlyExpenses = rawExpenses.filter((e: any) => e.category === 'Client');
-                    const mappedPayments = clientOnlyExpenses.map((e: any) => ({
-                        id: e.id,
-                        invoice_number: e.id.toString(),
-                        amount: e.amount,
-                        date: e.expense_date,
-                        status: 'Approved',
-                        payment_method: e.payment_mode || 'UPI',
-                        type: e.category,
-                        description: e.description
-                    }));
-                    setPayments(mappedPayments);
-                }
-            } catch (error) {
-                console.error("Failed to fetch payment data:", error);
-                if (activeTab === "quotation") {
-                   setQuotations([
-                      { id: 212, entity_title: 'BOQ', requested_by_name: 'Rohit', remarks_details: 'Initial approval request for base', status: 'Pending', approved_by_name: '-', created_at: '2026-06-12T10:00:00Z' },
-                      { id: 48, entity_title: 'DRAWING', requested_by_name: 'Client', remarks_details: 'Approval requested for drawing: Foundation', status: 'Pending', approved_by_name: '-', created_at: '2026-06-11T12:00:00Z' },
-                      { id: 46, entity_title: 'DRAWING', requested_by_name: 'Client', remarks_details: 'Approved after site review', status: 'Approved', approved_by_name: 'CLIENT', created_at: '2026-06-10T14:00:00Z' },
-                      { id: 45, entity_title: 'DRAWING', requested_by_name: 'Client', remarks_details: 'Approval requested for drawing: Layout plan V2', status: 'Pending', approved_by_name: '-', created_at: '2026-06-09T16:00:00Z' },
-                      { id: 210, entity_title: 'BOQ', requested_by_name: 'Rohit', remarks_details: 'Initial approval request for cement', status: 'Pending', approved_by_name: '-', created_at: '2026-06-08T18:00:00Z' },
-                   ]);
-                } else {
-                   setPayments([
-                      { id: 101, invoice_number: "INV-2026-001", amount: 250000, date: "2026-06-01", status: "paid", type: "RA Bill" },
-                      { id: 102, invoice_number: "INV-2026-045", amount: 15000, date: "2026-06-10", status: "pending", type: "Tax Invoice" }
-                   ]);
-                }
-            } finally {
-                setLoading(false);
-            }
-        };
+  // ── Create form ──
+  const [newInvoiceNo, setNewInvoiceNo] = useState("");
+  const [newClientName, setNewClientName] = useState("Rohit");
+  const [newClientEmail, setNewClientEmail] = useState("rohit@example.com");
+  const [newProjectName, setNewProjectName] = useState("Initial approval request for base");
+  const [newInvoiceDate, setNewInvoiceDate] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [newPaidAmount, setNewPaidAmount] = useState("");
+  const [newStatus, setNewStatus] = useState<ClientPayment["status"]>("PENDING");
+  const [newPaymentDate, setNewPaymentDate] = useState("");
+  const [newProjectId, setNewProjectId] = useState("");
+  const [newPaymentMethodForm, setNewPaymentMethodForm] = useState("UPI");
+  const [newBankName, setNewBankName] = useState("");
 
-        if (projectId) {
-            const fetchProjectName = async () => {
-                try {
-                    const project = await projectService.getProjectById(projectId);
-                    if (project?.project_name) setProjectName(project.project_name);
-                } catch (e) {
-                    console.error("Failed to fetch project name", e);
-                }
-            };
-            fetchProjectName();
-            fetchData();
-        }
-    }, [projectId, activeTab]);
+  // ── Invoice Summary & Pending Invoices (API) ──
+  const [invoiceSummary, setInvoiceSummary] = useState<any>(null);
+  const [pendingInvoices, setPendingInvoices] = useState<any[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [paymentAnalytics, setPaymentAnalytics] = useState<any>(null);
+  const [apiLoading, setApiLoading] = useState(false);
 
-    const handleApprove = async (id: number) => {
-        const loadingToast = toast.loading("Processing approval...");
-        try {
-            await quotationService.approveQuotation(id);
-            toast.success("Quotation Approved", { id: loadingToast });
-            setQuotations(prev => prev.map(q => q.id === id ? { ...q, status: 'Approved', approved_by_name: 'CLIENT', is_approved: true } : q));
-        } catch (err) {
-            toast.error("Failed to approve", { id: loadingToast });
-        }
+  // ── Data fetch (quotation approvals only) ──
+  useEffect(() => {
+    if (!projectId || activeTab !== "quotation") return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const data = await quotationService.getQuotations(100, 0, Number(projectId));
+        const projectFiltered = data.filter((q: any) => Number(q.project_id) === Number(projectId));
+        const mapped = projectFiltered.map((q: any) => ({
+          ...q,
+          entity_title: "QUOTATION",
+          entity_id_display: q.quotation_no,
+          requested_by_name: q.client_name || q.company_name || "Admin",
+          remarks_details: q.project_name || "No project description",
+          status: q.is_approved ? "Approved" : q.status === "rejected" ? "Rejected" : "Pending",
+          approved_by_name: q.is_approved ? "CLIENT" : "-",
+          created_at: q.created_at || new Date().toISOString(),
+        }));
+        setQuotations(mapped);
+      } catch (error) {
+        console.error("Failed to fetch quotation data:", error);
+        setQuotations([
+          { id: 212, entity_title: "BOQ", requested_by_name: "Rohit", remarks_details: "Initial approval request for base", status: "Pending", approved_by_name: "-", created_at: "2026-06-12T10:00:00Z" },
+          { id: 48, entity_title: "DRAWING", requested_by_name: "Client", remarks_details: "Approval requested for drawing: Foundation", status: "Pending", approved_by_name: "-", created_at: "2026-06-11T12:00:00Z" },
+          { id: 46, entity_title: "DRAWING", requested_by_name: "Client", remarks_details: "Approved after site review", status: "Approved", approved_by_name: "CLIENT", created_at: "2026-06-10T14:00:00Z" },
+          { id: 45, entity_title: "DRAWING", requested_by_name: "Client", remarks_details: "Approval requested for drawing: Layout plan V2", status: "Pending", approved_by_name: "-", created_at: "2026-06-09T16:00:00Z" },
+          { id: 210, entity_title: "BOQ", requested_by_name: "Rohit", remarks_details: "Initial approval request for cement", status: "Pending", approved_by_name: "-", created_at: "2026-06-08T18:00:00Z" },
+        ]);
+      } finally {
+        setLoading(false);
+      }
     };
+    fetchData();
+  }, [projectId, activeTab]);
 
-    const handleReject = async (id: number) => {
-        const reasoning = window.prompt("Enter rejection reason:");
-        if (reasoning === null) return;
+  // ── Fetch Invoice Summary, Pending Invoices, Payment Lists & Analytics when on History tab ──
+  useEffect(() => {
+    if (activeTab !== "history") return;
+    const fetchApiData = async () => {
+      setApiLoading(true);
+      try {
+        const [summary, pending, paymentsList, historyList, analytics] = await Promise.all([
+          paymentService.getInvoiceSummary(),
+          paymentService.getPendingInvoices(),
+          paymentService.listClientPayments(),
+          paymentService.getClientPaymentHistory(),
+          paymentService.getClientPaymentAnalytics(),
+        ]);
         
-        const loadingToast = toast.loading("Processing rejection...");
-        try {
-            await quotationService.rejectQuotation(id, reasoning);
-            toast.success("Quotation Rejected", { id: loadingToast });
-            setQuotations(prev => prev.map(q => q.id === id ? { ...q, status: 'Rejected' } : q));
-        } catch (err) {
-            toast.error("Failed to reject", { id: loadingToast });
+        if (summary) setInvoiceSummary(summary);
+        if (pending) setPendingInvoices(pending);
+        
+        if (paymentsList && paymentsList.length > 0) {
+          setClientPayments(paymentsList.map(mapApiPayment));
         }
-    };
-
-    const closeModal = () => {
-        setIsViewModalOpen(false);
-        if (pdfUrl) {
-            window.URL.revokeObjectURL(pdfUrl);
-            setPdfUrl(null);
+        
+        if (historyList && historyList.length > 0) {
+          setPaymentHistory(historyList);
         }
-        setSelectedRequest(null);
-    };
-
-    const handleView = async (request: any) => {
-        setSelectedRequest(request);
-        setIsViewModalOpen(true);
-
-        // If it's a quotation or expense, fetch details
-        if (activeTab === 'quotation') {
-            try {
-                setPdfLoading(true);
-                const blob = await quotationService.downloadQuotationPDF(request.id);
-                const url = window.URL.createObjectURL(blob);
-                setPdfUrl(url);
-            } catch (err) {
-                console.error("PDF Preview Error:", err);
-                toast.error("Failed to load PDF preview");
-            } finally {
-                setPdfLoading(false);
-            }
+        
+        if (analytics) {
+          setPaymentAnalytics(analytics);
         } else {
-            // Fetch detailed expense info
-            try {
-                setPdfLoading(true);
-                const fullExpense = await expenseService.getExpenseById(request.id);
-                setSelectedRequest({
-                    ...request,
-                    ...fullExpense,
-                    entity_title: 'EXPENSE',
-                    remarks_details: fullExpense.description || `Expense for ${fullExpense.category}`,
-                    requested_by_name: 'System Admin', // Fallback for expenses if requester not in API
-                    created_at: fullExpense.expense_date || fullExpense.created_at
-                });
-            } catch (err) {
-                console.error("Expense Detail Error:", err);
-            } finally {
-                setPdfLoading(false);
-            }
+          setPaymentAnalytics(generateFallbackAnalytics());
         }
+      } catch (err) {
+        console.error("Failed to load client payment details from APIs:", err);
+        setPaymentAnalytics(generateFallbackAnalytics());
+      } finally {
+        setApiLoading(false);
+      }
     };
+    fetchApiData();
+  }, [activeTab]);
 
-    const handleDownloadQuotation = async (id: number, quotationNo: string) => {
-        const loadingToast = toast.loading("Generating Quotation PDF...");
-        try {
-            const blob = await quotationService.downloadQuotationPDF(id);
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Quotation_${quotationNo || id}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            toast.success("Quotation Downloaded", { id: loadingToast });
-        } catch (err) {
-            console.error("Download error:", err);
-            toast.error("Failed to download quotation", { id: loadingToast });
-        }
-    };
+  // ── Quotation handlers ──
+  const handleApprove = async (id: number) => {
+    const t = toast.loading("Processing approval...");
+    try {
+      await quotationService.approveQuotation(id);
+      toast.success("Quotation Approved", { id: t });
+      setQuotations(prev => prev.map(q => q.id === id ? { ...q, status: "Approved", approved_by_name: "CLIENT", is_approved: true } : q));
+    } catch { toast.error("Failed to approve", { id: t }); }
+  };
 
-    const handleDownloadExpense = async (expense: any) => {
-        const loadingToast = toast.loading("Generating Expense Voucher...");
-        try {
-            const doc = new jsPDF() as any;
-            
-            // Premium Header
-            doc.setFillColor(30, 41, 59); // Slate-800
-            doc.rect(0, 0, 210, 40, 'F');
-            
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(22);
-            doc.text("EXPENDITURE VOUCHER", 105, 25, { align: 'center' });
-            
-            doc.setFontSize(10);
-            doc.text(`REFERENCE ID: ${expense.id}`, 105, 32, { align: 'center' });
-            
-            // Body Details
-            doc.setTextColor(30, 41, 59);
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "bold");
-            doc.text("PROJECT DETAILS", 20, 60);
-            doc.line(20, 62, 190, 62);
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.text(`Project Name: ${projectName}`, 20, 72);
-            doc.text(`Entity Group: CLIENT`, 20, 79);
-            
-            doc.setFont("helvetica", "bold");
-            doc.text("TRANSACTION SUMMARY", 20, 95);
-            doc.line(20, 97, 190, 97);
-            
-            doc.setFont("helvetica", "normal");
-            autoTable(doc, {
-                startY: 105,
-                head: [['Field Description', 'Transaction Value']],
-                body: [
-                    ['Amount (INR)', `Rs. ${(expense.amount ?? 0).toLocaleString()}`],
-                    ['Payment Date', new Date(expense.date).toLocaleDateString('en-GB')],
-                    ['Payment Mode', expense.payment_method || 'UPI/Cash'],
-                    ['Category', expense.type || 'Client Cost'],
-                    ['Description', expense.description === 'string' ? 'NA' : (expense.description || 'NA')]
-                ],
-                theme: 'striped',
-                headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
-                styles: { fontSize: 10, cellPadding: 5 }
-            });
-            
-            // Footer
-            const pageHeight = doc.internal.pageSize.height;
-            doc.setFontSize(8);
-            doc.setTextColor(150);
-            doc.text(`Generated on ${new Date().toLocaleString()} | InfraPilot Portal`, 105, pageHeight - 10, { align: 'center' });
-            
-            doc.save(`Voucher_${expense.id}.pdf`);
-            toast.success("Voucher Downloaded", { id: loadingToast });
-        } catch (err) {
-            console.error("PDF Gen Error:", err);
-            toast.error("Failed to generate PDF", { id: loadingToast });
-        }
-    };
+  const handleReject = async (id: number) => {
+    const reasoning = window.prompt("Enter rejection reason:");
+    if (reasoning === null) return;
+    const t = toast.loading("Processing rejection...");
+    try {
+      await quotationService.rejectQuotation(id, reasoning);
+      toast.success("Quotation Rejected", { id: t });
+      setQuotations(prev => prev.map(q => q.id === id ? { ...q, status: "Rejected" } : q));
+    } catch { toast.error("Failed to reject", { id: t }); }
+  };
 
-    const handlePay = (expense: any) => {
-        setSelectedRequest(expense);
-        setShowPaymentPortal(true);
-    };
+  const closeModal = () => {
+    setIsViewModalOpen(false);
+    if (pdfUrl) { window.URL.revokeObjectURL(pdfUrl); setPdfUrl(null); }
+    setSelectedRequest(null);
+  };
 
-    const processPayment = () => {
-        const loadingToast = toast.loading("Processing Secure Payment...");
-        // Mock payment processing
-        setTimeout(() => {
-            toast.success("Payment Received Successfully!", { id: loadingToast });
-            setShowPaymentPortal(false);
-            // In a real app, we would refresh the list here
-        }, 2000);
-    };
-
-    const exportToCSV = () => {
-        const dataToExport = activeTab === 'quotation' ? filteredQuotations : payments;
-        if (dataToExport.length === 0) {
-            toast.error("No data to export");
-            return;
-        }
-
-        const headers = activeTab === 'quotation' 
-            ? ["ID", "Type", "Requested By", "Status", "Approved By", "Date"]
-            : ["ID", "Expense ID", "Category", "Amount", "Status", "Date"];
-            
-        const rows = dataToExport.map(item => {
-            if (activeTab === 'quotation') {
-                return [item.id, item.entity_title, item.requested_by_name, item.status, item.approved_by_name, item.created_at];
-            }
-            return [item.id, item.id, item.type, item.amount, item.status, item.date];
-        });
-
-        const csvContent = "data:text/csv;charset=utf-8," 
-            + headers.join(",") + "\n" 
-            + rows.map(e => e.join(",")).join("\n");
-
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `${activeTab}_report_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success("Report Exported");
-    };
-
-    const filteredQuotations = quotations
-        .filter(q => {
-            const matchesSearch = (q.entity_title + q.id + q.entity_id_display + q.remarks_details + q.requested_by_name).toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = statusFilter === "All Status" || q.status === statusFilter;
-            return matchesSearch && matchesStatus;
-        })
-        .sort((a, b) => {
-            const dateA = new Date(a.created_at).getTime();
-            const dateB = new Date(b.created_at).getTime();
-            return sortOrder === "Latest First" ? dateB - dateA : dateA - dateB;
-        });
-
-    const filteredPayments = payments
-        .filter(p => {
-            const matchesSearch = (p.invoice_number + p.id + p.type + p.amount).toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus = statusFilter === "All Status" || 
-                                 (statusFilter === "Pending" && (p.status === "pending" || p.status === "Pending")) ||
-                                 (statusFilter === "Approved" && (p.status === "paid" || p.status === "Approved")) ||
-                                 (statusFilter === "Rejected" && (p.status === "rejected" || p.status === "Rejected"));
-            return matchesSearch && matchesStatus;
-        })
-        .sort((a, b) => {
-            const dateA = new Date(a.date).getTime();
-            const dateB = new Date(b.date).getTime();
-            return sortOrder === "Latest First" ? dateB - dateA : dateA - dateB;
-        });
-
-
-    if (showPaymentPortal && selectedRequest) {
-        return (
-            <>
-                <Navbar title="Secure Payment Portal" breadcrumb={["Client", "Payment", "Process Transaction"]} />
-                <div className="p-8 bg-slate-50 min-h-screen font-inter flex flex-col items-center">
-                    <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
-                        {/* Summary Header */}
-                        <div className="p-8 bg-blue-600 text-white relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-12 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-                            <button 
-                                onClick={() => setShowPaymentPortal(false)}
-                                className="absolute top-6 left-6 text-blue-100 hover:text-white transition-all flex items-center gap-2 text-xs font-bold"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                                BACK TO HISTORY
-                            </button>
-                            
-                            <div className="mt-12 text-center">
-                                <p className="text-blue-200 text-[10px] font-black tracking-[0.2em] uppercase mb-2">Checkout Summary</p>
-                                <h1 className="text-5xl font-black tracking-tight mb-2">₹ {(selectedRequest.amount ?? 0).toLocaleString()}</h1>
-                                <p className="text-blue-100/60 text-xs font-medium">Transaction Reference: <span className="text-white">#{selectedRequest.id}</span></p>
-                            </div>
-                        </div>
-
-                        {/* Payment Selection */}
-                        <div className="p-10">
-                            <div className="grid grid-cols-2 gap-x-8 mb-10">
-                                <div>
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Project Information</h4>
-                                    <p className="text-sm font-bold text-slate-800">{projectName}</p>
-                                    <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-tighter">Site: {selectedRequest.id}</p>
-                                </div>
-                                <div className="text-right">
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Due Date</h4>
-                                    <p className="text-sm font-bold text-slate-800">{new Date(selectedRequest.date).toLocaleDateString('en-GB')}</p>
-                                    <p className="text-xs text-blue-500 font-bold uppercase mt-1">Status: Pending</p>
-                                </div>
-                            </div>
-
-                            <h4 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-6 border-b border-slate-50 pb-3">Available Payment Channels</h4>
-
-                            <div className="space-y-4">
-                                <div 
-                                    onClick={() => setPaymentMethod('UPI')}
-                                    className={`p-6 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between group ${
-                                        paymentMethod === 'UPI' ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 bg-slate-50/50 hover:border-slate-300'
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm ${paymentMethod === 'UPI' ? 'bg-blue-500 text-white' : 'bg-white text-slate-400'}`}>📱</div>
-                                        <div>
-                                            <p className="font-bold text-slate-800">Unified Payments Interface (UPI)</p>
-                                            <p className="text-[11px] text-slate-400 font-medium">Pay via GPay, PhonePe, or BHIM</p>
-                                        </div>
-                                    </div>
-                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${paymentMethod === 'UPI' ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-200 bg-white'}`}>
-                                        {paymentMethod === 'UPI' && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                                    </div>
-                                </div>
-
-                                <div 
-                                    onClick={() => setPaymentMethod('Check')}
-                                    className={`p-6 rounded-2xl border-2 transition-all cursor-pointer flex flex-col gap-6 ${
-                                        paymentMethod === 'Check' ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100 bg-slate-50/50 hover:border-slate-300'
-                                    }`}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm ${paymentMethod === 'Check' ? 'bg-blue-500 text-white' : 'bg-white text-slate-400'}`}>📄</div>
-                                            <div>
-                                                <p className="font-bold text-slate-800">Banker's Check</p>
-                                                <p className="text-[11px] text-slate-400 font-medium">Deposit physical check to company account</p>
-                                            </div>
-                                        </div>
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${paymentMethod === 'Check' ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-200 bg-white'}`}>
-                                            {paymentMethod === 'Check' && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                                        </div>
-                                    </div>
-
-                                    {paymentMethod === 'Check' && (
-                                        <div className="bg-white p-6 rounded-xl border border-blue-100 animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Upload Check Copy</h5>
-                                            <div className="relative">
-                                                <input 
-                                                    type="file" 
-                                                    onChange={(e) => setCheckFile(e.target.files?.[0] || null)}
-                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                />
-                                                <div className="border-2 border-dashed border-slate-100 rounded-xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors">
-                                                    <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                                                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                                                        {checkFile ? checkFile.name : "Click to select or drag check image"}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <button 
-                                onClick={processPayment}
-                                className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] mt-10 hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/20 active:scale-[0.98] flex items-center justify-center gap-3"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                COMPLETE PAYMENT
-                            </button>
-                        </div>
-                    </div>
-                    <p className="mt-8 text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Encrypted Secure Checkout</p>
-                </div>
-            </>
-        );
+  const handleView = async (request: any) => {
+    setSelectedRequest(request);
+    setIsViewModalOpen(true);
+    if (activeTab === "quotation") {
+      try {
+        setPdfLoading(true);
+        const blob = await quotationService.downloadQuotationPDF(request.id);
+        const url = window.URL.createObjectURL(blob);
+        setPdfUrl(url);
+      } catch (err) {
+        console.error("PDF Preview Error:", err);
+        toast.error("Failed to load PDF preview");
+      } finally {
+        setPdfLoading(false);
+      }
     }
+  };
 
+  const handleDownloadQuotation = async (id: number, displayId?: string) => {
+    const t = toast.loading("Preparing PDF...");
+    try {
+      const blob = await quotationService.downloadQuotationPDF(id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `Quotation_${displayId || id}.pdf`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); window.URL.revokeObjectURL(url);
+      toast.success("Quotation Downloaded", { id: t });
+    } catch { toast.error("Failed to download", { id: t }); }
+  };
+
+  const handleDownloadExpense = async (expense: any) => {
+    const t = toast.loading("Generating Receipt...");
+    try {
+      const doc = new jsPDF() as any;
+      doc.setFontSize(18); doc.text("PAYMENT RECEIPT", 105, 20, { align: "center" });
+      autoTable(doc, {
+        startY: 30,
+        body: [
+          ["Project", projectName], ["Amount", `Rs. ${expense.amount}`], ["Date", expense.date || "-"],
+          ["Mode", expense.payment_method || "UPI"], ["Status", expense.status || "Approved"],
+        ],
+        theme: "striped",
+      });
+      doc.save(`Receipt_${expense.id}.pdf`);
+      toast.success("Receipt Downloaded", { id: t });
+    } catch { toast.error("Failed", { id: t }); }
+  };
+
+  const handlePay = (item: any) => {
+    setSelectedRequest(item);
+    setShowPaymentPortal(true);
+  };
+
+  const processPayment = async () => {
+    if (paymentMethod === "Check" && !checkFile) { toast.error("Please upload a check image"); return; }
+    const t = toast.loading("Processing payment...");
+    try {
+      await new Promise(res => setTimeout(res, 1500));
+      toast.success("Payment Submitted Successfully!", { id: t });
+      setShowPaymentPortal(false);
+      setSelectedRequest(null);
+    } catch { toast.error("Payment failed", { id: t }); }
+  };
+
+  // ── Quotation filtered/sorted ──
+  const filteredQuotations = quotations
+    .filter(q => {
+      const s = searchTerm.toLowerCase();
+      const matchesSearch = (q.entity_title + q.id + (q.entity_id_display || "") + q.remarks_details + q.requested_by_name).toLowerCase().includes(s);
+      const matchesStatus = statusFilter === "All Status" || q.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const dA = new Date(a.created_at).getTime();
+      const dB = new Date(b.created_at).getTime();
+      return sortOrder === "Latest First" ? dB - dA : dA - dB;
+    });
+
+  const filteredPayments = payments;
+
+  const exportToCSV = () => {
+    const dataToExport = activeTab === "quotation" ? filteredQuotations : filteredPayments;
+    if (dataToExport.length === 0) { toast.error("No data to export"); return; }
+    const headers = activeTab === "quotation"
+      ? ["ID", "Type", "Requested By", "Status", "Approved By", "Date"]
+      : ["ID", "Expense ID", "Category", "Amount", "Status", "Date"];
+    const rows = dataToExport.map((item: any) => activeTab === "quotation"
+      ? [item.id, item.entity_title, item.requested_by_name, item.status, item.approved_by_name, item.created_at]
+      : [item.id, item.id, item.type, item.amount, item.status, item.date]);
+    const csv = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map((e: any[]) => e.join(",")).join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csv));
+    link.setAttribute("download", `${activeTab}_report_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    toast.success("Report Exported");
+  };
+
+  // ── Payment History computed ──
+  const totalPaid = clientPayments.filter(p => p.status === "PAID").reduce((s, p) => s + p.paidAmount, 0);
+  const totalPartialPaid = clientPayments.filter(p => p.status === "PARTIAL").reduce((s, p) => s + p.paidAmount, 0);
+  const totalPending = clientPayments.filter(p => p.status === "PENDING").reduce((s, p) => s + p.amount, 0);
+  const totalOverdue = clientPayments.filter(p => p.status === "OVERDUE").reduce((s, p) => s + p.amount, 0);
+  const totalBudget = clientPayments.reduce((s, p) => s + p.amount, 0);
+
+  const tabCounts = {
+    "All Payments": clientPayments.length,
+    PAID: clientPayments.filter(p => p.status === "PAID").length,
+    PARTIAL: clientPayments.filter(p => p.status === "PARTIAL").length,
+    PENDING: clientPayments.filter(p => p.status === "PENDING").length,
+    OVERDUE: clientPayments.filter(p => p.status === "OVERDUE").length,
+  };
+
+  const filteredClientPayments = clientPayments.filter(p => {
+    const sl = paymentSearch.toLowerCase();
+    const matchesSearch = !paymentSearch || p.paymentId.toLowerCase().includes(sl) || p.invoiceNo.toLowerCase().includes(sl) || p.clientName.toLowerCase().includes(sl) || p.projectName.toLowerCase().includes(sl);
+    const matchesTab = paymentTab === "All Payments" || p.status === paymentTab;
+    // Convert DD/MM/YYYY -> YYYY-MM-DD for reliable string comparison with the date input value
+    let matchesDate = true;
+    if (paymentStartDate || paymentEndDate) {
+      const parts = p.invoiceDate.split("/");
+      if (parts.length === 3) {
+        const invoiceISO = `${parts[2]}-${parts[1]}-${parts[0]}`; // "2026-06-12"
+        if (paymentStartDate && invoiceISO < paymentStartDate) matchesDate = false;
+        if (paymentEndDate && invoiceISO > paymentEndDate) matchesDate = false;
+      }
+    }
+    return matchesSearch && matchesTab && matchesDate;
+  });
+
+  const totalPages = Math.ceil(filteredClientPayments.length / itemsPerPage);
+  const paginatedPayments = filteredClientPayments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const uniqueClients = ["All Clients", ...Array.from(new Set(clientPayments.map(p => p.clientName)))];
+
+  const statusBadge = (status: ClientPayment["status"]) => {
+    switch (status) {
+      case "PAID": return "bg-emerald-50 text-emerald-600 border border-emerald-100";
+      case "PARTIAL": return "bg-blue-50 text-blue-600 border border-blue-100";
+      case "PENDING": return "bg-amber-50 text-amber-600 border border-amber-100";
+      case "OVERDUE": return "bg-rose-50 text-rose-600 border border-rose-100";
+    }
+  };
+
+  const handleDownloadReceipt = async (p: ClientPayment) => {
+    const t = toast.loading("Downloading Receipt...");
+    try {
+      // Try backend API first (GET /api/v1/client-payments/{payment_id}/receipt)
+      await paymentService.downloadPaymentReceipt(p.paymentId);
+      toast.success("Receipt Downloaded", { id: t });
+    } catch {
+      // Fallback: generate receipt locally with jsPDF
+      try {
+        const doc = new jsPDF() as any;
+        doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F");
+        doc.setTextColor(255, 255, 255); doc.setFontSize(20);
+        doc.text("PAYMENT RECEIPT", 105, 20, { align: "center" });
+        doc.setFontSize(9); doc.text(`InfraPilot Portal  |  ${new Date().toLocaleDateString("en-GB")}`, 105, 30, { align: "center" });
+        doc.setFontSize(10); doc.text(`Receipt No: ${p.paymentId}`, 105, 38, { align: "center" });
+        doc.setTextColor(15, 23, 42);
+        autoTable(doc, {
+          startY: 55,
+          head: [["Field", "Details"]],
+          body: [
+            ["Payment ID", p.paymentId], ["Invoice No.", p.invoiceNo],
+            ["Client Name", `${p.clientName} (${p.clientEmail})`], ["Project", p.projectName],
+            ["Invoice Date", p.invoiceDate], ["Due Date", p.dueDate],
+            ["Total Amount", `Rs. ${p.amount.toLocaleString()}`], ["Paid Amount", `Rs. ${p.paidAmount.toLocaleString()}`],
+            ["Balance Due", `Rs. ${(p.amount - p.paidAmount).toLocaleString()}`], ["Status", p.status],
+            ["Payment Date", p.paymentDate],
+          ],
+          theme: "striped",
+          headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
+          styles: { fontSize: 10, cellPadding: 5 },
+        });
+        const ph = doc.internal.pageSize.height;
+        doc.setFontSize(8); doc.setTextColor(150);
+        doc.text(`Generated: ${new Date().toLocaleString()} | InfraPilot Client Portal`, 105, ph - 10, { align: "center" });
+        doc.save(`Receipt_${p.paymentId}.pdf`);
+        toast.success("Receipt Downloaded (local)", { id: t });
+      } catch (err) {
+        console.error("Receipt generation failed:", err);
+        toast.error("Failed to download receipt", { id: t });
+      }
+    }
+  };
+
+  const handleOpenEdit = (p: ClientPayment) => {
+    setSelectedPayment(p);
+    setEditPaidAmount(String(p.paidAmount));
+    setEditStatus(p.status);
+    setEditPaymentDate(p.paymentDate === "-" ? "" : p.paymentDate);
+    setEditPaymentMethod("UPI");
+    setEditBankName("");
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdatePayment = async () => {
+    if (!selectedPayment) return;
+    const t = toast.loading("Updating payment...");
+    try {
+      await paymentService.updateClientPayment(selectedPayment.paymentId, {
+        paid_amount: parseFloat(editPaidAmount) || 0,
+        status: editStatus,
+        payment_date: editPaymentDate || undefined,
+        payment_method: editPaymentMethod || undefined,
+        bank_name: editBankName || undefined,
+      });
+      // Update local state to reflect change immediately
+      setClientPayments(prev => prev.map(p =>
+        p.paymentId === selectedPayment.paymentId
+          ? { ...p, paidAmount: parseFloat(editPaidAmount) || p.paidAmount, status: editStatus, paymentDate: editPaymentDate || p.paymentDate }
+          : p
+      ));
+      toast.success("Payment Updated", { id: t });
+    } catch {
+      // Optimistic local update as fallback
+      setClientPayments(prev => prev.map(p =>
+        p.paymentId === selectedPayment.paymentId
+          ? { ...p, paidAmount: parseFloat(editPaidAmount) || p.paidAmount, status: editStatus, paymentDate: editPaymentDate || p.paymentDate }
+          : p
+      ));
+      toast.success("Payment Updated (local)", { id: t });
+    }
+    setIsEditModalOpen(false);
+    setSelectedPayment(null);
+  };
+
+  const handleDeletePayment = async () => {
+    if (!selectedPayment) return;
+    setDeleteLoading(true);
+    const t = toast.loading("Deleting payment...");
+    try {
+      await paymentService.deleteClientPayment(selectedPayment.paymentId);
+      setClientPayments(prev => prev.filter(p => p.paymentId !== selectedPayment.paymentId));
+      toast.success("Payment Deleted", { id: t });
+    } catch {
+      // Optimistic local delete as fallback
+      setClientPayments(prev => prev.filter(p => p.paymentId !== selectedPayment.paymentId));
+      toast.success("Payment Removed (local)", { id: t });
+    }
+    setDeleteLoading(false);
+    setIsDeleteConfirmOpen(false);
+    setSelectedPayment(null);
+  };
+
+  const handleExcelExport = async () => {
+    if (filteredClientPayments.length === 0) { toast.error("No data to export"); return; }
+    const t = toast.loading("Exporting Excel...");
+    try {
+      await paymentService.exportClientPaymentsExcel();
+      toast.success("Excel Exported", { id: t });
+    } catch {
+      // Fallback: local XLSX generation
+      try {
+        const rows = filteredClientPayments.map(p => ({
+          "Payment ID": p.paymentId, "Invoice ID": p.invoiceNo, "Client Name": p.clientName,
+          "Client Email": p.clientEmail, "Project Name": p.projectName, "Invoice Date": p.invoiceDate,
+          "Due Date": p.dueDate, "Total Amount (Rs.)": p.amount, "Paid Amount (Rs.)": p.paidAmount,
+          "Balance (Rs.)": p.amount - p.paidAmount, "Status": p.status, "Payment Date": p.paymentDate,
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Payment History");
+        XLSX.writeFile(wb, `Payment_History_${new Date().toISOString().split("T")[0]}.xlsx`);
+        toast.success("Excel Exported (local)", { id: t });
+      } catch { toast.error("Export failed", { id: t }); }
+    }
+  };
+
+  const handlePdfExport = async () => {
+    if (filteredClientPayments.length === 0) { toast.error("No data to export"); return; }
+    const t = toast.loading("Generating PDF Report...");
+    try {
+      await paymentService.exportClientPaymentsPdf();
+      toast.success("PDF Downloaded", { id: t });
+    } catch {
+      // Fallback: local jsPDF generation
+      try {
+        const doc = new jsPDF({ orientation: "landscape" }) as any;
+        doc.setFillColor(15, 23, 42); doc.rect(0, 0, 297, 30, "F");
+        doc.setTextColor(255, 255, 255); doc.setFontSize(16);
+        doc.text("CLIENT PAYMENT HISTORY REPORT", 148, 18, { align: "center" });
+        autoTable(doc, {
+          startY: 38,
+          head: [["Pay ID", "Invoice", "Client", "Project", "Inv. Date", "Due Date", "Amount", "Paid", "Status", "Pay Date"]],
+          body: filteredClientPayments.map(p => [
+            p.paymentId, p.invoiceNo, p.clientName, p.projectName.substring(0, 30) + (p.projectName.length > 30 ? "..." : ""),
+            p.invoiceDate, p.dueDate, `Rs.${p.amount.toLocaleString()}`, `Rs.${p.paidAmount.toLocaleString()}`, p.status, p.paymentDate,
+          ]),
+          theme: "striped",
+          headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 8 },
+          styles: { fontSize: 7, cellPadding: 3 },
+        });
+        const ph = doc.internal.pageSize.height;
+        doc.setFontSize(7); doc.setTextColor(150);
+        doc.text(`Generated: ${new Date().toLocaleString()} | InfraPilot Portal  |  Total Records: ${filteredClientPayments.length}`, 148, ph - 8, { align: "center" });
+        doc.save(`Payment_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+        toast.success("PDF Report Downloaded (local)", { id: t });
+      } catch { toast.error("Failed to export PDF", { id: t }); }
+    }
+  };
+
+  const handleCreatePayment = async () => {
+    if (!newInvoiceNo || !newAmount) { toast.error("Invoice ID and Amount are required"); return; }
+    const t = toast.loading("Creating payment...");
+    try {
+      await paymentService.createClientPayment({
+        invoice_id: newInvoiceNo,
+        amount: parseFloat(newAmount) || 0,
+        paid_amount: parseFloat(newPaidAmount) || 0,
+        project_id: newProjectId || undefined,
+        project_name: newProjectName || undefined,
+        payment_method: newPaymentMethodForm || undefined,
+        bank_name: newBankName || undefined,
+        status: newStatus,
+      });
+      toast.success("Payment Created", { id: t });
+    } catch {
+      // Fallback: add to local state if API fails
+      const newEntry: ClientPayment = {
+        paymentId: `PAY-2026-${String(clientPayments.length + 1).padStart(4, "0")}`,
+        invoiceNo: newInvoiceNo,
+        clientName: "Rohit",
+        clientEmail: "rohit@example.com",
+        projectName: newProjectName,
+        invoiceDate: new Date().toLocaleDateString("en-GB"),
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB"),
+        amount: parseFloat(newAmount) || 0,
+        paidAmount: parseFloat(newPaidAmount) || 0,
+        status: newStatus,
+        paymentDate: newPaidAmount ? new Date().toLocaleDateString("en-GB") : "-",
+      };
+      setClientPayments(prev => [newEntry, ...prev]);
+      toast.success("Payment Record Created (local)", { id: t });
+    }
+    setIsCreateModalOpen(false);
+    setNewInvoiceNo(""); setNewAmount(""); setNewPaidAmount("");
+    setNewProjectId(""); setNewBankName(""); setNewPaymentMethodForm("UPI");
+  };
+
+  if (showPaymentPortal && selectedRequest) {
     return (
-        <>
-            <Navbar title="Approvals & Workflow" breadcrumb={["Client", "Payment", activeTab === 'quotation' ? 'Quotation Approval' : 'Payment History']} />
-            <div className="p-8 bg-slate-50 min-h-screen font-inter pb-20">
-                
-                {/* Header with Action Buttons */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+      <>
+        <Navbar title="Secure Payment Portal" breadcrumb={["Client", "Payment", "Process Transaction"]} />
+        <div className="p-8 bg-slate-50 min-h-screen font-inter flex flex-col items-center">
+          <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
+            <div className="p-8 bg-blue-600 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-12 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+              <button onClick={() => setShowPaymentPortal(false)} className="absolute top-6 left-6 text-blue-100 hover:text-white transition-all flex items-center gap-2 text-xs font-bold">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                BACK TO HISTORY
+              </button>
+              <div className="mt-12 text-center">
+                <p className="text-blue-200 text-[10px] font-black tracking-[0.2em] uppercase mb-2">Checkout Summary</p>
+                <h1 className="text-5xl font-black tracking-tight mb-2">&#8377; {(selectedRequest.amount ?? 0).toLocaleString()}</h1>
+                <p className="text-blue-100/60 text-xs font-medium">Transaction Reference: <span className="text-white">#{selectedRequest.id}</span></p>
+              </div>
+            </div>
+            <div className="p-10">
+              <div className="space-y-4">
+                <div onClick={() => setPaymentMethod("UPI")} className={`p-6 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${paymentMethod === "UPI" ? "border-blue-500 bg-blue-50/30" : "border-slate-100 bg-slate-50/50 hover:border-slate-300"}`}>
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm ${paymentMethod === "UPI" ? "bg-blue-500 text-white" : "bg-white text-slate-400"}`}>&#128241;</div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-                            {activeTab === 'quotation' ? 'Quotation Approvals' : 'Payment History'}
-                        </h1>
-                        <p className="text-slate-500 font-medium mt-1 text-sm">
-                            Review and authorize site requests for materials, billing, and expenses.
-                        </p>
+                      <p className="font-bold text-slate-800">Unified Payments Interface (UPI)</p>
+                      <p className="text-[11px] text-slate-400 font-medium">Pay via GPay, PhonePe, or BHIM</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <button 
-                            onClick={exportToCSV}
-                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
-                        >
-                            Export Report
-                        </button>
-                    </div>
+                  </div>
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${paymentMethod === "UPI" ? "border-blue-500 bg-blue-500 text-white" : "border-slate-200 bg-white"}`}>
+                    {paymentMethod === "UPI" && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                  </div>
                 </div>
-
-
-
-                {/* Content Container */}
-                <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
-                    
-                    {/* Filter Bar */}
-                    <div className="p-6 border-b border-slate-50 flex flex-wrap gap-4 items-center justify-between bg-white">
-                        <div className="flex items-center gap-4 w-full">
-                            {/* Search Bar - Half Length */}
-                            <div className="relative w-1/2">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                </span>
-                                <input 
-                                    type="text" 
-                                    placeholder="Search by entity type, id, remarks..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full bg-slate-50/50 border border-slate-100 rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-inner"
-                                />
-                            </div>
-                            
-                            <div className="flex items-center gap-3 ml-auto">
-                                <div className="flex items-center bg-slate-50 border border-slate-100 rounded-xl overflow-hidden shadow-sm">
-                                    <button 
-                                        onClick={() => setSortOrder("Latest First")}
-                                        className={`px-4 py-2.5 text-xs font-bold transition-all ${sortOrder === "Latest First" ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
-                                    >
-                                        Latest First
-                                    </button>
-                                    <button 
-                                        onClick={() => setSortOrder("Oldest First")}
-                                        className={`px-4 py-2.5 text-xs font-bold transition-all ${sortOrder === "Oldest First" ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:bg-slate-100'}`}
-                                    >
-                                        Oldest
-                                    </button>
-                                </div>
-                                
-                                <select 
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 outline-none cursor-pointer hover:bg-slate-100 transition-all appearance-none shadow-sm"
-                                >
-                                    <option value="All Status">All Status</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Approved">Approved</option>
-                                    <option value="Rejected">Rejected</option>
-                                </select>
-                            </div>
-                        </div>
+                <div onClick={() => setPaymentMethod("Check")} className={`p-6 rounded-2xl border-2 transition-all cursor-pointer flex flex-col gap-6 ${paymentMethod === "Check" ? "border-blue-500 bg-blue-50/30" : "border-slate-100 bg-slate-50/50 hover:border-slate-300"}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm ${paymentMethod === "Check" ? "bg-blue-500 text-white" : "bg-white text-slate-400"}`}>&#128196;</div>
+                      <div>
+                        <p className="font-bold text-slate-800">Banker&#39;s Check</p>
+                        <p className="text-[11px] text-slate-400 font-medium">Deposit physical check to company account</p>
+                      </div>
                     </div>
-
-                    {loading ? (
-                        <div className="py-32 flex flex-col items-center justify-center">
-                            <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading Data...</p>
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${paymentMethod === "Check" ? "border-blue-500 bg-blue-500 text-white" : "border-slate-200 bg-white"}`}>
+                      {paymentMethod === "Check" && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                    </div>
+                  </div>
+                  {paymentMethod === "Check" && (
+                    <div className="bg-white p-6 rounded-xl border border-blue-100">
+                      <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Upload Check Copy</h5>
+                      <div className="relative">
+                        <input type="file" onChange={e => setCheckFile(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                        <div className="border-2 border-dashed border-slate-100 rounded-xl p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors">
+                          <svg className="w-8 h-8 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                          <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{checkFile ? checkFile.name : "Click to select or drag check image"}</p>
                         </div>
-                    ) : activeTab === "quotation" ? (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse table-fixed">
-                                <thead>
-                                    <tr className="bg-slate-50/30">
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[14%]">QUOTATION ID</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[16%]">COMPANY NAME</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[16%]">PROJECT NAME</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[14%]">DATE</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center w-[12%]">STATUS</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center w-[12%]">APPROVED BY</th>
-                                        <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right pr-10 w-[10%]">ACTIONS</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {filteredQuotations.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={7} className="py-24 text-center">
-                                                <div className="flex flex-col items-center opacity-40">
-                                                   <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                   <p className="font-bold uppercase tracking-widest text-xs">No records matching your search</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        filteredQuotations.map((q, i) => (
-                                            <tr key={i} className="hover:bg-slate-50/30 transition-all group">
-                                                <td className="px-6 py-6">
-                                                    <p className="text-xs font-black text-slate-800 tracking-tight">{q.entity_id_display || q.id}</p>
-                                                </td>
-                                                <td className="px-6 py-6 font-bold text-[12px] text-slate-700">
-                                                    {q.company_name || q.client_name || q.requested_by_name || '-'}
-                                                </td>
-                                                <td className="px-6 py-6 text-xs text-slate-500 font-medium max-w-xs truncate">
-                                                    {q.remarks_details}
-                                                </td>
-                                                <td className="px-6 py-6 text-xs text-slate-500 font-bold">
-                                                    {q.created_at ? new Date(q.created_at).toLocaleDateString('en-GB') : '-'}
-                                                </td>
-                                                <td className="px-6 py-6 text-center">
-                                                    <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                                                        q.status === 'Pending' ? 'bg-amber-50 text-amber-600' : 
-                                                        q.status === 'Approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                                                    }`}>
-                                                        {q.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-6 text-center text-[11px] font-bold text-slate-400">
-                                                    {q.approved_by_name}
-                                                </td>
-                                                <td className="px-6 py-6 text-right pr-10">
-                                                    <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                        <button 
-                                                            onClick={() => handleView(q)}
-                                                            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-blue-600 transition-all"
-                                                            title="View"
-                                                        >
-                                                            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleDownloadQuotation(q.id, q.entity_id_display)}
-                                                            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-all"
-                                                            title="Download PDF"
-                                                        >
-                                                            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                        </button>
-                                                        {q.status === 'Pending' && (
-                                                            <>
-                                                                <button 
-                                                                    onClick={() => handleApprove(q.id)} 
-                                                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-emerald-500 transition-all shadow-sm"
-                                                                    title="Approve"
-                                                                >
-                                                                    <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                                                                </button>
-                                                                <button 
-                                                                    onClick={() => handleReject(q.id)} 
-                                                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-500 transition-all shadow-sm"
-                                                                    title="Reject"
-                                                                >
-                                                                    <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50/50">
-                                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Project Name</th>
-                                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Amount</th>
-                                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Date</th>
-                                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Payment Mode</th>
-                                        <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right pr-12">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {filteredPayments.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={6} className="py-24 text-center">
-                                                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">No transaction history found</p>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        filteredPayments.map((p, i) => (
-                                            <tr key={i} className="hover:bg-slate-50/30 transition-all group">
-                                                <td className="px-10 py-8">
-                                                    <p className="text-sm font-black text-slate-800 tracking-tight">{projectName}</p>
-                                                </td>
-                                                <td className="px-10 py-8 text-[16px] font-black text-slate-900 tracking-tighter">
-                                                    ₹ {(p.amount || 0).toLocaleString()}
-                                                </td>
-                                                <td className="px-10 py-8 text-[11px] font-bold text-slate-500">
-                                                    {p.date && !isNaN(new Date(p.date).getTime()) 
-                                                        ? new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                                                        : 'Recent'}
-                                                </td>
-                                                <td className="px-10 py-8 text-[11px] font-bold text-slate-600 uppercase tracking-widest">
-                                                    {p.payment_method || 'UPI'}
-                                                </td>
-                                                <td className="px-10 py-8 text-right pr-12">
-                                                    <div className="flex items-center justify-end gap-3 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                        <button 
-                                                            onClick={() => handlePay(p)}
-                                                            className="text-slate-400 hover:text-blue-500 transition-colors"
-                                                            title="Process Payment"
-                                                        >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleView({...p, entity_title: 'TRANSACTION', remarks_details: `Transaction for ${p.type || 'Service'} - Invoice: ${p.invoice_number || 'N/A'}`})}
-                                                            className="text-slate-400 hover:text-blue-600 transition-colors"
-                                                            title="View"
-                                                        >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleDownloadExpense(p)}
-                                                            className="text-slate-400 hover:text-slate-800 transition-colors"
-                                                            title="Download PDF"
-                                                        >
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
+              <button onClick={processPayment} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] mt-10 hover:bg-blue-600 transition-all shadow-xl shadow-blue-500/20 active:scale-[0.98] flex items-center justify-center gap-3">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                COMPLETE PAYMENT
+              </button>
+            </div>
+          </div>
+          <p className="mt-8 text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">Encrypted Secure Checkout</p>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-inter">
+      <Navbar
+        title={activeTab === "history" ? "Payment History" : "Approvals & Workflow"}
+        breadcrumb={["Client", "Payment", activeTab === "history" ? "History" : "Quotation Approval"]}
+      />
+
+      {activeTab === "history" ? (
+        <div className="p-8 pb-24 space-y-6">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Payment History</h1>
+              <p className="text-slate-500 text-sm font-medium mt-1">View and track all your payments submitted to the admin for ongoing project invoices.</p>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button onClick={handleExcelExport} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-500" /> Excel
+              </button>
+              <button onClick={handlePdfExport} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+                <FileText className="w-4 h-4 text-rose-500" /> PDF
+              </button>
+              <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-blue-600 transition-all shadow-lg shadow-slate-200 active:scale-95">
+                <Plus className="w-4 h-4" /> Create Client Payment
+              </button>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Card 1 - Total Budget */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center"><DollarSign className="w-5 h-5 text-emerald-600" /></div>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Budget</span>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Total Budget</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight">&#8377;{totalBudget.toLocaleString()}</h2>
+              </div>
             </div>
 
-            {/* View Modal */}
-            <Modal 
-                isOpen={isViewModalOpen}
-                onClose={closeModal}
-                title={pdfUrl ? "Quotation PDF Preview" : "Request Detailed Summary"}
-                maxWidth={pdfUrl ? "max-w-4xl" : "max-w-lg"}
-            >
-                {pdfLoading ? (
-                    <div className="py-24 flex flex-col items-center justify-center">
-                        <div className="w-12 h-12 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fetching PDF Document...</p>
-                    </div>
-                ) : pdfUrl ? (
-                    <div className="space-y-4">
-                        <div className="h-[75vh] w-full overflow-hidden rounded-2xl border border-slate-100 shadow-inner bg-slate-50">
-                            <iframe 
-                                src={`${pdfUrl}#toolbar=0&navpanes=0`} 
-                                className="w-full h-full border-none"
-                                title="Quotation PDF Preview"
-                            />
-                        </div>
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={closeModal}
-                                className="flex-1 py-3 px-6 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-slate-200 hover:bg-slate-900 transition-all"
-                            >
-                                Close Preview
-                            </button>
-                            <a 
-                                href={pdfUrl}
-                                download={`Quotation_${selectedRequest?.entity_id_display || selectedRequest?.id}.pdf`}
-                                className="px-8 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center"
-                            >
-                                Download Copy
-                            </a>
-                        </div>
-                    </div>
-                ) : selectedRequest && (
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                            <div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Name</p>
-                                <p className="text-sm font-black text-slate-800">{projectName}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
-                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${
-                                    selectedRequest.status === 'Pending' ? 'bg-amber-100 text-amber-600' : 
-                                    selectedRequest.status === 'Approved' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
-                                }`}>
-                                    {selectedRequest.status}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 border border-slate-100 rounded-xl bg-white shadow-sm">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Transaction Amount</p>
-                                    <p className="text-[15px] font-black text-slate-900">₹ {(selectedRequest.amount || 0).toLocaleString()}</p>
-                                </div>
-                                <div className="p-4 border border-slate-100 rounded-xl bg-white shadow-sm">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Payment Mode</p>
-                                    <p className="text-[13px] font-bold text-slate-800 uppercase tracking-tight">{selectedRequest.payment_method || 'UPI'}</p>
-                                </div>
-                            </div>
-                            
-                            <div className="p-4 border border-slate-100 rounded-xl bg-white shadow-sm">
-                                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Transaction Date</p>
-                                <p className="text-xs font-bold text-slate-800">
-                                    {new Date(selectedRequest.date || selectedRequest.expense_date || selectedRequest.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </p>
-                            </div>
+            {/* Card 2 - Paid */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center"><CheckCircle2 className="w-5 h-5 text-emerald-500" /></div>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid</span>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Paid</p>
+                <h2 className="text-3xl font-black text-emerald-600 tracking-tight">&#8377;{(totalPaid + totalPartialPaid).toLocaleString()}</h2>
+              </div>
+            </div>
 
-                            {selectedRequest.remarks_details && (
-                                <div>
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase mb-2 px-1">Description / Category</h4>
-                                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                                        <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase tracking-wide">
-                                            {selectedRequest.remarks_details === 'string' ? 'NA' : (selectedRequest.remarks_details || 'NA')}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+            {/* Card 3 - Pending */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center"><Clock className="w-5 h-5 text-amber-500" /></div>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending</span>
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 font-black uppercase mb-1">Pending</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight">&#8377;{(totalPending + totalOverdue).toLocaleString()}</h2>
+              </div>
+            </div>
+          </div>
 
-                        <button 
-                            onClick={closeModal}
-                            className="w-full py-3.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-slate-200 active:scale-95 transition-all"
-                        >
-                            Close Summary
-                        </button>
+          {/* Invoice Summary Panel */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center"><TrendingUp className="w-4 h-4 text-blue-600" /></div>
+                <div>
+                  <p className="text-sm font-black text-slate-800">Invoice Payment Summary</p>
+                  <p className="text-[10px] text-slate-400 font-medium">Live data from /client-payments/invoice-summary</p>
+                </div>
+              </div>
+              {apiLoading && <div className="w-4 h-4 border-2 border-slate-100 border-t-blue-500 rounded-full animate-spin" />}
+            </div>
+            {invoiceSummary ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                {[
+                  { label: "Total Invoices", val: invoiceSummary.total_invoices ?? invoiceSummary.totalInvoices ?? "—", color: "text-slate-800" },
+                  { label: "Total Amount", val: invoiceSummary.total_amount != null ? `₹${Number(invoiceSummary.total_amount).toLocaleString()}` : invoiceSummary.totalAmount != null ? `₹${Number(invoiceSummary.totalAmount).toLocaleString()}` : "—", color: "text-slate-800" },
+                  { label: "Paid", val: invoiceSummary.paid_amount != null ? `₹${Number(invoiceSummary.paid_amount).toLocaleString()}` : invoiceSummary.paidAmount != null ? `₹${Number(invoiceSummary.paidAmount).toLocaleString()}` : "—", color: "text-emerald-600" },
+                  { label: "Pending", val: invoiceSummary.pending_amount != null ? `₹${Number(invoiceSummary.pending_amount).toLocaleString()}` : invoiceSummary.pendingAmount != null ? `₹${Number(invoiceSummary.pendingAmount).toLocaleString()}` : "—", color: "text-amber-600" },
+                  { label: "Overdue", val: invoiceSummary.overdue_amount != null ? `₹${Number(invoiceSummary.overdue_amount).toLocaleString()}` : invoiceSummary.overdueAmount != null ? `₹${Number(invoiceSummary.overdueAmount).toLocaleString()}` : "—", color: "text-rose-600" },
+                ].map(({ label, val, color }) => (
+                  <div key={label} className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                    <p className={`text-xl font-black ${color} tracking-tight`}>{val}</p>
+                  </div>
+                ))}
+              </div>
+            ) : apiLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="bg-slate-50 rounded-xl p-4 animate-pulse">
+                    <div className="h-2.5 bg-slate-200 rounded mb-2 w-3/4" />
+                    <div className="h-6 bg-slate-200 rounded w-1/2" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center py-8 text-slate-400">
+                <p className="text-xs font-bold">No summary data available</p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pending Invoices Panel */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-amber-50 rounded-xl flex items-center justify-center"><AlertTriangle className="w-4 h-4 text-amber-500" /></div>
+                    <div>
+                      <p className="text-sm font-black text-slate-800">Pending Invoices</p>
+                      <p className="text-[10px] text-slate-400 font-medium">Live data from /client-payments/pending-invoices</p>
                     </div>
+                  </div>
+                  <span className="px-2.5 py-1 bg-amber-50 text-amber-600 text-[10px] font-black rounded-lg">{pendingInvoices.length} pending</span>
+                </div>
+                {apiLoading ? (
+                  <div className="p-6 space-y-3">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-4 animate-pulse">
+                        <div className="h-4 bg-slate-100 rounded w-28" />
+                        <div className="h-4 bg-slate-100 rounded flex-1" />
+                        <div className="h-4 bg-slate-100 rounded w-20" />
+                        <div className="h-4 bg-slate-100 rounded w-16" />
+                      </div>
+                    ))}
+                  </div>
+                ) : pendingInvoices.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                    <CheckCircle2 className="w-8 h-8 mb-2 text-emerald-300" />
+                    <p className="text-xs font-black uppercase tracking-widest">No pending invoices</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-slate-50/50">
+                          {["Invoice ID", "Project", "Amount", "Due Date", "Status"].map(h => (
+                            <th key={h} className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {pendingInvoices.map((inv: any, i: number) => (
+                          <tr key={i} className="hover:bg-slate-50/60 transition-all">
+                            <td className="px-5 py-4"><p className="text-[11px] font-black text-slate-800 whitespace-nowrap">{inv.invoice_id ?? inv.invoiceId ?? inv.id ?? "—"}</p></td>
+                            <td className="px-5 py-4 max-w-[150px] truncate"><p className="text-[11px] font-medium text-slate-600 truncate">{inv.project_name ?? inv.projectName ?? inv.project ?? "—"}</p></td>
+                            <td className="px-5 py-4"><p className="text-[13px] font-black text-slate-900 whitespace-nowrap">₹{Number(inv.amount ?? inv.total_amount ?? 0).toLocaleString()}</p></td>
+                            <td className="px-5 py-4"><p className={`text-[11px] font-bold whitespace-nowrap ${inv.is_overdue || inv.status === 'OVERDUE' ? 'text-rose-600' : 'text-slate-500'}`}>{inv.due_date ?? inv.dueDate ?? "—"}</p></td>
+                            <td className="px-5 py-4">
+                              <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${
+                                (inv.status ?? "").toUpperCase() === "OVERDUE" ? "bg-rose-50 text-rose-600" :
+                                (inv.status ?? "").toUpperCase() === "PARTIAL" ? "bg-blue-50 text-blue-600" :
+                                "bg-amber-50 text-amber-600"
+                              }`}>{inv.status ?? "Pending"}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
-            </Modal>
-        </>
-    );
+              </div>
+            </div>
+
+            {/* Payment Analytics Panel */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center"><BarChart3 className="w-4 h-4 text-indigo-600" /></div>
+                    <div>
+                      <p className="text-sm font-black text-slate-800">Payment Analytics</p>
+                      <p className="text-[10px] text-slate-400 font-medium">Billed vs Received & Invoice Status breakdown</p>
+                    </div>
+                  </div>
+                  {apiLoading && <div className="w-4 h-4 border-2 border-slate-100 border-t-indigo-500 rounded-full animate-spin" />}
+                </div>
+
+                {paymentAnalytics ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Billed vs Received Chart */}
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Monthly Billed vs Received</p>
+                      <div className="h-44">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={paymentAnalytics.monthlyTrend || paymentAnalytics.monthly_trend || []} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 9, fontWeight: 700 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 9, fontWeight: 700 }} />
+                            <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                            <Bar dataKey="billed" fill="#E2E8F0" radius={[2, 2, 0, 0]} barSize={10} name="Billed" />
+                            <Bar dataKey="received" fill="#6366F1" radius={[2, 2, 0, 0]} barSize={10} name="Received" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Status Shares Pie Chart */}
+                    <div className="flex flex-col justify-center">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Invoice Status Shares</p>
+                      <div className="flex items-center gap-4">
+                        <div className="w-24 h-24 relative flex-shrink-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={paymentAnalytics.statusShares || []}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={22}
+                                outerRadius={38}
+                                paddingAngle={3}
+                                dataKey="value"
+                              >
+                                {(paymentAnalytics.statusShares || []).map((entry: any, index: number) => (
+                                  <Cell key={`cell-${index}`} fill={entry.fill || "#6366F1"} />
+                                ))}
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute inset-0 flex items-center justify-center flex-col">
+                            <span className="text-xs font-black text-slate-800 leading-none">
+                              {Number((paymentAnalytics.statusShares || []).reduce((sum: number, item: any) => sum + (item.value || 0), 0))}
+                            </span>
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Invs</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 flex-1">
+                          {(paymentAnalytics.statusShares || []).map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.fill }} />
+                                <span className="capitalize">{item.name}</span>
+                              </div>
+                              <span className="text-slate-400 font-extrabold">{item.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-12 text-slate-400">
+                    <p className="text-xs font-bold">No analytics data available</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input type="text" value={paymentSearch} onChange={e => { setPaymentSearch(e.target.value); setCurrentPage(1); }}
+                  placeholder="Search by Payment ID, Invoice, Client, Project..."
+                  className="w-full pl-10 pr-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
+              </div>
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <input type="date" value={paymentStartDate} onChange={e => { setPaymentStartDate(e.target.value); setCurrentPage(1); }} className="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer" />
+                <span className="text-slate-300 text-xs">&#8212;</span>
+                <input type="date" value={paymentEndDate} onChange={e => { setPaymentEndDate(e.target.value); setCurrentPage(1); }} className="bg-transparent text-xs font-bold text-slate-600 outline-none cursor-pointer" />
+                {(paymentStartDate || paymentEndDate) && (
+                  <button onClick={() => { setPaymentStartDate(""); setPaymentEndDate(""); setCurrentPage(1); }} className="ml-1 text-slate-400 hover:text-rose-500 transition-colors" title="Clear dates">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Table Card */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-0 px-6 pt-5 pb-0 overflow-x-auto border-b border-slate-50">
+              {[
+                { label: "All Payments", key: "All Payments" },
+                { label: "Paid", key: "PAID" },
+                { label: "Partial", key: "PARTIAL" },
+                { label: "Pending", key: "PENDING" },
+                { label: "Overdue", key: "OVERDUE" },
+              ].map(t => (
+                <button key={t.key} onClick={() => { setPaymentTab(t.key); setCurrentPage(1); }}
+                  className={`px-5 py-3 text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 border-b-2 -mb-px ${paymentTab === t.key ? "text-blue-600 border-blue-500" : "text-slate-400 border-transparent hover:text-slate-600"}`}>
+                  {t.label}
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${paymentTab === t.key ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-400"}`}>
+                    {tabCounts[t.key as keyof typeof tabCounts]}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50">
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Payment ID</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Invoice ID</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Project Name</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Invoice Date</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Amount</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Paid</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Status</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Pay Date</th>
+                    <th className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right pr-6 whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {paginatedPayments.length === 0 ? (
+                    <tr><td colSpan={9} className="py-24 text-center">
+                      <div className="flex flex-col items-center opacity-40">
+                        <DollarSign className="w-12 h-12 mb-3 text-slate-300" />
+                        <p className="font-black uppercase tracking-widest text-xs text-slate-400">No payment records found</p>
+                      </div>
+                    </td></tr>
+                  ) : paginatedPayments.map((p, i) => (
+                    <tr key={i} className="hover:bg-slate-50/60 transition-all group">
+                      <td className="px-5 py-5"><p className="text-[11px] font-black text-slate-800 tracking-tight whitespace-nowrap">{p.paymentId}</p></td>
+                      <td className="px-5 py-5"><p className="text-[11px] font-bold text-slate-600 whitespace-nowrap">{p.invoiceNo}</p></td>
+                      <td className="px-5 py-5 max-w-[140px]"><p className="text-[11px] font-medium text-slate-600 truncate" title={p.projectName}>{p.projectName}</p></td>
+                      <td className="px-5 py-5"><p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">{p.invoiceDate}</p></td>
+                      <td className="px-5 py-5"><p className="text-[13px] font-black text-slate-900 tracking-tight whitespace-nowrap">&#8377;{p.amount.toLocaleString()}</p></td>
+                      <td className="px-5 py-5">
+                        <p className="text-[12px] font-black text-emerald-600 whitespace-nowrap">&#8377;{p.paidAmount.toLocaleString()}</p>
+                        {p.status === "PARTIAL" && (
+                          <div className="mt-1 w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.round((p.paidAmount / p.amount) * 100)}%` }}></div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-5 py-5 text-center"><span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest whitespace-nowrap ${statusBadge(p.status)}`}>{p.status}</span></td>
+                      <td className="px-5 py-5"><p className="text-[11px] font-bold text-slate-500 whitespace-nowrap">{p.paymentDate}</p></td>
+                      <td className="px-5 py-5 text-right pr-6">
+                        <div className="flex items-center justify-end gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => { setSelectedPayment(p); setIsViewModalOpen(true); }} title="View Details" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => handleDownloadReceipt(p)} title="Download Receipt" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-all"><Download className="w-4 h-4" /></button>
+                          <button onClick={() => handleOpenEdit(p)} title="Edit Payment" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => { setSelectedPayment(p); setIsDeleteConfirmOpen(true); }} title="Delete Payment" className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-white">
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-bold text-slate-400">Rows per page:</span>
+                <select value={itemsPerPage} onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 outline-none">
+                  {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+                <span className="text-[11px] font-bold text-slate-400">
+                  {filteredClientPayments.length === 0 ? "0 of 0" : `${(currentPage - 1) * itemsPerPage + 1}&#8211;${Math.min(currentPage * itemsPerPage, filteredClientPayments.length)} of ${filteredClientPayments.length}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"><ChevronLeft className="w-4 h-4" /></button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map(page => (
+                  <button key={page} onClick={() => setCurrentPage(page)} className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${currentPage === page ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-50"}`}>{page}</button>
+                ))}
+                {totalPages > 5 && <span className="text-slate-400 text-xs">&#8230;</span>}
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"><ChevronRight className="w-4 h-4" /></button>
+              </div>
+            </div>
+          </div>
+
+
+          {/* View Details Modal */}
+          <Modal isOpen={isViewModalOpen && !isAuditModalOpen} onClose={() => { setIsViewModalOpen(false); setSelectedPayment(null); }} title="Payment Details" maxWidth="max-w-lg">
+            {selectedPayment && (
+              <div className="space-y-5">
+                <div className="flex items-start justify-between p-4 bg-gradient-to-r from-slate-50 to-blue-50/30 rounded-xl border border-slate-100">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Payment ID</p>
+                    <p className="text-sm font-black text-slate-900">{selectedPayment.paymentId}</p>
+                    <p className="text-[11px] text-slate-500 font-medium">{selectedPayment.invoiceNo}</p>
+                  </div>
+                  <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${statusBadge(selectedPayment.status)}`}>{selectedPayment.status}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Client Name", val: selectedPayment.clientName },
+                    { label: "Client Email", val: selectedPayment.clientEmail },
+                    { label: "Invoice Date", val: selectedPayment.invoiceDate },
+                    { label: "Due Date", val: selectedPayment.dueDate },
+                    { label: "Total Amount", val: `&#8377;${selectedPayment.amount.toLocaleString()}` },
+                    { label: "Paid Amount", val: `&#8377;${selectedPayment.paidAmount.toLocaleString()}` },
+                    { label: "Balance Due", val: `&#8377;${(selectedPayment.amount - selectedPayment.paidAmount).toLocaleString()}` },
+                    { label: "Payment Date", val: selectedPayment.paymentDate },
+                  ].map(({ label, val }) => (
+                    <div key={label} className="p-3 bg-white border border-slate-100 rounded-xl">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                      <p className="text-[12px] font-black text-slate-800" dangerouslySetInnerHTML={{ __html: val }}></p>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Project</p>
+                  <p className="text-[12px] font-medium text-slate-700">{selectedPayment.projectName}</p>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => { setIsViewModalOpen(false); setSelectedPayment(null); }} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Close</button>
+                  <button onClick={() => handleOpenEdit(selectedPayment!)} className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-2">
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
+                  <button onClick={() => handleDownloadReceipt(selectedPayment!)} className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center justify-center gap-2">
+                    <Download className="w-3.5 h-3.5" /> Receipt
+                  </button>
+                </div>
+              </div>
+            )}
+          </Modal>
+
+          {/* Audit History Modal */}
+          <Modal isOpen={isAuditModalOpen} onClose={() => { setIsAuditModalOpen(false); setSelectedPayment(null); }} title="Audit History" maxWidth="max-w-md">
+            {selectedPayment && (
+              <div className="space-y-4">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment ID: <span className="text-slate-700">{selectedPayment.paymentId}</span></p>
+                </div>
+                <div className="space-y-0">
+                  {[
+                    { icon: <Plus className="w-3 h-3" />, label: "Payment Record Created", time: selectedPayment.invoiceDate, color: "bg-blue-100 text-blue-600", desc: `Invoice ${selectedPayment.invoiceNo} issued for &#8377;${selectedPayment.amount.toLocaleString()}` },
+                    { icon: <FileText className="w-3 h-3" />, label: "Invoice Sent to Client", time: selectedPayment.invoiceDate, color: "bg-indigo-100 text-indigo-600", desc: `Sent to ${selectedPayment.clientEmail}` },
+                    ...(selectedPayment.status !== "PENDING" && selectedPayment.status !== "OVERDUE" ? [{ icon: <DollarSign className="w-3 h-3" />, label: "Payment Submitted to Admin", time: selectedPayment.paymentDate, color: "bg-emerald-100 text-emerald-600", desc: `&#8377;${selectedPayment.paidAmount.toLocaleString()} sent by you via UPI` }] : []),
+                    ...(selectedPayment.status === "OVERDUE" ? [{ icon: <AlertTriangle className="w-3 h-3" />, label: "Payment Overdue Alert", time: selectedPayment.dueDate, color: "bg-rose-100 text-rose-600", desc: "Payment due date has passed without settlement" }] : []),
+                    { icon: <CheckCircle2 className="w-3 h-3" />, label: "Current Status", time: "Now", color: `${selectedPayment.status === "PAID" ? "bg-emerald-100 text-emerald-600" : selectedPayment.status === "OVERDUE" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"}`, desc: `Status: ${selectedPayment.status}` },
+                  ].map((event, idx, arr) => (
+                    <div key={idx} className="flex gap-3 relative">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${event.color}`}>{event.icon}</div>
+                        {idx < arr.length - 1 && <div className="w-0.5 h-6 bg-slate-100 mt-1"></div>}
+                      </div>
+                      <div className="pb-5">
+                        <p className="text-[11px] font-black text-slate-800">{event.label}</p>
+                        <p className="text-[10px] text-slate-400 font-medium" dangerouslySetInnerHTML={{ __html: event.desc }}></p>
+                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">{event.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => { setIsAuditModalOpen(false); setSelectedPayment(null); }} className="w-full py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">Close</button>
+              </div>
+            )}
+          </Modal>
+
+          {/* Edit Payment Modal */}
+          <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setSelectedPayment(null); }} title="Edit Payment" maxWidth="max-w-lg">
+            {selectedPayment && (
+              <div className="space-y-4">
+                {/* Read-only summary header */}
+                <div className="flex items-start justify-between p-4 bg-gradient-to-r from-slate-50 to-amber-50/30 rounded-xl border border-slate-100">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Payment ID</p>
+                    <p className="text-sm font-black text-slate-900">{selectedPayment.paymentId}</p>
+                    <p className="text-[11px] text-slate-500 font-medium">{selectedPayment.invoiceNo} · {selectedPayment.projectName}</p>
+                  </div>
+                  <p className="text-xl font-black text-slate-900">&#8377;{selectedPayment.amount.toLocaleString()}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Paid Amount (Rs.)</label>
+                    <input
+                      type="number"
+                      value={editPaidAmount}
+                      onChange={e => setEditPaidAmount(e.target.value)}
+                      placeholder="0"
+                      max={selectedPayment.amount}
+                      className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Date</label>
+                    <input
+                      type="date"
+                      value={editPaymentDate}
+                      onChange={e => setEditPaymentDate(e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Method</label>
+                    <select value={editPaymentMethod} onChange={e => setEditPaymentMethod(e.target.value)} className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-amber-400 transition-all appearance-none">
+                      <option value="UPI">UPI</option>
+                      <option value="Net Banking">Net Banking</option>
+                      <option value="Card">Card</option>
+                      <option value="Check">Check</option>
+                      <option value="Cash">Cash</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bank Name</label>
+                    <input
+                      type="text"
+                      value={editBankName}
+                      onChange={e => setEditBankName(e.target.value)}
+                      placeholder="e.g. HDFC Bank"
+                      className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(["PAID", "PARTIAL", "PENDING", "OVERDUE"] as ClientPayment["status"][]).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setEditStatus(s)}
+                        className={`py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                          editStatus === s
+                            ? s === "PAID" ? "bg-emerald-500 text-white border-emerald-500"
+                            : s === "PARTIAL" ? "bg-blue-500 text-white border-blue-500"
+                            : s === "PENDING" ? "bg-amber-500 text-white border-amber-500"
+                            : "bg-rose-500 text-white border-rose-500"
+                            : "bg-white text-slate-400 border-slate-100 hover:border-slate-300"
+                        }`}
+                      >{s}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => { setIsEditModalOpen(false); setSelectedPayment(null); }} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
+                  <button onClick={handleUpdatePayment} className="flex-1 py-3 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-2">
+                    <Pencil className="w-3.5 h-3.5" /> Save Changes
+                  </button>
+                </div>
+              </div>
+            )}
+          </Modal>
+
+          {/* Delete Confirmation Modal */}
+          <Modal isOpen={isDeleteConfirmOpen} onClose={() => { setIsDeleteConfirmOpen(false); setSelectedPayment(null); }} title="Delete Payment" maxWidth="max-w-sm">
+            {selectedPayment && (
+              <div className="space-y-5">
+                <div className="flex flex-col items-center text-center py-4">
+                  <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mb-4">
+                    <Trash2 className="w-7 h-7 text-rose-500" />
+                  </div>
+                  <h3 className="text-sm font-black text-slate-900 mb-1">Delete this payment record?</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">This will permanently remove <span className="font-black text-slate-600">{selectedPayment.paymentId}</span> from the system. This action cannot be undone.</p>
+                </div>
+                <div className="p-3 bg-rose-50/60 border border-rose-100 rounded-xl">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Payment Details</p>
+                  <p className="text-[11px] font-bold text-slate-700">{selectedPayment.invoiceNo} · &#8377;{selectedPayment.amount.toLocaleString()} · <span className={`${
+                    selectedPayment.status === "PAID" ? "text-emerald-600" : selectedPayment.status === "OVERDUE" ? "text-rose-600" : selectedPayment.status === "PARTIAL" ? "text-blue-600" : "text-amber-600"
+                  }`}>{selectedPayment.status}</span></p>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => { setIsDeleteConfirmOpen(false); setSelectedPayment(null); }} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
+                  <button
+                    onClick={handleDeletePayment}
+                    disabled={deleteLoading}
+                    className="flex-1 py-3 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {deleteLoading ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    {deleteLoading ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </Modal>
+
+          {/* Create Payment Modal */}
+          <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Create Client Payment" maxWidth="max-w-lg">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Invoice ID *", val: newInvoiceNo, set: setNewInvoiceNo, placeholder: "INV-2026-XXXX" },
+                  { label: "Total Amount (Rs.) *", val: newAmount, set: setNewAmount, placeholder: "e.g. 50000", type: "number" },
+                  { label: "Paid Amount (Rs.)", val: newPaidAmount, set: setNewPaidAmount, placeholder: "0", type: "number" },
+                  { label: "Project ID", val: newProjectId, set: setNewProjectId, placeholder: "e.g. PRJ-101" },
+                  { label: "Bank Name", val: newBankName, set: setNewBankName, placeholder: "e.g. HDFC Bank" },
+                ].map(({ label, val, set, placeholder, type = "text" }) => (
+                  <div key={label}>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{label}</label>
+                    <input type={type} value={val} onChange={e => set(e.target.value)} placeholder={placeholder} className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Method</label>
+                  <select value={newPaymentMethodForm} onChange={e => setNewPaymentMethodForm(e.target.value)} className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-blue-500 transition-all appearance-none">
+                    <option value="UPI">UPI</option>
+                    <option value="Net Banking">Net Banking</option>
+                    <option value="Card">Card</option>
+                    <option value="Check">Check</option>
+                    <option value="Cash">Cash</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name</label>
+                <input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="Project description" className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-blue-500 transition-all" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
+                <select value={newStatus} onChange={e => setNewStatus(e.target.value as ClientPayment["status"])} className="w-full px-3 py-2.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-blue-500 transition-all appearance-none">
+                  <option value="PENDING">Pending</option>
+                  <option value="PAID">Paid</option>
+                  <option value="PARTIAL">Partial</option>
+                  <option value="OVERDUE">Overdue</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setIsCreateModalOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Cancel</button>
+                <button onClick={handleCreatePayment} className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">Create Payment</button>
+              </div>
+            </div>
+          </Modal>
+        </div>
+      ) : (
+        <div className="p-8 pb-20 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Quotation Approvals</h1>
+              <p className="text-slate-500 font-medium mt-1 text-sm">Review and authorize site requests for materials, billing, and expenses.</p>
+            </div>
+            <button onClick={exportToCSV} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95">Export Report</button>
+          </div>
+          <div className="bg-white rounded-[24px] shadow-sm border border-slate-100 overflow-hidden">
+            <div className="p-6 border-b border-slate-50 flex flex-wrap gap-4 items-center bg-white">
+              <div className="relative w-1/2">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg></span>
+                <input type="text" placeholder="Search by entity type, id, remarks..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-50/50 border border-slate-100 rounded-xl pl-11 pr-4 py-2.5 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-inner" />
+              </div>
+              <div className="flex items-center gap-3 ml-auto">
+                <div className="flex items-center bg-slate-50 border border-slate-100 rounded-xl overflow-hidden shadow-sm">
+                  <button onClick={() => setSortOrder("Latest First")} className={`px-4 py-2.5 text-xs font-bold transition-all ${sortOrder === "Latest First" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-slate-100"}`}>Latest First</button>
+                  <button onClick={() => setSortOrder("Oldest First")} className={`px-4 py-2.5 text-xs font-bold transition-all ${sortOrder === "Oldest First" ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:bg-slate-100"}`}>Oldest</button>
+                </div>
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 outline-none cursor-pointer hover:bg-slate-100 transition-all appearance-none shadow-sm">
+                  <option value="All Status">All Status</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+            {loading ? (
+              <div className="py-32 flex flex-col items-center justify-center">
+                <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading Data...</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse table-fixed">
+                  <thead>
+                    <tr className="bg-slate-50/30">
+                      <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[14%]">QUOTATION ID</th>
+                      <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[16%]">COMPANY NAME</th>
+                      <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[20%]">PROJECT NAME</th>
+                      <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-[14%]">DATE</th>
+                      <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center w-[12%]">STATUS</th>
+                      <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center w-[12%]">APPROVED BY</th>
+                      <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right pr-10 w-[12%]">ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {filteredQuotations.length === 0 ? (
+                      <tr><td colSpan={7} className="py-24 text-center"><div className="flex flex-col items-center opacity-40"><p className="font-bold uppercase tracking-widest text-xs">No records matching your search</p></div></td></tr>
+                    ) : filteredQuotations.map((q, i) => (
+                      <tr key={i} className="hover:bg-slate-50/30 transition-all group">
+                        <td className="px-6 py-6"><p className="text-xs font-black text-slate-800 tracking-tight">{q.entity_id_display || q.id}</p></td>
+                        <td className="px-6 py-6 font-bold text-[12px] text-slate-700">{q.company_name || q.client_name || q.requested_by_name || "-"}</td>
+                        <td className="px-6 py-6 text-xs text-slate-500 font-medium truncate">{q.remarks_details}</td>
+                        <td className="px-6 py-6 text-xs text-slate-500 font-bold">{q.created_at ? new Date(q.created_at).toLocaleDateString("en-GB") : "-"}</td>
+                        <td className="px-6 py-6 text-center">
+                          <span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${q.status === "Pending" ? "bg-amber-50 text-amber-600" : q.status === "Approved" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>{q.status}</span>
+                        </td>
+                        <td className="px-6 py-6 text-center text-[11px] font-bold text-slate-400">{q.approved_by_name}</td>
+                        <td className="px-6 py-6 text-right pr-10">
+                          <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => handleView(q)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-blue-600 transition-all" title="View">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                            </button>
+                            <button onClick={() => handleDownloadQuotation(q.id, q.entity_id_display)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-800 transition-all" title="Download PDF">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            </button>
+                            {q.status === "Pending" && (
+                              <>
+                                <button onClick={() => handleApprove(q.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-emerald-500 transition-all" title="Approve">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                </button>
+                                <button onClick={() => handleReject(q.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-rose-500 transition-all" title="Reject">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <Modal isOpen={isViewModalOpen} onClose={closeModal} title={pdfUrl ? "Quotation PDF Preview" : "Request Detailed Summary"} maxWidth={pdfUrl ? "max-w-4xl" : "max-w-lg"}>
+            {pdfLoading ? (
+              <div className="py-24 flex flex-col items-center justify-center">
+                <div className="w-12 h-12 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fetching PDF Document...</p>
+              </div>
+            ) : pdfUrl ? (
+              <div className="space-y-4">
+                <div className="h-[75vh] w-full overflow-hidden rounded-2xl border border-slate-100 shadow-inner bg-slate-50">
+                  <iframe src={`${pdfUrl}#toolbar=0&navpanes=0`} className="w-full h-full border-none" title="Quotation PDF Preview" />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={closeModal} className="flex-1 py-3 px-6 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 transition-all">Close Preview</button>
+                  <a href={pdfUrl} download={`Quotation_${selectedRequest?.entity_id_display || selectedRequest?.id}.pdf`} className="px-8 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center">Download Copy</a>
+                </div>
+              </div>
+            ) : selectedRequest ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Project Name</p>
+                    <p className="text-sm font-black text-slate-800">{projectName}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Status</p>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${selectedRequest.status === "Pending" ? "bg-amber-100 text-amber-600" : selectedRequest.status === "Approved" ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"}`}>{selectedRequest.status}</span>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 border border-slate-100 rounded-xl bg-white shadow-sm"><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Transaction Amount</p><p className="text-[15px] font-black text-slate-900">&#8377; {(selectedRequest.amount || 0).toLocaleString()}</p></div>
+                    <div className="p-4 border border-slate-100 rounded-xl bg-white shadow-sm"><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Payment Mode</p><p className="text-[13px] font-bold text-slate-800 uppercase tracking-tight">{selectedRequest.payment_method || "UPI"}</p></div>
+                  </div>
+                  <div className="p-4 border border-slate-100 rounded-xl bg-white shadow-sm">
+                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Transaction Date</p>
+                    <p className="text-xs font-bold text-slate-800">{new Date(selectedRequest.date || selectedRequest.expense_date || selectedRequest.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                  </div>
+                  {selectedRequest.remarks_details && (
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase mb-2 px-1">Description / Category</h4>
+                      <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                        <p className="text-xs font-medium text-slate-600 leading-relaxed uppercase tracking-wide">{selectedRequest.remarks_details === "string" ? "NA" : selectedRequest.remarks_details || "NA"}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button onClick={closeModal} className="w-full py-3.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">Close Summary</button>
+              </div>
+            ) : null}
+          </Modal>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default ClientPaymentPage;
