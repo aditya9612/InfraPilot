@@ -29,7 +29,7 @@ const MaterialReceiptPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Dashboard");
-    const { selectedProjectId } = useProject();
+    const { selectedProjectId, setSelectedProjectId } = useProject();
     const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -155,6 +155,40 @@ const MaterialReceiptPage = () => {
             setBoqs(data.items || []);
         } catch (e) {
             console.error("Failed to load BOQs", e);
+        }
+    };
+
+    const handleProjectChange = (id: number) => {
+        const newProjectId = id === 0 ? null : id;
+        setSelectedProjectId(newProjectId);
+        if (newProjectId) {
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    const selectedProjObj = projectsList.find(p => Number(p.id) === newProjectId);
+                    parsed.project_id = newProjectId;
+                    parsed.default_project_id = newProjectId;
+                    if (selectedProjObj) parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                    if (parsed.user) {
+                        parsed.user.project_id = newProjectId;
+                        if (selectedProjObj) parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                    }
+                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    window.dispatchEvent(new Event('storage'));
+                }
+            } catch (e) { }
+        } else {
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    parsed.project_id = null;
+                    if (parsed.user) parsed.user.project_id = null;
+                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    window.dispatchEvent(new Event('storage'));
+                }
+            } catch (e) { }
         }
     };
 
@@ -358,6 +392,7 @@ const MaterialReceiptPage = () => {
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-slate-500">Project:</span>
                         <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            <option value={0}>All Projects</option>
                             {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
                         </select>
                     </div>

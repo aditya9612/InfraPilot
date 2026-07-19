@@ -14,7 +14,7 @@ import type {
 
 import {
     Search, Plus, Edit2, Trash2, Eye, FileText, Wrench, Activity,
-    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink, Check
+    AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink, Check, RefreshCw
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
 import { useProject } from "../../../context/ProjectContext";
@@ -68,6 +68,7 @@ const MachineryPage = () => {
 
     // ─── UI / Form States ──────────────────────────────────────────────
     const [searchTerm, setSearchTerm] = useState("");
+    const [showDeleted, setShowDeleted] = useState(false);
     const [conditionFilter, setConditionFilter] = useState("All");
     const [allocationFilter, setAllocationFilter] = useState<'All' | 'Allocated' | 'Unallocated'>("All");
 
@@ -159,7 +160,7 @@ const MachineryPage = () => {
 
     // Load data based on active tab
     useEffect(() => {
-        const eqParams = selectedProjectId ? { limit: 100, project_id: selectedProjectId } : { limit: 100 };
+        const eqParams = { limit: 100, ...(selectedProjectId ? { project_id: selectedProjectId } : {}), ...(showDeleted ? { is_deleted: true } : {}) };
         const pIdObj = selectedProjectId ? { project_id: selectedProjectId } : undefined;
         withLoading(async () => {
             if (activeTab === "Dashboard") {
@@ -240,7 +241,7 @@ const MachineryPage = () => {
                 setPurchaseReport(purchaseRes || []);
             }
         });
-    }, [activeTab, selectedProjectId]);
+    }, [activeTab, selectedProjectId, showDeleted]);
 
     // Fetch equipment specific logs when selected in Usage/Maintenance/Rental/Logs tabs
     useEffect(() => {
@@ -315,10 +316,21 @@ const MachineryPage = () => {
             await equipmentService.deleteEquipment(itemToDelete);
             toast.success("Equipment deleted successfully!");
             setIsDeleteModalOpen(false);
-            const res = await equipmentService.listEquipment({ limit: 100 });
+            const res = await equipmentService.listEquipment({ limit: 100, ...(selectedProjectId ? { project_id: selectedProjectId } : {}), ...(showDeleted ? { is_deleted: true } : {}) });
             setEquipmentList(res.items || []);
         } catch (error) {
             toast.error("Failed to delete equipment");
+        }
+    };
+
+    const handleRestore = async (id: number) => {
+        try {
+            await equipmentService.restoreEquipment(id);
+            toast.success("Equipment restored successfully!");
+            const res = await equipmentService.listEquipment({ limit: 100, ...(selectedProjectId ? { project_id: selectedProjectId } : {}), ...(showDeleted ? { is_deleted: true } : {}) });
+            setEquipmentList(res.items || []);
+        } catch (error) {
+            toast.error("Failed to restore equipment");
         }
     };
 
@@ -732,6 +744,10 @@ const MachineryPage = () => {
                             <option value="Allocated">Allocated</option>
                             <option value="Unallocated">Deallocated</option>
                         </select>
+                        <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 cursor-pointer transition-colors hover:bg-slate-100" onClick={() => setShowDeleted(!showDeleted)}>
+                            <input type="checkbox" checked={showDeleted} onChange={() => {}} className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer" />
+                            <label className="text-sm font-medium text-slate-600 cursor-pointer select-none">Archived</label>
+                        </div>
                     </div>
                     <button onClick={() => { setFormData({}); setIsEquipmentModalOpen(true); }} className="px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 whitespace-nowrap shrink-0">
                         <Plus className="w-4 h-4" /> Add Equipment
@@ -772,14 +788,22 @@ const MachineryPage = () => {
                                     <td className="px-6 py-3 text-sm text-slate-700">{item.maintenance_date}</td>
                                     <td className="px-6 py-3 text-right">
                                         <div className="flex justify-end gap-1">
-                                            <button onClick={() => openViewModal(item)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded" title="View"><Eye className="w-4 h-4" /></button>
-                                            <button onClick={() => { setFormData(item); setIsEquipmentModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
-                                            <button onClick={() => openAllocateModal(item)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Allocate"><Link2 className="w-4 h-4" /></button>
-                                            <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsUsageModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Log Usage"><Activity className="w-4 h-4" /></button>
-                                            <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
-                                            <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
-                                            <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
-                                            <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                            {item.is_deleted ? (
+                                                <button onClick={() => handleRestore(item.id)} className="px-3 py-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 rounded-lg text-xs font-bold transition-colors flex items-center gap-1" title="Restore">
+                                                    <RefreshCw className="w-3 h-3" /> Restore
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    <button onClick={() => openViewModal(item)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded" title="View"><Eye className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setFormData(item); setIsEquipmentModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => openAllocateModal(item)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded" title="Allocate"><Link2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsUsageModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded" title="Log Usage"><Activity className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Maintenance"><Wrench className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setSelectedEquipment(item); setFormData({ equipment_id: item.id }); setIsRentalModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded" title="Rental"><FileText className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setSelectedEquipment(item); setIsLogsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded" title="Audit Logs"><History className="w-4 h-4" /></button>
+                                                    <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Delete"><Trash2 className="w-4 h-4" /></button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -1485,7 +1509,7 @@ const MachineryPage = () => {
                             onChange={handleProjectChange}
                             className="bg-transparent border-none text-sm font-bold text-slate-800 focus:outline-none cursor-pointer"
                         >
-                            <option value="" disabled>Select Project</option>
+                            <option value="">All Projects</option>
                             {projects.map(p => (
                                 <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
                             ))}

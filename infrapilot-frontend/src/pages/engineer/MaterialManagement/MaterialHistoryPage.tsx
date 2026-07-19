@@ -45,13 +45,13 @@ const MaterialHistoryPage = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const fetchData = useCallback(async () => {
-    if (!projectId) return;
     setIsLoading(true);
     try {
+      const pId = projectId || undefined;
       const [data, materials, projectData, allProjects] = await Promise.all([
-        viewMode === "transactions" ? materialService.getProjectTransactions(projectId) : materialService.getLogs({ project_id: projectId } as any),
-        materialService.listMaterials(projectId),
-        projectService.getProjectById(projectId).catch(() => null),
+        viewMode === "transactions" ? materialService.getProjectTransactions(projectId || 0) : materialService.getLogs({ project_id: pId } as any),
+        materialService.listMaterials(projectId || 0),
+        projectId ? projectService.getProjectById(projectId).catch(() => null) : Promise.resolve(null),
         projectService.getProjects(100).catch(() => [])
       ]);
       setLogs(data || []);
