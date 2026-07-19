@@ -173,27 +173,11 @@ const LabourAttendancePage: React.FC = () => {
     const [contractorMap] = useState<Record<number, string>>(LOCAL_CONTRACTOR_MAP);
 
     const getActiveProjectId = () => {
-        // Prefer ProjectContext value, fallback to localStorage
-        if (contextProjectId) return contextProjectId;
-        try {
-            const userStr = localStorage.getItem("infrapilot_user");
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                return parsed.user?.project_id || parsed.project_id || 92;
-            }
-        } catch (e) { }
-        return 92;
+        return contextProjectId || 0;
     };
 
     const getActiveProjectName = () => {
         if (selectedProject?.project_name) return selectedProject.project_name;
-        try {
-            const userStr = localStorage.getItem("infrapilot_user");
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                return parsed.user?.project_name || parsed.project_name || `Project #${getActiveProjectId()}`;
-            }
-        } catch (e) { }
         return `Project #${getActiveProjectId()}`;
     };
 

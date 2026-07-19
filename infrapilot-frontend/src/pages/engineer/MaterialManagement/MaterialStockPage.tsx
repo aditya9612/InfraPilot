@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { materialService, type InventoryItem, type MaterialReport, type MaterialLog } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
+import { useProject } from "../../../context/ProjectContext";
 
 type TabType = "Stock Overview" | "Global Inventory" | "Reports" | "Inventory Adjustment";
 
@@ -19,7 +20,8 @@ const MaterialStockPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Stock Overview");
-    const [projectId, setProjectId] = useState<number>(1);
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,15 +35,6 @@ const MaterialStockPage = () => {
     const [projectsList, setProjectsList] = useState<any[]>([]);
 
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) setProjectId(Number(pId));
-            } catch (e) { console.error(e); }
-        }
-
         const fetchProjects = async () => {
             try {
                 const res = await projectService.getProjects(100, 0);
@@ -50,22 +43,6 @@ const MaterialStockPage = () => {
         };
         fetchProjects();
     }, []);
-
-    const handleProjectChange = (newProjectId: number) => {
-        setProjectId(newProjectId);
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                if (user.user) {
-                    user.user.project_id = newProjectId;
-                } else {
-                    user.project_id = newProjectId;
-                }
-                localStorage.setItem("infrapilot_user", JSON.stringify(user));
-            } catch (e) { }
-        }
-    };
 
     // Modals
     const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);

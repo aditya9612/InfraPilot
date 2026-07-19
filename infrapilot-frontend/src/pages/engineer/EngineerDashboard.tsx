@@ -5,6 +5,7 @@ import StatCard from "../../components/common/StatCard";
 
 import { Sun, Cloud, CloudRain, CloudSun, CloudDrizzle, CloudFog, CloudSnow, CloudLightning, ChevronLeft, ChevronRight } from "lucide-react";
 import { dashboardService } from "../../services/dashboardService";
+import { useProject } from "../../context/ProjectContext";
 const expenseCategoryColors: Record<string, string> = {
     Labour: "bg-blue-50 text-blue-600",
     Material: "bg-emerald-50 text-emerald-600",
@@ -18,21 +19,9 @@ const phaseStatusStyle: Record<string, string> = {
 };
 
 const EngineerDashboard = () => {
-    // Dynamic user context extraction
-    const userStr = localStorage.getItem("infrapilot_user");
-    let projectId = 92;
-    let projectName = "SARA CITY";
-    let engineer_id = 1;
-    if (userStr) {
-        try {
-            const parsed = JSON.parse(userStr);
-            projectId = parsed?.project_id || parsed?.user?.project_id || 92;
-            projectName = parsed?.project_name || parsed?.user?.project_name || "SARA CITY";
-            engineer_id = Number(parsed?.id) || Number(parsed?.user?.id) || 1;
-        } catch (e) {
-            console.error("Failed to parse user session", e);
-        }
-    }
+    const { selectedProjectId, selectedProject } = useProject();
+    const projectId = selectedProjectId || 0;
+    const projectName = selectedProject?.project_name || "SARA CITY";
 
     const getEmptyDashboardData = (pId: number, pName: string) => ({
         project_id: pId,
@@ -127,6 +116,10 @@ const EngineerDashboard = () => {
     useEffect(() => {
         let isFirstLoad = true;
         const fetchAllDashboardData = async () => {
+            if (!projectId) {
+                setIsLoading(false);
+                return;
+            }
             if (isFirstLoad) {
                 setIsLoading(true);
             }
@@ -134,13 +127,13 @@ const EngineerDashboard = () => {
                 const apiData = await dashboardService.getEngineerDashboard(projectId);
 
                 // Map the API data to the UI structure expected by EngineerDashboard
-                
+
                 const today_work_summary = (apiData.today_work_summary || []).map((a: any, idx: number) => {
-                    const stStatus = a.status === "WorkActivityStatus.COMPLETED" ? "Completed" : 
-                                     a.status === "WorkActivityStatus.DELAY" ? "Pending" : "In Progress";
-                    const statusColor = a.status === "WorkActivityStatus.COMPLETED" ? "bg-emerald-100 text-emerald-600" : 
-                                        a.status === "WorkActivityStatus.DELAY" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600";
-                    
+                    const stStatus = a.status === "WorkActivityStatus.COMPLETED" ? "Completed" :
+                        a.status === "WorkActivityStatus.DELAY" ? "Pending" : "In Progress";
+                    const statusColor = a.status === "WorkActivityStatus.COMPLETED" ? "bg-emerald-100 text-emerald-600" :
+                        a.status === "WorkActivityStatus.DELAY" ? "bg-rose-100 text-rose-600" : "bg-blue-100 text-blue-600";
+
                     return {
                         id: `act_${idx}`,
                         activity: a.activity_name,
@@ -225,7 +218,7 @@ const EngineerDashboard = () => {
         };
 
         fetchAllDashboardData();
-    }, [projectId, projectName, engineer_id]);
+    }, [projectId, projectName]);
 
     const overallProgress = Number(Number(dashboardData.progress || 0).toFixed(2));
     const plannedPercent = Number(Number(dashboardData.planned_progress || 0).toFixed(2));

@@ -305,15 +305,15 @@ export const equipmentService = {
             const eqRes = await api.get<any>('/equipment', { params: { project_id: params?.project_id, limit: 100 } });
             const data = eqRes.data;
             const eqList = Array.isArray(data) ? data : (data.items || data.data || []);
-            
+
             const rentalPromises = eqList.map((eq: any) => this.listRental(eq.id));
             const results = await Promise.allSettled(rentalPromises);
-            
+
             const allRentals = results
                 .filter((r): r is PromiseFulfilledResult<RentalItem[]> => r.status === 'fulfilled')
                 .map(r => r.value)
                 .flat();
-                
+
             return allRentals.sort((a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime());
         } catch (error) {
             console.error("Failed to fetch all rentals:", error);

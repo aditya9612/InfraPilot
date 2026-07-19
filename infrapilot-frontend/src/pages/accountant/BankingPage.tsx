@@ -18,7 +18,7 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
   const [templateRows, setTemplateRows] = useState<any[]>([]);
 
   const getTemplateColumns = () => {
-    switch(activeTab) {
+    switch (activeTab) {
       case "cash": return ["Date", "Description", "Amount", "Type"];
       case "bank-book": return ["Date", "Description", "Amount", "Type"];
       case "reconciliation": return ["Date", "Description", "Withdrawal", "Deposit"];
@@ -71,23 +71,23 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
       const isCash = activeTab === "cash";
       const isBankBook = activeTab === "bank-book";
       const isRecon = activeTab === "reconciliation";
-      
+
       let blob;
       let filename = "";
       if (isCash) {
-         blob = await accountingService.exportCashBook();
-         filename = "cash_book_export.xlsx";
+        blob = await accountingService.exportCashBook();
+        filename = "cash_book_export.xlsx";
       } else if (isBankBook) {
-         blob = await accountingService.exportBankBook();
-         filename = "bank_book_export.xlsx";
+        blob = await accountingService.exportBankBook();
+        filename = "bank_book_export.xlsx";
       } else if (isRecon) {
-         blob = await accountingService.exportReconciliationCsv();
-         filename = "reconciliation_export.csv";
+        blob = await accountingService.exportReconciliationCsv();
+        filename = "reconciliation_export.csv";
       } else {
-         blob = await accountingService.exportBankAccounts();
-         filename = "bank_accounts_export.xlsx";
+        blob = await accountingService.exportBankAccounts();
+        filename = "bank_accounts_export.xlsx";
       }
-      
+
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement("a");
       link.href = url;
@@ -176,14 +176,14 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
                     <td className="border border-slate-300 p-1 text-center text-xs font-normal text-slate-500 bg-[#f8f9fa]">{idx + 2}</td>
                     {cols.map(col => (
                       <td key={col} className="border border-slate-300 bg-white p-0 relative">
-                        <input 
+                        <input
                           className="w-full h-full absolute inset-0 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:z-10 bg-transparent"
-                          value={row[col] || ""} 
+                          value={row[col] || ""}
                           onChange={(e) => {
                             const newRows = [...templateRows];
                             newRows[idx][col] = e.target.value;
                             setTemplateRows(newRows);
-                          }} 
+                          }}
                         />
                         <div className="px-2 py-1.5 invisible text-sm">H</div>
                       </td>
@@ -198,7 +198,7 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
               </tbody>
             </table>
           </div>
-          <button 
+          <button
             onClick={() => {
               const newRow: any = {};
               cols.forEach(c => newRow[c] = "");
@@ -229,7 +229,7 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
             <span className="text-lg">📥</span> {activeTab === "cash" ? "Import Cash Book" : (activeTab === "bank-book" ? "Import Bank Book" : (activeTab === "reconciliation" ? "Import Bank Transactions" : "Import Bank Accounts"))}
           </button>
           <button onClick={handleExport} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-             <span className="text-lg">📤</span> {activeTab === "cash" ? "Export Cash Book" : (activeTab === "bank-book" ? "Export Bank Book" : (activeTab === "reconciliation" ? "Export Reconciliation CSV" : "Export Bank Accounts"))}
+            <span className="text-lg">📤</span> {activeTab === "cash" ? "Export Cash Book" : (activeTab === "bank-book" ? "Export Bank Book" : (activeTab === "reconciliation" ? "Export Reconciliation CSV" : "Export Bank Accounts"))}
           </button>
           {activeTab === "accounts" && (
             <button onClick={onAddAccount} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
@@ -238,7 +238,7 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
           )}
         </div>
       </div>
-      
+
       {tabsNode}
 
       {/* Stat Cards */}
@@ -256,7 +256,7 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
         {/* Card 2 */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between cursor-pointer hover:shadow-md hover:border-slate-200 transition-all active:scale-[0.98]">
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
-             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">AVAILABLE CASH</p>
@@ -266,7 +266,7 @@ const BankingHeader = ({ activeTab, onAddAccount, tabsNode, onImportSuccess }: {
         {/* Card 3 */}
         <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col justify-between cursor-pointer hover:shadow-md hover:border-slate-200 transition-all active:scale-[0.98]">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center mb-4">
-             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7l10 10M17 7v10H7"></path></svg>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7l10 10M17 7v10H7"></path></svg>
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">TODAY'S DEPOSIT</p>
@@ -299,8 +299,8 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
     if (isOpen) {
       accountingService.getAccounts({ limit: 200 }).then(res => {
         setAccountsList(Array.isArray(res) ? res : res?.items || res?.data || []);
-      }).catch(() => {});
-      
+      }).catch(() => { });
+
       if (initialData) {
         setFormData({
           account_id: initialData.account_id || 0,
@@ -378,11 +378,11 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
 const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Modals state
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingData, setEditingData] = useState<any | null>(null);
-  
+
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const [ledgerAccount, setLedgerAccount] = useState<any | null>(null);
   const [ledgerData, setLedgerData] = useState<any[] | null>(null);
@@ -402,7 +402,7 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
   useEffect(() => {
     fetchAccounts();
   }, [refreshKey]);
-  
+
   const handleEdit = async (id: number | string) => {
     try {
       const detail = await accountingService.getBankAccount(id);
@@ -412,7 +412,7 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
       toast.error("Failed to fetch account details");
     }
   };
-  
+
   const handleViewLedger = async (acc: any) => {
     setLedgerAccount({ account_name: acc.bank_name, account_code: acc.account_number });
     setLedgerData(null);
@@ -464,15 +464,15 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
           </tbody>
         </table>
       </div>
-      
+
       {/* Modals */}
-      <AddBankAccountModal 
-        isOpen={isEditOpen} 
-        onClose={() => { setIsEditOpen(false); setEditingData(null); }} 
-        onSuccess={fetchAccounts} 
-        initialData={editingData} 
+      <AddBankAccountModal
+        isOpen={isEditOpen}
+        onClose={() => { setIsEditOpen(false); setEditingData(null); }}
+        onSuccess={fetchAccounts}
+        initialData={editingData}
       />
-      
+
       <LedgerModal
         isOpen={isLedgerOpen}
         onClose={() => { setIsLedgerOpen(false); setLedgerAccount(null); }}
@@ -520,7 +520,7 @@ const CreateBankTransactionModal = ({ isOpen, onClose, onSuccess }: { isOpen: bo
     if (isOpen) {
       accountingService.getBankAccounts().then(res => {
         setAccountsList(Array.isArray(res) ? res : res?.data || []);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [isOpen]);
 
@@ -600,7 +600,7 @@ const AutoRunReconModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; on
 
   useEffect(() => {
     if (isOpen) {
-      accountingService.getBankAccounts().then(res => setAccountsList(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
+      accountingService.getBankAccounts().then(res => setAccountsList(Array.isArray(res) ? res : res?.data || [])).catch(() => { });
     }
   }, [isOpen]);
 
@@ -650,7 +650,7 @@ const MatchTransactionModal = ({ isOpen, onClose, onSuccess, initialTransactionI
   useEffect(() => {
     if (isOpen) {
       setTransactionId(initialTransactionId);
-      accountingService.getJournal().then(res => setJournalsList(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
+      accountingService.getJournal().then(res => setJournalsList(Array.isArray(res) ? res : res?.data || [])).catch(() => { });
     }
   }, [isOpen, initialTransactionId]);
 
@@ -711,9 +711,9 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
   const [selectedMatchTxn, setSelectedMatchTxn] = useState<string | number>("");
 
   const fetchReconData = () => {
-    accountingService.getReconciliationDashboard().then(res => setDashboardData(res?.data || res || {})).catch(() => {});
-    accountingService.getPendingReconciliations().then(res => setPendingData(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
-    accountingService.getReconciliationHistory().then(res => setHistoryData(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
+    accountingService.getReconciliationDashboard().then(res => setDashboardData(res?.data || res || {})).catch(() => { });
+    accountingService.getPendingReconciliations().then(res => setPendingData(Array.isArray(res) ? res : res?.data || [])).catch(() => { });
+    accountingService.getReconciliationHistory().then(res => setHistoryData(Array.isArray(res) ? res : res?.data || [])).catch(() => { });
   };
 
   useEffect(() => {
@@ -738,79 +738,79 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
       </div>
 
       {activeSubTab === "dashboard" && <BankReconciliationDashboard dashboardData={dashboardData} />}
-      
+
       {activeSubTab === "pending" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden p-5">
-           <h3 className="font-bold text-slate-800 mb-4">Pending Reconciliation</h3>
-           {pendingData.length === 0 ? <p className="text-sm text-slate-500">No pending transactions.</p> : (
-             <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b border-slate-100">
-                    <tr>{["Date", "Description", "Amount", "Reference", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {pendingData.map((row: any, i) => (
-                      <tr key={i} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-3 text-xs text-slate-600">{row.transaction_date || "-"}</td>
-                        <td className="px-4 py-3 text-xs text-slate-600">{row.description || "-"}</td>
-                        <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.amount || "-"}</td>
-                        <td className="px-4 py-3 text-xs font-mono text-slate-500">{row.reference_number || "-"}</td>
-                        <td className="px-4 py-3 text-xs">
-                           <button onClick={() => openMatchModal(row.id)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded text-xs font-bold hover:bg-indigo-100">Match</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-             </div>
-           )}
-        </div>
-      )}
-      
-      {activeSubTab === "matched" && <GenericTableSection title="Matched Transactions" columns={["Date", "Bank Entry", "ERP Entry", "Match Date", "Status"]} data={[["2024-11-01", "₹1,45,000 (Cr)", "₹1,45,000", "2024-11-01", "Matched"]]} />}
-      
-      {activeSubTab === "history" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden p-5">
-           <div className="flex justify-between items-center mb-4">
-             <h3 className="font-bold text-slate-800">Reconciliation History</h3>
-             <button onClick={async () => { try { await accountingService.exportReconciliationCsv(); toast.success("Exported!"); } catch(e) { toast.error("Export failed"); } }} className="text-xs font-bold text-blue-600 hover:text-blue-700">Export CSV</button>
-           </div>
-           {historyData.length === 0 ? <p className="text-sm text-slate-500">No history available.</p> : (
-             <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b border-slate-100">
-                    <tr>{["Period", "Account", "Opening Bal", "Closing Bal", "Status"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {historyData.map((row: any, i) => (
-                      <tr key={i} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-3 text-xs text-slate-600">{row.period || "-"}</td>
-                        <td className="px-4 py-3 text-xs text-slate-600">{row.account || "-"}</td>
-                        <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.opening_balance || "-"}</td>
-                        <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.closing_balance || "-"}</td>
-                        <td className="px-4 py-3 text-xs text-emerald-600 font-bold">{row.status || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-             </div>
-           )}
+          <h3 className="font-bold text-slate-800 mb-4">Pending Reconciliation</h3>
+          {pendingData.length === 0 ? <p className="text-sm text-slate-500">No pending transactions.</p> : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>{["Date", "Description", "Amount", "Reference", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {pendingData.map((row: any, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 text-xs text-slate-600">{row.transaction_date || "-"}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{row.description || "-"}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.amount || "-"}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-slate-500">{row.reference_number || "-"}</td>
+                      <td className="px-4 py-3 text-xs">
+                        <button onClick={() => openMatchModal(row.id)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded text-xs font-bold hover:bg-indigo-100">Match</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      <CreateBankTransactionModal 
-        isOpen={isTransactionModalOpen} 
-        onClose={() => setIsTransactionModalOpen(false)} 
-        onSuccess={fetchReconData} 
+      {activeSubTab === "matched" && <GenericTableSection title="Matched Transactions" columns={["Date", "Bank Entry", "ERP Entry", "Match Date", "Status"]} data={[["2024-11-01", "₹1,45,000 (Cr)", "₹1,45,000", "2024-11-01", "Matched"]]} />}
+
+      {activeSubTab === "history" && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-slate-800">Reconciliation History</h3>
+            <button onClick={async () => { try { await accountingService.exportReconciliationCsv(); toast.success("Exported!"); } catch (e) { toast.error("Export failed"); } }} className="text-xs font-bold text-blue-600 hover:text-blue-700">Export CSV</button>
+          </div>
+          {historyData.length === 0 ? <p className="text-sm text-slate-500">No history available.</p> : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>{["Period", "Account", "Opening Bal", "Closing Bal", "Status"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {historyData.map((row: any, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 text-xs text-slate-600">{row.period || "-"}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{row.account || "-"}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.opening_balance || "-"}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.closing_balance || "-"}</td>
+                      <td className="px-4 py-3 text-xs text-emerald-600 font-bold">{row.status || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      <CreateBankTransactionModal
+        isOpen={isTransactionModalOpen}
+        onClose={() => setIsTransactionModalOpen(false)}
+        onSuccess={fetchReconData}
       />
-      <AutoRunReconModal 
-        isOpen={isAutoRunModalOpen} 
-        onClose={() => setIsAutoRunModalOpen(false)} 
-        onSuccess={fetchReconData} 
+      <AutoRunReconModal
+        isOpen={isAutoRunModalOpen}
+        onClose={() => setIsAutoRunModalOpen(false)}
+        onSuccess={fetchReconData}
       />
-      <MatchTransactionModal 
-        isOpen={isMatchModalOpen} 
-        onClose={() => setIsMatchModalOpen(false)} 
+      <MatchTransactionModal
+        isOpen={isMatchModalOpen}
+        onClose={() => setIsMatchModalOpen(false)}
         onSuccess={fetchReconData}
         initialTransactionId={selectedMatchTxn}
         pendingTransactions={pendingData}
@@ -1047,7 +1047,7 @@ const BankingPage = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const subTab = searchParams.get("sub") || undefined;
-  
+
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -1086,15 +1086,14 @@ const BankingPage = () => {
           <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
             {TABS.map(tab => (
               <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-                className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
-                  activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
-                }`}>
+                className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
+                  }`}>
                 {tab.label}
               </button>
             ))}
           </div>
         } />
-        
+
         <AddBankAccountModal isOpen={isAddAccountModalOpen} onClose={() => setIsAddAccountModalOpen(false)} onSuccess={() => setRefreshKey(prev => prev + 1)} />
 
         {/* Content Rendering */}

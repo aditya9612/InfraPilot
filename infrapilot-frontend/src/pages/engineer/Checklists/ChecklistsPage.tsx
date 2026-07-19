@@ -25,6 +25,7 @@ import {
 import { checklistService } from "../../../services/checklistService";
 import type { ChecklistItem, ChecklistItemEntry, ChecklistLog } from "../../../services/checklistService";
 import { projectService } from "../../../services/projectService";
+import { useProject } from "../../../context/ProjectContext";
 
 const typeColors: Record<string, string> = {
     "daily checklist": "bg-blue-50 text-blue-600 border-blue-100",
@@ -38,7 +39,8 @@ const ChecklistsPage = () => {
     const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
     const [logs, setLogs] = useState<ChecklistLog[]>([]);
     const [activeTab, setActiveTab] = useState<"Daily Checklist" | "Activity Checklist">("Daily Checklist");
-    const [projectId, setProjectId] = useState<number>(92);
+    const { selectedProjectId, setSelectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
 
     // UI States
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,20 +83,6 @@ const ChecklistsPage = () => {
 
     // Resolve Project ID and fetch assigned projects list
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    setProjectId(Number(pId));
-                } else {
-                    setProjectId(92);
-                }
-            } catch (e) {
-                console.error("Failed to resolve project ID", e);
-            }
-        }
 
         // Fetch all assigned projects
         const fetchProjects = async () => {
@@ -110,6 +98,7 @@ const ChecklistsPage = () => {
     }, []);
 
     const fetchData = useCallback(async () => {
+        if (!projectId) return;
         try {
             const [clRes, logsRes] = await Promise.all([
                 checklistService.listChecklists(projectId),
@@ -180,7 +169,9 @@ const ChecklistsPage = () => {
 
             toast.success("Checklist created successfully!");
             if (projectId !== Number(newChecklistProjectId)) {
-                setProjectId(Number(newChecklistProjectId));
+                if (setSelectedProjectId) {
+                    setSelectedProjectId(Number(newChecklistProjectId));
+                }
             }
             setActiveTab(newChecklistType as any);
             await fetchData();
@@ -228,9 +219,9 @@ const ChecklistsPage = () => {
                     const localChecklists = JSON.parse(localSaved);
                     const index = localChecklists.findIndex((c: any) => c.id === selectedChecklist.id);
                     if (index !== -1) {
-                        localChecklists[index] = { 
-                            ...localChecklists[index], 
-                            name: editChecklistName, 
+                        localChecklists[index] = {
+                            ...localChecklists[index],
+                            name: editChecklistName,
                             description: editChecklistDescription,
                             project_id: Number(editChecklistProjectId),
                             is_active: editChecklistIsActive
@@ -565,11 +556,10 @@ const ChecklistsPage = () => {
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab as any)}
-                            className={`px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
-                                activeTab === tab
-                                    ? "bg-slate-800 text-white shadow-lg scale-105"
-                                    : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
-                            }`}
+                            className={`px-6 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === tab
+                                ? "bg-slate-800 text-white shadow-lg scale-105"
+                                : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+                                }`}
                         >
                             {tab}
                         </button>
@@ -722,21 +712,21 @@ const ChecklistsPage = () => {
                                                     </td>
                                                     <td className="px-6 py-4 text-center font-inter">
                                                         <div className="flex items-center justify-center gap-2">
-                                                            <button 
+                                                            <button
                                                                 onClick={() => openViewItemsModal(cl)}
                                                                 className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter inline-flex"
                                                                 title="View Items"
                                                             >
                                                                 <Eye className="w-4 h-4" />
                                                             </button>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => openEditModal(cl)}
                                                                 className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter inline-flex"
                                                                 title="Edit Checklist"
                                                             >
                                                                 <Edit3 className="w-4 h-4" />
                                                             </button>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => { setDeleteId(cl.id); setIsDeleteModalOpen(true); }}
                                                                 className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter inline-flex"
                                                                 title="Delete Checklist"
@@ -820,8 +810,8 @@ const ChecklistsPage = () => {
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
                                                 className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                                                     }`}
                                             >
                                                 {pageNum}

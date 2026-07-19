@@ -13,6 +13,7 @@ import { materialService, type MaterialItem, type Supplier, type PurchaseOrder, 
 import { projectService } from "../../../services/projectService";
 import { masterService } from "../../../services/masterService";
 import { boqService } from "../../../services/boqService";
+import { useProject } from "../../../context/ProjectContext";
 
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
@@ -28,7 +29,8 @@ const MaterialReceiptPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Dashboard");
-    const [projectId, setProjectId] = useState<number>(1);
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,14 +59,6 @@ const MaterialReceiptPage = () => {
     const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
 
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) setProjectId(Number(pId));
-            } catch (e) { console.error(e); }
-        }
 
         const fetchProjects = async () => {
             try {
@@ -83,20 +77,11 @@ const MaterialReceiptPage = () => {
         fetchUnits();
     }, []);
 
-    const handleProjectChange = (newProjectId: number) => {
-        setProjectId(newProjectId);
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                if (user.user) {
-                    user.user.project_id = newProjectId;
-                } else {
-                    user.project_id = newProjectId;
-                }
-                localStorage.setItem("infrapilot_user", JSON.stringify(user));
-            } catch (e) { }
-        }
+    const fetchUnits = async () => {
+        try {
+            const res = await masterService.getEntities("units");
+            setMasterUnits(Array.isArray(res) ? res : ((res as any).items || (res as any).data || []));
+        } catch (err) { }
     };
     const [isViewMaterialOpen, setIsViewMaterialOpen] = useState(false);
     const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);

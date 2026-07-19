@@ -33,6 +33,7 @@ export interface DsrItem {
 
 export interface CreateDsrRequest {
   project_id: number;
+  task_id?: number | null;
   report_date: string;
   site_location: string;
   contractor_id: number;
@@ -56,6 +57,7 @@ export interface CreateDsrRequest {
 
 export interface UpdateDsrRequest {
   project_id?: number;
+  task_id?: number | null;
   report_date?: string;
   site_location?: string;
   contractor_id?: number;

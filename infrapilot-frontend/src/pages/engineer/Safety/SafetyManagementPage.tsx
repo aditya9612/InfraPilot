@@ -21,6 +21,7 @@ import {
 import { safetyService } from "../../../services/safetyService";
 import { projectService } from "../../../services/projectService";
 import type { IncidentItem as SafetyItem, CreateIncidentRequest as CreateSafetyRequest } from "../../../services/safetyService";
+import { useProject } from "../../../context/ProjectContext";
 
 const violationTypeColors: Record<string, string> = {
     "No Helmet": "bg-red-100 text-red-600 border-red-200",
@@ -50,7 +51,7 @@ const SafetyManagementPage = () => {
     const [incidentList, setIncidentList] = useState<SafetyItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
+
     const [searchTerm, setSearchTerm] = useState("");
 
     // Interactive StatCard Filter
@@ -70,7 +71,8 @@ const SafetyManagementPage = () => {
     // Filter State
     const [filterViolationType, setFilterViolationType] = useState("");
 
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const { selectedProjectId, setSelectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [projects, setProjects] = useState<any[]>([]);
     const [tasks, setTasks] = useState<any[]>([]);
     const [pageTasks, setPageTasks] = useState<any[]>([]);
@@ -119,16 +121,16 @@ const SafetyManagementPage = () => {
                     const pId = user?.project_id || user?.user?.project_id;
                     if (pId) {
                         const finalPId = Number(pId);
-                        setProjectId(finalPId);
+                        setSelectedProjectId(finalPId);
                         setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: finalPId }));
                         return;
                     }
                 }
-                setProjectId(92);
-                setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: 92 }));
+                setSelectedProjectId(0);
+                setFormData((prev: CreateSafetyRequest) => ({ ...prev, project_id: 0 }));
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(92);
+                setSelectedProjectId(0);
             }
         };
         initializeProject();
@@ -354,7 +356,7 @@ const SafetyManagementPage = () => {
 
         setIsSubmitting(true);
         try {
-            const newIncident = await safetyService.createIncident({...formData, project_id: formData.project_id || projectId || 0});
+            const newIncident = await safetyService.createIncident({ ...formData, project_id: formData.project_id || projectId || 0 });
             toast.success(activeTab === "Incident Report" ? "Incident reported successfully!" : "Safety incident created successfully!");
             setIsNewModalOpen(false);
 
@@ -452,8 +454,8 @@ const SafetyManagementPage = () => {
                             {activeTab === "Safety Checklist" ? "Safety Audit Registry" : "Incident Response Vault"}
                         </h1>
                         <p className="text-slate-500 text-sm">
-                            {activeTab === "Safety Checklist" 
-                                ? "Historical record of safety inspections and site compliance audits." 
+                            {activeTab === "Safety Checklist"
+                                ? "Historical record of safety inspections and site compliance audits."
                                 : "Detailed archive of site accidents, injuries, and corrective actions taken."}
                         </p>
                     </div>
@@ -462,7 +464,7 @@ const SafetyManagementPage = () => {
                             type="button"
                             onClick={() => {
                                 setFormData({
-                                    project_id: projectId || 92,
+                                    project_id: projectId || 0,
                                     date: new Date().toISOString().split("T")[0],
                                     violation_type: "No Helmet",
                                     description: "",
@@ -518,22 +520,22 @@ const SafetyManagementPage = () => {
                 </div>
 
                 {activeTab === "Safety Checklist" && (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
-                    {/* Integrated Filter Bar */}
-                    <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
-                        <div className="relative flex-1 max-w-md font-inter">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
-                                <Search className="w-4 h-4 font-inter" />
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Search by description, person or violation..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
-                            />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 font-inter">
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
+                        {/* Integrated Filter Bar */}
+                        <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
+                            <div className="relative flex-1 max-w-md font-inter">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
+                                    <Search className="w-4 h-4 font-inter" />
+                                </span>
+                                <input
+                                    type="text"
+                                    placeholder="Search by description, person or violation..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
+                                />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 font-inter">
                                 <select
                                     value={filterViolationType}
                                     onChange={(e) => setFilterViolationType(e.target.value)}
@@ -544,205 +546,204 @@ const SafetyManagementPage = () => {
                                         <option key={vt} value={vt}>{vt}</option>
                                     ))}
                                 </select>
-                            {activeStatFilter !== "All" && (
-                                <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter bg-white border border-slate-200 rounded-xl shadow-sm" title="Clear Stat Filter">
-                                    <RotateCcw className="w-4 h-4" />
-                                </button>
-                            )}
+                                {activeStatFilter !== "All" && (
+                                    <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 transition-colors font-inter bg-white border border-slate-200 rounded-xl shadow-sm" title="Clear Stat Filter">
+                                        <RotateCcw className="w-4 h-4" />
+                                    </button>
+                                )}
 
-                            <select
-                                value={sortOrder}
-                                onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
-                                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
-                            >
-                                <option value="latest">Latest First</option>
-                                <option value="oldest">Oldest First</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
-                        {isLoading ? (
-                            <div className="p-20 text-center font-inter">
-                                <div className="inline-block w-8 h-8 border-4 border-t-current rounded-full animate-spin mb-4 font-inter text-primary border-primary/20" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing vault...</p>
-                            </div>
-                        ) : (
-                            <table className="w-full text-left font-inter min-w-[1000px]">
-                                <thead>
-                                    <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
-                                        <th className="px-6 py-4 font-inter">Incident Details</th>
-                                        <th className="px-6 py-4 font-inter">Project Name</th>
-                                        <th className="px-6 py-4 font-inter">Task</th>
-                                        <th className="px-6 py-4 font-inter">Incident Summary</th>
-                                        <th className="px-6 py-4 font-inter">Violation Type</th>
-                                        <th className="px-6 py-4 font-inter">Status</th>
-                                        <th className="px-6 py-4 font-inter">Resources</th>
-                                        <th className="px-6 py-4 text-right font-inter">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50 font-inter">
-                                    {paginatedList.length > 0 ? (
-                                        paginatedList.map((item) => (
-                                            <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col font-inter">
-                                                        <span className="text-sm font-bold text-slate-800 font-inter">{item.date}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="text-xs font-semibold text-slate-600 font-inter">
-                                                        {getProjectName(item.project_id)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="text-xs font-semibold text-slate-600 font-inter bg-slate-100 px-2.5 py-1 rounded-lg truncate block max-w-[150px]" title={getTaskName((item as any).task_id)}>
-                                                        {getTaskName((item as any).task_id)}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col max-w-xs font-inter">
-                                                        <span className="text-xs font-bold text-slate-700 truncate font-inter">{item.description}</span>
-                                                        <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
-                                                            <HeartPulse className="w-3 h-3 text-rose-500" />
-                                                            <span className="truncate font-inter">{item.injury_details || "No injuries"}</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
-                                                        {item.violation_type}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
-                                                        item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
-                                                        item.safety_checklist_status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
-                                                        item.safety_checklist_status === 'rejected' || item.safety_checklist_status === 'unsafe' ? 'bg-rose-50 text-rose-600 border border-rose-200/50' :
-                                                        'bg-slate-100 text-slate-600'
-                                                    }`}>
-                                                        {item.safety_checklist_status || "pending"}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex flex-col font-inter">
-                                                        <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{item.responsible_person}</p>
-                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter truncate max-w-[150px]">ACTION: {item.action_taken}</p>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-right font-inter">
-                                                    <div className="flex items-center justify-end gap-2 font-inter">
-                                                        <button
-                                                            onClick={() => handleViewClick(item.id)}
-                                                            className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
-                                                            title="View Details"
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleEditClick(item.id)}
-                                                            className="p-2 text-slate-400 rounded-xl transition-all font-inter hover:text-primary hover:bg-primary/10"
-                                                            title="Modify Record"
-                                                        >
-                                                            <Edit2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
-                                                No matching records found in the project vault.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-
-                    {/* ── Pagination Controls ─────────────────────────────────── */}
-                    {!isLoading && filteredList.length > 0 && (
-                        <div className="px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
-                            {/* Left: Items per page */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
                                 <select
-                                    value={itemsPerPage}
-                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                    className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                                    className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer shadow-sm font-inter"
                                 >
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
+                                    <option value="latest">Latest First</option>
+                                    <option value="oldest">Oldest First</option>
                                 </select>
                             </div>
+                        </div>
 
-                            {/* Center: Showing info */}
-                            <div className="text-[11px] font-medium text-slate-500 hidden md:block">
-                                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} records
-                            </div>
+                        <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                            {isLoading ? (
+                                <div className="p-20 text-center font-inter">
+                                    <div className="inline-block w-8 h-8 border-4 border-t-current rounded-full animate-spin mb-4 font-inter text-primary border-primary/20" />
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 font-inter">Syncing vault...</p>
+                                </div>
+                            ) : (
+                                <table className="w-full text-left font-inter min-w-[1000px]">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 font-inter">
+                                            <th className="px-6 py-4 font-inter">Incident Details</th>
+                                            <th className="px-6 py-4 font-inter">Project Name</th>
+                                            <th className="px-6 py-4 font-inter">Task</th>
+                                            <th className="px-6 py-4 font-inter">Incident Summary</th>
+                                            <th className="px-6 py-4 font-inter">Violation Type</th>
+                                            <th className="px-6 py-4 font-inter">Status</th>
+                                            <th className="px-6 py-4 font-inter">Resources</th>
+                                            <th className="px-6 py-4 text-right font-inter">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50 font-inter">
+                                        {paginatedList.length > 0 ? (
+                                            paginatedList.map((item) => (
+                                                <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col font-inter">
+                                                            <span className="text-sm font-bold text-slate-800 font-inter">{item.date}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-xs font-semibold text-slate-600 font-inter">
+                                                            {getProjectName(item.project_id)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-xs font-semibold text-slate-600 font-inter bg-slate-100 px-2.5 py-1 rounded-lg truncate block max-w-[150px]" title={getTaskName((item as any).task_id)}>
+                                                            {getTaskName((item as any).task_id)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col max-w-xs font-inter">
+                                                            <span className="text-xs font-bold text-slate-700 truncate font-inter">{item.description}</span>
+                                                            <div className="flex items-center gap-1 text-[10px] text-slate-400 font-inter">
+                                                                <HeartPulse className="w-3 h-3 text-rose-500" />
+                                                                <span className="truncate font-inter">{item.injury_details || "No injuries"}</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${violationTypeColors[item.violation_type] || "bg-slate-100 text-slate-500"}`}>
+                                                            {item.violation_type}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${item.safety_checklist_status === 'resolved' || item.safety_checklist_status === 'approved' || item.safety_checklist_status === 'safe' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
+                                                            item.safety_checklist_status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
+                                                                item.safety_checklist_status === 'rejected' || item.safety_checklist_status === 'unsafe' ? 'bg-rose-50 text-rose-600 border border-rose-200/50' :
+                                                                    'bg-slate-100 text-slate-600'
+                                                            }`}>
+                                                            {item.safety_checklist_status || "pending"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col font-inter">
+                                                            <p className="text-[10px] font-bold text-slate-800 font-inter uppercase tracking-widest">{item.responsible_person}</p>
+                                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-inter truncate max-w-[150px]">ACTION: {item.action_taken}</p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right font-inter">
+                                                        <div className="flex items-center justify-end gap-2 font-inter">
+                                                            <button
+                                                                onClick={() => handleViewClick(item.id)}
+                                                                className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
+                                                                title="View Details"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleEditClick(item.id)}
+                                                                className="p-2 text-slate-400 rounded-xl transition-all font-inter hover:text-primary hover:bg-primary/10"
+                                                                title="Modify Record"
+                                                            >
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px] font-inter">
+                                                    No matching records found in the project vault.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
 
-                            {/* Right: Pagination */}
-                            <div className="flex flex-wrap justify-center items-center gap-1.5">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                </button>
+                        {/* ── Pagination Controls ─────────────────────────────────── */}
+                        {!isLoading && filteredList.length > 0 && (
+                            <div className="px-6 py-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
+                                {/* Left: Items per page */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-medium text-slate-500">Records per page:</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                        className="border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 px-2 py-1 outline-none focus:border-primary bg-white shadow-sm"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
 
-                                {(() => {
-                                    const totalItems = filteredList.length;
-                                    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
-                                    const pages = [];
-                                    if (totalPages <= 5) {
-                                        for (let i = 1; i <= totalPages; i++) pages.push(i);
-                                    } else {
-                                        if (currentPage <= 3) {
-                                            pages.push(1, 2, 3, 4, '...', totalPages);
-                                        } else if (currentPage >= totalPages - 2) {
-                                            pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                {/* Center: Showing info */}
+                                <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                                    Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredList.length)} of {filteredList.length} records
+                                </div>
+
+                                {/* Right: Pagination */}
+                                <div className="flex flex-wrap justify-center items-center gap-1.5">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+
+                                    {(() => {
+                                        const totalItems = filteredList.length;
+                                        const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                                        const pages = [];
+                                        if (totalPages <= 5) {
+                                            for (let i = 1; i <= totalPages; i++) pages.push(i);
                                         } else {
-                                            pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                            if (currentPage <= 3) {
+                                                pages.push(1, 2, 3, 4, '...', totalPages);
+                                            } else if (currentPage >= totalPages - 2) {
+                                                pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                                            } else {
+                                                pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                                            }
                                         }
-                                    }
 
-                                    return pages.map((page, index) => {
-                                        if (page === '...') {
-                                            return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
-                                        }
-                                        const pageNum = page;
-                                        const isActive = currentPage === pageNum;
-                                        return (
-                                            <button
-                                                key={`page-${pageNum}`}
-                                                onClick={() => setCurrentPage(pageNum as number)}
-                                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
+                                        return pages.map((page, index) => {
+                                            if (page === '...') {
+                                                return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                                            }
+                                            const pageNum = page;
+                                            const isActive = currentPage === pageNum;
+                                            return (
+                                                <button
+                                                    key={`page-${pageNum}`}
+                                                    onClick={() => setCurrentPage(pageNum as number)}
+                                                    className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
                                                         ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
                                                         : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
-                                                    }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    });
-                                })()}
+                                                        }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        });
+                                    })()}
 
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredList.length / itemsPerPage), prev + 1))}
-                                    disabled={currentPage === Math.max(1, Math.ceil(filteredList.length / itemsPerPage)) || filteredList.length === 0}
-                                    className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredList.length / itemsPerPage), prev + 1))}
+                                        disabled={currentPage === Math.max(1, Math.ceil(filteredList.length / itemsPerPage)) || filteredList.length === 0}
+                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
                 )}
 
                 {activeTab === "Incident Report" && (

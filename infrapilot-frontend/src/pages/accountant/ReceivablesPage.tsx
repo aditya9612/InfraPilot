@@ -14,6 +14,29 @@ import QuotationViewModal from "./QuotationViewModal";
 import InvoiceViewModal from "./InvoiceViewModal";
 import InvoiceEditModal from "./InvoiceEditModal";
 
+const ProjectNameCell = ({ projectId, projects }: { projectId: number | string, projects: any[] }) => {
+  const [name, setName] = useState<string>("");
+
+  useEffect(() => {
+    if (!projectId) {
+      setName("—");
+      return;
+    }
+    const p = projects.find(proj => String(proj.id) === String(projectId));
+    if (p) {
+      setName(p.name || p.project_name || p.client_name || String(projectId));
+    } else {
+      projectService.getProjectById(Number(projectId)).then(proj => {
+        setName(proj.name || proj.project_name || String(projectId));
+      }).catch(() => {
+        setName(String(projectId));
+      });
+    }
+  }, [projectId, projects]);
+
+  return <>{name}</>;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock Data
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,8 +77,11 @@ const MOCK_LEDGER = [
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v);
+const fmt = (v: any) => {
+  const num = Number(v);
+  if (isNaN(num)) return "₹0";
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(num);
+};
 
 const statusBadge = (s: any) => {
   if (!s || typeof s !== 'string') return "bg-slate-100 text-slate-500";
@@ -327,13 +353,13 @@ const InvoicesSection = ({
                     <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px] truncate">{inv.site_address}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.project_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.project_type}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.subtotal || inv.amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.gst_amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.tds_amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.discount_amount)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(inv.grand_total || inv.total_with_gst)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700">{fmt(inv.advance_paid || inv.received_amount)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-rose-600">{fmt(inv.balance_due || inv.pending_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.subtotal ?? inv.amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.gst_amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.tds_amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.discount_amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(inv.grand_total ?? inv.total_with_gst ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700">{fmt(inv.advance_paid ?? inv.received_amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-rose-600">{fmt(inv.balance_due ?? inv.pending_amount ?? 0)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.payment_mode}</td>
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status || inv.payment_status)}`}>{inv.status || inv.payment_status}</span></td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.created_at?.substring(0,10)}</td>
@@ -731,11 +757,11 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                     <td colSpan={14} className="px-4 py-8 text-center text-slate-400 text-sm">No invoices found.</td>
                   </tr>
                 ) : paginatedInvoices.map(inv => {
-                  const p = projects.find(proj => String(proj.id) === String(inv.project_id));
-                  const projName = p ? (p.name || p.project_name || p.client_name) : inv.project_id;
                   return (
                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
-                    <td className="px-4 py-3 text-xs text-slate-600">{projName}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      <ProjectNameCell projectId={inv.project_id} projects={projects} />
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-600">{inv.type}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{inv.amount}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{inv.gst_percent}</td>

@@ -24,8 +24,6 @@ const accountTypeStyle: Record<string, string> = {
 const getFlatAccounts = (accounts: ChartAccount[], parentName = ""): any[] => {
   let flat: any[] = [];
   accounts.forEach(acc => {
-    // Only add leaf nodes or specific level nodes to the table based on preference. 
-    // Here we'll add all for visibility, or only leaves if they have no children.
     flat.push({
       ...acc,
       parentName: parentName || "—"
@@ -35,6 +33,21 @@ const getFlatAccounts = (accounts: ChartAccount[], parentName = ""): any[] => {
     }
   });
   return flat;
+};
+
+// Map backend data to frontend ChartAccount format
+const mapBackendAccount = (acc: any): ChartAccount => {
+  return {
+    ...acc,
+    id: acc.id?.toString() || Math.random().toString(36).substr(2, 9),
+    account_name: acc.name || acc.account_name,
+    account_code: acc.code || acc.account_code,
+    account_type: (acc.type || acc.account_type || "Asset").charAt(0).toUpperCase() + (acc.type || acc.account_type || "Asset").slice(1),
+    is_active: acc.status === "Active" || acc.is_active === true,
+    opening_balance: acc.opening_balance || 0,
+    current_balance: acc.current_balance || 0,
+    children: acc.children ? acc.children.map(mapBackendAccount) : undefined
+  };
 };
 
 const ChartOfAccountsPage = () => {
@@ -51,7 +64,7 @@ const ChartOfAccountsPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // New Modals and Data State
-  const [isListView, setIsListView] = useState(false);
+  const [isListView, setIsListView] = useState(true);
   
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [ledgerAccount, setLedgerAccount] = useState<any | null>(null);
@@ -87,8 +100,9 @@ const ChartOfAccountsPage = () => {
   const fetchAccounts = async () => {
     try {
       const data = isListView ? await accountingService.getAccounts() : await accountingService.getAccountsTree();
-      // Ensure backend array format
-      setCoa(Array.isArray(data) ? data : data?.data || []);
+      // Ensure backend array format and map it
+      const rawArray = Array.isArray(data) ? data : data?.data || [];
+      setCoa(rawArray.map(mapBackendAccount));
     } catch (err) {
       toast.error("Failed to fetch chart of accounts");
     }
@@ -323,6 +337,7 @@ const ChartOfAccountsPage = () => {
                     <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Account Type</th>
                     <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Parent Account</th>
                     <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Opening Balance</th>
+                    <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Current Balance</th>
                     <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Status</th>
                     <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Actions</th>
                   </tr>
@@ -351,6 +366,13 @@ const ChartOfAccountsPage = () => {
                             currency: "INR",
                             maximumFractionDigits: 0,
                           }).format(acc.opening_balance) : "—"}
+                        </td>
+                        <td className="px-5 py-3.5 text-sm font-bold text-slate-700 tabular-nums text-right">
+                          {acc.current_balance !== undefined ? new Intl.NumberFormat("en-IN", {
+                            style: "currency",
+                            currency: "INR",
+                            maximumFractionDigits: 2,
+                          }).format(acc.current_balance) : "—"}
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <span className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded-md ${acc.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>

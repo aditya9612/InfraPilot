@@ -21,6 +21,7 @@ const NewDSREntryModal = ({
 }: NewDSREntryModalProps) => {
   const [formData, setFormData] = useState<CreateDsrRequest>({
     project_id: projectId,
+    task_id: null,
     report_date: new Date().toISOString().split("T")[0],
     site_location: "",
     contractor_id: 1,
@@ -48,10 +49,21 @@ const NewDSREntryModal = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [projects, setProjects] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
 
   useEffect(() => {
     setFormData((prev) => ({ ...prev, project_id: projectId }));
   }, [projectId]);
+
+  useEffect(() => {
+    if (isOpen && formData.project_id) {
+      projectService.getTasks(formData.project_id)
+        .then(tData => setTasks(Array.isArray(tData) ? tData : (tData?.items || [])))
+        .catch(e => console.error("Failed to load tasks", e));
+    } else {
+      setTasks([]);
+    }
+  }, [isOpen, formData.project_id]);
 
   useEffect(() => {
     if (isOpen) {
@@ -60,6 +72,7 @@ const NewDSREntryModal = ({
       setPhotoPreview(null);
       setFormData(prev => ({
         ...prev,
+        task_id: null,
         report_date: new Date().toISOString().split("T")[0],
         site_location: "",
         contractor_id: 1,
@@ -125,7 +138,10 @@ const NewDSREntryModal = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: (name === "contractor_id" || name === "project_id") ? Number(value) : value }));
+    setFormData((prev) => ({ 
+      ...prev, 
+      [name]: (name === "contractor_id" || name === "project_id" || name === "task_id") ? (value ? Number(value) : null) : value 
+    }));
     if (errors[name]) {
       setErrors((prev) => {
         const { [name]: _, ...rest } = prev;
@@ -206,6 +222,15 @@ const NewDSREntryModal = ({
               <select name="project_id" value={formData.project_id} onChange={handleChange} className={inputClasses(errors.project_id)}>
                 {projects.map(p => (
                   <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClasses}>Task</label>
+              <select name="task_id" value={formData.task_id || ""} onChange={handleChange} className={inputClasses(errors.task_id)}>
+                <option value="">Select Task (Optional)</option>
+                {tasks.map(t => (
+                  <option key={t.id} value={t.id}>{t.task_name || t.title}</option>
                 ))}
               </select>
             </div>

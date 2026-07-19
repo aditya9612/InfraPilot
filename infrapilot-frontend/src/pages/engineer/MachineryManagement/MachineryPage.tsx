@@ -17,6 +17,7 @@ import {
     AlertTriangle, ShieldCheck, Download, Link2, History, ChevronLeft, ChevronRight, ExternalLink, Check
 } from "lucide-react";
 import EquipmentFormModal from "./EquipmentFormModal";
+import { useProject } from "../../../context/ProjectContext";
 
 // Types mapping for condition colors
 const conditionColors: Record<string, string> = {
@@ -37,28 +38,8 @@ const TABS = ["Dashboard", "Machinery & Equipment List", "Usage", "Transfer Equi
 
 const MachineryPage = () => {
     // ─── Project Context ──────────────────────────────────────────────
-    const getProjectIdFromStorage = (): number | null => {
-        try {
-            const userStr = localStorage.getItem("infrapilot_user");
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const pId = user?.default_project_id || user?.project_id || user?.user?.project_id;
-                if (pId) return Number(pId);
-            }
-        } catch (e) { }
-        return null;
-    };
-
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(getProjectIdFromStorage);
-
-    // Re-sync when Settings page changes the active project (storage event)
-    useEffect(() => {
-        const onStorageChange = () => {
-            setSelectedProjectId(getProjectIdFromStorage());
-        };
-        window.addEventListener('storage', onStorageChange);
-        return () => window.removeEventListener('storage', onStorageChange);
-    }, []);
+    const { selectedProjectId: globalProjectId, setSelectedProjectId } = useProject();
+    const selectedProjectId = globalProjectId || 0;
 
     // ─── Main States ──────────────────────────────────────────────────
     const [activeTab, setActiveTab] = useState(TABS[0]);

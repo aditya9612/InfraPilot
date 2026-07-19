@@ -26,6 +26,7 @@ import {
 import { sitePhotoService } from "../../services/sitePhotoService";
 import { projectService } from "../../services/projectService";
 import type { SitePhoto } from "../../types/sitePhoto";
+import { useProject } from "../../context/ProjectContext";
 
 // â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export const ACTIVITY_TAGS = [
@@ -54,7 +55,8 @@ const SitePhotosPage = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [filterActivity, setFilterActivity] = useState("All Activities");
     const [filterLocation, setFilterLocation] = useState("All Locations");
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [projects, setProjects] = useState<any[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(12); // Grid friendly number
@@ -71,23 +73,6 @@ const SitePhotosPage = () => {
     const [photoToDelete, setPhotoToDelete] = useState<number | string | null>(null);
 
     // Resolve Project ID from session
-    useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    setProjectId(Number(pId));
-                } else {
-                    setProjectId(92);
-                }
-            } catch (e) {
-                console.error("Failed to resolve project ID", e);
-                setProjectId(92);
-            }
-        }
-    }, []);
 
     const fetchPhotos = useCallback(async () => {
         if (!projectId) return;
@@ -457,9 +442,9 @@ const SitePhotosPage = () => {
                                                         </td>
                                                         <td className="px-6 py-4 font-inter">
                                                             <span className="text-sm font-bold text-slate-800 uppercase tracking-widest">
-                                                                {projects.find(p => Number(p.id) === Number(photo.project_id))?.project_name || 
-                                                                 projects.find(p => Number(p.id) === Number(photo.project_id))?.name || 
-                                                                 `Project #${photo.project_id}`}
+                                                                {projects.find(p => Number(p.id) === Number(photo.project_id))?.project_name ||
+                                                                    projects.find(p => Number(p.id) === Number(photo.project_id))?.name ||
+                                                                    `Project #${photo.project_id}`}
                                                             </span>
                                                         </td>
                                                         <td className="px-6 py-4 font-inter">
@@ -578,8 +563,8 @@ const SitePhotosPage = () => {
                                                 key={`page-${pageNum}`}
                                                 onClick={() => setCurrentPage(pageNum)}
                                                 className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive
-                                                        ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
-                                                        : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
+                                                    ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary'
+                                                    : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'
                                                     }`}
                                             >
                                                 {pageNum}

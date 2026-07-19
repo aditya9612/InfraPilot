@@ -14,6 +14,7 @@ import { materialService } from "../../services/materialService";
 import { issueService } from "../../services/issueService";
 import { reportService } from "../../services/reportService";
 import api from "../../services/api";
+import { useProject } from "../../context/ProjectContext";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -172,7 +173,8 @@ const ReportsPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
 
     // ─── Export Filter State ───────────────────────────────────────────────────
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -197,37 +199,7 @@ const ReportsPage = () => {
     const [quarterlyExportFilters, setQuarterlyExportFilters] = useState({ report_date: "", start_date: "", end_date: "", month: "", year: "", quarter: "" });
     const [isQuarterlyExporting, setIsQuarterlyExporting] = useState(false);
 
-    // Resolve Project ID from session & listen for changes
-    useEffect(() => {
-        const checkProject = () => {
-            const userStr = localStorage.getItem("infrapilot_user");
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    const pId = user?.project_id || user?.user?.project_id;
-                    if (pId && pId !== projectId) {
-                        setProjectId(Number(pId));
-                    } else if (!pId && projectId !== 92) {
-                        setProjectId(92);
-                    }
-                } catch (e) {
-                    console.error("Failed to resolve project ID", e);
-                }
-            }
-        };
 
-        checkProject();
-
-        // Listen for tab focus to catch project changes from settings
-        window.addEventListener('focus', checkProject);
-        // Interval to catch same-tab changes quickly
-        const interval = setInterval(checkProject, 2000);
-
-        return () => {
-            window.removeEventListener('focus', checkProject);
-            clearInterval(interval);
-        };
-    }, [projectId]);
 
     const fetchReports = useCallback(async () => {
         if (!projectId) return;
@@ -429,7 +401,7 @@ const ReportsPage = () => {
                 const currentYear = Number(dateParts[0]);
 
                 const monthlyRes = await api.get(`/reports/project`, {
-                    params: { project_id: projectId || 92, type: "monthly", month: currentMonth, year: currentYear }
+                    params: { project_id: projectId || 0, type: "monthly", month: currentMonth, year: currentYear }
                 });
                 
                 const data = monthlyRes.data;
@@ -460,7 +432,7 @@ const ReportsPage = () => {
                 const currentQuarter = Math.ceil(currentMonth / 3);
 
                 const quarterlyRes = await api.get(`/reports/quarterly-audit-summary`, {
-                    params: { project_id: projectId || 92, year: currentYear, quarter: currentQuarter }
+                    params: { project_id: projectId || 0, year: currentYear, quarter: currentQuarter }
                 });
 
                 const data = quarterlyRes.data;
@@ -504,7 +476,7 @@ const ReportsPage = () => {
             const type = activeFilter;
             
             const params = new URLSearchParams({
-                project_id: String(projectId || 92),
+                project_id: String(projectId || 0),
                 type: type,
                 report_date: startDate,
                 start_date: startDate,
@@ -547,7 +519,7 @@ const ReportsPage = () => {
             const type = activeFilter;
             
             const params = new URLSearchParams({
-                project_id: String(projectId || 92),
+                project_id: String(projectId || 0),
                 type: type,
                 report_date: startDate,
                 start_date: startDate,
@@ -586,7 +558,7 @@ const ReportsPage = () => {
         toast.loading(`Fetching data for ${report.name}...`, { id: `pdf-${report.id}` });
         try {
             if (report.id === "material") {
-                const blob = await reportService.exportMaterialPDF(projectId || 92);
+                const blob = await reportService.exportMaterialPDF(projectId || 0);
                 
                 if (blob.type === "application/json") {
                     const errorText = await blob.text();
@@ -619,7 +591,7 @@ const ReportsPage = () => {
                     return;
                 }
 
-                const response = await api.get(`/reports/daily/export/pdf?project_id=${projectId || 92}&report_date=${startDate}&_t=${Date.now()}`, {
+                const response = await api.get(`/reports/daily/export/pdf?project_id=${projectId || 0}&report_date=${startDate}&_t=${Date.now()}`, {
                     responseType: "blob",
                     headers: { 'Accept': 'application/pdf, application/octet-stream' }
                 });
@@ -658,7 +630,7 @@ const ReportsPage = () => {
             }
 
             if (report.id === "weekly") {
-                const blob = await reportService.exportWeeklyPDF(projectId || 92);
+                const blob = await reportService.exportWeeklyPDF(projectId || 0);
                 
                 if (blob.type === "application/json") {
                     const errorText = await blob.text();
@@ -709,7 +681,7 @@ const ReportsPage = () => {
             let mappedType = "monthly";
             if (report.id === "daily") mappedType = "daily";
 
-            const reportData = await reportService.getProjectReportData(projectId || 92, mappedType, month, year);
+            const reportData = await reportService.getProjectReportData(projectId || 0, mappedType, month, year);
 
             // Usually we'd pass this data to a PDF generator, but for now we fallback to our generic print
             console.log("Successfully fetched report data for PDF:", reportData);
@@ -736,7 +708,7 @@ const ReportsPage = () => {
             if (exportFilters.start_date) params.start_date = exportFilters.start_date;
             if (exportFilters.end_date) params.end_date = exportFilters.end_date;
             if (exportFilters.contractor_name.trim()) params.contractor_name = exportFilters.contractor_name.trim();
-            await dsrService.exportDsrExcel(projectId || 92, params);
+            await dsrService.exportDsrExcel(projectId || 0, params);
             toast.success("Excel report exported!", { id: toastId });
             setIsExportModalOpen(false);
         } catch (err: any) {
@@ -755,7 +727,7 @@ const ReportsPage = () => {
         setIsLabourExporting(true);
         const toastId = toast.loading(`Generating Labour ${labourExportType === "pdf" ? "PDF" : "Excel"} report...`);
         try {
-            const params: any = { project_id: projectId || 92 };
+            const params: any = { project_id: projectId || 0 };
             if (labourExportFilters.date) params.date = labourExportFilters.date;
             if (labourExportFilters.skill_category) params.skill_category = labourExportFilters.skill_category;
 
@@ -796,7 +768,7 @@ const ReportsPage = () => {
         setIsIssueExporting(true);
         const toastId = toast.loading(`Generating Issue ${issueExportType === "pdf" ? "PDF" : "Excel"} report...`);
         try {
-            const params: any = { project_id: projectId || 92 };
+            const params: any = { project_id: projectId || 0 };
             if (issueExportFilters.status) params.status = issueExportFilters.status;
             if (issueExportFilters.priority) params.priority = issueExportFilters.priority;
             if (issueExportFilters.start_date) params.start_date = issueExportFilters.start_date;
@@ -839,7 +811,7 @@ const ReportsPage = () => {
         setIsQuarterlyExporting(true);
         const toastId = toast.loading(`Generating Quarterly ${quarterlyExportType === "pdf" ? "PDF" : "Excel"} report...`);
         try {
-            const params: any = { project_id: projectId || 92, type: "quarterly" };
+            const params: any = { project_id: projectId || 0, type: "quarterly" };
             if (quarterlyExportFilters.report_date) params.report_date = quarterlyExportFilters.report_date;
             if (quarterlyExportFilters.start_date) params.start_date = quarterlyExportFilters.start_date;
             if (quarterlyExportFilters.end_date) params.end_date = quarterlyExportFilters.end_date;
@@ -885,7 +857,7 @@ const ReportsPage = () => {
         toast.loading(`Exporting ${report.name}...`, { id: `exp-${report.id}` });
         try {
             if (report.id === "material") {
-                const blob = await reportService.exportMaterialExcel(projectId || 92);
+                const blob = await reportService.exportMaterialExcel(projectId || 0);
 
                 if (blob.type === "application/json") {
                     const errorText = await blob.text();
@@ -946,7 +918,7 @@ const ReportsPage = () => {
                 const currentYear = Number(dateParts[0]);
 
                 const blob = await reportService.exportProjectReportExcel({
-                    project_id: projectId || 92,
+                    project_id: projectId || 0,
                     type: report.id,
                     month: currentMonth,
                     year: currentYear
@@ -978,7 +950,7 @@ const ReportsPage = () => {
             }
 
             if (report.id === "weekly") {
-                const blob = await reportService.exportWeeklyExcel(projectId || 92);
+                const blob = await reportService.exportWeeklyExcel(projectId || 0);
 
                 if (blob.type === "application/json") {
                     const errorText = await blob.text();
@@ -1012,7 +984,7 @@ const ReportsPage = () => {
             let mappedType = "monthly";
             if (report.id === "daily") mappedType = "daily";
 
-            const reportData = await reportService.getProjectReportData(projectId || 92, mappedType, month, year);
+            const reportData = await reportService.getProjectReportData(projectId || 0, mappedType, month, year);
 
             // Dump the JSON to an excel/text file for now as a placeholder for actual excel generation
             const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });

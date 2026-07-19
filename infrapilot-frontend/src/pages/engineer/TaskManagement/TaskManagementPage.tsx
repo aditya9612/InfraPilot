@@ -17,6 +17,7 @@ import { projectService } from '../../../services/projectService';
 import { boqService } from '../../../services/boqService';
 import { workProgressService } from '../../../services/workProgressService';
 import labourService from '../../../services/labourService';
+import { useProject } from '../../../context/ProjectContext';
 import type { Task, ProjectMember, ProjectStatus } from '../../../types/project';
 
 interface FrontendTask extends Omit<Task, 'priority'> {
@@ -90,7 +91,8 @@ const AudioButton = ({ audioData }: { audioData: string }) => {
 };
 
 const TaskManagementPage = () => {
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [tasks, setTasks] = useState<FrontendTask[]>([]);
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -376,21 +378,14 @@ const TaskManagementPage = () => {
     }, [projectId]);
 
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
         let localProjects: any[] = [];
+        const userStr = localStorage.getItem("infrapilot_user");
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    setProjectId(Number(pId));
-                } else {
-                    setProjectId(92);
-                }
                 localProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
             } catch (e) {
-                console.error("Failed to resolve project ID", e);
-                setProjectId(92);
+                console.error("Failed to parse local projects", e);
             }
         }
 
@@ -1480,7 +1475,7 @@ const TaskManagementPage = () => {
 
                             {/* Project List */}
                             <div className="p-6 bg-slate-50 flex-1 space-y-4">
-                                {[{ id: projectId || 92, name: currentProjectName, tasksCount: filteredTasks.length, status: 'Planned' as ProjectStatus, tasks: filteredTasks }].map(project => {
+                                {[{ id: projectId || 0, name: currentProjectName, tasksCount: filteredTasks.length, status: 'Planned' as ProjectStatus, tasks: filteredTasks }].map(project => {
                                     const isExpanded = expandedProjects.includes(project.id);
                                     return (
                                         <div key={project.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">

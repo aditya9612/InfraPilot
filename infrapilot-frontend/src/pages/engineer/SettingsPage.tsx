@@ -6,6 +6,7 @@ import { Upload, Trash2, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { settingsService } from "../../services/settingsService";
 import { projectService } from "../../services/projectService";
+import { useProject } from "../../context/ProjectContext";
 import type {
     UserSettings,
     UserProfile,
@@ -63,7 +64,8 @@ const SettingsPage = () => {
 
     // ── Settings State ──────────────────────────────────────────────────
     const [settings, setSettings] = useState<UserSettings | null>(null);
-    const [selectedProject, setSelectedProject] = useState<number | null>(null);
+    const { selectedProjectId, setSelectedProjectId } = useProject();
+    const [selectedProject, setSelectedProject] = useState<number | null>(selectedProjectId);
     const [projects, setProjects] = useState<any[]>([]);
     const location = useLocation();
 
@@ -118,7 +120,11 @@ const SettingsPage = () => {
             setProjects(Array.isArray(projectsRes) ? projectsRes : (projectsRes.items || []));
 
             // Map Settings
-            setSelectedProject(settingsRes.default_project_id);
+            if (settingsRes.default_project_id) {
+                setSelectedProject(settingsRes.default_project_id);
+            } else if (selectedProjectId) {
+                setSelectedProject(selectedProjectId);
+            }
             setLengthUnit(settingsRes.unit || "Meter");
             setFinancialYear(settingsRes.financial_year || "2025-26");
             setCurrency(settingsRes.currency || "INR");
@@ -244,11 +250,11 @@ const SettingsPage = () => {
             const profileData: any = {
                 full_name: profile.full_name,
                 role: profile.role,
-                mobile_number: profile.mobile_number?.replace(/\D/g, "") || "",
+                mobile_number: profile.mobile_number.replace(/\D/g, ""),
                 email: profile.email,
                 address: profile.address,
-                pan_number: profile.pan_number?.toUpperCase() || "",
-                aadhaar_number: profile.aadhaar_number?.replace(/\D/g, "") || "",
+                pan_number: profile.pan_number.toUpperCase(),
+                aadhaar_number: profile.aadhaar_number.replace(/\D/g, ""),
                 designation: profile.designation,
                 joining_date: profile.joining_date,
                 is_active: profile.is_active,
@@ -274,41 +280,8 @@ const SettingsPage = () => {
             // Refetch fresh configurations from backend to keep everything fully synced
             await fetchData();
 
-            // UPDATE LOCAL STORAGE WITH NEW ACTIVE PROJECT
-            // UPDATE LOCAL STORAGE WITH NEW ACTIVE PROJECT
-            try {
-                const userStr = localStorage.getItem("infrapilot_user");
-                if (userStr && selectedProject) {
-                    const parsed = JSON.parse(userStr);
-                    const selectedProjObj = projects.find(p => Number(p.id) === Number(selectedProject));
-
-                    parsed.project_id = Number(selectedProject);
-                    parsed.default_project_id = Number(selectedProject);  // used by all pages for priority resolution
-
-                    if (selectedProjObj) {
-                        parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
-                    }
-
-                    if (parsed.user) {
-                        parsed.user.project_id = Number(selectedProject);
-                        if (selectedProjObj) {
-                            parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
-                        }
-
-                        // Update global user profile details
-                        parsed.user.full_name = updatedProfile.full_name || parsed.user.full_name;
-                        parsed.user.email = updatedProfile.email || parsed.user.email;
-                        if (updatedProfile.profile_image) {
-                            parsed.user.profile_image = updatedProfile.profile_image;
-                        }
-                    }
-                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
-
-                    // Dispatch storage event so Navbar can pick up the new name/image instantly
-                    window.dispatchEvent(new Event('storage'));
-                }
-            } catch (e) {
-                console.error("Failed to update user session with new project", e);
+            if (selectedProject) {
+                setSelectedProjectId(selectedProject);
             }
 
             toast.success("Account settings synchronized!", { id: toastId });
@@ -372,31 +345,31 @@ const SettingsPage = () => {
 
                 {/* ── Stat Cards ───────────────────────────────────────────── */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Active Project</p>
-                            <p className="text-base font-bold text-primary truncate">
-                                {projects.find(p => p.id === selectedProject)?.project_name || `ID: ${selectedProject}`}
-                            </p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Primary project workspace</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Unit System</p>
-                            <p className="text-base font-bold text-emerald-500">{unitSystem}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{massUnit} · {lengthUnit}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Notifications</p>
-                            <p className="text-base font-bold text-amber-500">
-                                {Object.values(notifications).filter(Boolean).length} / {Object.keys(notifications).length}
-                            </p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Channels enabled</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
-                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Language</p>
-                            <p className="text-base font-bold text-slate-700">{language}</p>
-                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{timezone}</p>
-                        </div>
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Active Project</p>
+                        <p className="text-base font-bold text-primary truncate">
+                            {projects.find(p => p.id === selectedProject)?.project_name || `ID: ${selectedProject}`}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Primary project workspace</p>
                     </div>
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Unit System</p>
+                        <p className="text-base font-bold text-emerald-500">{unitSystem}</p>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{massUnit} · {lengthUnit}</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Notifications</p>
+                        <p className="text-base font-bold text-amber-500">
+                            {Object.values(notifications).filter(Boolean).length} / {Object.keys(notifications).length}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Channels enabled</p>
+                    </div>
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Language</p>
+                        <p className="text-base font-bold text-slate-700">{language}</p>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{timezone}</p>
+                    </div>
+                </div>
                 {/* ── Main Settings Grid ───────────────────────────────────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 

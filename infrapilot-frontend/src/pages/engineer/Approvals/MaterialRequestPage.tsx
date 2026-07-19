@@ -22,6 +22,7 @@ import {
 import { siteRequestService } from "../../../services/siteRequestService";
 import { projectService } from "../../../services/projectService";
 import type { CreateSiteRequest } from "../../../services/siteRequestService";
+import { useProject } from "../../../context/ProjectContext";
 
 // â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface MaterialRequestRecord {
@@ -41,7 +42,8 @@ const MaterialRequestPage = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [currentPage, setCurrentPage] = useState(1);
     const [currentUserName, setCurrentUserName] = useState("Site Engineer");
     const [currentUserId, setCurrentUserId] = useState<number | null>(null);
@@ -64,22 +66,11 @@ const MaterialRequestPage = () => {
         if (userStr) {
             try {
                 const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-
                 setCurrentUserName(user?.name || user?.user?.name || "Engineer");
                 setCurrentUserId(Number(user?.id || user?.user?.id || 36));
-
-                if (pId) {
-                    setProjectId(Number(pId));
-                } else {
-                    setProjectId(92);
-                }
             } catch (e) {
                 console.error("Failed to resolve user data", e);
-                setProjectId(92);
             }
-        } else {
-            setProjectId(92);
         }
     }, []);
 

@@ -18,25 +18,15 @@ import AdvancePaymentModal from '../../../components/payment/AdvancePaymentModal
 import GeneratePayrollModal from '../../../components/payment/GeneratePayrollModal';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../../utils/currencyUtils';
+import { useProject } from '../../../context/ProjectContext';
 
 const PaymentPage: React.FC = () => {
     const [labours, setLabours] = useState<any[]>([]);
     const [history, setHistory] = useState<any[]>([]);
     const [pendingDues, setPendingDues] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [projectId] = useState<number>(() => {
-        try {
-            const userStr = localStorage.getItem("infrapilot_user");
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) return Number(pId);
-            }
-        } catch (err) {
-            console.error("Failed to load user project context:", err);
-        }
-        return 92; // Default fallback to 92 to ensure list renders and matches registered project
-    });
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [activeTab, setActiveTab] = useState<'payroll' | 'history' | 'dues' | 'weekly'>('payroll');
     const [weeklyReports, setWeeklyReports] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState("");

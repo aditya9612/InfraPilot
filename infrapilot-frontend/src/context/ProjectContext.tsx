@@ -28,7 +28,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         setIsLoading(true);
         try {
-            if (user.role === 'ProjectManager') {
+            if (user.role === 'ProjectManager' || user.role === 'SiteEngineer') {
                 let localProjects: Project[] = [];
                 const userStr = localStorage.getItem('infrapilot_user');
                 if (userStr) {
@@ -48,26 +48,20 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
                         const savedId = localStorage.getItem('infrapilot_selected_project_id');
                         const idToSelect = savedId ? Number(savedId) : finalProjects[0].id;
 
-                        // Verify savedId is still in assigned projects
-                        if (finalProjects.some(p => p.id === idToSelect)) {
-                            setSelectedProjectIdState(idToSelect);
-                        } else {
-                            setSelectedProjectIdState(finalProjects[0].id);
+                        // Trust the saved ID if it exists, otherwise use the first assigned project
+                        setSelectedProjectIdState(idToSelect);
+                        
+                        // If the ID isn't in finalProjects, it might have been selected in settings
+                        if (savedId && !finalProjects.some(p => p.id === idToSelect)) {
+                            // Optionally fetch the specific project or let the UI handle the missing name
+                            const cachedName = localStorage.getItem('infrapilot_selected_project_name') || `Project ${idToSelect}`;
+                            finalProjects.push({ id: idToSelect, project_name: cachedName, status: 'Active' } as unknown as Project);
                         }
                     }
                 } catch (error) {
                     console.error('Failed to fetch assigned projects:', error);
                     setAssignedProjects(localProjects);
                 }
-            } else if (user.role === 'SiteEngineer') {
-                // Site Engineer project is fixed in their user object
-                const engineerProject = {
-                    id: user.project_id || 92,
-                    project_name: user.project_name || 'SARA CITY',
-                    status: 'Ongoing'
-                } as Project;
-                setAssignedProjects([engineerProject]);
-                setSelectedProjectIdState(engineerProject.id);
             } else if (user.role === 'Admin') {
                 let allAdminProjects: any[] = [];
                 let offset = 0;

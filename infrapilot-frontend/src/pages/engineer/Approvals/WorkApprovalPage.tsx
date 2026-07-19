@@ -33,6 +33,7 @@ import { drawingService } from "../../../services/drawingService";
 import { documentService } from "../../../services/documentService";
 import { qcService } from "../../../services/qcService";
 import { safetyService } from "../../../services/safetyService";
+import { useProject } from "../../../context/ProjectContext";
 
 const statusColors: Record<string, string> = {
     'Approved': 'bg-emerald-600',
@@ -74,6 +75,7 @@ const WorkApprovalPage = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [currentUserName, setCurrentUserName] = useState("Site Engineer");
+    const { selectedProjectId } = useProject();
 
     useEffect(() => {
         const userStr = localStorage.getItem("infrapilot_user");
@@ -115,14 +117,7 @@ const WorkApprovalPage = () => {
         const fetchEntities = async () => {
             if (!isFormModalOpen) return;
             
-            const userStr = localStorage.getItem("infrapilot_user");
-            let pId = 92;
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    pId = Number(user?.project_id || user?.user?.project_id || 92);
-                } catch (e) {}
-            }
+            let pId = selectedProjectId || 0;
 
             setIsFetchingEntities(true);
             try {

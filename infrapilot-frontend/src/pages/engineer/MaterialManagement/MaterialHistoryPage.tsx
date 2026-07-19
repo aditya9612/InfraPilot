@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { materialService, type MaterialLog } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
+import { useProject } from "../../../context/ProjectContext";
 
 const MaterialHistoryPage = () => {
   const formatINR = (amount: number | string | undefined | null) => {
@@ -28,14 +29,16 @@ const MaterialHistoryPage = () => {
 
   const [logs, setLogs] = useState<MaterialLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"logs" | "transactions">("logs");
   const [logFilter, setLogFilter] = useState("All");
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [projectId, setProjectId] = useState<number | null>(null);
+  const { selectedProject, selectedProjectId } = useProject();
+  const projectId = selectedProjectId || 0;
   const [materialsMap, setMaterialsMap] = useState<Record<number, string>>({});
   const [projectsMap, setProjectsMap] = useState<Record<number, string>>({});
-  const [fallbackProjectName, setFallbackProjectName] = useState<string>("");
+  const fallbackProjectName = selectedProject?.project_name || "Current Project";
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,7 +49,7 @@ const MaterialHistoryPage = () => {
     setIsLoading(true);
     try {
       const [data, materials, projectData, allProjects] = await Promise.all([
-        materialService.getLogs(projectId),
+        viewMode === "transactions" ? materialService.getProjectTransactions(projectId) : materialService.getLogs({ project_id: projectId } as any),
         materialService.listMaterials(projectId),
         projectService.getProjectById(projectId).catch(() => null),
         projectService.getProjects(100).catch(() => [])
@@ -83,23 +86,14 @@ const MaterialHistoryPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, viewMode]);
 
   useEffect(() => {
     const userStr = localStorage.getItem("infrapilot_user");
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
-        const pId = user?.project_id || user?.user?.project_id;
-        const pName = user?.project_name || user?.user?.project_name || user?.projectName || "Current Project";
-        if (pId) {
-          setProjectId(Number(pId));
-        } else {
-          setProjectId(92);
-        }
-        setFallbackProjectName(pName);
-
-        // Optional: Pre-populate map from localStorage until API finishes
+        // projectId is now handled by useProject
         const assignedProjects = user?.assigned_projects || user?.user?.assigned_projects || [];
         const map: Record<number, string> = {};
         assignedProjects.forEach((p: any) => {
@@ -111,21 +105,20 @@ const MaterialHistoryPage = () => {
         });
 
         // Ensure the current project is in the map if we have its name
-        if (pId && pName && !map[Number(pId)]) {
-          map[Number(pId)] = pName;
+        if (projectId && fallbackProjectName && !map[Number(projectId)]) {
+          map[Number(projectId)] = fallbackProjectName;
         }
 
         setProjectsMap(map);
       } catch (e) {
-        console.error("Failed to resolve project ID", e);
-        setProjectId(92);
+        console.error("Failed to parse user projects", e);
       }
     }
-  }, []);
+  }, [projectId, fallbackProjectName]);
 
   useEffect(() => {
     if (projectId) fetchData();
-  }, [projectId, fetchData]);
+  }, [projectId, viewMode, fetchData]);
 
   const filteredLogs = useMemo(() => {
     let data = [...logs];
@@ -234,7 +227,23 @@ const MaterialHistoryPage = () => {
 
         {/* Transaction History */}
         <div className="space-y-4 flex-1 flex flex-col min-h-0">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Transaction History</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em]">Transaction History</h2>
+            <div className="flex bg-slate-200/50 p-1 rounded-xl">
+              <button
+                onClick={() => setViewMode("logs")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === "logs" ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                All Logs
+              </button>
+              <button
+                onClick={() => setViewMode("transactions")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === "transactions" ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >
+                Project Transactions
+              </button>
+            </div>
+          </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden font-inter flex-1 flex flex-col min-h-0">
           <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white font-inter">
             <div className="flex items-center gap-3 font-inter">

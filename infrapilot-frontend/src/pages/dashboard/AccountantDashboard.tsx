@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 export default function AccountantDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [showAllProjects, setShowAllProjects] = useState(false);
 
   const fetchDashboardData = async () => {
     try {
@@ -178,7 +179,7 @@ export default function AccountantDashboard() {
                   {receivableAging.map((item: any, idx: number) => (
                     <tr key={idx} onClick={() => handleAction(`View Receivable Aging for ${item.period}`)} className="hover:bg-slate-50 transition-colors cursor-pointer">
                       <td className="px-4 py-3 text-xs font-bold text-slate-700">{item.period}</td>
-                      <td className="px-4 py-3 text-xs font-black text-indigo-600 text-right">{item.amount}</td>
+                      <td className="px-4 py-3 text-xs font-black text-indigo-600 text-right">₹{item.amount}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-slate-500 text-right">{item.percentage}%</td>
                     </tr>
                   ))}
@@ -204,7 +205,7 @@ export default function AccountantDashboard() {
                   {payableAging.map((item: any, idx: number) => (
                     <tr key={idx} onClick={() => handleAction(`View Payable Aging for ${item.period}`)} className="hover:bg-slate-50 transition-colors cursor-pointer">
                       <td className="px-4 py-3 text-xs font-bold text-slate-700">{item.period}</td>
-                      <td className="px-4 py-3 text-xs font-black text-rose-600 text-right">{item.amount}</td>
+                      <td className="px-4 py-3 text-xs font-black text-rose-600 text-right">₹{item.amount}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-slate-500 text-right">{item.percentage}%</td>
                     </tr>
                   ))}
@@ -218,7 +219,14 @@ export default function AccountantDashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-4 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
             <h3 className="font-bold text-slate-800 text-sm">Project Cost Summary</h3>
-            <button onClick={() => handleAction('View All Project Costs')} className="text-xs font-bold text-primary hover:underline">View All</button>
+            {projectCostSummary.length > 3 && (
+              <button 
+                onClick={() => setShowAllProjects(!showAllProjects)} 
+                className="text-xs font-bold text-primary hover:underline"
+              >
+                {showAllProjects ? 'View Less' : 'View All'}
+              </button>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left whitespace-nowrap">
@@ -231,12 +239,12 @@ export default function AccountantDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {projectCostSummary.map((p: any, idx: number) => (
-                  <tr key={idx} onClick={() => handleAction(`View Cost Details for ${p.project}`)} className="hover:bg-slate-50 transition-colors cursor-pointer">
-                    <td className="px-4 py-4 text-sm font-bold text-slate-800">{p.project}</td>
-                    <td className="px-4 py-4 text-sm font-semibold text-slate-600 text-right">{p.budget}</td>
-                    <td className="px-4 py-4 text-sm font-bold text-rose-600 text-right">{p.expense}</td>
-                    <td className="px-4 py-4 text-sm font-bold text-emerald-600 text-right">{p.remaining}</td>
+                {(showAllProjects ? projectCostSummary : projectCostSummary.slice(0, 3)).map((p: any, idx: number) => (
+                  <tr key={idx} onClick={() => handleAction(`View Cost Details for ${p.project_name}`)} className="hover:bg-slate-50 transition-colors cursor-pointer">
+                    <td className="px-4 py-4 text-sm font-bold text-slate-800">{p.project_name}</td>
+                    <td className="px-4 py-4 text-sm font-semibold text-slate-600 text-right">₹{p.budgeted}</td>
+                    <td className="px-4 py-4 text-sm font-bold text-rose-600 text-right">₹{p.spent}</td>
+                    <td className="px-4 py-4 text-sm font-bold text-emerald-600 text-right">₹{p.remaining}</td>
                   </tr>
                 ))}
               </tbody>
@@ -254,12 +262,12 @@ export default function AccountantDashboard() {
             </div>
             <div className="p-4 space-y-4 flex-1">
               {upcomingPayments.map((item: any, idx: number) => (
-                <div key={idx} onClick={() => handleAction(`Process Payment to ${item.to}`)} className="flex justify-between items-center border-b border-slate-50 pb-2 last:border-0 last:pb-0 cursor-pointer hover:opacity-80 transition-opacity">
+                <div key={idx} onClick={() => handleAction(`Process Payment to ${item.entity_name || item.to}`)} className="flex justify-between items-center border-b border-slate-50 pb-2 last:border-0 last:pb-0 cursor-pointer hover:opacity-80 transition-opacity">
                   <div>
-                    <p className="text-xs font-bold text-slate-800">{item.to}</p>
+                    <p className="text-xs font-bold text-slate-800">{item.entity_name || item.to}</p>
                     <p className="text-[10px] font-semibold text-slate-500 mt-0.5">{item.date}</p>
                   </div>
-                  <p className="text-xs font-black text-rose-600">{item.amount}</p>
+                  <p className="text-xs font-black text-rose-600">₹{item.amount}</p>
                 </div>
               ))}
             </div>
@@ -272,12 +280,12 @@ export default function AccountantDashboard() {
             </div>
             <div className="p-4 space-y-4 flex-1">
               {upcomingCollections.map((item: any, idx: number) => (
-                <div key={idx} onClick={() => handleAction(`Record Collection from ${item.from}`)} className="flex justify-between items-center border-b border-slate-50 pb-2 last:border-0 last:pb-0 cursor-pointer hover:opacity-80 transition-opacity">
+                <div key={idx} onClick={() => handleAction(`Record Collection from ${item.entity_name || item.from}`)} className="flex justify-between items-center border-b border-slate-50 pb-2 last:border-0 last:pb-0 cursor-pointer hover:opacity-80 transition-opacity">
                   <div>
-                    <p className="text-xs font-bold text-slate-800">{item.from}</p>
+                    <p className="text-xs font-bold text-slate-800">{item.entity_name || item.from}</p>
                     <p className="text-[10px] font-semibold text-slate-500 mt-0.5">{item.date}</p>
                   </div>
-                  <p className="text-xs font-black text-indigo-600">{item.amount}</p>
+                  <p className="text-xs font-black text-indigo-600">₹{item.amount}</p>
                 </div>
               ))}
             </div>
@@ -307,11 +315,15 @@ export default function AccountantDashboard() {
               <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2"><Bell className="w-4 h-4 text-amber-500" /> Notifications</h3>
             </div>
             <div className="p-4 space-y-4 flex-1">
-              {notifications.map((item: any, idx: number) => (
-                <div key={idx} className={`p-3 rounded-xl border text-xs font-bold leading-relaxed shadow-sm cursor-pointer hover:shadow-md transition-shadow ${item.type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
-                  {item.text}
-                </div>
-              ))}
+              {notifications.map((item: any, idx: number) => {
+                const text = typeof item === 'string' ? item : item.text;
+                const type = typeof item === 'string' ? 'info' : item.type;
+                return (
+                  <div key={idx} className={`p-3 rounded-xl border text-xs font-bold leading-relaxed shadow-sm cursor-pointer hover:shadow-md transition-shadow ${type === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                    {text}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

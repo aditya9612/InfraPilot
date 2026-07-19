@@ -24,7 +24,7 @@ const MaterialConsumptionPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Usage");
-    const [projectId, setProjectId] = useState<number>(Number(globalProjectId) || 1);
+    const projectId = Number(globalProjectId) || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -52,38 +52,7 @@ const MaterialConsumptionPage = () => {
     // Forms & Selected Items
     const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
 
-    useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) setProjectId(Number(pId));
-            } catch (e) { console.error(e); }
-        }
-    }, []);
 
-    useEffect(() => {
-        if (globalProjectId) {
-            setProjectId(Number(globalProjectId));
-        }
-    }, [globalProjectId]);
-
-    const handleProjectChange = (newProjectId: number) => {
-        setProjectId(newProjectId);
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                if (user.user) {
-                    user.user.project_id = newProjectId;
-                } else {
-                    user.project_id = newProjectId;
-                }
-                localStorage.setItem("infrapilot_user", JSON.stringify(user));
-            } catch (e) { }
-        }
-    };
     const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
     const [usageForm, setUsageForm] = useState<any>({ quantity: 0, project_id: projectId, issue_type: "SITE", task_id: 0, boq_item_id: 0 });

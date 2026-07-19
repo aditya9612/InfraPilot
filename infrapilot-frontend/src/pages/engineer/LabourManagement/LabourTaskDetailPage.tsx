@@ -10,6 +10,7 @@ import {
     Edit2, Trash2, RefreshCw, LayoutGrid, Camera, Play, ChevronDown
 } from 'lucide-react';
 import labourService from '../../../services/labourService';
+import { useProject } from "../../../context/ProjectContext";
 import { projectService } from '../../../services/projectService';
 import { boqService } from '../../../services/boqService';
 import { workProgressService } from '../../../services/workProgressService';
@@ -37,23 +38,12 @@ const priorityBadges: Record<string, string> = {
     HIGH: "bg-rose-500 text-white",
 };
 
-const getDefaultProjectId = () => {
-    try {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            const pId = user?.project_id || user?.user?.project_id;
-            if (pId) return Number(pId);
-        }
-    } catch (e) {
-        console.error("Failed to parse user for project ID", e);
-    }
-    return 92;
-};
-
 const LabourTaskDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { selectedProjectId } = useProject();
+    const projectIdToUse = selectedProjectId || 0;
+
     const [activeTab, setActiveTab] = useState<"All Tasks" | "Labour Detail">("All Tasks");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
@@ -71,7 +61,7 @@ const LabourTaskDetailPage = () => {
     const [editProjectId, setEditProjectId] = useState<number | null>(null);
     const [editLabours, setEditLabours] = useState<any[]>([]);
     const [assignedProjects, setAssignedProjects] = useState<any[]>([]);
-    
+
     const [milestones, setMilestones] = useState<any[]>([]);
     const [boqs, setBoqs] = useState<any[]>([]);
     const [activityTypes, setActivityTypes] = useState<any[]>([]);
@@ -90,23 +80,21 @@ const LabourTaskDetailPage = () => {
 
     useEffect(() => {
         if (isEditModalOpen) {
-            const validProjectId = getDefaultProjectId();
-            
-            if (validProjectId) {
-                labourService.getLabours(validProjectId, { limit: 100 }).then(data => {
+            if (projectIdToUse) {
+                labourService.getLabours(projectIdToUse, { limit: 100 }).then(data => {
                     setEditLabours(data.items || []);
                 }).catch(err => {
                     console.error("Failed to load labours for edit modal", err);
                 });
-                
+
                 projectService.getMilestones(validProjectId).then(data => {
                     setMilestones(data || []);
                 }).catch(err => console.error("Failed to load milestones", err));
-                
+
                 boqService.getBoqs({ limit: 100, project_id: validProjectId }).then(data => {
                     setBoqs(data.items || []);
                 }).catch(err => console.error("Failed to load BOQs", err));
-                
+
                 workProgressService.listActivities(validProjectId).then(data => {
                     setActivityTypes(data || []);
                 }).catch(err => console.error("Failed to load activity types", err));
@@ -232,7 +220,7 @@ const LabourTaskDetailPage = () => {
             setSelectedTask(task._raw || task);
             setModalTab("Details");
 
-            const projectIdToFetch = task._raw?.project_id || task.project_id || 92;
+            const projectIdToFetch = task._raw?.project_id || task.project_id || 0;
             const fullTask = await projectService.getTask(Number(projectIdToFetch), Number(task.id));
 
             setSelectedTask(() => ({
@@ -286,14 +274,14 @@ const LabourTaskDetailPage = () => {
                 payload.append('end_date', end_date);
                 payload.append('status', status);
                 if (assigned_user_ids) payload.append('assigned_user_ids', assigned_user_ids);
-                
+
                 if (activity_type_id) payload.append('activity_type_id', activity_type_id);
                 if (milestone_id) payload.append('milestone_id', milestone_id);
                 if (boq_id) payload.append('boq_id', boq_id);
-                
+
                 if (removeAudioEl) payload.append('remove_audio', String(removeAudioEl.checked));
                 if (removeImageEl) payload.append('remove_image', String(removeImageEl.checked));
-                
+
                 if (audioFileEl && audioFileEl.files && audioFileEl.files[0]) {
                     payload.append('audio_file', audioFileEl.files[0]);
                 }
@@ -325,7 +313,7 @@ const LabourTaskDetailPage = () => {
 
                 setIsEditModalOpen(false);
                 setSelectedEditTask(null);
-                
+
                 // Refresh the page to ensure all new file URLs from backend are fetched properly for the list
                 setTimeout(() => window.location.reload(), 300);
             } catch (err) {
@@ -1040,7 +1028,7 @@ const LabourTaskDetailPage = () => {
                     </div>
 
                     <div className="p-6 overflow-y-auto space-y-6 bg-white max-h-[70vh]">
-                        
+
                         {/* Project (First required field for URL) */}
                         <div>
                             <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">
@@ -1078,9 +1066,9 @@ const LabourTaskDetailPage = () => {
                                         </label>
                                     </div>
                                 ) : (
-                                    <input 
-                                        type="file" 
-                                        name="audio_file" 
+                                    <input
+                                        type="file"
+                                        name="audio_file"
                                         accept="audio/*"
                                         className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-600 outline-none transition-all cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
                                     />
@@ -1096,10 +1084,10 @@ const LabourTaskDetailPage = () => {
                                     return imgUrl ? (
                                         <div className="p-3 bg-slate-50/50 border border-slate-200 rounded-xl mb-2 flex items-center justify-between">
                                             <div className="flex items-center gap-4">
-                                                <img 
-                                                    src={labourService.resolveUrl(imgUrl) || ''} 
-                                                    alt="Instruction" 
-                                                    className="w-12 h-12 rounded object-cover border border-slate-200 bg-black" 
+                                                <img
+                                                    src={labourService.resolveUrl(imgUrl) || ''}
+                                                    alt="Instruction"
+                                                    className="w-12 h-12 rounded object-cover border border-slate-200 bg-black"
                                                 />
                                                 <span className="text-sm font-medium text-slate-600">Existing Image</span>
                                             </div>
@@ -1109,9 +1097,9 @@ const LabourTaskDetailPage = () => {
                                             </label>
                                         </div>
                                     ) : (
-                                        <input 
-                                            type="file" 
-                                            name="image" 
+                                        <input
+                                            type="file"
+                                            name="image"
                                             accept="image/*"
                                             className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-sm font-medium text-slate-600 outline-none transition-all cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
                                         />
@@ -1152,7 +1140,7 @@ const LabourTaskDetailPage = () => {
 
                         {/* 2 Column Grid for the rest */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            
+
                             {/* Priority */}
                             <div>
                                 <label className="flex items-center text-[11px] font-bold text-slate-600 mb-1.5 ml-1">

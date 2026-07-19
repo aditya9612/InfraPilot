@@ -22,11 +22,13 @@ import labourService from '../../../services/labourService';
 import SelfCheckInModal from './components/SelfCheckInModal';
 import SelfCheckOutModal from './components/SelfCheckOutModal';
 import { useAuth } from '../../../context/AuthContext';
+import { useProject } from '../../../context/ProjectContext';
 
 type AttendanceState = "NOT_CHECKED_IN" | "CHECKED_IN" | "CHECKED_OUT";
 
 const AttendancePage: React.FC = () => {
     const { user } = useAuth();
+    const { selectedProjectId } = useProject();
     const [currentDateTime, setCurrentDateTime] = useState<Date>(new Date());
 
     // Geolocation state
@@ -118,18 +120,24 @@ const AttendancePage: React.FC = () => {
             const parseTimeStr = (timeStr: string) => {
                 if (!timeStr || timeStr === "--:--" || timeStr === "null") return null;
                 try {
-                    if (timeStr.includes('T')) return new Date(timeStr);
+                    let str = timeStr.trim();
+                    if (str.match(/^\d{4}-\d{2}-\d{2}/)) {
+                        str = str.replace(' ', 'T');
+                        if (!str.endsWith('Z')) str += 'Z';
+                        return new Date(str);
+                    }
+                    
                     const d = new Date();
-                    if (timeStr.includes('PM') || timeStr.includes('AM')) {
-                        const [time, period] = timeStr.split(' ');
+                    if (str.includes('PM') || str.includes('AM')) {
+                        const [time, period] = str.split(' ');
                         let [hours, minutes] = time.split(':');
                         let h = parseInt(hours);
                         if (period === 'PM' && h !== 12) h += 12;
                         if (period === 'AM' && h === 12) h = 0;
                         d.setHours(h, parseInt(minutes), 0, 0);
                     } else {
-                        const [h, m, s] = timeStr.split(':');
-                        d.setHours(parseInt(h) || 0, parseInt(m) || 0, parseInt(s) || 0, 0);
+                        const [h, m, s] = str.split(':');
+                        d.setTime(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), parseInt(h) || 0, parseInt(m) || 0, parseInt(s) || 0));
                     }
                     return d;
                 } catch { return null; }
@@ -160,18 +168,7 @@ const AttendancePage: React.FC = () => {
 
     const fetchSelfAttendances = async () => {
         try {
-            const getActiveProjectId = () => {
-                try {
-                    const userStr = localStorage.getItem("infrapilot_user");
-                    if (userStr) {
-                        const parsed = JSON.parse(userStr);
-                        return parsed.user?.project_id || parsed.project_id || 92;
-                    }
-                } catch (e) { }
-                return 92;
-            };
-
-            const activeProjectId = getActiveProjectId();
+            const activeProjectId = selectedProjectId || 0;
             let fromDate: string | null = null;
             let toDate: string | null = null;
             const today = new Date().toISOString().split('T')[0];

@@ -118,8 +118,8 @@ const DashboardSection = () => {
                 summary.return_status.map((status: any, idx: number) => (
                   <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                     <div>
-                      <p className="text-sm font-bold text-slate-800">{status.type}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Due: {status.due_date}</p>
+                      <p className="text-sm font-bold text-slate-800">{status.return_type || status.type}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Due: {status.due_date} {status.filing_period ? `| Period: ${status.filing_period}` : ''}</p>
                     </div>
                     <span className={`px-2.5 py-1 rounded-md font-bold text-[10px] uppercase ${status.status?.toLowerCase() === 'filed' ? 'bg-emerald-100 text-emerald-700' : status.status?.toLowerCase() === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>
                       {status.status}
@@ -138,10 +138,10 @@ const DashboardSection = () => {
               {summary?.recent_filings && summary.recent_filings.length > 0 ? (
                 summary.recent_filings.map((filing: any, idx: number) => (
                   <div key={idx} className="flex gap-3">
-                    <div className="mt-0.5"><div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div></div>
+                    <div className="mt-0.5"><div className={`w-5 h-5 rounded-full flex items-center justify-center ${filing.filing_date ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div></div>
                     <div>
-                      <p className="text-sm font-bold text-slate-800">{filing.type} ({filing.period})</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Filed on {filing.filed_on}. ARN: {filing.arn}</p>
+                      <p className="text-sm font-bold text-slate-800">{filing.return_type || filing.type} ({filing.filing_period || filing.period})</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Filed on {filing.filing_date || filing.filed_on || 'N/A'}{filing.arn ? `. ARN: ${filing.arn}` : ''}</p>
                     </div>
                   </div>
                 ))
