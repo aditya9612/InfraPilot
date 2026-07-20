@@ -1,29 +1,15 @@
 import { useState } from 'react';
-import { Search, Filter, CheckCircle, XCircle, FileText, ChevronRight, CheckCircle2, TrendingDown, Users, FileBarChart, CreditCard, BookOpen, X } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, ChevronRight, CheckCircle2, FileBarChart, CreditCard, BookOpen, X } from 'lucide-react';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
 
 const SIDEBAR_TABS = [
-  'Bills',
-  'Expenses',
-  'Payroll',
   'RA Bills',
   'Payments',
   'Journals'
 ];
 
 const MOCK_DATA: Record<string, any[]> = {
-  'Bills': [
-    { id: 1, type: 'Bill', ref: 'BILL-001', vendor: 'Aditya Equipment', amount: '₹12,50,000', project: 'Metro', date: '28/05/26', icon: <FileText className="w-6 h-6 text-blue-600" />, bg: 'bg-blue-50 border-blue-100' },
-    { id: 2, type: 'Bill', ref: 'BILL-004', vendor: 'Shree Cement', amount: '₹8,20,000', project: 'Tower A', date: '29/05/26', icon: <FileText className="w-6 h-6 text-blue-600" />, bg: 'bg-blue-50 border-blue-100' },
-  ],
-  'Expenses': [
-    { id: 3, type: 'Expense', ref: 'EXP-102', vendor: 'Travel Desk', amount: '₹45,000', project: 'Head Office', date: '30/05/26', icon: <TrendingDown className="w-6 h-6 text-rose-600" />, bg: 'bg-rose-50 border-rose-100' },
-  ],
-  'Payroll': [
-    { id: 4, type: 'Payroll', ref: 'PAY-MAY-26', vendor: 'Staff Salary', amount: '₹16,40,000', project: 'All Projects', date: '01/06/26', icon: <Users className="w-6 h-6 text-indigo-600" />, bg: 'bg-indigo-50 border-indigo-100' },
-    { id: 5, type: 'Payroll', ref: 'LAB-MAY-26', vendor: 'Labour Wages', amount: '₹11,70,000', project: 'Metro', date: '01/06/26', icon: <Users className="w-6 h-6 text-indigo-600" />, bg: 'bg-indigo-50 border-indigo-100' },
-  ],
   'RA Bills': [
     { id: 6, type: 'RA Bill', ref: 'RA-005', vendor: 'BuildTech Pvt Ltd', amount: '₹11,75,000', project: 'Metro', date: '25/05/26', icon: <FileBarChart className="w-6 h-6 text-orange-600" />, bg: 'bg-orange-50 border-orange-100' },
   ],
@@ -36,7 +22,7 @@ const MOCK_DATA: Record<string, any[]> = {
 };
 
 export default function ApprovalCenterPage() {
-  const [activeTab, setActiveTab] = useState('Bills');
+  const [activeTab, setActiveTab] = useState('RA Bills');
   const [search, setSearch] = useState('');
   const [selectedApproval, setSelectedApproval] = useState<any>(null);
 

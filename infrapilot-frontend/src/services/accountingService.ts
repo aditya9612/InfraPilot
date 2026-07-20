@@ -169,6 +169,10 @@ export const accountingService = {
     const response = await api.post("/accountant/journal", data);
     return response.data;
   },
+  getJournalDetail: async (id: string | number) => {
+    const response = await api.get(`/accountant/journal/${id}`);
+    return response.data;
+  },
 
   // Summaries
   getGstSummary: async (params?: any) => {

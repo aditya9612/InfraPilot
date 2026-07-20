@@ -14,7 +14,7 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
     <div className="overflow-x-auto">
       <table className="w-full text-left">
         <thead className="bg-slate-50 border-b border-slate-100">
-          <tr>{columns.map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+          <tr>{columns.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
           {data.map((row, i) => (
@@ -46,7 +46,7 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     if (isOpen) {
       accountingService.getAccounts({ limit: 100 }).then(res => {
         setAccounts(Array.isArray(res) ? res : res?.items || res?.data || []);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [isOpen]);
 
@@ -66,21 +66,43 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.description) {
+    if (!formData.entry_date || !formData.description) {
       toast.error("Please fill required fields");
       return;
     }
+
+    const validLines = formData.lines.filter(line => line.account_id && (line.debit > 0 || line.credit > 0));
+
+    if (validLines.length === 0) {
+      toast.error("Please add at least one valid line with an account and amount");
+      return;
+    }
+
+    const tDebit = validLines.reduce((acc, line) => acc + (line.debit || 0), 0);
+    const tCredit = validLines.reduce((acc, line) => acc + (line.credit || 0), 0);
+
+    if (tDebit === 0 || tCredit === 0) {
+      toast.error("Journal entry must contain both debit and credit amounts");
+      return;
+    }
+
+    if (tDebit !== tCredit) {
+      toast.error("Total Debit and Total Credit must be equal");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
+        entry_date: formData.entry_date,
         description: formData.description,
-        lines: formData.lines.map(line => ({
+        lines: validLines.map(line => ({
           account_id: line.account_id,
-          debit: line.debit,
-          credit: line.credit
+          debit: line.debit || 0,
+          credit: line.credit || 0
         }))
       };
-      await accountingService.createJournalEntry(payload);
+      await journalService.createManualJournal(payload);
       toast.success("Journal Entry Submitted Successfully!");
       onClose();
     } catch (err) {
@@ -94,75 +116,90 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const totalCredit = formData.lines.reduce((acc, line) => acc + (line.credit || 0), 0);
 
   return (
-  <Modal
-    isOpen={isOpen}
-    onClose={onClose}
-    title="Create Journal Entry"
-    maxWidth="max-w-5xl"
-    footer={
-      <>
-        <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Submit Entry"}</button>
-      </>
-    }
-  >
-    <form className="space-y-6" onSubmit={handleSubmit}>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Entry Information
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Purchase of cement" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create Journal Entry"
+      maxWidth="max-w-5xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Submit Entry"}</button>
+        </>
+      }
+    >
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+            Entry Information
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Purchase of cement" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          </div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-          Accounting Entry
-        </h3>
-        <div className="overflow-x-auto border border-slate-200 rounded-xl mb-4">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {formData.lines.map((line, index) => (
-                <tr key={index}>
-                  <td className="px-2 py-2">
-                    <select value={line.account_id} onChange={(e) => handleLineChange(index, "account_id", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50">
-                      <option value="">Select Account</option>
-                      {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-2 py-2"><input type="number" value={line.debit || ""} onChange={(e) => handleLineChange(index, "debit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-emerald-600 border border-slate-200 rounded-lg bg-slate-50" /></td>
-                  <td className="px-2 py-2"><input type="number" value={line.credit || ""} onChange={(e) => handleLineChange(index, "credit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-rose-500 border border-slate-200 rounded-lg bg-slate-50" /></td>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
+            Accounting Entry
+          </h3>
+          <div className="overflow-x-auto border border-slate-200 rounded-xl mb-4">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-slate-50 border-t border-slate-200 font-bold text-sm">
-              <tr>
-                <td className="px-4 py-3 text-right">Total:</td>
-                <td className="px-4 py-3 text-emerald-600">₹{totalDebit}</td>
-                <td className="px-4 py-3 text-rose-500">₹{totalCredit}</td>
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {formData.lines.map((line, index) => (
+                  <tr key={index}>
+                    <td className="px-2 py-2">
+                      <select value={line.account_id} onChange={(e) => handleLineChange(index, "account_id", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50">
+                        <option value="">Select Account</option>
+                        {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-2 py-2"><input type="number" value={line.debit || ""} onChange={(e) => handleLineChange(index, "debit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-emerald-600 border border-slate-200 rounded-lg bg-slate-50" /></td>
+                    <td className="px-2 py-2"><input type="number" value={line.credit || ""} onChange={(e) => handleLineChange(index, "credit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-rose-500 border border-slate-200 rounded-lg bg-slate-50" /></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50 border-t border-slate-200 font-bold text-sm">
+                <tr>
+                  <td className="px-4 py-3 text-right">Total:</td>
+                  <td className="px-4 py-3 text-emerald-600">₹{totalDebit}</td>
+                  <td className="px-4 py-3 text-rose-500">₹{totalCredit}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <button type="button" onClick={addLine} className="text-xs font-bold text-indigo-600 hover:text-indigo-800">+ Add Line Item</button>
         </div>
-        <button type="button" onClick={addLine} className="text-xs font-bold text-indigo-600 hover:text-indigo-800">+ Add Line Item</button>
-      </div>
-    </form>
-  </Modal>
+      </form>
+    </Modal>
   );
 };
 
 const ViewJournalDetailsModal = ({ isOpen, onClose, details }: { isOpen: boolean; onClose: () => void; details: any }) => {
+  const [accounts, setAccounts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      accountingService.getAccounts({ limit: 100 }).then(res => {
+        setAccounts(Array.isArray(res) ? res : res?.items || res?.data || []);
+      }).catch(() => { });
+    }
+  }, [isOpen]);
+
+  const getAccountName = (id: any) => {
+    const acc = accounts.find(a => String(a.id) === String(id));
+    return acc ? acc.name : id;
+  };
+
   if (!details) return null;
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Journal Details" maxWidth="max-w-4xl" footer={
@@ -175,14 +212,14 @@ const ViewJournalDetailsModal = ({ isOpen, onClose, details }: { isOpen: boolean
           <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Status</p><p className="font-bold text-slate-800 text-sm">{details.status || "N/A"}</p></div>
           <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Entry Type</p><p className="font-bold text-slate-800 text-sm">{details.entry_type || "N/A"}</p></div>
           <div className="col-span-2 md:col-span-4"><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Description</p><p className="font-bold text-slate-800 text-sm">{details.description || "N/A"}</p></div>
-          <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Created By</p><p className="font-bold text-slate-800 text-sm">{details.created_by || "N/A"}</p></div>
+          {/* Created By hidden as requested */}
           <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Created At</p><p className="font-bold text-slate-800 text-sm">{details.created_at ? new Date(details.created_at).toLocaleString() : "N/A"}</p></div>
         </div>
         <div className="border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Account ID</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Name</th>
                 <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Debit (₹)</th>
                 <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Credit (₹)</th>
               </tr>
@@ -190,7 +227,7 @@ const ViewJournalDetailsModal = ({ isOpen, onClose, details }: { isOpen: boolean
             <tbody className="divide-y divide-slate-100">
               {(details.lines || []).map((line: any, i: number) => (
                 <tr key={i}>
-                  <td className="px-4 py-3 text-sm font-bold text-slate-700">{line.account_id || line.account_name || "-"}</td>
+                  <td className="px-4 py-3 text-sm font-bold text-slate-700">{line.account_name || getAccountName(line.account_id) || "-"}</td>
                   <td className="px-4 py-3 text-sm font-bold text-emerald-600 text-right">{line.debit || 0}</td>
                   <td className="px-4 py-3 text-sm font-bold text-rose-500 text-right">{line.credit || 0}</td>
                 </tr>
@@ -240,9 +277,38 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
       toast.error("Please fill required fields");
       return;
     }
+
+    const validLines = formData.lines.filter(line => line.account_id && (line.debit > 0 || line.credit > 0));
+
+    if (validLines.length === 0) {
+      toast.error("Please add at least one valid line with debit or credit");
+      return;
+    }
+
+    const tDebit = validLines.reduce((acc, line) => acc + (line.debit || 0), 0);
+    const tCredit = validLines.reduce((acc, line) => acc + (line.credit || 0), 0);
+
+    if (tDebit === 0 || tCredit === 0) {
+      toast.error("Journal entry must contain both debit and credit amounts");
+      return;
+    }
+
+    if (tDebit !== tCredit) {
+      toast.error("Total Debit and Total Credit must be equal");
+      return;
+    }
+
     setLoading(true);
     try {
-      await journalService.createAdjustmentJournal(formData);
+      const payload = {
+        ...formData,
+        lines: validLines.map(line => ({
+          account_id: line.account_id,
+          debit: line.debit || 0,
+          credit: line.credit || 0
+        }))
+      };
+      await journalService.createAdjustmentJournal(payload);
       toast.success("Adjustment Journal Submitted Successfully!");
       onClose();
     } catch (err) {
@@ -256,64 +322,64 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
   const totalCredit = formData.lines.reduce((acc, line) => acc + (line.credit || 0), 0);
 
   return (
-  <Modal isOpen={isOpen} onClose={onClose} title="Create Adjustment Journal" maxWidth="max-w-5xl" footer={
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Adjustment Journal" maxWidth="max-w-5xl" footer={
       <>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
         <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Submit Adjustment"}</button>
       </>
     }>
-    <form className="space-y-6" onSubmit={handleSubmit}>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Entry Information
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Depreciation Entry" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+            Entry Information
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Depreciation Entry" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          </div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-          Accounting Entry
-        </h3>
-        <div className="overflow-x-auto border border-slate-200 rounded-xl mb-4">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {formData.lines.map((line, index) => (
-                <tr key={index}>
-                  <td className="px-2 py-2">
-                    <select value={line.account_id} onChange={(e) => handleLineChange(index, "account_id", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50">
-                      {mockAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-2 py-2"><input type="number" value={line.debit || ""} onChange={(e) => handleLineChange(index, "debit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-emerald-600 border border-slate-200 rounded-lg bg-slate-50" /></td>
-                  <td className="px-2 py-2"><input type="number" value={line.credit || ""} onChange={(e) => handleLineChange(index, "credit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-rose-500 border border-slate-200 rounded-lg bg-slate-50" /></td>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
+            Accounting Entry
+          </h3>
+          <div className="overflow-x-auto border border-slate-200 rounded-xl mb-4">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-slate-50 border-t border-slate-200 font-bold text-sm">
-              <tr>
-                <td className="px-4 py-3 text-right">Total:</td>
-                <td className="px-4 py-3 text-emerald-600">₹{totalDebit}</td>
-                <td className="px-4 py-3 text-rose-500">₹{totalCredit}</td>
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {formData.lines.map((line, index) => (
+                  <tr key={index}>
+                    <td className="px-2 py-2">
+                      <select value={line.account_id} onChange={(e) => handleLineChange(index, "account_id", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50">
+                        {mockAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-2 py-2"><input type="number" value={line.debit || ""} onChange={(e) => handleLineChange(index, "debit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-emerald-600 border border-slate-200 rounded-lg bg-slate-50" /></td>
+                    <td className="px-2 py-2"><input type="number" value={line.credit || ""} onChange={(e) => handleLineChange(index, "credit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-rose-500 border border-slate-200 rounded-lg bg-slate-50" /></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50 border-t border-slate-200 font-bold text-sm">
+                <tr>
+                  <td className="px-4 py-3 text-right">Total:</td>
+                  <td className="px-4 py-3 text-emerald-600">₹{totalDebit}</td>
+                  <td className="px-4 py-3 text-rose-500">₹{totalCredit}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <button type="button" onClick={addLine} className="text-xs font-bold text-indigo-600 hover:text-indigo-800">+ Add Line Item</button>
         </div>
-        <button type="button" onClick={addLine} className="text-xs font-bold text-indigo-600 hover:text-indigo-800">+ Add Line Item</button>
-      </div>
-    </form>
-  </Modal>
+      </form>
+    </Modal>
   );
 };
 
@@ -325,7 +391,7 @@ const ManualEntriesWrapper = () => {
   useEffect(() => {
     const fetchJournals = async () => {
       try {
-        const data = await accountingService.getJournal();
+        const data = await journalService.getManualJournals();
         setJournals(Array.isArray(data) ? data : data?.data || []);
       } catch (err) {
         toast.error("Failed to load journal entries");
@@ -361,10 +427,10 @@ const ManualEntriesWrapper = () => {
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <h3 className="font-bold text-slate-800">Manual Journal Entries</h3>
       </div>
-      <GenericTableSection 
-        title="Recent Manual Entries" 
-        columns={["Journal Number", "Entry Date", "Description", "Status", "Entry Type", "Created At", "Action"]} 
-        data={tableData.length > 0 ? tableData : [["-", "-", "No entries found", "-", "-", "-", "-"]]} 
+      <GenericTableSection
+        title="Recent Manual Entries"
+        columns={["Journal Number", "Entry Date", "Description", "Status", "Entry Type", "Created At", "Action"]}
+        data={tableData.length > 0 ? tableData : [["-", "-", "No entries found", "-", "-", "-", "-"]]}
       />
       <ViewJournalDetailsModal isOpen={detailsModalOpen} onClose={() => setDetailsModalOpen(false)} details={selectedDetails} />
     </div>
@@ -377,7 +443,7 @@ const AdjustmentRegisterSection = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  
+
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState<any>(null);
 
@@ -454,7 +520,7 @@ const AdjustmentRegisterSection = () => {
             />
           </div>
           <button onClick={handleFilter} className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-sm">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" /></svg>
             Filter
           </button>
         </div>
@@ -540,10 +606,10 @@ const RecurringJournalsSection = () => {
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <h3 className="font-bold text-slate-800">Recurring Entries</h3>
       </div>
-      <GenericTableSection 
-        title="Active Recurring Journals" 
-        columns={["Template Name", "Frequency", "Next Run Date", "Status", "Action"]} 
-        data={tableData.length > 0 ? tableData : [["-", "-", "-", "-", "-"]]} 
+      <GenericTableSection
+        title="Active Recurring Journals"
+        columns={["Template Name", "Frequency", "Next Run Date", "Status", "Action"]}
+        data={tableData.length > 0 ? tableData : [["-", "-", "-", "-", "-"]]}
       />
     </div>
   );
@@ -615,8 +681,8 @@ const RecurringJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: 
 type TabKey = "journal" | "recurring" | "adjustment";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "journal",    label: "Journal Entry" },
-  { key: "recurring",  label: "Recurring" },
+  { key: "journal", label: "Journal Entry" },
+  { key: "recurring", label: "Recurring" },
   { key: "adjustment", label: "Adjustment Register" },
 ];
 
@@ -634,8 +700,8 @@ const JournalEntriesPage = () => {
     const lastPart = pathParts[pathParts.length - 1];
     const currentSub = category || lastPart;
     const map: Record<string, TabKey> = {
-      "journal":    "journal",
-      "recurring":  "recurring",
+      "journal": "journal",
+      "recurring": "recurring",
       "adjustment": "adjustment",
     };
     return map[currentSub || ""] || "journal";
@@ -656,7 +722,17 @@ const JournalEntriesPage = () => {
 
   const handleExportAdjustment = async () => {
     try {
-      await journalService.exportAdjustmentJournals();
+      const blob = await journalService.exportAdjustmentJournals();
+      const contentType = blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const extension = contentType.includes('csv') ? 'csv' : 'xlsx';
+      const url = window.URL.createObjectURL(new Blob([blob], { type: contentType }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Adjustment_Journals_${new Date().toISOString().split("T")[0]}.${extension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
       toast.success("Adjustment journals exported successfully!");
     } catch (e) {
       toast.error("Failed to export adjustment journals");
@@ -665,7 +741,17 @@ const JournalEntriesPage = () => {
 
   const handleExportJournals = async () => {
     try {
-      await journalService.exportJournals();
+      const blob = await journalService.exportJournals();
+      const contentType = blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const extension = contentType.includes('csv') ? 'csv' : 'xlsx';
+      const url = window.URL.createObjectURL(new Blob([blob], { type: contentType }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Manual_Journals_${new Date().toISOString().split("T")[0]}.${extension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
       toast.success("Journals exported successfully!");
     } catch (e) {
       toast.error("Failed to export journals");
@@ -674,7 +760,17 @@ const JournalEntriesPage = () => {
 
   const handleExportRecurring = async () => {
     try {
-      await journalService.exportRecurringJournals();
+      const blob = await journalService.exportRecurringJournals();
+      const contentType = blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const extension = contentType.includes('csv') ? 'csv' : 'xlsx';
+      const url = window.URL.createObjectURL(new Blob([blob], { type: contentType }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Recurring_Journals_${new Date().toISOString().split("T")[0]}.${extension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
       toast.success("Recurring journals exported successfully!");
     } catch (e) {
       toast.error("Failed to export recurring journals");
@@ -788,11 +884,10 @@ const JournalEntriesPage = () => {
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
-                activeTab === tab.key
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key
                   ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
                   : "text-slate-500 hover:text-slate-700"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -800,8 +895,8 @@ const JournalEntriesPage = () => {
         </div>
 
         {/* ── Content Rendering ──────────────────────────── */}
-        {activeTab === "journal"    && <ManualEntriesWrapper />}
-        {activeTab === "recurring"  && <RecurringJournalsSection />}
+        {activeTab === "journal" && <ManualEntriesWrapper />}
+        {activeTab === "recurring" && <RecurringJournalsSection />}
         {activeTab === "adjustment" && <AdjustmentRegisterSection />}
       </PageTransition>
 
