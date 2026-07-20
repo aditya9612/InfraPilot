@@ -11,7 +11,9 @@ import {
     X,
     ChevronDown,
     FileText,
-    History
+    History,
+    Download,
+    FileDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -339,6 +341,131 @@ const WorkUpdatesPage: React.FC = () => {
         }
     };
 
+    // ── Export Handlers ────────────────────────────────────────────────────────
+    const handleDownloadPDF = () => {
+        const selectedTask = tasks.find((t: any) => String(t.id) === String(selectedTaskId));
+        const taskLabel = taskName || selectedTask?.title || selectedTask?.name || (selectedTaskId ? `Task #${selectedTaskId}` : 'No Task Selected');
+
+        const printContent = `
+            <html>
+            <head>
+                <title>Work Update Report</title>
+                <style>
+                    @page { margin: 20mm 15mm; }
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 13px; }
+                    .header { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 24px 28px; border-radius: 10px 10px 0 0; }
+                    .header h1 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+                    .header p  { font-size: 12px; opacity: 0.8; }
+                    .body { padding: 24px 28px; }
+                    .section { margin-bottom: 20px; }
+                    .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+                    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+                    .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }
+                    .field label { font-size: 10px; font-weight: 600; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 3px; }
+                    .field span { font-size: 13px; font-weight: 700; color: #1e293b; word-break: break-word; }
+                    .desc-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; min-height: 60px; white-space: pre-wrap; font-size: 13px; color: #334155; line-height: 1.6; }
+                    .photo-badge { display: inline-flex; align-items: center; background: #dbeafe; color: #1d4ed8; border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 700; }
+                    .footer { margin-top: 30px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Work Update Report</h1>
+                    <p>Generated on ${new Date().toLocaleString()} &nbsp;|&nbsp; InfraPilot</p>
+                </div>
+                <div class="body">
+                    <div class="section">
+                        <div class="section-title">Task Information</div>
+                        <div class="grid">
+                            <div class="field"><label>Task</label><span>${taskLabel}</span></div>
+                            <div class="field"><label>Category</label><span>${category || '—'}</span></div>
+                            <div class="field"><label>Location / Area</label><span>${location || '—'}</span></div>
+                            <div class="field"><label>Work Date</label><span>${workDate}</span></div>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">Time Details</div>
+                        <div class="grid">
+                            <div class="field"><label>Start Time</label><span>${startTime}</span></div>
+                            <div class="field"><label>End Time</label><span>${endTime}</span></div>
+                            <div class="field"><label>Total Hours</label><span>${totalHours}</span></div>
+                        </div>
+                    </div>
+                    <div class="section">
+                        <div class="section-title">Work Description</div>
+                        <div class="desc-box">${description || '—'}</div>
+                    </div>
+                    ${beforeRemarks ? `<div class="section"><div class="section-title">Before Work Remarks</div><div class="desc-box">${beforeRemarks}</div></div>` : ''}
+                    ${afterRemarks  ? `<div class="section"><div class="section-title">After Work Remarks</div><div class="desc-box">${afterRemarks}</div></div>` : ''}
+                    <div class="section">
+                        <div class="section-title">Photo Attachments</div>
+                        <div class="grid">
+                            <div class="field"><label>Before Work Photos</label><span class="photo-badge">${beforePhotos.length} / 4 uploaded</span></div>
+                            <div class="field"><label>After Work Photos</label><span class="photo-badge">${afterPhotos.length} / 4 uploaded</span></div>
+                        </div>
+                    </div>
+                    <div class="footer">
+                        <span>InfraPilot &mdash; Labour Module</span>
+                        <span>Confidential</span>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) return;
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 400);
+    };
+
+    const handleExportCSV = () => {
+        const selectedTask = tasks.find((t: any) => String(t.id) === String(selectedTaskId));
+        const taskLabel = taskName || selectedTask?.title || selectedTask?.name || (selectedTaskId ? `Task #${selectedTaskId}` : '');
+
+        const escape = (val: string) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+
+        const headers = [
+            'Task ID', 'Task Name', 'Work Date', 'Start Time', 'End Time', 'Total Hours',
+            'Category', 'Location', 'Work Description', 'Before Work Remarks', 'After Work Remarks',
+            'Before Photos Count', 'After Photos Count', 'Generated At'
+        ];
+
+        const row = [
+            selectedTaskId || taskId || '',
+            taskLabel,
+            workDate,
+            startTime,
+            endTime,
+            totalHours,
+            category,
+            location,
+            description,
+            beforeRemarks,
+            afterRemarks,
+            String(beforePhotos.length),
+            String(afterPhotos.length),
+            new Date().toLocaleString()
+        ].map(escape);
+
+        const csvContent = [headers.join(','), row.join(',')].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `work-update-${workDate || 'report'}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <>
             <Navbar title="Work Update" breadcrumb={['InfraPilot', 'Labour', 'Daily Update', 'Work Update']} />
@@ -346,13 +473,36 @@ const WorkUpdatesPage: React.FC = () => {
                 <div className="max-w-full mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     
                     {/* Header Section */}
-                    <div className="p-8 pb-4 flex items-center gap-5">
-                        <div className="w-12 h-12 rounded-xl bg-[#2563eb] flex items-center justify-center shadow-lg shadow-blue-100">
-                            <FileText className="w-6 h-6 text-white" />
+                    <div className="p-8 pb-4 flex items-center justify-between gap-5 flex-wrap">
+                        <div className="flex items-center gap-5">
+                            <div className="w-12 h-12 rounded-xl bg-[#2563eb] flex items-center justify-center shadow-lg shadow-blue-100">
+                                <FileText className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold text-slate-800">Update Your Work Progress</h1>
+                                <p className="text-sm text-slate-500 font-medium">Provide details of work completed along with photos</p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-slate-800">Update Your Work Progress</h1>
-                            <p className="text-sm text-slate-500 font-medium">Provide details of work completed along with photos</p>
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={handleExportCSV}
+                                title="Export as CSV"
+                                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all shadow-sm active:scale-95 group"
+                            >
+                                <FileDown className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
+                                Export CSV
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDownloadPDF}
+                                title="Download as PDF"
+                                className="flex items-center gap-2 px-4 py-2.5 bg-[#2563eb] text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-200 active:scale-95 group"
+                            >
+                                <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                Download PDF
+                            </button>
                         </div>
                     </div>
 
