@@ -216,12 +216,7 @@ const ClientApprovalsPage = () => {
               {projectData?.project_name || "All Projects"} • Variation orders & design changes
             </p>
           </div>
-          <button 
-             onClick={handleCreateRequestOpen}
-             className="px-6 py-3 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
-          >
-             Create New Request
-          </button>
+
         </div>
 
         {/* Tab Buttons - Kept as requested */}

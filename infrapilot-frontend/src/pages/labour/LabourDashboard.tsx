@@ -35,6 +35,56 @@ interface RecentActivity {
     time: string;
 }
 
+const formatDateTimeDisplay = (rawTime?: string) => {
+    if (!rawTime) {
+        return { time: '--:--', date: '--/--/----' };
+    }
+
+    const trimmed = rawTime.trim();
+
+    // 1. Check if ISO string or parseable Date string
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime()) && (trimmed.includes('-') || trimmed.includes('T') || (trimmed.includes('/') && trimmed.length > 8))) {
+        const hours = d.getHours();
+        const minutes = d.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const formattedHours = hours % 12 || 12;
+        const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
+        const timeFormatted = `${formattedHours}:${formattedMinutes} ${ampm}`;
+
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const dateFormatted = `${day}/${month}/${year}`;
+
+        return { time: timeFormatted, date: dateFormatted };
+    }
+
+    // 2. Check if it's already a time string like "07:51 AM"
+    if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(trimmed)) {
+        const today = new Date();
+        const day = String(today.getDate()).padStart(2, '0');
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const year = today.getFullYear();
+        return { time: trimmed, date: `${day}/${month}/${year}` };
+    }
+
+    // 3. Check if it's a date string like "16 JUL 2026"
+    const monthMap: Record<string, string> = {
+        JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06',
+        JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12'
+    };
+    const parts = trimmed.split(/\s+/);
+    if (parts.length === 3 && monthMap[parts[1].toUpperCase()]) {
+        const day = parts[0].padStart(2, '0');
+        const month = monthMap[parts[1].toUpperCase()];
+        const year = parts[2];
+        return { time: '12:00 PM', date: `${day}/${month}/${year}` };
+    }
+
+    return { time: trimmed, date: '' };
+};
+
 const LabourDashboard: React.FC = () => {
     const { user } = useAuth();
     const { speak } = useTextToAudio();
@@ -187,11 +237,11 @@ const LabourDashboard: React.FC = () => {
                                     </button>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-1">
-                                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                    <div className="flex items-center gap-1.5 text-sm font-bold text-slate-700 uppercase tracking-widest">
                                         <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
                                         {projectName}
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                    <div className="flex items-center gap-1.5 text-sm font-bold text-slate-700 uppercase tracking-widest">
                                         <User className="w-3.5 h-3.5 text-emerald-500" />
                                         {contractorName}
                                     </div>
@@ -309,12 +359,13 @@ const LabourDashboard: React.FC = () => {
                                             <tr className="bg-slate-50/50">
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Activity</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Description</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Time</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">DATE AND TIME</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {recentActivities.map((activity, i) => {
                                                 const accent = activityAccents[i % activityAccents.length];
+                                                const { time, date } = formatDateTimeDisplay(activity.time);
                                                 return (
                                                     <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                                                         {/* Activity title with icon */}
@@ -332,13 +383,16 @@ const LabourDashboard: React.FC = () => {
                                                         <td className="px-8 py-6 max-w-xs">
                                                             <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest truncate">
                                                                 {activity.description || '—'}
-                                                            </p>
+                                                             </p>
                                                         </td>
-                                                        {/* Time */}
+                                                        {/* Date & Time */}
                                                         <td className="px-8 py-6">
-                                                            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
-                                                                <Clock className="w-3.5 h-3.5 text-slate-300" />
-                                                                {activity.time || '—'}
+                                                            <div className="flex items-start gap-2">
+                                                                <Clock className="w-3.5 h-3.5 text-slate-300 mt-0.5 shrink-0" />
+                                                                <div className="flex flex-col text-xs font-bold text-slate-700 leading-snug">
+                                                                    <span>{time}</span>
+                                                                    {date && <span className="text-[11px] font-medium text-slate-500">{date}</span>}
+                                                                </div>
                                                             </div>
                                                         </td>
                                                     </tr>

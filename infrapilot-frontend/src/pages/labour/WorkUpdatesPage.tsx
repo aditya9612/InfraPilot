@@ -56,6 +56,7 @@ const WorkUpdatesPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [tasks, setTasks] = useState<any[]>([]);
     const [selectedTaskId, setSelectedTaskId] = useState(taskId || '');
+    const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
     // Fetch tasks if missing
     useEffect(() => {
@@ -483,26 +484,47 @@ const WorkUpdatesPage: React.FC = () => {
                                 <p className="text-sm text-slate-500 font-medium">Provide details of work completed along with photos</p>
                             </div>
                         </div>
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-3">
+                        {/* Action Dropdown Button */}
+                        <div className="relative">
                             <button
                                 type="button"
-                                onClick={handleExportCSV}
-                                title="Export as CSV"
-                                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800 transition-all shadow-sm active:scale-95 group"
-                            >
-                                <FileDown className="w-4 h-4 text-emerald-500 group-hover:scale-110 transition-transform" />
-                                Export CSV
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleDownloadPDF}
-                                title="Download as PDF"
-                                className="flex items-center gap-2 px-4 py-2.5 bg-[#2563eb] text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-200 active:scale-95 group"
+                                onClick={() => setShowDownloadMenu(prev => !prev)}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-[#2563eb] text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-200 active:scale-95 group"
                             >
                                 <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                                Download PDF
+                                <span>Download</span>
+                                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showDownloadMenu ? 'rotate-180' : ''}`} />
                             </button>
+
+                            {showDownloadMenu && (
+                                <>
+                                    <div className="fixed inset-0 z-10" onClick={() => setShowDownloadMenu(false)} />
+                                    <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-20 overflow-hidden py-1.5 animate-in fade-in duration-150">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleDownloadPDF();
+                                                setShowDownloadMenu(false);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                        >
+                                            <FileText className="w-4 h-4 text-rose-500" />
+                                            <span>Download PDF Report</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleExportCSV();
+                                                setShowDownloadMenu(false);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                                        >
+                                            <FileDown className="w-4 h-4 text-emerald-500" />
+                                            <span>Download Excel / CSV</span>
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 

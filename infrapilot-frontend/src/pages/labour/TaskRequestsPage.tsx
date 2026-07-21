@@ -21,7 +21,9 @@ import {
     Edit3,
     XCircle,
     Eye,
-    Trash2
+    Trash2,
+    ImagePlus,
+    X
 } from 'lucide-react';
 
 interface Project {
@@ -47,6 +49,7 @@ const TaskRequestsPage: React.FC = () => {
     const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
     const [description, setDescription] = useState('');
     const [attachmentUrl, setAttachmentUrl] = useState('');
+    const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
     const [assignedTo, setAssignedTo] = useState(0);
 
     const [projects, setProjects] = useState<Project[]>([]);
@@ -180,6 +183,7 @@ const TaskRequestsPage: React.FC = () => {
         setPriority('Medium');
         setAttachmentUrl('');
         setAssignedTo(0);
+        setAttachmentPreview(null);
         setEditingRequest(null);
     };
 
@@ -281,29 +285,58 @@ const TaskRequestsPage: React.FC = () => {
                             </div>
 
                             {/* Attachment and Assigned To Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                                <div className="space-y-2 flex flex-col">
                                     <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
-                                        Attachment URL
+                                        Photo Attachment
                                     </label>
-                                    <input
-                                        type="text"
-                                        value={attachmentUrl}
-                                        onChange={(e) => setAttachmentUrl(e.target.value)}
-                                        placeholder="https://example.com/image.jpg"
-                                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-400 transition-all"
-                                    />
+                                    <div className="relative h-[104px]">
+                                        {attachmentPreview ? (
+                                            <div className="relative w-full h-full rounded-xl border border-indigo-300 overflow-hidden bg-slate-50">
+                                                <img src={attachmentPreview} alt="attachment preview" className="w-full h-full object-cover" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setAttachmentPreview(null); setAttachmentUrl(''); }}
+                                                    className="absolute top-2 right-2 w-7 h-7 bg-white rounded-full shadow flex items-center justify-center text-rose-500 hover:bg-rose-50 transition-all"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <label className="flex flex-col items-center justify-center gap-1.5 w-full h-full bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all group">
+                                                <ImagePlus className="w-6 h-6 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+                                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest group-hover:text-indigo-500">Upload Photo</span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+                                                        const preview = URL.createObjectURL(file);
+                                                        setAttachmentPreview(preview);
+                                                        const reader = new FileReader();
+                                                        reader.onload = () => setAttachmentUrl(reader.result as string);
+                                                        reader.readAsDataURL(file);
+                                                    }}
+                                                />
+                                            </label>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-2 flex flex-col">
                                     <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
                                         Assigned To (ID)
                                     </label>
-                                    <input
-                                        type="number"
-                                        value={assignedTo}
-                                        onChange={(e) => setAssignedTo(Number(e.target.value))}
-                                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-indigo-400 transition-all"
-                                    />
+                                    <div className="h-[104px] flex items-center px-5 bg-slate-50/50 border border-slate-200 rounded-xl focus-within:border-indigo-400 transition-all">
+                                        <input
+                                            type="number"
+                                            value={assignedTo || ''}
+                                            onChange={(e) => setAssignedTo(e.target.value ? Number(e.target.value) : 0)}
+                                            placeholder="Enter Engineer ID (Optional)"
+                                            className="w-full bg-transparent text-sm font-bold text-slate-700 focus:outline-none placeholder:text-slate-400 placeholder:font-medium"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

@@ -96,7 +96,7 @@ const ClientOverviewPage = () => {
         {/* Header */}
         <div className="mb-10">
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Project Overview</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">{(projectData?.description === "Project start" ? "NEW SARA CITY" : projectData?.description) || "NEW SARA CITY"}</p>
+
         </div>
 
         {/* Main Grid: Core Specs (2 cols) + Project Team (1 col) */}
