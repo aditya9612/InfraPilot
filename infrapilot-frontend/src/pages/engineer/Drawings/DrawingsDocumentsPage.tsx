@@ -26,6 +26,7 @@ import { drawingService } from "../../../services/drawingService";
 import { projectService } from "../../../services/projectService";
 import { documentService } from "../../../services/documentService";
 import DocumentPreviewModal from "../../../components/dashboard/DocumentPreviewModal";
+import { useProject } from "../../../context/ProjectContext";
 
 // ————————————————————————————————————————————————————————————————————————————————
 interface DrawingRecord {
@@ -92,10 +93,10 @@ const DrawingsDocumentsPage = () => {
     const [approvalHistory, setApprovalHistory] = useState<any[]>([]);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
-    const [folderFormData, setFolderFormData] = useState({ project_id: 92, title: "", parent_id: "" as string | number });
+    const [folderFormData, setFolderFormData] = useState({ project_id: 0, title: "", parent_id: "" as string | number });
 
     const [isDrawingFolderModalOpen, setIsDrawingFolderModalOpen] = useState(false);
-    const [drawingFolderFormData, setDrawingFolderFormData] = useState({ project_id: 92, drawing_name: "", parent_id: 0 as string | number });
+    const [drawingFolderFormData, setDrawingFolderFormData] = useState({ project_id: 0, drawing_name: "", parent_id: 0 as string | number });
 
     const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
     const [viewingDoc, setViewingDoc] = useState<any>(null);
@@ -107,16 +108,16 @@ const DrawingsDocumentsPage = () => {
 
     const [isDocCreateModalOpen, setIsDocCreateModalOpen] = useState(false);
     const [docCreateFormData, setDocCreateFormData] = useState<any>({
-        project_id: 92, title: "", document_type: "", parent_id: "", remarks: "", file: null
+        project_id: 0, title: "", document_type: "", parent_id: "", remarks: "", file: null
     });
 
-    const [projectId, setProjectId] = useState<number>(92);
+    const { selectedProjectId, setSelectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
 
 
     // Type filter tabs: All / Documents / Drawings
     const [typeFilter, setTypeFilter] = useState<"All" | "Documents" | "Drawings">("Drawings");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
-    const [apiStats, setApiStats] = useState<any>(null);
 
 
     // Resolve Project ID and fetch projects and users
@@ -129,21 +130,6 @@ const DrawingsDocumentsPage = () => {
                 console.error("Failed to fetch projects", error);
             }
         };
-
-        let resolvedProjectId = 92;
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                const pId = user?.default_project_id || user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    resolvedProjectId = Number(pId);
-                }
-            } catch (e) {
-                console.error("Failed to resolve project ID", e);
-            }
-        }
-        setProjectId(resolvedProjectId);
 
         const fetchUsers = async (pId: number) => {
             try {
@@ -162,31 +148,41 @@ const DrawingsDocumentsPage = () => {
         };
 
         fetchProjects();
-        fetchUsers(resolvedProjectId);
-    }, []);
+        fetchUsers(projectId);
+    }, [projectId]);
 
     const fetchDrawings = useCallback(async () => {
         setIsLoading(true);
         try {
-            const activeProjectId = projectId || 92;
+            const activeProjectId = projectId || 0;
 
-            let versionsResult: any = { status: 'rejected' };
+            let versionsResult: any = { status: 'fulfilled', value: [] };
             let docsResult: any = { status: 'rejected' };
 
             const promises: Promise<any>[] = [];
 
-            // 1. Fetch Drawings (Versions & Latest)
+            // 1. Fetch Drawings (List, Latest, Versions)
             if (typeFilter === "Drawings" || typeFilter === "All") {
-                if (currentParentId === null) {
-                    promises.push(
-                        drawingService.getVersions(activeProjectId)
-                            .then(res => versionsResult = { status: 'fulfilled', value: res })
-                            .catch(err => versionsResult = { status: 'rejected', reason: err })
-                    );
-                }
+                const listParams = { project_id: activeProjectId, parent_id: currentParentId, limit: 50, offset: 0, latest_only: true };
+                const latestParams = { parent_id: currentParentId };
+                const versionParams = { parent_id: currentParentId, skip: 0, limit: 50 };
+
                 promises.push(
-                    drawingService.getLatest(activeProjectId)
-                        .catch(err => console.error(err))
+                    drawingService.getList(listParams)
+                        .then(res => { versionsResult.value.push(...res); })
+                        .catch(err => console.error("Failed getList:", err))
+                );
+
+                promises.push(
+                    drawingService.getLatest(activeProjectId, latestParams)
+                        .then(res => { versionsResult.value.push(...res); })
+                        .catch(err => console.error("Failed getLatest:", err))
+                );
+                
+                promises.push(
+                    drawingService.getVersions(activeProjectId, versionParams)
+                        .then(res => { versionsResult.value.push(...res); })
+                        .catch(err => console.error("Failed getVersions:", err))
                 );
             }
 
@@ -212,54 +208,14 @@ const DrawingsDocumentsPage = () => {
                 apiDocs = Array.isArray(docsResult.value) ? docsResult.value : (docsResult.value as any).items || (docsResult.value as any).data || [];
             }
 
-            const mappedDrawings = apiDrawings.map((d: any) => ({
-                id: d.id,
-                drawing_name: d.drawing_name || d.title,
-                version: d.version,
-                date: d.date || (d.created_at ? d.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
-                remarks: d.remarks || "",
-                file_url: d.file_url || d.upload_file,
-                approval_status: d.approval_status || d.status || "Pending",
-                approved_by: d.approved_by,
-                approval_id: d.approval_id,
-                project_id: d.project_id,
-                type: "Drawing"
-            }));
-
-            const mappedDocs = apiDocs
-                .map((d: any) => ({
-                    ...d,
-                    id: d.id,
-                    drawing_name: d.title || d.drawing_name,
-                    version: d.version || "v1.0",
-                    date: d.uploaded_at ? d.uploaded_at.split('T')[0] : new Date().toISOString().split('T')[0],
-                    remarks: d.remarks || "",
-                    file_url: d.file_url,
-                    approval_status: d.status || d.approval_status || "Pending",
-                    approved_by: d.uploaded_by_user_id ? `User ${d.uploaded_by_user_id}` : null,
-                    project_id: d.project_id,
-                    is_folder: d.is_folder,
-                    parent_id: d.parent_id,
-                    document_type: d.document_type,
-                    type: d.is_folder ? "Folder" : "Document",
-                    // Preserve all raw fields for exact display
-                    project_name: d.project_name,
-                    title: d.title,
-                    file_size: d.file_size,
-                    status: d.status,
-                    uploaded_by_user_id: d.uploaded_by_user_id,
-                    uploaded_at: d.uploaded_at
-                }));
-
-            const combined = [...mappedDrawings, ...mappedDocs].sort((a, b) => b.id - a.id);
+            // Pass raw backend response to the UI, removing duplicates if multiple endpoints returned the same items
+            let combined = [...apiDrawings, ...apiDocs];
+            combined = combined.filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i);
+            combined.sort((a, b) => (b.id || 0) - (a.id || 0));
+            
             setDrawingData(combined);
 
-            try {
-                const stats = await documentService.getStats();
-                setApiStats(stats);
-            } catch (e) {
-                console.error("Failed to fetch API stats", e);
-            }
+
 
         } catch (error) {
             toast.error("Vault Sync Interrupted");
@@ -274,7 +230,7 @@ const DrawingsDocumentsPage = () => {
 
     const openFolderModal = () => {
         setFolderFormData({
-            project_id: projectId || 92,
+            project_id: projectId || 0,
             title: "",
             parent_id: currentParentId || ""
         });
@@ -381,7 +337,7 @@ const DrawingsDocumentsPage = () => {
 
                 if (newRecord) {
                     if (projectId !== payload.project_id) {
-                        setProjectId(payload.project_id);
+                        setSelectedProjectId(payload.project_id);
                     }
                     setDrawingData(prev => [newRecord, ...prev]);
                     setIsFormModalOpen(false);
@@ -509,7 +465,7 @@ const DrawingsDocumentsPage = () => {
         const toastId = toast.loading("Creating document...");
         try {
             await documentService.uploadDocument({
-                project_id: docCreateFormData.project_id || projectId || 92,
+                project_id: docCreateFormData.project_id || projectId || 0,
                 title: docCreateFormData.title,
                 document_type: docCreateFormData.document_type || "Other",
                 parent_id: docCreateFormData.parent_id ? Number(docCreateFormData.parent_id) : currentParentId || null,
@@ -518,7 +474,7 @@ const DrawingsDocumentsPage = () => {
             });
             toast.success("Document created successfully", { id: toastId });
             setIsDocCreateModalOpen(false);
-            setDocCreateFormData({ project_id: projectId || 92, title: "", document_type: "", parent_id: "", remarks: "", file: null });
+            setDocCreateFormData({ project_id: projectId || 0, title: "", document_type: "", parent_id: "", remarks: "", file: null });
             fetchDrawings();
         } catch (error) {
             toast.error("Failed to create document", { id: toastId });
@@ -622,26 +578,12 @@ const DrawingsDocumentsPage = () => {
     const filteredDrawings = useMemo(() => {
         let data = drawingData;
 
-        // Apply type tab filter
-        if (typeFilter === "Drawings") {
-            // Only images — JPG, PNG, SVG, sketches, photos, plus folders for navigation
-            data = data.filter(d => {
-                if (d.is_folder || d.type === "Folder") return true;
-                const url = (d.file_url || (d as any).upload_file || "").toLowerCase();
-                return IMAGE_EXTS.test(url);
-            });
-        } else if (typeFilter === "Documents") {
-            // All files EXCEPT images, plus folders
-            data = data.filter(d => {
-                if (d.is_folder || d.type === "Folder") return true;
-                const url = (d.file_url || (d as any).upload_file || "").toLowerCase();
-                return url && !IMAGE_EXTS.test(url);
-            });
-        }
+        // Backend natively fetches Drawings when on Drawings tab and Documents when on Documents tab
+        // No frontend filtering by file extension is needed.
 
         // Apply search
         let result = data.filter(d =>
-            (d.drawing_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (d.drawing_name || d.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
             String(d.id).toLowerCase().includes(searchTerm.toLowerCase())
         );
 
@@ -670,23 +612,38 @@ const DrawingsDocumentsPage = () => {
         let allCount = 0;
         let docsCount = 0;
         let drawingsCount = 0;
+        let pendingApprovals = 0;
+        let totalStorageBytes = 0;
 
         drawingData.forEach(d => {
-            allCount++;
-            if (!d.is_folder && d.type !== "Folder") {
+            if (d.type !== "Folder" && !d.is_folder) {
+                allCount++;
                 const url = (d.file_url || (d as any).upload_file || "").toLowerCase();
                 if (IMAGE_EXTS.test(url)) {
                     drawingsCount++;
                 } else {
                     docsCount++;
                 }
+                
+                if (String(d.approval_status || "").toUpperCase() === "PENDING") {
+                    pendingApprovals++;
+                }
+
+                if (d.file_size) {
+                    totalStorageBytes += Number(d.file_size);
+                }
+            } else {
+                // Count folders in 'all' if needed, or exclude them from document counts
+                allCount++;
             }
         });
 
         return {
             all: allCount,
             documents: docsCount,
-            drawings: drawingsCount
+            drawings: drawingsCount,
+            pendingApprovals: pendingApprovals,
+            totalStorageBytes: totalStorageBytes
         };
     }, [drawingData]);
 
@@ -757,7 +714,7 @@ const DrawingsDocumentsPage = () => {
                                 <button
                                     onClick={() => {
                                         setDocCreateFormData({
-                                            project_id: projectId || 92,
+                                            project_id: projectId || 0,
                                             title: "",
                                             document_type: "Other",
                                             parent_id: currentParentId || "",
@@ -801,21 +758,21 @@ const DrawingsDocumentsPage = () => {
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-slate-800 tracking-tight">{apiStats?.total_documents || stats.all}</span>
+                                <span className="text-3xl font-black text-slate-800 tracking-tight">{stats.all}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">All Vault Assets</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Approvals</span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-amber-500 tracking-tight">{apiStats?.pending_approvals || 0}</span>
+                                <span className="text-3xl font-black text-amber-500 tracking-tight">{stats.pendingApprovals}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Awaiting Review</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Storage Used</span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-indigo-500 tracking-tight">{apiStats?.total_storage_bytes ? formatBytes(apiStats.total_storage_bytes) : "0 B"}</span>
+                                <span className="text-3xl font-black text-indigo-500 tracking-tight">{stats.totalStorageBytes > 0 ? formatBytes(stats.totalStorageBytes) : "0 B"}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption</span>
                         </div>

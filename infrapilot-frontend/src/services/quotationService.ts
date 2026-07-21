@@ -299,6 +299,20 @@ export const quotationService = {
     },
 
     /**
+     * List Material Items for a quotation
+     * GET /api/v1/quotations/{quotation_id}/materials
+     */
+    async getQuotationMaterials(quotationId: number): Promise<any[]> {
+        try {
+            const response = await api.get(`/quotations/${quotationId}/materials`);
+            return Array.isArray(response.data) ? response.data : (response.data.items || []);
+        } catch (error: any) {
+            console.error(`List Quotation ${quotationId} Materials Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
      * Add Material Item to existing quotation
      * POST /api/v1/quotations/{quotation_id}/materials
      */
@@ -345,6 +359,20 @@ export const quotationService = {
             await api.delete(`/quotations/quotation-materials/${itemId}`);
         } catch (error: any) {
             console.error(`Delete Quotation Material Item ${itemId} Error:`, error.response?.data || error.message);
+            throw error;
+        }
+    },
+
+    /**
+     * List Extra Charges for a quotation
+     * GET /api/v1/quotations/{quotation_id}/extra-charges
+     */
+    async getExtraCharges(quotationId: number): Promise<any[]> {
+        try {
+            const response = await api.get(`/quotations/${quotationId}/extra-charges`);
+            return Array.isArray(response.data) ? response.data : (response.data.items || []);
+        } catch (error: any) {
+            console.error(`List Quotation ${quotationId} Extra Charges Error:`, error.response?.data || error.message);
             throw error;
         }
     },

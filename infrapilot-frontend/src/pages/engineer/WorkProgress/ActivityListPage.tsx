@@ -20,6 +20,7 @@ import { workProgressService } from "../../../services/workProgressService";
 import { projectService } from "../../../services/projectService";
 import { reportService } from "../../../services/reportService";
 import type { ActivityItem } from "../../../types/workProgress";
+import { useProject } from "../../../context/ProjectContext";
 
 // Modular Components
 import AddActivityModal from "../../../components/WorkProgress/AddActivityModal";
@@ -90,48 +91,16 @@ const ActivityListPage = () => {
     }
   };
 
-  const [projectId, setProjectId] = useState<number | null>(null);
+  const { selectedProjectId } = useProject();
+  const projectId = selectedProjectId || 0;
 
   const [projectsList, setProjectsList] = useState<any[]>([]);
 
   useEffect(() => {
-    const userStr = localStorage.getItem("infrapilot_user");
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        const pId = user?.project_id || user?.user?.project_id;
-        if (pId) {
-          setProjectId(Number(pId));
-        } else {
-          setProjectId(92);
-        }
-      } catch (e) {
-        console.error("Failed to resolve project ID", e);
-        setProjectId(92);
-      }
-    }
-
-    // Fetch projects for the dropdown
     projectService.getProjects(100, 0).then((data: any) => {
-      setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
-    }).catch(() => { });
+        setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
+    }).catch(() => {});
   }, []);
-
-  const handleProjectChange = (newProjectId: number) => {
-    setProjectId(newProjectId);
-    const userStr = localStorage.getItem("infrapilot_user");
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        if (user.user) {
-          user.user.project_id = newProjectId;
-        } else {
-          user.project_id = newProjectId;
-        }
-        localStorage.setItem("infrapilot_user", JSON.stringify(user));
-      } catch (e) { }
-    }
-  };
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);

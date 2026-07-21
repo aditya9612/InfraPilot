@@ -4,6 +4,7 @@ import Navbar from "../../../components/common/Navbar";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import { useProject } from "../../../context/ProjectContext";
 import {
     Search,
     Plus,
@@ -68,20 +69,8 @@ const LaborDetailsPage = () => {
     const [formData, setFormData] = useState(initialFormData);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
-    const [projectId] = useState<number>(() => {
-        try {
-            const userStr = localStorage.getItem("infrapilot_user");
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                return pId ? Number(pId) : 92;
-            }
-            return 92;
-        } catch (err) {
-            console.error("Failed to load user project context:", err);
-            return 92;
-        }
-    });
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [labourToDelete, setLabourToDelete] = useState<number | null>(null);
@@ -109,6 +98,10 @@ const LaborDetailsPage = () => {
     const [distDate, setDistDate] = useState("");
     const [distSkill, setDistSkill] = useState("");
 
+    // Dashboard Stats & Skill Summary (new APIs)
+    const [dashboardStats, setDashboardStats] = useState<any>(null);
+    const [skillSummary, setSkillSummary] = useState<any[]>([]);
+
     const handleExportDistribution = async (format: 'excel' | 'pdf') => {
         setIsExporting(true);
         const toastId = toast.loading(`Generating Distribution ${format.toUpperCase()}...`);
@@ -116,14 +109,14 @@ const LaborDetailsPage = () => {
             const params: any = { project_id: projectId };
             if (distDate) params.date = distDate;
             if (distSkill) params.skill_category = distSkill;
-            
+
             let blob;
             if (format === 'excel') {
                 blob = await reportService.exportLabourExcel(params);
             } else {
                 blob = await reportService.exportLabourPDF(params);
             }
-            
+
             const url = window.URL.createObjectURL(new Blob([blob]));
             const link = document.createElement('a');
             link.href = url;
@@ -138,6 +131,25 @@ const LaborDetailsPage = () => {
             toast.error("Export failed", { id: toastId });
         } finally {
             setIsExporting(false);
+        }
+    };
+
+    // GET /api/v1/labour/report/export
+    const handleExportLabourReport = async () => {
+        const toastId = toast.loading("Exporting Labour Report Excel...");
+        try {
+            const blob = await labourService.exportLabourReport({ project_id: projectId || undefined });
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Labour_Report_${projectId}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success("Labour Report exported!", { id: toastId });
+        } catch (err: any) {
+            console.error("Labour Report export failed:", err);
+            toast.error("Export failed", { id: toastId });
         }
     };
 
@@ -159,9 +171,29 @@ const LaborDetailsPage = () => {
                 console.error("Failed to fetch labour types", err);
             }
         };
+        // GET /api/v1/labour/dashboard/stats
+        const fetchDashboardStats = async () => {
+            try {
+                const res = await labourService.getDashboardStats(projectId || undefined);
+                setDashboardStats(res);
+            } catch (err) {
+                console.error("Failed to fetch dashboard stats", err);
+            }
+        };
+        // GET /api/v1/labour/summary/skill
+        const fetchSkillSummary = async () => {
+            try {
+                const res = await labourService.getSkillSummary(projectId || undefined);
+                setSkillSummary(Array.isArray(res) ? res : (res?.items || []));
+            } catch (err) {
+                console.error("Failed to fetch skill summary", err);
+            }
+        };
         fetchProjects();
         fetchLabourTypes();
-    }, []);
+        fetchDashboardStats();
+        fetchSkillSummary();
+    }, [projectId]);
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -216,7 +248,7 @@ const LaborDetailsPage = () => {
                 // Ensure fetched items are marked as assigned to the current project
                 const items = (response.items || []).map((item: any) => ({
                     ...item,
-                    project_id: item.project_id || projectId || 92
+                    project_id: item.project_id || projectId || 0
                 }));
                 allItems = [...allItems, ...items];
 
@@ -229,12 +261,12 @@ const LaborDetailsPage = () => {
             console.log(`Personnel Registry Sync Success: Fetched ${allItems.length} records`);
 
             // Get local additions
-            const localKey = `created_labourers_${projectId || 92}`;
+            const localKey = `created_labourers_${projectId || 0}`;
             const localSaved = localStorage.getItem(localKey);
             const localItems = localSaved ? JSON.parse(localSaved) : [];
 
             // Get local deletions
-            const deletedKey = `deleted_labourers_ids_${projectId || 92}`;
+            const deletedKey = `deleted_labourers_ids_${projectId || 0}`;
             const deletedSaved = localStorage.getItem(deletedKey);
             const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
 
@@ -292,7 +324,7 @@ const LaborDetailsPage = () => {
 
             // Sync deletion locally in localStorage
             try {
-                const localKey = `created_labourers_${projectId || 92}`;
+                const localKey = `created_labourers_${projectId || 0}`;
                 const localSaved = localStorage.getItem(localKey);
                 if (localSaved) {
                     const localItems = JSON.parse(localSaved);
@@ -300,7 +332,7 @@ const LaborDetailsPage = () => {
                     localStorage.setItem(localKey, JSON.stringify(updatedItems));
                 }
 
-                const deletedKey = `deleted_labourers_ids_${projectId || 92}`;
+                const deletedKey = `deleted_labourers_ids_${projectId || 0}`;
                 const deletedSaved = localStorage.getItem(deletedKey);
                 const deletedItems = deletedSaved ? JSON.parse(deletedSaved) : [];
                 if (!deletedItems.includes(labourToDelete)) {
@@ -355,7 +387,7 @@ const LaborDetailsPage = () => {
 
                 // Sync the update to localStorage to prevent old data from reappearing
                 try {
-                    const localKey = `created_labourers_${projectId || 92}`;
+                    const localKey = `created_labourers_${projectId || 0}`;
                     const localSaved = localStorage.getItem(localKey);
                     if (localSaved) {
                         const localItems = JSON.parse(localSaved);
@@ -393,7 +425,7 @@ const LaborDetailsPage = () => {
                 setLaborers(prev => [newLaborer, ...prev]);
                 // Store in localStorage for instant sync with Attendance page
                 try {
-                    const localKey = `created_labourers_${projectId || 92}`;
+                    const localKey = `created_labourers_${projectId || 0}`;
                     const localSaved = localStorage.getItem(localKey);
                     const localItems = localSaved ? JSON.parse(localSaved) : [];
                     localItems.unshift(newLaborer);
@@ -529,13 +561,23 @@ const LaborDetailsPage = () => {
                             Centralized database of site workforce, performance metrics and compliance.
                         </p>
                     </div>
-                    <button
-                        onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setAssignSelectedProjectId(""); setIsFormModalOpen(true); }}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Register Labour
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={handleExportLabourReport}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all active:scale-95"
+                            title="Export Labour Report Excel (GET /labour/report/export)"
+                        >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Export Report
+                        </button>
+                        <button
+                            onClick={() => { setFormMode("create"); setFormData(initialFormData); setErrors({}); setAssignSelectedProjectId(""); setIsFormModalOpen(true); }}
+                            className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Register Labour
+                        </button>
+                    </div>
                 </div>
 
                 {/* ─── Summary Stats ─────────────────────────────────────────────────── */}
@@ -579,7 +621,37 @@ const LaborDetailsPage = () => {
                     ))}
                 </div>
 
-                {/* ── Main Container ── */}
+                {/* Dashboard Stats Strip (GET /labour/dashboard/stats) */}
+                {dashboardStats && (
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                        {[
+                            { label: "Total Labours", val: dashboardStats.total_labours || 0, color: "text-slate-800" },
+                            { label: "Active", val: dashboardStats.active_labours || 0, color: "text-blue-500" },
+                            { label: "Present Today", val: dashboardStats.total_present_today || 0, color: "text-emerald-500" },
+                            { label: "Absent Today", val: dashboardStats.total_absent_today || 0, color: "text-rose-500" },
+                            { label: "Wage This Month", val: `\u20B9${Number(dashboardStats.total_wage_this_month || 0).toLocaleString()}`, color: "text-amber-500" },
+                        ].map(item => (
+                            <div key={item.label} className="bg-white border border-slate-100 rounded-xl px-4 py-3 shadow-sm">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.label}</p>
+                                <p className={`text-lg font-bold mt-0.5 ${item.color}`}>{item.val}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Skill Summary Pills (GET /labour/summary/skill) */}
+                {skillSummary.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-6">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest self-center">Skill Summary:</span>
+                        {skillSummary.map((s: any, i: number) => (
+                            <span key={i} className="px-3 py-1.5 bg-primary/5 text-primary border border-primary/10 rounded-full text-xs font-bold">
+                                {s.skill_type || s.skill || `Skill ${i + 1}`}: <span className="font-extrabold">{s.count}</span>
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                {/* Main Container */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center flex-wrap gap-4 bg-white font-inter">
                         <div className="relative flex-1 max-w-md font-inter">
@@ -1104,7 +1176,7 @@ const LaborDetailsPage = () => {
                         >
                             <X className="w-5 h-5" />
                         </button>
-                        
+
                         <h2 className="text-xl font-bold text-slate-800">
                             Export Labour Report to {exportModalType === 'excel' ? 'Excel' : 'PDF'}
                         </h2>

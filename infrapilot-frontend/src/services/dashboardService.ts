@@ -189,7 +189,8 @@ export const dashboardService = {
    */
   async getAccountantDashboard(): Promise<any> {
     const response = await api.get('/dashboard/accountant');
-    return response.data;
+    const raw = response.data;
+    return raw?.data || raw;
   },
 
   /**

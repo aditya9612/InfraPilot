@@ -24,6 +24,7 @@ import { projectService } from "../../../services/projectService";
 import { dsrService } from "../../../services/dsrService";
 import { userService } from "../../../services/userService";
 import type { QcItem } from "../../../services/qcService";
+import { useProject } from "../../../context/ProjectContext";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
 const TEST_TYPES = ["Visual Check", "Cube Test", "Slump Test", "Load Test", "Compression Test"];
@@ -60,7 +61,8 @@ const QCInspectionPage = () => {
     // Selection States
     const [selectedQc, setSelectedQc] = useState<QcItem | null>(null);
     const [deleteId, setDeleteId] = useState<number | null>(null);
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [projects, setProjects] = useState<any[]>([]);
 
     interface QcFormData {
@@ -79,7 +81,7 @@ const QCInspectionPage = () => {
 
     // Form States
     const [formData, setFormData] = useState<QcFormData>({
-        project_id: 92,
+        project_id: 0,
         task_id: null,
         dsr_id: null,
         inspection_type: "General",
@@ -109,24 +111,17 @@ const QCInspectionPage = () => {
                 if (userStr) {
                     try {
                         const user = JSON.parse(userStr);
-                        const pId = user?.project_id || user?.user?.project_id;
-                        if (pId) {
-                            const resolvedId = Number(pId);
-                            setProjectId(resolvedId);
-                            setFormData(prev => ({ ...prev, project_id: resolvedId, engineer_name: user.full_name || user.username || "" }));
-                            return;
-                        }
+                        setFormData(prev => ({ ...prev, project_id: projectId, engineer_name: user.full_name || user.username || "" }));
                     } catch (e) {
                         console.error(e);
+                        setFormData(prev => ({ ...prev, project_id: projectId }));
                     }
+                } else {
+                    setFormData(prev => ({ ...prev, project_id: projectId }));
                 }
-
-                setProjectId(92);
-                setFormData(prev => ({ ...prev, project_id: 92 }));
             } catch (e) {
                 console.error("Failed to resolve project ID", e);
-                setProjectId(92);
-                setFormData(prev => ({ ...prev, project_id: 92 }));
+                setFormData(prev => ({ ...prev, project_id: projectId }));
             }
         };
         initializeProject();
@@ -188,7 +183,7 @@ const QCInspectionPage = () => {
     // ──────────────────────────────── INITIALIZATION ────────────────────────────────
 
     const fetchData = useCallback(async () => {
-        if (projectId === null) return;
+        if (!projectId) return;
         setIsLoading(true);
         try {
             const res = await qcService.listQc(projectId);
@@ -303,7 +298,7 @@ const QCInspectionPage = () => {
     const resetForm = () => {
         setSelectedFile(null);
         setFormData({
-            project_id: projectId || 92,
+            project_id: projectId || 0,
             task_id: null,
             dsr_id: null,
             inspection_type: "General",
@@ -336,7 +331,7 @@ const QCInspectionPage = () => {
     const openEdit = (qc: QcItem) => {
         setSelectedQc(qc);
         setFormData({
-            project_id: qc.project_id || projectId || 92,
+            project_id: qc.project_id || projectId || 0,
             task_id: qc.task_id,
             dsr_id: qc.dsr_id,
             inspection_type: qc.inspection_type,

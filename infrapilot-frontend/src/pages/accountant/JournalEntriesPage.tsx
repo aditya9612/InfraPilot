@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
+import { journalService } from "../../services/journalService";
+import { accountingService } from "../../services/accountingService";
 
 // --- GENERIC COMPONENTS ---
 const GenericTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => (
@@ -12,7 +14,7 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
     <div className="overflow-x-auto">
       <table className="w-full text-left">
         <thead className="bg-slate-50 border-b border-slate-100">
-          <tr>{columns.map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+          <tr>{columns.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
           {data.map((row, i) => (
@@ -28,145 +30,500 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
 
 // --- SECTIONS ---
 
-const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => (
-  <Modal
-    isOpen={isOpen}
-    onClose={onClose}
-    title="Create Journal Entry"
-    maxWidth="max-w-5xl"
-    footer={
-      <>
-        <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={() => { toast.success("Journal Entry Submitted for Approval!"); onClose(); }} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">Submit Entry</button>
-      </>
-    }
-  >
-    <form className="space-y-6" onSubmit={e => e.preventDefault()}>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Entry Information
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Journal Number *</label><input type="text" readOnly value="JE-2024-1045" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-mono" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference Number</label><input type="text" placeholder="e.g. INV-889" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name</label><input type="text" placeholder="Optional" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Site Location</label><input type="text" placeholder="Optional" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        </div>
-      </div>
+const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const [formData, setFormData] = useState({
+    entry_date: "",
+    description: "",
+    lines: [
+      { account_id: 1, debit: 0, credit: 0 },
+      { account_id: 2, debit: 0, credit: 0 }
+    ]
+  });
+  const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState<any[]>([]);
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-          Accounting Entry
-        </h3>
-        <div className="overflow-x-auto border border-slate-200 rounded-xl mb-4">
+  useEffect(() => {
+    if (isOpen) {
+      accountingService.getAccounts({ limit: 100 }).then(res => {
+        setAccounts(Array.isArray(res) ? res : res?.items || res?.data || []);
+      }).catch(() => { });
+    }
+  }, [isOpen]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleLineChange = (index: number, field: string, value: number) => {
+    const newLines = [...formData.lines];
+    newLines[index] = { ...newLines[index], [field]: value };
+    setFormData({ ...formData, lines: newLines });
+  };
+
+  const addLine = () => {
+    setFormData({ ...formData, lines: [...formData.lines, { account_id: 1, debit: 0, credit: 0 }] });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.entry_date || !formData.description) {
+      toast.error("Please fill required fields");
+      return;
+    }
+
+    const validLines = formData.lines.filter(line => line.account_id && (line.debit > 0 || line.credit > 0));
+
+    if (validLines.length === 0) {
+      toast.error("Please add at least one valid line with an account and amount");
+      return;
+    }
+
+    const tDebit = validLines.reduce((acc, line) => acc + (line.debit || 0), 0);
+    const tCredit = validLines.reduce((acc, line) => acc + (line.credit || 0), 0);
+
+    if (tDebit === 0 || tCredit === 0) {
+      toast.error("Journal entry must contain both debit and credit amounts");
+      return;
+    }
+
+    if (tDebit !== tCredit) {
+      toast.error("Total Debit and Total Credit must be equal");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        entry_date: formData.entry_date,
+        description: formData.description,
+        lines: validLines.map(line => ({
+          account_id: line.account_id,
+          debit: line.debit || 0,
+          credit: line.credit || 0
+        }))
+      };
+      await journalService.createManualJournal(payload);
+      toast.success("Journal Entry Submitted Successfully!");
+      onClose();
+    } catch (err) {
+      toast.error("Failed to create journal entry");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalDebit = formData.lines.reduce((acc, line) => acc + (line.debit || 0), 0);
+  const totalCredit = formData.lines.reduce((acc, line) => acc + (line.credit || 0), 0);
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create Journal Entry"
+      maxWidth="max-w-5xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Submit Entry"}</button>
+        </>
+      }
+    >
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+            Entry Information
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Purchase of cement" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
+            Accounting Entry
+          </h3>
+          <div className="overflow-x-auto border border-slate-200 rounded-xl mb-4">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {formData.lines.map((line, index) => (
+                  <tr key={index}>
+                    <td className="px-2 py-2">
+                      <select value={line.account_id} onChange={(e) => handleLineChange(index, "account_id", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50">
+                        <option value="">Select Account</option>
+                        {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-2 py-2"><input type="number" value={line.debit || ""} onChange={(e) => handleLineChange(index, "debit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-emerald-600 border border-slate-200 rounded-lg bg-slate-50" /></td>
+                    <td className="px-2 py-2"><input type="number" value={line.credit || ""} onChange={(e) => handleLineChange(index, "credit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-rose-500 border border-slate-200 rounded-lg bg-slate-50" /></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50 border-t border-slate-200 font-bold text-sm">
+                <tr>
+                  <td className="px-4 py-3 text-right">Total:</td>
+                  <td className="px-4 py-3 text-emerald-600">₹{totalDebit}</td>
+                  <td className="px-4 py-3 text-rose-500">₹{totalCredit}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <button type="button" onClick={addLine} className="text-xs font-bold text-indigo-600 hover:text-indigo-800">+ Add Line Item</button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+const ViewJournalDetailsModal = ({ isOpen, onClose, details }: { isOpen: boolean; onClose: () => void; details: any }) => {
+  const [accounts, setAccounts] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      accountingService.getAccounts({ limit: 100 }).then(res => {
+        setAccounts(Array.isArray(res) ? res : res?.items || res?.data || []);
+      }).catch(() => { });
+    }
+  }, [isOpen]);
+
+  const getAccountName = (id: any) => {
+    const acc = accounts.find(a => String(a.id) === String(id));
+    return acc ? acc.name : id;
+  };
+
+  if (!details) return null;
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Journal Details" maxWidth="max-w-4xl" footer={
+      <button onClick={onClose} className="px-6 py-2.5 bg-slate-100 text-slate-700 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors">Close</button>
+    }>
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Journal No</p><p className="font-bold text-slate-800 text-sm">{details.journal_number || `JE-${details.id}`}</p></div>
+          <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Entry Date</p><p className="font-bold text-slate-800 text-sm">{details.entry_date ? new Date(details.entry_date).toLocaleDateString() : "N/A"}</p></div>
+          <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Status</p><p className="font-bold text-slate-800 text-sm">{details.status || "N/A"}</p></div>
+          <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Entry Type</p><p className="font-bold text-slate-800 text-sm">{details.entry_type || "N/A"}</p></div>
+          <div className="col-span-2 md:col-span-4"><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Description</p><p className="font-bold text-slate-800 text-sm">{details.description || "N/A"}</p></div>
+          {/* Created By hidden as requested */}
+          <div><p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Created At</p><p className="font-bold text-slate-800 text-sm">{details.created_at ? new Date(details.created_at).toLocaleString() : "N/A"}</p></div>
+        </div>
+        <div className="border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
-                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Narration *</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Name</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Debit (₹)</th>
+                <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Credit (₹)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              <tr>
-                <td className="px-2 py-2"><select className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50"><option>Material Expense A/c</option></select></td>
-                <td className="px-2 py-2"><input type="number" defaultValue="50000" className="w-full px-2 py-1.5 text-xs font-bold text-emerald-600 border border-slate-200 rounded-lg bg-slate-50" /></td>
-                <td className="px-2 py-2"><input type="number" placeholder="0" disabled className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-100" /></td>
-                <td className="px-2 py-2"><input type="text" defaultValue="Purchase of cement" className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50" /></td>
-              </tr>
-              <tr>
-                <td className="px-2 py-2"><select className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50"><option>HDFC Bank A/c</option></select></td>
-                <td className="px-2 py-2"><input type="number" placeholder="0" disabled className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-100" /></td>
-                <td className="px-2 py-2"><input type="number" defaultValue="50000" className="w-full px-2 py-1.5 text-xs font-bold text-rose-500 border border-slate-200 rounded-lg bg-slate-50" /></td>
-                <td className="px-2 py-2"><input type="text" defaultValue="Paid via NEFT" className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50" /></td>
-              </tr>
+              {(details.lines || []).map((line: any, i: number) => (
+                <tr key={i}>
+                  <td className="px-4 py-3 text-sm font-bold text-slate-700">{line.account_name || getAccountName(line.account_id) || "-"}</td>
+                  <td className="px-4 py-3 text-sm font-bold text-emerald-600 text-right">{line.debit || 0}</td>
+                  <td className="px-4 py-3 text-sm font-bold text-rose-500 text-right">{line.credit || 0}</td>
+                </tr>
+              ))}
             </tbody>
-            <tfoot className="bg-slate-50 border-t border-slate-200 font-bold text-sm">
-              <tr>
-                <td className="px-4 py-3 text-right">Total:</td>
-                <td className="px-4 py-3 text-emerald-600">₹50,000</td>
-                <td className="px-4 py-3 text-rose-500">₹50,000</td>
-                <td></td>
-              </tr>
-            </tfoot>
           </table>
         </div>
-        <button className="text-xs font-bold text-indigo-600 hover:text-indigo-800">+ Add Line Item</button>
       </div>
-      
-      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-        <h3 className="text-sm font-bold text-slate-800 mb-5">Attachments</h3>
-        <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-white transition-colors cursor-pointer bg-white">
-          <div className="text-2xl mb-2">📎</div>
-          <p className="text-xs font-bold text-slate-600">Upload Supporting Documents</p>
-          <p className="text-[10px] text-slate-400 mt-1">Invoices, Receipts, Bills (PDF/JPG)</p>
+    </Modal>
+  );
+};
+
+const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const [formData, setFormData] = useState({
+    entry_date: "",
+    description: "",
+    lines: [
+      { account_id: 1, debit: 0, credit: 0 },
+      { account_id: 2, debit: 0, credit: 0 }
+    ]
+  });
+  const [loading, setLoading] = useState(false);
+
+  const mockAccounts = [
+    { id: 1, name: "Material Expense A/c" },
+    { id: 2, name: "HDFC Bank A/c" },
+    { id: 3, name: "Cash A/c" },
+  ];
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleLineChange = (index: number, field: string, value: number) => {
+    const newLines = [...formData.lines];
+    newLines[index] = { ...newLines[index], [field]: value };
+    setFormData({ ...formData, lines: newLines });
+  };
+
+  const addLine = () => {
+    setFormData({ ...formData, lines: [...formData.lines, { account_id: 1, debit: 0, credit: 0 }] });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.entry_date || !formData.description) {
+      toast.error("Please fill required fields");
+      return;
+    }
+
+    const validLines = formData.lines.filter(line => line.account_id && (line.debit > 0 || line.credit > 0));
+
+    if (validLines.length === 0) {
+      toast.error("Please add at least one valid line with debit or credit");
+      return;
+    }
+
+    const tDebit = validLines.reduce((acc, line) => acc + (line.debit || 0), 0);
+    const tCredit = validLines.reduce((acc, line) => acc + (line.credit || 0), 0);
+
+    if (tDebit === 0 || tCredit === 0) {
+      toast.error("Journal entry must contain both debit and credit amounts");
+      return;
+    }
+
+    if (tDebit !== tCredit) {
+      toast.error("Total Debit and Total Credit must be equal");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        ...formData,
+        lines: validLines.map(line => ({
+          account_id: line.account_id,
+          debit: line.debit || 0,
+          credit: line.credit || 0
+        }))
+      };
+      await journalService.createAdjustmentJournal(payload);
+      toast.success("Adjustment Journal Submitted Successfully!");
+      onClose();
+    } catch (err) {
+      toast.error("Failed to create adjustment journal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalDebit = formData.lines.reduce((acc, line) => acc + (line.debit || 0), 0);
+  const totalCredit = formData.lines.reduce((acc, line) => acc + (line.credit || 0), 0);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Adjustment Journal" maxWidth="max-w-5xl" footer={
+      <>
+        <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50">{loading ? "Submitting..." : "Submit Adjustment"}</button>
+      </>
+    }>
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+            Entry Information
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Entry Date *</label><input type="date" name="entry_date" value={formData.entry_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description *</label><input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="e.g. Depreciation Entry" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+          </div>
         </div>
-      </div>
-    </form>
-  </Modal>
-);
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
+            Accounting Entry
+          </h3>
+          <div className="overflow-x-auto border border-slate-200 rounded-xl mb-4">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/3">Account *</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Debit (₹)</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credit (₹)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {formData.lines.map((line, index) => (
+                  <tr key={index}>
+                    <td className="px-2 py-2">
+                      <select value={line.account_id} onChange={(e) => handleLineChange(index, "account_id", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50">
+                        {mockAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-2 py-2"><input type="number" value={line.debit || ""} onChange={(e) => handleLineChange(index, "debit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-emerald-600 border border-slate-200 rounded-lg bg-slate-50" /></td>
+                    <td className="px-2 py-2"><input type="number" value={line.credit || ""} onChange={(e) => handleLineChange(index, "credit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-rose-500 border border-slate-200 rounded-lg bg-slate-50" /></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50 border-t border-slate-200 font-bold text-sm">
+                <tr>
+                  <td className="px-4 py-3 text-right">Total:</td>
+                  <td className="px-4 py-3 text-emerald-600">₹{totalDebit}</td>
+                  <td className="px-4 py-3 text-rose-500">₹{totalCredit}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <button type="button" onClick={addLine} className="text-xs font-bold text-indigo-600 hover:text-indigo-800">+ Add Line Item</button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
 
 const ManualEntriesWrapper = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [journals, setJournals] = useState<any[]>([]);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedDetails, setSelectedDetails] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchJournals = async () => {
+      try {
+        const data = await journalService.getManualJournals();
+        setJournals(Array.isArray(data) ? data : data?.data || []);
+      } catch (err) {
+        toast.error("Failed to load journal entries");
+      }
+    };
+    fetchJournals();
+  }, []);
+
+  const viewDetails = async (id: string | number) => {
+    try {
+      const data = await journalService.getManualJournalDetails(id);
+      setSelectedDetails(data);
+      setDetailsModalOpen(true);
+    } catch (error) {
+      toast.error("Failed to fetch journal details");
+    }
+  };
+
+  const tableData = journals.map(j => [
+    j.journal_number || `JE-${j.id}`,
+    j.entry_date ? new Date(j.entry_date).toLocaleDateString() : "-",
+    j.description || "-",
+    j.status || "Posted",
+    j.entry_type || "-",
+    j.created_at ? new Date(j.created_at).toLocaleString() : "-",
+    <button key={j.id} onClick={() => viewDetails(j.id)} className="p-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors" title="View Details">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+    </button>
+  ]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <h3 className="font-bold text-slate-800">Manual Journal Entries</h3>
-        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
-          + Create Journal Entry
-        </button>
       </div>
-      <JournalEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-      <GenericTableSection 
-        title="Recent Manual Entries" 
-        columns={["Date", "Journal No", "Narration", "Amount", "Status"]} 
-        data={[
-          ["2024-11-01", "JE-2024-1045", "Purchase of cement", "₹50,000", "Pending Approval"]
-        ]} 
+      <GenericTableSection
+        title="Recent Manual Entries"
+        columns={["Journal Number", "Entry Date", "Description", "Status", "Entry Type", "Created At", "Action"]}
+        data={tableData.length > 0 ? tableData : [["-", "-", "No entries found", "-", "-", "-", "-"]]}
       />
+      <ViewJournalDetailsModal isOpen={detailsModalOpen} onClose={() => setDetailsModalOpen(false)} details={selectedDetails} />
     </div>
   );
 };
 
-// --- ADJUSTMENT REGISTER SECTION ---
 const AdjustmentRegisterSection = () => {
+  const [journals, setJournals] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
-  const entries = [
-    { id: "ADJ-001", date: "31/05/26", reason: "Depreciation Entry", amount: "₹6,50,000", status: "Pending Approval" },
-    { id: "ADJ-002", date: "30/04/26", reason: "Prepaid Expense Amortization", amount: "₹25,000", status: "Posted" },
-  ];
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedDetails, setSelectedDetails] = useState<any>(null);
 
-  const filtered = entries.filter(e =>
-    e.id.toLowerCase().includes(search.toLowerCase()) ||
-    e.reason.toLowerCase().includes(search.toLowerCase())
-  );
+  const fetchJournals = async () => {
+    try {
+      const params = {
+        ...(search && { search }),
+        ...(statusFilter && { status: statusFilter }),
+        ...(fromDate && { from_date: fromDate }),
+        ...(toDate && { to_date: toDate })
+      };
+      const data = await journalService.getAdjustmentJournals(params);
+      setJournals(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      toast.error("Failed to load adjustment journals");
+    }
+  };
+
+  useEffect(() => {
+    fetchJournals();
+  }, []);
+
+  const handleFilter = () => {
+    fetchJournals();
+  };
+
+  const viewDetails = async (id: string | number) => {
+    try {
+      const data = await journalService.getAdjustmentJournalDetails(id);
+      setSelectedDetails(data);
+      setDetailsModalOpen(true);
+    } catch (error) {
+      toast.error("Failed to fetch adjustment journal details");
+    }
+  };
+
+  // Removed local filtering since it's server-side now via fetchJournals
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       {/* Toolbar */}
-      <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100">
-        <span className="text-sm font-bold text-slate-700">All Adjustment Registers</span>
-        <div className="flex items-center gap-3 flex-1 justify-center max-w-sm mx-auto sm:mx-0">
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/></svg>
+      <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50">
+        <span className="text-sm font-bold text-slate-700 whitespace-nowrap">All Adjustment Registers</span>
+        <div className="flex flex-col md:flex-row items-center gap-3 w-full justify-end">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full md:w-auto px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white"
+          />
+          <input
+            type="text"
+            placeholder="Status..."
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="w-full md:w-auto px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white"
+          />
+          <div className="flex items-center gap-2 w-full md:w-auto">
             <input
-              type="text"
-              placeholder="Search adjustment register..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-blue-300"
+              type="date"
+              value={fromDate}
+              onChange={e => setFromDate(e.target.value)}
+              className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white"
+              title="From Date"
+            />
+            <span className="text-slate-400">-</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={e => setToDate(e.target.value)}
+              className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white"
+              title="To Date"
             />
           </div>
+          <button onClick={handleFilter} className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-sm">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" /></svg>
+            Filter
+          </button>
         </div>
-        <button className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all shadow-sm ml-auto">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
-          Filter
-        </button>
       </div>
 
       {/* Table */}
@@ -174,34 +531,149 @@ const AdjustmentRegisterSection = () => {
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b border-slate-100">
             <tr>
-              {["ADJ NO", "DATE", "REASON", "AMOUNT", "STATUS", "ACTION"].map(h => (
+              {["JOURNAL NUMBER", "ENTRY DATE", "DESCRIPTION", "STATUS", "ENTRY TYPE", "CREATED AT", "ACTION"].map(h => (
                 <th key={h} className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {filtered.map(row => (
+            {journals.map(row => (
               <tr key={row.id} className="hover:bg-slate-50/50">
-                <td className="px-5 py-3.5 text-xs font-bold text-emerald-600">{row.id}</td>
-                <td className="px-5 py-3.5 text-xs text-slate-500">{row.date}</td>
-                <td className="px-5 py-3.5 text-xs text-slate-700">{row.reason}</td>
-                <td className="px-5 py-3.5 text-xs font-semibold text-slate-800">{row.amount}</td>
+                <td className="px-5 py-3.5 text-xs font-bold text-emerald-600">{row.journal_number || `ADJ-${row.id}`}</td>
+                <td className="px-5 py-3.5 text-xs text-slate-500">{row.entry_date ? new Date(row.entry_date).toLocaleDateString() : "-"}</td>
+                <td className="px-5 py-3.5 text-xs text-slate-700">{row.description || "-"}</td>
                 <td className="px-5 py-3.5 text-xs">
-                  {row.status === "Pending Approval" ? (
-                    <span className="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full font-bold text-[10px]">Pending Approval</span>
-                  ) : (
-                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px]">Posted</span>
-                  )}
+                  <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px]">{row.status || "Posted"}</span>
                 </td>
+                <td className="px-5 py-3.5 text-xs font-semibold text-slate-800">{row.entry_type || "-"}</td>
+                <td className="px-5 py-3.5 text-xs text-slate-500">{row.created_at ? new Date(row.created_at).toLocaleString() : "-"}</td>
                 <td className="px-5 py-3.5 text-xs">
-                  <button className="text-blue-600 font-bold hover:underline">Review</button>
+                  <button onClick={() => viewDetails(row.id)} className="p-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors" title="View Details">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  </button>
                 </td>
               </tr>
             ))}
+            {journals.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-5 py-8 text-center text-sm text-slate-500">No adjustment journals found.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
+      <ViewJournalDetailsModal isOpen={detailsModalOpen} onClose={() => setDetailsModalOpen(false)} details={selectedDetails} />
     </div>
+  );
+};
+
+const RecurringJournalsSection = () => {
+  const [journals, setJournals] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchJournals = async () => {
+      try {
+        const data = await journalService.getRecurringJournals();
+        setJournals(Array.isArray(data) ? data : data?.data || []);
+      } catch (err) {
+        toast.error("Failed to load recurring journals");
+      }
+    };
+    fetchJournals();
+  }, []);
+
+  const toggleStatus = async (id: string | number) => {
+    try {
+      await journalService.toggleRecurringJournal(id);
+      toast.success("Toggled recurring journal successfully");
+      const data = await journalService.getRecurringJournals();
+      setJournals(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      toast.error("Failed to toggle journal");
+    }
+  };
+
+  const tableData = journals.map(j => [
+    j.template_name || "-",
+    j.frequency || "-",
+    j.next_run_date ? new Date(j.next_run_date).toLocaleDateString() : "-",
+    j.status || "Active",
+    <button key={j.id} onClick={() => toggleStatus(j.id)} className="px-3 py-1 bg-amber-50 text-amber-600 rounded hover:bg-amber-100 font-bold text-xs">Toggle Status</button>
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <h3 className="font-bold text-slate-800">Recurring Entries</h3>
+      </div>
+      <GenericTableSection
+        title="Active Recurring Journals"
+        columns={["Template Name", "Frequency", "Next Run Date", "Status", "Action"]}
+        data={tableData.length > 0 ? tableData : [["-", "-", "-", "-", "-"]]}
+      />
+    </div>
+  );
+};
+
+const RecurringJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const [formData, setFormData] = useState({
+    template_name: "",
+    frequency: "",
+    next_run_date: "",
+    template_data: ""
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.template_name || !formData.frequency || !formData.next_run_date || !formData.template_data) {
+      toast.error("Please fill all fields");
+      return;
+    }
+    setLoading(true);
+    try {
+      await journalService.createRecurringJournal(formData);
+      toast.success("Recurring Journal Created!");
+      onClose();
+    } catch (err) {
+      toast.error("Failed to create recurring journal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="New Recurring Journal" maxWidth="max-w-2xl" footer={
+      <>
+        <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Save Template"}</button>
+      </>
+    }>
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="space-y-4">
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Name</label>
+            <input type="text" name="template_name" value={formData.template_name} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Frequency</label>
+            <input type="text" name="frequency" value={formData.frequency} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Next Run Date</label>
+            <input type="date" name="next_run_date" value={formData.next_run_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Template Data (String)</label>
+            <textarea name="template_data" value={formData.template_data} onChange={handleChange} rows={4} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"></textarea>
+          </div>
+        </div>
+      </form>
+    </Modal>
   );
 };
 
@@ -209,12 +681,15 @@ const AdjustmentRegisterSection = () => {
 type TabKey = "journal" | "recurring" | "adjustment";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "journal",    label: "Journal Entry" },
-  { key: "recurring",  label: "Recurring" },
+  { key: "journal", label: "Journal Entry" },
+  { key: "recurring", label: "Recurring" },
   { key: "adjustment", label: "Adjustment Register" },
 ];
 
 const JournalEntriesPage = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAdjModalOpen, setIsAdjModalOpen] = useState(false);
+  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
   const { category } = useParams<{ category?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -225,8 +700,8 @@ const JournalEntriesPage = () => {
     const lastPart = pathParts[pathParts.length - 1];
     const currentSub = category || lastPart;
     const map: Record<string, TabKey> = {
-      "journal":    "journal",
-      "recurring":  "recurring",
+      "journal": "journal",
+      "recurring": "recurring",
       "adjustment": "adjustment",
     };
     return map[currentSub || ""] || "journal";
@@ -243,6 +718,87 @@ const JournalEntriesPage = () => {
     navigate(`/accountant/journal/${key}`, { replace: true });
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportAdjustment = async () => {
+    try {
+      const blob = await journalService.exportAdjustmentJournals();
+      const contentType = blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const extension = contentType.includes('csv') ? 'csv' : 'xlsx';
+      const url = window.URL.createObjectURL(new Blob([blob], { type: contentType }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Adjustment_Journals_${new Date().toISOString().split("T")[0]}.${extension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Adjustment journals exported successfully!");
+    } catch (e) {
+      toast.error("Failed to export adjustment journals");
+    }
+  };
+
+  const handleExportJournals = async () => {
+    try {
+      const blob = await journalService.exportJournals();
+      const contentType = blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const extension = contentType.includes('csv') ? 'csv' : 'xlsx';
+      const url = window.URL.createObjectURL(new Blob([blob], { type: contentType }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Manual_Journals_${new Date().toISOString().split("T")[0]}.${extension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Journals exported successfully!");
+    } catch (e) {
+      toast.error("Failed to export journals");
+    }
+  };
+
+  const handleExportRecurring = async () => {
+    try {
+      const blob = await journalService.exportRecurringJournals();
+      const contentType = blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      const extension = contentType.includes('csv') ? 'csv' : 'xlsx';
+      const url = window.URL.createObjectURL(new Blob([blob], { type: contentType }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Recurring_Journals_${new Date().toISOString().split("T")[0]}.${extension}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Recurring journals exported successfully!");
+    } catch (e) {
+      toast.error("Failed to export recurring journals");
+    }
+  };
+
+  const handleRunDueRecurring = async () => {
+    try {
+      await journalService.runDueRecurringJournals();
+      toast.success("Ran due recurring journals successfully!");
+      // Optionally trigger a re-fetch of the recurring list here if needed
+    } catch (e) {
+      toast.error("Failed to run due recurring journals");
+    }
+  };
+
+  const handleImportAdjustment = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const formData = new FormData();
+    formData.append("file", e.target.files[0]);
+    try {
+      await journalService.importAdjustmentJournals(formData);
+      toast.success("Adjustment journals imported successfully!");
+    } catch (err) {
+      toast.error("Failed to import adjustment journals");
+    }
+  };
+
   // Per-tab config
   const TAB_CONFIG: Record<TabKey, { title: string; subtitle: string; actions: React.ReactNode }> = {
     journal: {
@@ -250,11 +806,11 @@ const JournalEntriesPage = () => {
       subtitle: "Record and manage manual journal entries.",
       actions: (
         <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+          <button onClick={handleExportJournals} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
             <span className="text-lg">📤</span> Export
           </button>
           <button
-            onClick={() => toast.success("Opening New Journal Entry...")}
+            onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
           >
             <span className="text-base leading-none">+</span> New Entry
@@ -267,14 +823,17 @@ const JournalEntriesPage = () => {
       subtitle: "Manage recurring and automated journal entries.",
       actions: (
         <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+          <button onClick={handleRunDueRecurring} className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-emerald-100 transition-all active:scale-95">
+            <span className="text-lg">🚀</span> Run Due
+          </button>
+          <button onClick={handleExportRecurring} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
             <span className="text-lg">📤</span> Export
           </button>
           <button
-            onClick={() => toast.success("Opening New Recurring Entry...")}
+            onClick={() => setIsRecurringModalOpen(true)}
             className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
           >
-            <span className="text-base leading-none">+</span> New Recurring
+            New Recurring
           </button>
         </div>
       ),
@@ -284,17 +843,18 @@ const JournalEntriesPage = () => {
       subtitle: "Manage accounting adjustments and corrections.",
       actions: (
         <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+          <input type="file" ref={fileInputRef} onChange={handleImportAdjustment} className="hidden" accept=".csv,.xlsx" />
+          <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
             <span className="text-lg">📥</span> Import
           </button>
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+          <button onClick={handleExportAdjustment} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
             <span className="text-lg">📤</span> Export
           </button>
           <button
-            onClick={() => toast.success("Opening New Adjustment...")}
+            onClick={() => setIsAdjModalOpen(true)}
             className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95"
           >
-            <span className="text-base leading-none">+</span> New Adjustment
+            New Adjustment
           </button>
         </div>
       ),
@@ -324,11 +884,10 @@ const JournalEntriesPage = () => {
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
-                activeTab === tab.key
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key
                   ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold"
                   : "text-slate-500 hover:text-slate-700"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -336,10 +895,14 @@ const JournalEntriesPage = () => {
         </div>
 
         {/* ── Content Rendering ──────────────────────────── */}
-        {activeTab === "journal"    && <ManualEntriesWrapper />}
-        {activeTab === "recurring"  && <GenericTableSection title="Recurring Entries" columns={["Template Name", "Frequency", "Next Run Date", "Amount", "Status"]} data={[["Office Rent", "Monthly", "2024-12-01", "₹1,50,000", "Active"]]} />}
+        {activeTab === "journal" && <ManualEntriesWrapper />}
+        {activeTab === "recurring" && <RecurringJournalsSection />}
         {activeTab === "adjustment" && <AdjustmentRegisterSection />}
       </PageTransition>
+
+      <JournalEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <AdjustmentJournalModal isOpen={isAdjModalOpen} onClose={() => setIsAdjModalOpen(false)} />
+      <RecurringJournalModal isOpen={isRecurringModalOpen} onClose={() => setIsRecurringModalOpen(false)} />
     </>
   );
 };

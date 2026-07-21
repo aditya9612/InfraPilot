@@ -3,7 +3,9 @@ import { useParams, useNavigate, useLocation, useSearchParams } from "react-rout
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
-// --- MOCK DATA ---
+import Modal from "../../components/common/Modal";
+import { accountingService } from "../../services/accountingService";
+import { projectService } from "../../services/projectService";
 
 
 
@@ -14,15 +16,13 @@ const PARTY_TYPES = ["Material Supplier", "Contractor", "Labor", "Staff", "Equip
 
 
 
-const MOCK_RECEIPTS = [
-  { id: "REC-105", date: "2024-05-15", party: "Apex Developers", type: "RA Bill Collection", amount: 1500000, mode: "Bank Transfer", status: "Cheque Clearing", invoice: "RA-BILL-009" },
-  { id: "REC-106", date: "2024-05-16", party: "Skyline Towers", type: "Advance", amount: 500000, mode: "RTGS", status: "Cleared", invoice: "INV-2024-045" }
-];
 
 const MOCK_PAYMENTS = [
   { id: "PAY-209", date: "2024-05-14", party: "UltraTech Cement", type: "Vendor Payment", amount: 550000, mode: "Bank Transfer", status: "Pending" },
   { id: "PAY-210", date: "2024-05-16", party: "Ramesh Labor Contractor", type: "Contractor Payment", amount: 220000, mode: "Cheque", status: "Paid" }
 ];
+
+// 1. Transactions removed (Moved to Fund Transfer)
 
 // 2. Receipts Section (Receive Payment)
 const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
@@ -30,53 +30,81 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     (initialSubTab as any) || "create"
   );
   
-  const [receipts, setReceipts] = useState<any[]>(MOCK_RECEIPTS);
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any>(null);
   const [search, setSearch] = useState("");
-  const [editingReceipt, setEditingReceipt] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
     if (initialSubTab) setActiveSubTab(initialSubTab as any);
   }, [initialSubTab]);
 
+  useEffect(() => {
+    projectService.getProjects().then(res => setProjects(res.items || []));
+  }, []);
+
+  const fetchReceipts = async () => {
+    try {
+      const data = await accountingService.getReceipts();
+      setReceipts(Array.isArray(data) ? data : data?.data || []);
+      
+      const sumData = await accountingService.getReceiptsSummary();
+      setSummary(sumData);
+    } catch (err) {
+      toast.error("Failed to fetch receipts");
+    }
+  };
+
+  useEffect(() => {
+    if (activeSubTab === "list" || activeSubTab === "approval") {
+      fetchReceipts();
+    }
+  }, [activeSubTab]);
+
   const handleDelete = (id: string) => {
     setReceipts(prev => prev.filter(r => r.id !== id));
-    toast.success("Receipt deleted!");
+    toast.success("Receipt deleted! (Mock)");
   };
 
   const handleApprove = (id: string) => {
     setReceipts(prev => prev.map(r => r.id === id ? { ...r, status: "Cleared" } : r));
-    toast.success("Receipt cleared!");
+    toast.success("Receipt cleared! (Mock)");
   };
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const newRec: any = {};
     formData.forEach((value, key) => { newRec[key] = value; });
 
-    if (editingReceipt) {
-      setReceipts(prev => prev.map(r => r.id === editingReceipt.id ? { ...r, ...newRec, amount: Number(newRec.amount || 0) } : r));
-      toast.success("Receipt updated!");
-    } else {
-      newRec.id = `REC-${Math.floor(Math.random() * 1000)}`;
-      newRec.amount = Number(newRec.amount || 0);
-      newRec.status = newRec.status || "Pending";
-      newRec.type = newRec.type || "Collection";
-      setReceipts(prev => [newRec, ...prev]);
+    try {
+      setIsLoading(true);
+      await accountingService.createReceipt({
+        project_id: Number(newRec.project_id || 0),
+        amount: Number(newRec.amount || 0),
+        mode: newRec.mode || "Cash",
+        reference: newRec.reference || ""
+      });
       toast.success("Receipt recorded!");
+      fetchReceipts();
+      setActiveSubTab("list");
+      e.currentTarget.reset();
+    } catch (err) {
+      toast.error("Failed to create receipt");
+    } finally {
+      setIsLoading(false);
     }
-    setActiveSubTab("list");
   };
 
   const filtered = receipts.filter(r => 
-    (r.party?.toLowerCase() || "").includes(search.toLowerCase()) || 
-    (r.id?.toLowerCase() || "").includes(search.toLowerCase())
+    (r.reference?.toLowerCase() || "").includes(search.toLowerCase()) || 
+    (r.id?.toString().toLowerCase() || "").includes(search.toLowerCase())
   );
 
   const subTabs = [
     { key: "create", label: "Record Receipt" },
     { key: "list", label: "Receipts List" },
-    { key: "approval", label: "Clearance" },
   ] as const;
 
   return (
@@ -108,28 +136,49 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
             <p className="text-xs text-slate-400 mt-0.5">Manage all incoming payments</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/60 border-b border-slate-100">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 p-5">
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Total Receipts</p>
+                <p className="text-xl font-black text-emerald-600">₹ {summary?.total_receipts ? summary.total_receipts.toLocaleString() : summary?.total_amount ? summary.total_amount.toLocaleString() : "0"}</p>
+              </div>
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 mb-1">Total Count</p>
+                <p className="text-xl font-black text-slate-700">{summary?.total_count || "0"}</p>
+              </div>
+            </div>
+
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-slate-50 sticky top-0">
                 <tr>
-                  {["Date", "Receipt No", "Party", "Type", "Amount", "Mode", "Status", "Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                  ))}
+                  <th className="px-4 py-3 font-semibold text-slate-500">Type</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Mode</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Linked To</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Invoice</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Project</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Amount</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Reference</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500">Dates</th>
+                  <th className="px-4 py-3 font-semibold text-slate-500 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-slate-100">
                 {filtered.map(r => (
-                  <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-4 py-3 text-xs text-slate-500">{r.date}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-emerald-600">{r.id}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700">{r.party}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{r.type}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800">₹{r.amount?.toLocaleString("en-IN")}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{r.mode}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest bg-slate-100 text-slate-600`}>{r.status}</span></td>
+                  <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 text-slate-700 capitalize">{r.type || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700">{r.mode || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700">{r.linked_to || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700">{r.invoice_name || r.invoice_id || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700 font-medium">{projects.find(p => p.id === r.project_id)?.name || r.project_id || '-'}</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">₹ {(r.amount || 0).toLocaleString()}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-700">{r.reference || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700 text-xs">
+                      <div><span className="text-slate-400">Cre:</span> {r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</div>
+                      <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {r.updated_at ? new Date(r.updated_at).toLocaleString() : '-'}</div>
+                    </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1">
+                      <div className="flex justify-end gap-1">
                         <button className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-all" title="View">👁</button>
-                        <button onClick={() => { setEditingReceipt(r); setActiveSubTab("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
+                        <button onClick={() => setActiveSubTab("create")} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
                         <button onClick={() => handleDelete(r.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
                       </div>
                     </td>
@@ -142,88 +191,41 @@ const ReceiptsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
       )}
 
       {activeSubTab === "create" && (
-        <form onSubmit={handleFormSubmit} className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-2 space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-emerald-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-                Client & Invoice Details
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Receipt Number *</label><input type="text" placeholder="Auto" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 text-slate-400" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Receipt Date *</label><input type="date" name="date" defaultValue={editingReceipt?.date || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Client Name *</label><input type="text" name="party" defaultValue={editingReceipt?.party || ""} placeholder="Select client" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label><input type="text" placeholder="Select project" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="col-span-2 space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Linked Invoice / RA Bill *</label>
-                  <select name="invoice" defaultValue={editingReceipt?.invoice || ""} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-                    <option value="">Select Pending Invoice...</option>
-                    <option value="INV-2024-045">INV-2024-045</option>
-                    <option value="RA-BILL-009">RA-BILL-009</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-emerald-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-                Payment Information
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount Received (₹) *</label><input type="number" name="amount" defaultValue={editingReceipt?.amount || ""} placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold text-emerald-600" /></div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode *</label>
-                  <select name="mode" defaultValue={editingReceipt?.mode || "Bank Transfer"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-                    <option value="Bank Transfer">Bank Transfer</option><option value="RTGS">RTGS</option><option value="NEFT">NEFT</option><option value="Cheque">Cheque</option><option value="UPI">UPI</option><option value="Cash">Cash</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference / UTR Number</label><input type="text" placeholder="Ref No." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Received In Bank Account *</label>
-                  <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-                    <option>HDFC Bank - Current A/c - 1234</option><option>SBI Bank - Escrow A/c - 5678</option>
-                  </select>
-                </div>
-                <div className="col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label><textarea rows={2} placeholder="Any notes..." className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 resize-none" /></div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-4">Attachments</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {["Payment Receipt", "Bank Screenshot", "Supporting Docs"].map(att => (
-                  <label key={att} className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-emerald-500/40 hover:bg-emerald-50/30 transition-all group">
-                    <div className="text-xl mb-1">📎</div>
-                    <p className="text-[10px] font-semibold text-slate-500 group-hover:text-emerald-600">{att}</p>
-                    <input type="file" className="hidden" />
-                  </label>
+        <form onSubmit={handleFormSubmit} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 max-w-3xl animate-in fade-in slide-in-from-bottom-2">
+          <h3 className="text-lg font-bold text-slate-800 mb-6">Create New Receipt</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Project</label>
+              <select name="project_id" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
+                <option value="">Select Project</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
-              </div>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Amount</label>
+              <input type="number" name="amount" required className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Mode</label>
+              <select name="mode" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
+                <option>Cash</option>
+                <option>Bank Transfer</option>
+                <option>Cheque</option>
+                <option>UPI</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Reference No</label>
+              <input type="text" name="reference" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 bg-slate-50 focus:bg-white transition-all" />
             </div>
           </div>
-
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-5">Summary</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between text-xs text-slate-500"><span>Pending Invoice Amount</span><span className="font-semibold text-slate-700">—</span></div>
-                <div className="flex justify-between text-sm font-bold text-emerald-600 border-t border-slate-100 pt-3"><span>Receipt Amount</span><span>{editingReceipt ? `₹${editingReceipt.amount}` : "—"}</span></div>
-                <div className="flex justify-between text-xs font-semibold text-amber-500 mt-2"><span>Remaining Balance</span><span>—</span></div>
-                <div className="pt-4">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status</label>
-                  <select name="status" defaultValue={editingReceipt?.status || "Pending"} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-                    <option value="Pending">Pending</option><option value="Cleared">Cleared</option><option value="Cheque Clearing">Cheque Clearing</option>
-                  </select>
-                </div>
-              </div>
-              <button type="submit" className="w-full mt-6 bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-md active:scale-95">
-                {editingReceipt ? "Update Receipt" : "Record Receipt"}
-              </button>
-              <button type="button" onClick={() => setActiveSubTab("list")} className="w-full mt-2 bg-slate-50 text-slate-500 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-100 border border-slate-200 transition-all active:scale-95">
-                Cancel
-              </button>
-            </div>
+          
+          <div className="flex justify-end pt-4 border-t border-slate-100">
+            <button disabled={isLoading} type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm shadow-emerald-500/20 active:scale-95 disabled:opacity-50">
+              {isLoading ? "Saving..." : "Save Receipt"}
+            </button>
           </div>
         </form>
       )}
@@ -307,7 +309,6 @@ const PaymentsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const subTabs = [
     { key: "create", label: "Make Payment" },
     { key: "list", label: "Payments List" },
-    { key: "approval", label: "Clearance" },
   ] as const;
 
   return (
@@ -536,15 +537,123 @@ const PettyCashSection = () => (
 
 
 
+const CreateFundTransferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) => {
+  const [formData, setFormData] = useState({
+    from_account_id: 0,
+    to_account_id: 0,
+    amount: 0,
+    transfer_date: new Date().toISOString().split('T')[0],
+    reference_number: "",
+    remarks: ""
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [accountsList, setAccountsList] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      accountingService.getBankAccounts().then(res => setAccountsList(Array.isArray(res) ? res : res?.data || [])).catch(() => {});
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      await accountingService.createFundTransfer(formData);
+      toast.success("Fund Transfer Created!");
+      onSuccess();
+      onClose();
+    } catch (err) {
+      toast.error("Failed to create fund transfer");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Fund Transfer" maxWidth="max-w-xl" footer={
+      <>
+        <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+        <button onClick={handleSubmit} disabled={isLoading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
+          {isLoading ? "Creating..." : "Create Transfer"}
+        </button>
+      </>
+    }>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">From Account *</label>
+          <select required value={formData.from_account_id || ""} onChange={e => setFormData({ ...formData, from_account_id: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+            <option value="">Select From Account</option>
+            {accountsList.map(acc => <option key={acc.id} value={acc.id}>{acc.bank_name} - {acc.account_number}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">To Account *</label>
+          <select required value={formData.to_account_id || ""} onChange={e => setFormData({ ...formData, to_account_id: parseInt(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 cursor-pointer">
+            <option value="">Select To Account</option>
+            {accountsList.map(acc => <option key={acc.id} value={acc.id}>{acc.bank_name} - {acc.account_number}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount *</label>
+          <input type="number" required value={formData.amount || ""} onChange={e => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Transfer Date *</label>
+          <input type="date" required value={formData.transfer_date} onChange={e => setFormData({ ...formData, transfer_date: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference Number *</label>
+          <input type="text" required value={formData.reference_number} onChange={e => setFormData({ ...formData, reference_number: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Remarks</label>
+          <input type="text" value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
 // 6. Bank Transactions
 const BankTransactionsSection = () => {
   const [activeSubTab, setActiveSubTab] = useState("deposits");
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transfers, setTransfers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    projectService.getProjects().then(res => setProjects(res.items || [])).catch(() => {});
+  }, []);
+
+  const fetchTransfers = () => {
+    setIsLoading(true);
+    accountingService.getFundTransfers().then(res => setTransfers(Array.isArray(res) ? res : res?.data || [])).finally(() => setIsLoading(false));
+  };
+
   const subTabs = [
     { key: "deposits", label: "Bank Deposits" },
     { key: "withdrawals", label: "Bank Withdrawals" },
     { key: "transfers", label: "Fund Transfers" },
     { key: "history", label: "Transaction History" },
   ];
+
+  useEffect(() => {
+    if (activeSubTab === "history") {
+      setIsLoading(true);
+      accountingService.getTransactions().then(res => {
+        setTransactions(Array.isArray(res) ? res : res?.data || []);
+      }).catch(() => {
+        toast.error("Failed to fetch transactions");
+      }).finally(() => {
+        setIsLoading(false);
+      });
+    } else if (activeSubTab === "transfers") {
+      fetchTransfers();
+    }
+  }, [activeSubTab]);
 
   return (
     <div className="space-y-5">
@@ -556,32 +665,119 @@ const BankTransactionsSection = () => {
           </button>
         ))}
       </div>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-5 border-b border-slate-100">
-          <h3 className="font-bold text-slate-800">{subTabs.find(t => t.key === activeSubTab)?.label}</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Manage and record bank transactions</p>
+
+      {activeSubTab === "history" ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-slate-800">All Transactions</h3>
+              <p className="text-xs text-slate-400 mt-0.5">List of all cash inflows and outflows</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Type</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Mode</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Project</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap text-right">Amount</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Reference</th>
+                  <th className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Dates</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {isLoading ? (
+                  <tr><td colSpan={6} className="text-center py-5 text-sm text-slate-500">Loading...</td></tr>
+                ) : transactions.length === 0 ? (
+                  <tr><td colSpan={6} className="text-center py-5 text-sm text-slate-500">No transactions found.</td></tr>
+                ) : (
+                  transactions.map(t => (
+                    <tr key={t.id || t.reference || Math.random()} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-4 py-3 text-xs text-slate-500 capitalize">{t.type || '-'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{t.mode || '-'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700 font-medium">{projects.find(p => p.id === t.project_id)?.name || t.project_id || '-'}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹ {Number(t.amount || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500 font-mono">{t.reference || '-'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        <div><span className="text-slate-400">Cre:</span> {t.created_at ? new Date(t.created_at).toLocaleString() : '-'}</div>
+                        <div className="mt-0.5"><span className="text-slate-400">Upd:</span> {t.updated_at ? new Date(t.updated_at).toLocaleString() : '-'}</div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50/60 border-b border-slate-100">
-              <tr>
-                {["Date", "Ref No", "Description", "Amount", "Status"].map(h => (
-                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              <tr className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-4 py-3 text-xs text-slate-500">2024-05-18</td>
-                <td className="px-4 py-3 text-xs font-bold text-indigo-600">TRX-001</td>
-                <td className="px-4 py-3 text-xs font-semibold text-slate-700">Sample {subTabs.find(t => t.key === activeSubTab)?.label}</td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-800">₹1,50,000</td>
-                <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold">Completed</span></td>
-              </tr>
-            </tbody>
-          </table>
+      ) : activeSubTab === "transfers" ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-slate-800">Fund Transfers</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Manage fund transfers between accounts</p>
+            </div>
+            <button onClick={() => setIsTransferModalOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm hover:bg-indigo-700 transition-all">+ New Transfer</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Date", "Ref No", "From", "To", "Remarks", "Amount"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {isLoading ? (
+                  <tr><td colSpan={6} className="text-center py-5 text-sm text-slate-500">Loading...</td></tr>
+                ) : transfers.length === 0 ? (
+                  <tr><td colSpan={6} className="text-center py-5 text-sm text-slate-500">No transfers found.</td></tr>
+                ) : (
+                  transfers.map(tr => (
+                    <tr key={tr.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-4 py-3 text-xs text-slate-500">{tr.transfer_date}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-indigo-600">{tr.reference_number}</td>
+                      <td className="px-4 py-3 text-xs font-semibold text-slate-700">{tr.from_account_id}</td>
+                      <td className="px-4 py-3 text-xs font-semibold text-slate-700">{tr.to_account_id}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{tr.remarks}</td>
+                      <td className="px-4 py-3 text-xs font-bold text-slate-800">₹{tr.amount}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <CreateFundTransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} onSuccess={fetchTransfers} />
         </div>
-      </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800">{subTabs.find(t => t.key === activeSubTab)?.label}</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Manage and record bank transactions</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Date", "Ref No", "Description", "Amount", "Status"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                <tr className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-3 text-xs text-slate-500">2024-05-18</td>
+                  <td className="px-4 py-3 text-xs font-bold text-indigo-600">TRX-001</td>
+                  <td className="px-4 py-3 text-xs font-semibold text-slate-700">Sample {subTabs.find(t => t.key === activeSubTab)?.label}</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">₹1,50,000</td>
+                  <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold">Completed</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -641,17 +837,6 @@ const PaymentsReceiptsPage = () => {
           <div>
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Payments & Receipts</h1>
             <p className="text-slate-500 text-sm mt-1">Manage all cash inflows, outflows, petty cash, and bank transactions.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📥</span> Import
-            </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📤</span> Export
-            </button>
-            <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-              <span className="text-base leading-none">+</span> New Transaction
-            </button>
           </div>
         </div>
 

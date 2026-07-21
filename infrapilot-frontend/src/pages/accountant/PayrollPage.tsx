@@ -4,169 +4,173 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
+import { payrollService } from "../../services/payrollService";
 
 // --- SECTIONS ---
 
 
-const PayrollKPICards = () => (
+const PayrollKPICards = ({ summary }: { summary?: any }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-amber-200 transition-all group active:scale-[0.98]">
       <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       </div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PENDING PAYROLL</p>
-      <p className="text-xl font-bold text-slate-800">₹14.2 L</p>
+      <p className="text-xl font-bold text-slate-800">{summary?.pending_payroll !== undefined ? `₹${summary.pending_payroll}` : '₹0'}</p>
     </div>
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group active:scale-[0.98]">
       <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       </div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PAID PAYROLL</p>
-      <p className="text-xl font-bold text-slate-800">₹45.5 L</p>
+      <p className="text-xl font-bold text-slate-800">{summary?.paid_payroll !== undefined ? `₹${summary.paid_payroll}` : '₹0'}</p>
     </div>
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group active:scale-[0.98]">
       <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
       </div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ADVANCE GIVEN</p>
-      <p className="text-xl font-bold text-slate-800">₹2.1 L</p>
+      <p className="text-xl font-bold text-slate-800">{summary?.advance_given !== undefined ? `₹${summary.advance_given}` : '₹0'}</p>
     </div>
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all group active:scale-[0.98]">
       <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
       </div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR PAYMENT</p>
-      <p className="text-xl font-bold text-slate-800">₹1.8 Cr</p>
+      <p className="text-xl font-bold text-slate-800">{summary?.contractor_payment !== undefined ? `₹${summary.contractor_payment}` : '₹0'}</p>
     </div>
   </div>
 );
 
-// 2. Staff Salary Form
 const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-  const [department, setDepartment] = useState("");
-  const [employee, setEmployee] = useState("");
+  const [formData, setFormData] = useState({
+    user_id: 0,
+    project_id: 0,
+    month_year: "",
+    gross_salary: 0,
+    deductions: 0,
+    net_salary: 0,
+    payment_mode: "Bank Transfer",
+    bank_account_id: 0
+  });
 
-  const employeesByDepartment: Record<string, string[]> = {
-    "admin": ["Alice Admin", "Bob Admin"],
-    "project manager": ["Charlie PM", "Dave PM"],
-    "site engineer": ["Eve Engineer", "Frank Engineer"]
+  const [loading, setLoading] = useState(false);
+
+  const mockUsers = [
+    { id: 1, name: "Amit Kumar" },
+    { id: 2, name: "Priya Sharma" },
+    { id: 3, name: "Rahul Singh" }
+  ];
+
+  const mockProjects = [
+    { id: 1, name: "Metro Line 3" },
+    { id: 2, name: "Highway Expansion" },
+    { id: 3, name: "City Center Mall" }
+  ];
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => {
+      const updated = { ...prev, [name]: name.includes("salary") || name === "deductions" || name.includes("_id") ? Number(value) : value };
+      
+      if (name === "gross_salary" || name === "deductions") {
+        const gross = name === "gross_salary" ? Number(value) : prev.gross_salary;
+        const ded = name === "deductions" ? Number(value) : prev.deductions;
+        updated.net_salary = gross - ded;
+      }
+      return updated;
+    });
   };
 
-  const currentEmployees = department ? employeesByDepartment[department] : [];
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.user_id || !formData.project_id || !formData.month_year) {
+      toast.error("Please select User, Project and Month");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      await payrollService.processStaffSalary(formData);
+      toast.success("Salary Processed Successfully!");
+      onClose();
+    } catch (err) {
+      toast.error("Failed to process salary");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Process Staff Salary"
-      maxWidth="max-w-4xl"
+      title="Staff Salary"
+      maxWidth="max-w-2xl"
       footer={
         <>
           <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-          <button onClick={() => { toast.success("Salary Processed Successfully!"); onClose(); }} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">Process Salary</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
+            {loading ? "Creating..." : "Create Salary"}
+          </button>
         </>
       }
     >
-      <form className="space-y-6" onSubmit={e => e.preventDefault()}>
+      <form id="process-salary-form" className="space-y-6" onSubmit={handleSubmit}>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-            <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-            Employee Information
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department *</label>
-              <select 
-                value={department}
-                onChange={(e) => { setDepartment(e.target.value); setEmployee(""); }}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500"
-              >
-                <option value="">Select Department</option>
-                <option value="admin">Admin</option>
-                <option value="project manager">Project Manager</option>
-                <option value="site engineer">Site Engineer</option>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">User (Employee) *</label>
+              <select name="user_id" value={formData.user_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500">
+                <option value={0}>Select Employee</option>
+                {mockUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee Name *</label>
-              <select 
-                value={employee}
-                onChange={(e) => setEmployee(e.target.value)}
-                disabled={!department}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500 disabled:opacity-50"
-              >
-                <option value="">Select Employee</option>
-                {currentEmployees?.map(emp => (
-                  <option key={emp} value={emp}>{emp}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee ID *</label><input type="text" placeholder="EMP-000" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-mono" /></div>
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Designation *</label><input type="text" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100" /></div>
-            <div className="md:col-span-2 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Assigned</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-              <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-              Salary Details
-            </h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Working Days</label><input type="number" defaultValue="30" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Attendance Days</label><input type="number" defaultValue="28" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 font-bold" /></div>
-              </div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Basic Salary (₹)</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 font-semibold" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">HRA</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Allowances</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overtime</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bonus</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-              </div>
-              <div className="pt-2 border-t border-slate-100">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Salary</label><input type="number" readOnly placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-blue-50 font-bold text-blue-700" /></div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-              <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-              Deductions
-            </h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PF</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ESIC</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
-              </div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Professional Tax</label><input type="number" placeholder="200" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salary Advance Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600 font-semibold" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loan Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
-                <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Other Deductions</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-          <h3 className="text-sm font-bold text-slate-800 mb-3">Final Calculation</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between text-xs text-slate-500"><span>Gross Salary</span><span className="font-semibold text-slate-700">—</span></div>
-            <div className="flex justify-between text-xs text-rose-500"><span>Total Deductions</span><span className="font-semibold">—</span></div>
-            <div className="flex justify-between text-sm font-bold text-emerald-600 border-t border-slate-200 pt-3"><span>Net Pay</span><span>—</span></div>
-          </div>
-          <div className="mt-5 space-y-3">
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Date</label><input type="date" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white" /></div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Status</label>
-              <select className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white font-semibold text-amber-600">
-                <option>Pending Approval</option><option>Processed</option><option>Paid</option>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project *</label>
+              <select name="project_id" value={formData.project_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500">
+                <option value={0}>Select Project</option>
+                {mockProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Month & Year *</label>
+              <input type="month" name="month_year" value={formData.month_year} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Salary (₹)</label>
+              <input type="number" name="gross_salary" value={formData.gross_salary} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deductions (₹)</label>
+              <input type="number" name="deductions" value={formData.deductions} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Salary (₹)</label>
+              <input type="number" name="net_salary" value={formData.net_salary} readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-emerald-50 font-bold text-emerald-700 outline-none" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode</label>
+              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500">
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cash">Cash</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account ID</label>
+              <input type="number" name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+
           </div>
         </div>
       </form>
@@ -177,10 +181,37 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 const StaffSalaryWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "register");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [staffRegister, setStaffRegister] = useState<any[]>([]);
+  const [staffHistory, setStaffHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (activeSubTab === 'register') {
+      const fetchRegister = async () => {
+        try {
+          const data = await payrollService.getStaffRegister();
+          setStaffRegister(Array.isArray(data) ? data : data?.data || []);
+        } catch (err) {
+          toast.error('Failed to load staff register');
+        }
+      };
+      fetchRegister();
+    } else if (activeSubTab === 'history') {
+      const fetchHistory = async () => {
+        try {
+          const data = await payrollService.getStaffHistory();
+          setStaffHistory(Array.isArray(data) ? data : data?.data || []);
+        } catch (err) {
+          toast.error('Failed to load history');
+        }
+      };
+      fetchHistory();
+    }
+  }, [activeSubTab]);
+
+
 
   const tabs = [
     { key: "register", label: "Salary Register" },
-    { key: "payslips", label: "Payslips" },
     { key: "history", label: "Salary History" }
   ];
 
@@ -196,51 +227,48 @@ const StaffSalaryWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
           ))}
         </div>
         <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
-          + Process Salary
+          Salary
         </button>
       </div>
       
       <StaffSalaryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       {activeSubTab === "register" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center"><h3 className="font-bold text-slate-800">Salary Register</h3><button className="text-xs bg-slate-100 px-3 py-1.5 rounded-lg font-bold text-slate-600">Export CSV</button></div>
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center"><h3 className="font-bold text-slate-800">Salary Register</h3></div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>{["Emp ID", "Name", "Gross Pay", "Deductions", "Net Pay", "Status"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                <tr className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 text-xs font-mono">EMP-001</td><td className="px-4 py-3 text-xs font-bold text-slate-800">Amit Kumar</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-slate-600">₹45,000</td><td className="px-4 py-3 text-xs text-rose-500">₹2,500</td>
-                  <td className="px-4 py-3 text-xs font-bold text-blue-600">₹42,500</td><td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-bold text-[10px] uppercase">Pending</span></td>
-                </tr>
-                <tr className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 text-xs font-mono">EMP-002</td><td className="px-4 py-3 text-xs font-bold text-slate-800">Priya Sharma</td>
-                  <td className="px-4 py-3 text-xs font-semibold text-slate-600">₹65,000</td><td className="px-4 py-3 text-xs text-rose-500">₹4,200</td>
-                  <td className="px-4 py-3 text-xs font-bold text-blue-600">₹60,800</td><td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Paid</span></td>
-                </tr>
+                {staffRegister.length > 0 ? staffRegister.map((emp, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-3 text-xs font-mono">{emp.emp_id || `EMP-00${idx+1}`}</td><td className="px-4 py-3 text-xs font-bold text-slate-800">{emp.name}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-slate-600">₹{emp.gross_pay || 0}</td><td className="px-4 py-3 text-xs text-rose-500">₹{emp.deductions || 0}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-blue-600">₹{emp.net_pay || 0}</td><td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${emp.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{emp.status || 'Pending'}</span></td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No data available</td></tr>
+                )}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-      {activeSubTab === "payslips" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1,2,3].map(i => (
-            <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-3"><div className="text-3xl">📄</div><div><p className="text-sm font-bold text-slate-800">Oct 2024 Payslip</p><p className="text-xs text-slate-500">EMP-00{i}</p></div></div>
-              <button className="text-blue-600 hover:text-blue-800"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></button>
-            </div>
-          ))}
         </div>
       )}
       {activeSubTab === "history" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <h3 className="font-bold text-slate-800 mb-4">Salary Processing History</h3>
           <div className="space-y-4 border-l-2 border-slate-100 ml-2 pl-4">
-            <div className="relative"><div className="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-white"></div><p className="text-xs text-slate-400">Oct 31, 2024</p><p className="text-sm font-bold text-slate-800">October Salary Processed</p><p className="text-xs text-slate-500">Total: ₹12,50,000</p></div>
-            <div className="relative"><div className="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-slate-300 ring-4 ring-white"></div><p className="text-xs text-slate-400">Sep 30, 2024</p><p className="text-sm font-bold text-slate-800">September Salary Processed</p><p className="text-xs text-slate-500">Total: ₹11,80,000</p></div>
+            {staffHistory.length > 0 ? staffHistory.map((item, idx) => (
+              <div key={idx} className="relative">
+                <div className="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-white"></div>
+                <p className="text-xs text-slate-400">{item.date || item.month_year || 'Unknown Date'}</p>
+                <p className="text-sm font-bold text-slate-800">{item.title || 'Salary Processed'}</p>
+                <p className="text-xs text-slate-500">Total: ₹{item.total_amount || item.amount || 0}</p>
+              </div>
+            )) : (
+              <p className="text-sm text-slate-500">No history available.</p>
+            )}
           </div>
         </div>
       )}
@@ -249,95 +277,150 @@ const StaffSalaryWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
 };
 
 // 3. Labor Wages
-const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose: () => void; period: string }) => (
-  <Modal
-    isOpen={isOpen}
-    onClose={onClose}
-    title={`Record ${period} Labor Wages`}
-    maxWidth="max-w-4xl"
-    footer={
-      <>
-        <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={() => { toast.success("Wage Record Saved!"); onClose(); }} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95">Record Wage</button>
-      </>
+const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose: () => void; period: string }) => {
+  const [formData, setFormData] = useState({
+    labour_id: 0,
+    project_id: 0,
+    start_date: "",
+    end_date: "",
+    payment_mode: "Cash",
+    bank_account_id: 0
+  });
+  const [loading, setLoading] = useState(false);
+
+  const mockLabours = [
+    { id: 1, name: "Raju Mason" },
+    { id: 2, name: "Suresh Plumber" }
+  ];
+  const mockProjects = [
+    { id: 1, name: "Metro Line 3" },
+    { id: 2, name: "City Center Mall" }
+  ];
+  const mockBankAccounts = [
+    { id: 1, name: "SBI - 1001" },
+    { id: 2, name: "HDFC - 2002" }
+  ];
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name.includes("_id") ? Number(value) : value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.labour_id || !formData.project_id || !formData.start_date || !formData.end_date) {
+      toast.error("Please fill required fields");
+      return;
     }
-  >
-    <form className="space-y-6" onSubmit={e => e.preventDefault()}>
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-amber-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Labor Details ({period})
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Labor Name *</label><input type="text" placeholder="Select Labor" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Labor Type *</label>
-            <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-              <option>Skilled Labor</option><option>Unskilled Labor</option><option>Mason</option><option>Electrician</option>
-            </select>
-          </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label><input type="text" placeholder="Select Project" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Name (Optional)</label><input type="text" placeholder="Linked Contractor" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        </div>
-      </div>
+    setLoading(true);
+    try {
+      await payrollService.payLabourWages(formData);
+      toast.success("Wage Record Saved!");
+      onClose();
+    } catch (err) {
+      toast.error("Failed to record wage");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Record ${period} Labor Wages`}
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-amber-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50">
+            {loading ? "Recording..." : "Record Wage"}
+          </button>
+        </>
+      }
+    >
+      <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-            <span className="w-6 h-6 bg-amber-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-            Wage Details
-          </h3>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Attendance Days</label><input type="number" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 font-bold" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Wage Rate</label><input type="number" placeholder="₹" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 font-semibold" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overtime Hours</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overtime Rate</label><input type="number" placeholder="₹/hr" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-            </div>
-            <div className="pt-2 border-t border-slate-100">
-              <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gross Wage</label><input type="number" readOnly placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-amber-50 font-bold text-amber-700" /></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-            <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-            Deductions
-          </h3>
-          <div className="space-y-3">
-            <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Advance Recovery</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600 font-semibold" /></div>
-            <div className="space-y-1"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Other Deductions</label><input type="number" placeholder="0" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 text-rose-600" /></div>
-          </div>
-        </div>
-      </div>
-        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-          <h3 className="text-sm font-bold text-slate-800 mb-3">Final Payment</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between text-xs text-slate-500"><span>Gross Wage</span><span className="font-semibold text-slate-700">—</span></div>
-            <div className="flex justify-between text-xs text-rose-500"><span>Deductions</span><span className="font-semibold">—</span></div>
-            <div className="flex justify-between text-sm font-bold text-emerald-600 border-t border-slate-200 pt-3"><span>Net Wage</span><span>—</span></div>
-          </div>
-          <div className="mt-5 space-y-3">
-            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Date</label><input type="date" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white" /></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Status</label>
-              <select className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white font-semibold text-amber-600">
-                <option>Pending Approval</option><option>Processed</option><option>Paid</option>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Labor Name *</label>
+              <select name="labour_id" value={formData.labour_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+                <option value={0}>Select Labor</option>
+                {mockLabours.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label>
+              <select name="project_id" value={formData.project_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+                <option value={0}>Select Project</option>
+                {mockProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date *</label>
+              <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date *</label>
+              <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode</label>
+              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+                <option value="Cash">Cash</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
+
+            {formData.payment_mode === "Bank Transfer" && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
+                <select name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+                  <option value={0}>Select Bank Account</option>
+                  {mockBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+            )}
+            
           </div>
         </div>
-    </form>
-  </Modal>
-);
+      </form>
+    </Modal>
+  );
+};
 
 const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "register");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPeriod, setModalPeriod] = useState("Daily");
+  const [wages, setWages] = useState<any[]>([]);
+  const [dateFilter, setDateFilter] = useState({
+    start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 2).toISOString().split('T')[0],
+    end_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]
+  });
+
+  useEffect(() => {
+    if (activeSubTab === "register") {
+      const fetchWages = async () => {
+        try {
+          const data = await payrollService.getLabourWages(dateFilter.start_date, dateFilter.end_date);
+          setWages(Array.isArray(data) ? data : data?.data || []);
+        } catch (err) {
+          toast.error("Failed to load labour wages");
+        }
+      };
+      fetchWages();
+    }
+  }, [activeSubTab, dateFilter.start_date, dateFilter.end_date]);
 
   const openModal = (period: string) => {
     setModalPeriod(period);
@@ -369,18 +452,32 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
       
       {activeSubTab === "register" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Labor Wage Register</h3></div>
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
+            <h3 className="font-bold text-slate-800">Labor Wage Register</h3>
+            <div className="flex items-center gap-3">
+              <input type="date" value={dateFilter.start_date} onChange={e => setDateFilter(prev => ({...prev, start_date: e.target.value}))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none" />
+              <span className="text-slate-400 text-sm font-bold tracking-widest">TO</span>
+              <input type="date" value={dateFilter.end_date} onChange={e => setDateFilter(prev => ({...prev, end_date: e.target.value}))} className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 outline-none" />
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                <tr className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 text-xs font-bold text-slate-800">Raju Mason</td><td className="px-4 py-3 text-xs text-slate-600">Skilled</td>
-                  <td className="px-4 py-3 text-xs text-slate-500">Weekly (W42)</td><td className="px-4 py-3 text-xs text-slate-600">₹4,200</td>
-                  <td className="px-4 py-3 text-xs font-bold text-amber-600">₹4,200</td><td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px] uppercase">Paid</span></td>
-                </tr>
+                {wages.length > 0 ? wages.map((wage, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{wage.labor_name || 'Labor'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{wage.type || 'Skilled'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{wage.period || 'Weekly'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">₹{wage.gross_wage || 0}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-amber-600">₹{wage.net_wage || 0}</td>
+                    <td className="px-4 py-3 text-xs"><span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${wage.status === 'Paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{wage.status || 'Paid'}</span></td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No wages recorded yet.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -391,95 +488,200 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
 };
 
 // 4. Contractor Payments
-const ContractorPaymentSection = () => (
-  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-    <div className="xl:col-span-2 space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-emerald-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Contractor Information
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Name *</label><input type="text" placeholder="Select Contractor" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
+const ContractorPaymentSection = () => {
+  const [formData, setFormData] = useState({
+    rabill_id: 0,
+    paid_amount: 0,
+    total_deductions: 0,
+    payment_mode: "Bank Transfer",
+    bank_account_id: 0
+  });
+  const [bills, setBills] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const mockBankAccounts = [
+    { id: 1, name: "SBI - 1001" },
+    { id: 2, name: "HDFC - 2002" }
+  ];
+
+  useEffect(() => {
+    const fetchBills = async () => {
+      try {
+        const data = await payrollService.getContractorBills();
+        setBills(Array.isArray(data) ? data : data?.data || []);
+      } catch (err) {
+        toast.error("Failed to load contractor bills");
+      }
+    };
+    fetchBills();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === "payment_mode" ? value : Number(value)
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.rabill_id || formData.paid_amount <= 0) {
+      toast.error("Please select a bill and enter paid amount");
+      return;
+    }
+    setLoading(true);
+    try {
+      await payrollService.payContractorBill(formData);
+      toast.success("Contractor Bill Saved!");
+      setFormData({ rabill_id: 0, paid_amount: 0, total_deductions: 0, payment_mode: "Bank Transfer", bank_account_id: 0 });
+    } catch (err) {
+      toast.error("Failed to save contractor payment");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="xl:col-span-2 space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-emerald-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
+            Select RA Bill
+          </h3>
           <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contractor Type *</label>
-            <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
-              <option>Civil Contractor</option><option>Electrical Contractor</option><option>Labor Contractor</option>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Bills *</label>
+            <select name="rabill_id" value={formData.rabill_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
+              <option value={0}>Select Bill</option>
+              {bills.map(b => (
+                <option key={b.id} value={b.id}>{b.bill_no || `Bill #${b.id}`} - {b.contractor_name || 'Contractor'} (Amount: ₹{b.amount || 0})</option>
+              ))}
             </select>
           </div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label><input type="text" placeholder="Select Project" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Order Number</label><input type="text" placeholder="WO-000" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono" /></div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-emerald-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-          Work & Payment
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="col-span-2 md:col-span-4 space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Description *</label><input type="text" placeholder="Brief description" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantity Executed</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit</label><input type="text" placeholder="sq.ft, m3" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rate (₹)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bill Amount</label><input type="number" readOnly placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-emerald-50 font-bold text-emerald-700" /></div>
-        </div>
-      </div>
-      
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-rose-500 text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-          Deductions
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TDS (Sec 194C)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-600" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Retention (5%)</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-600 font-semibold" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Security Deposit</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-600" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Other Deductions</label><input type="number" placeholder="0" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 text-rose-600" /></div>
-        </div>
-      </div>
-    </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <span className="w-6 h-6 bg-emerald-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
+            Payment Details
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid Amount (₹) *</label>
+              <input type="number" name="paid_amount" value={formData.paid_amount || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Deductions (₹)</label>
+              <input type="number" name="total_deductions" value={formData.total_deductions || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500" />
+            </div>
+            
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode</label>
+              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
+                <option value="Cash">Cash</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cheque">Cheque</option>
+              </select>
+            </div>
 
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5">Final Calculation</h3>
-        <div className="space-y-3">
-          <div className="flex justify-between text-xs text-slate-500"><span>Bill Amount</span><span className="font-semibold text-slate-700">—</span></div>
-          <div className="flex justify-between text-xs text-rose-500"><span>Total Deductions</span><span className="font-semibold">—</span></div>
-          <div className="flex justify-between text-sm font-bold text-emerald-600 border-t border-slate-100 pt-3"><span>Net Payable</span><span>—</span></div>
-        </div>
-        <div className="mt-5 space-y-3">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Date</label><input type="date" className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50" /></div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Status</label>
-            <select className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 font-semibold text-amber-600">
-              <option>Pending Approval</option><option>Processed</option><option>Paid</option>
-            </select>
+            {formData.payment_mode === "Bank Transfer" && (
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
+                <select name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
+                  <option value={0}>Select Bank Account</option>
+                  {mockBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+            )}
           </div>
         </div>
-        <button onClick={() => toast.success("Contractor Bill Saved!")} className="w-full mt-6 bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-md">
-          Record Payment
-        </button>
+      </div>
+
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-5">Final Summary</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between text-xs text-slate-500"><span>Paid Amount</span><span className="font-semibold text-slate-700">₹{formData.paid_amount || 0}</span></div>
+            <div className="flex justify-between text-xs text-rose-500"><span>Total Deductions</span><span className="font-semibold">₹{formData.total_deductions || 0}</span></div>
+            <div className="flex justify-between text-sm font-bold text-emerald-600 border-t border-slate-100 pt-3"><span>Net Total</span><span>₹{(formData.paid_amount || 0) + (formData.total_deductions || 0)}</span></div>
+          </div>
+          <button type="submit" disabled={loading} className="w-full mt-6 bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-md active:scale-95 disabled:opacity-50">
+            {loading ? "Recording..." : "Record Payment"}
+          </button>
+        </div>
+      </div>
+
+      <div className="xl:col-span-3 space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex justify-between items-center"><h3 className="font-bold text-slate-800">Pending Contractor Bills</h3></div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-100">
+                <tr>{["Bill ID", "Contractor", "Amount", "Status"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {bills.length > 0 ? bills.map((b) => (
+                  <tr key={b.id} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-3 text-xs font-mono">Bill #{b.id}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{b.contractor_name || 'Contractor'}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-emerald-600">₹{b.amount || 0}</td>
+                    <td className="px-4 py-3 text-xs text-amber-600 font-bold">Pending</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No pending bills found.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </form>
+  );
+};
+
+const LedgerSection = () => {
+  const [registerData, setRegisterData] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchRegister = async () => {
+      try {
+        const data = await payrollService.getPayrollRegister();
+        setRegisterData(Array.isArray(data) ? data : data?.data || []);
+      } catch (err) {
+        toast.error("Failed to load payroll register");
+      }
+    };
+    fetchRegister();
+  }, []);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Payroll Ledger</h3></div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>{["Date", "Employee/Contractor", "Type", "Debit", "Credit", "Balance"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {registerData.length > 0 ? registerData.map((item, idx) => (
+              <tr key={idx} className="hover:bg-slate-50/50">
+                <td className="px-4 py-3 text-xs text-slate-500">{item.date || '-'}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800">{item.name || item.employee || item.contractor || '-'}</td>
+                <td className="px-4 py-3 text-xs text-slate-600">{item.type || 'Transaction'}</td>
+                <td className="px-4 py-3 text-xs text-rose-500 font-semibold">{item.debit ? `₹${item.debit}` : '—'}</td>
+                <td className="px-4 py-3 text-xs text-emerald-600 font-bold">{item.credit ? `₹${item.credit}` : '—'}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-800">₹{item.balance || 0}</td>
+              </tr>
+            )) : (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No register entries found.</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
-  </div>
-);
-
-const LedgerSection = () => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Payroll Ledger</h3></div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50 border-b border-slate-100">
-          <tr>{["Date", "Employee/Contractor", "Type", "Debit", "Credit", "Balance"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          <tr className="hover:bg-slate-50/50"><td className="px-4 py-3 text-xs text-slate-500">2024-10-31</td><td className="px-4 py-3 text-xs font-bold text-slate-800">Amit Kumar</td><td className="px-4 py-3 text-xs text-slate-600">Salary Processed</td><td className="px-4 py-3 text-xs text-rose-500 font-semibold">—</td><td className="px-4 py-3 text-xs text-emerald-600 font-bold">₹42,500</td><td className="px-4 py-3 text-xs font-bold text-slate-800">₹42,500</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
+  );
+};
 
 // --- MAIN COMPONENT ---
 
@@ -514,14 +716,60 @@ const PayrollPage = () => {
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
+  const [summaryData, setSummaryData] = useState<any>(null);
 
   useEffect(() => {
-  setActiveTab(resolveTab());
+    const fetchSummary = async () => {
+      try {
+        const data = await payrollService.getSummary();
+        setSummaryData(data);
+      } catch (err) {
+        console.error('Failed to fetch payroll summary', err);
+      }
+    };
+    fetchSummary();
+  }, []);
+
+  useEffect(() => {
+    setActiveTab(resolveTab());
   }, [category, location.pathname]);
 
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key);
     navigate(`/accountant/payroll/${key}`, { replace: true });
+  };
+
+  const handleExport = async (type: string) => {
+    try {
+      let blob;
+      let filename = 'export.pdf';
+      if (type === 'staff-pdf') {
+        blob = await payrollService.exportStaffPayroll();
+        filename = 'staff-payroll.pdf';
+      } else if (type === 'staff-excel') {
+        blob = await payrollService.exportPayslips();
+        filename = 'staff-payslips.xlsx';
+      } else if (type === 'contractor') {
+        blob = await payrollService.exportContractorPayroll();
+        filename = 'contractor-payroll.pdf';
+      } else if (type === 'ledger') {
+        blob = await payrollService.exportPayrollRegister();
+        filename = 'payroll-register.pdf';
+      }
+      
+      if (!blob) return;
+      
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch(err) {
+      toast.error('Failed to export data');
+    }
   };
 
   // Per-tab config: title, subtitle, and action buttons
@@ -531,14 +779,11 @@ const PayrollPage = () => {
       subtitle: "Process and manage monthly staff salaries.",
       actions: (
         <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📤</span> Export
+          <button onClick={() => handleExport('staff-pdf')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📄</span> Export Payslips PDF
           </button>
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📄</span> Payslips
-          </button>
-          <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-            <span className="text-base leading-none">⚙️</span> Process Salary
+          <button onClick={() => handleExport('staff-excel')} className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-emerald-100 transition-all active:scale-95">
+            <span className="text-lg">📊</span> Export Payslips Excel
           </button>
         </div>
       ),
@@ -546,30 +791,15 @@ const PayrollPage = () => {
     wages: {
       title: "Labour Wages",
       subtitle: "Process and manage daily or monthly labour wages.",
-      actions: (
-        <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📤</span> Export
-          </button>
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📅</span> Attendance
-          </button>
-          <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-            <span className="text-base leading-none">⚙️</span> Generate Wages
-          </button>
-        </div>
-      ),
+      actions: null,
     },
     contractor: {
       title: "Contractor Payment",
       subtitle: "Manage and process contractor invoices and payments.",
       actions: (
         <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📤</span> Export
-          </button>
-          <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-            <span className="text-base leading-none">⚙️</span> Process Bills
+          <button onClick={() => handleExport('contractor')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export Bills
           </button>
         </div>
       ),
@@ -579,8 +809,8 @@ const PayrollPage = () => {
       subtitle: "View comprehensive payroll ledger and history.",
       actions: (
         <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📤</span> Export
+          <button onClick={() => handleExport('ledger')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📤</span> Export Register
           </button>
         </div>
       ),
@@ -622,7 +852,7 @@ const PayrollPage = () => {
         </div>
 
         {/* ── KPI Stat Cards ─────────────────────────────── */}
-        <PayrollKPICards />
+        <PayrollKPICards summary={summaryData} />
 
         {/* ── Content Rendering ──────────────────────────── */}
         {activeTab === "salary"     && <StaffSalaryWrapper initialSubTab={subTab} key={subTab || "process"} />}

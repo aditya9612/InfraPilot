@@ -11,12 +11,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit2,
-  Trash2
+  Trash2,
+  ScrollText
 } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { workProgressService } from "../../../services/workProgressService";
 import { projectService } from "../../../services/projectService";
 import type { ActivityItem, DailyEntry } from "../../../types/workProgress";
+import { useProject } from "../../../context/ProjectContext";
 
 
 // Modular Components
@@ -37,53 +39,20 @@ const statusBadge: Record<string, string> = {
 const DailyProgressEntryPage = () => {
   const { user } = useAuth();
   const engineer_id = Number(user?.id) || 1;
-  const [projectId, setProjectId] = useState<number | null>(null);
+  const { selectedProjectId, setSelectedProjectId } = useProject();
+  const projectId = selectedProjectId || 0;
 
   const [projectsList, setProjectsList] = useState<any[]>([]);
 
   useEffect(() => {
-    const userStr = localStorage.getItem("infrapilot_user");
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        const pId = user?.project_id || user?.user?.project_id;
-        if (pId) {
-          setProjectId(Number(pId));
-        } else {
-          setProjectId(92);
-        }
-      } catch (e) {
-        console.error("Failed to resolve project ID", e);
-        setProjectId(92);
-      }
-    }
-
     // Fetch projects for the dropdown
     projectService.getProjects(100, 0).then((data: any) => {
         setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
     }).catch(() => {});
   }, []);
 
-  const handleProjectChange = (newProjectId: number) => {
-      setProjectId(newProjectId);
-      setHasLoadedToday(false);
-      setHasLoadedAll(false);
-      setHasLoadedHistory(false);
-      const userStr = localStorage.getItem("infrapilot_user");
-      if (userStr) {
-          try {
-              const user = JSON.parse(userStr);
-              if (user.user) {
-                  user.user.project_id = newProjectId;
-              } else {
-                  user.project_id = newProjectId;
-              }
-              localStorage.setItem("infrapilot_user", JSON.stringify(user));
-          } catch (e) { }
-      }
-  };
-
-  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay' | 'logs'>('all');
+  const [globalLogs, setGlobalLogs] = useState<any[]>([]);
   const [delayActivities, setDelayActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoadedToday, setHasLoadedToday] = useState(false);
@@ -107,6 +76,7 @@ const DailyProgressEntryPage = () => {
     if (activeTab === 'all' || activeTab === 'today') setActiveStatFilter("All Logs");
     else if (activeTab === 'history') setActiveStatFilter("All History");
     else if (activeTab === 'delay') setActiveStatFilter("All Delayed");
+    else if (activeTab === 'logs') setActiveStatFilter("All Global Logs");
   }, [activeTab]);
 
   // Input states for Tab 1 cards
@@ -123,7 +93,7 @@ const DailyProgressEntryPage = () => {
 
   const loadActivities = useCallback(async () => {
     try {
-      const data = await workProgressService.listActivities(projectId || 92, undefined, 100, 0);
+      const data = await workProgressService.listActivities(projectId || 0, undefined, 100, 0);
       const normalizedData = data.map((a: any) => {
         let status = a.status;
         if (status) {
@@ -199,7 +169,7 @@ const DailyProgressEntryPage = () => {
       setLoading(true);
       const res = await workProgressService.getDelayReport(projectId || undefined);
       const data = res?.data || [];
-      const filtered = data.filter((a: any) => String(a.project_id) === String(projectId || 92));
+      const filtered = data.filter((a: any) => String(a.project_id) === String(projectId || 0));
       setDelayActivities(filtered);
     } catch (err) {
       console.error("Load Delay Error:", err);
@@ -208,6 +178,20 @@ const DailyProgressEntryPage = () => {
       setLoading(false);
     }
   }, [projectId]);
+
+  const loadGlobalLogs = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await workProgressService.getGlobalLogs();
+      setGlobalLogs(res?.data || []);
+    } catch (err) {
+      console.error("Load Global Logs Error:", err);
+      toast.error("Failed to load global logs");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
 
   const loadProjectSummary = useCallback(async () => {
     if (!projectId) return;
@@ -235,8 +219,10 @@ const DailyProgressEntryPage = () => {
       loadDelayReport();
     } else if (activeTab === 'summary') {
       loadProjectSummary();
+    } else if (activeTab === 'logs') {
+      loadGlobalLogs();
     }
-  }, [activeTab, loadTodayProgress, loadAllEntries, loadActivityHistory, loadDelayReport, loadProjectSummary, projectId]);
+  }, [activeTab, loadTodayProgress, loadAllEntries, loadActivityHistory, loadDelayReport, loadProjectSummary, loadGlobalLogs, projectId]);
 
   const handleLogModalSubmit = async (data: any) => {
     try {
@@ -472,6 +458,12 @@ const DailyProgressEntryPage = () => {
         { label: "Moderate (25% - 75%)", count: delayActivities.filter(e => Number(e.completion_percentage || 0) >= 25 && Number(e.completion_percentage || 0) <= 75).length, colorClass: "text-amber-500", sub: "At Risk" },
         { label: "Almost Done (> 75%)", count: delayActivities.filter(e => Number(e.completion_percentage || 0) > 75).length, colorClass: "text-emerald-500", sub: "Near Completion" }
       ];
+    } else if (activeTab === 'logs') {
+      cards = [
+        { label: "All Global Logs", count: globalLogs.length, colorClass: "text-slate-800", sub: "Total Activity Logs" },
+        { label: "Progress Updates", count: globalLogs.filter(l => l.action === "DAILY_PROGRESS_UPDATE").length, colorClass: "text-blue-500", sub: "Daily Progress Added" },
+        { label: "Status Changes", count: globalLogs.filter(l => l.action === "STATUS_CHANGE").length, colorClass: "text-amber-500", sub: "Lifecycle Events" },
+      ];
     }
 
     if (cards.length === 0) return null;
@@ -562,6 +554,13 @@ const DailyProgressEntryPage = () => {
           >
             DELAY REPORT
           </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative flex items-center gap-1.5 ${activeTab === 'logs' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            <ScrollText className="w-3.5 h-3.5" />
+            GLOBAL LOGS
+          </button>
         </div>
 
         <div className="flex-1 overflow-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
@@ -602,7 +601,7 @@ const DailyProgressEntryPage = () => {
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden xl:inline-block">Project:</span>
                 <select
                     value={projectId || ""}
-                    onChange={(e) => handleProjectChange(Number(e.target.value))}
+                    onChange={(e) => setSelectedProjectId(Number(e.target.value) || null)}
                     className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter shadow-sm max-w-[150px] truncate"
                 >
                     <option value="">ALL PROJECTS</option>
@@ -1071,6 +1070,69 @@ const DailyProgressEntryPage = () => {
                       </div>
                     </div>
                   )}
+                </>
+              )}
+
+              {/* ─── Global Logs Tab ──────────────────────────────────────────── */}
+              {activeTab === 'logs' && (
+                <>
+                  <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                    <table className="w-full text-left font-inter min-w-[900px]">
+                      <thead>
+                        <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-50 font-inter">
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Date &amp; Time</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Activity</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Action</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Status</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Progress Added</th>
+                          <th className="px-6 py-4 font-inter whitespace-nowrap">Total Completed</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 font-inter">
+                        {loading ? (
+                          <tr>
+                            <td colSpan={6} className="py-20 text-center font-inter">
+                              <div className="inline-block w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
+                              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Loading Logs...</p>
+                            </td>
+                          </tr>
+                        ) : globalLogs.length > 0 ? globalLogs.map((log: any, idx: number) => {
+                          const act = activitiesList.find(a => a.id === log.activity_id);
+                          return (
+                            <tr key={log.id || idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                              <td className="px-6 py-5 font-inter text-sm font-medium text-slate-500">{log.created_at ? new Date(log.created_at).toLocaleString() : "-"}</td>
+                              <td className="px-6 py-5 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">
+                                {act?.activity_name || log.activity_name || `Activity #${log.activity_id}`}
+                                {act?.boq_code && <span className="block text-xs font-medium text-slate-400 mt-0.5">{act.boq_code}</span>}
+                              </td>
+                              <td className="px-6 py-5 font-inter">
+                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase bg-blue-50 text-blue-600 font-inter">
+                                  {log.action || "DAILY_PROGRESS_UPDATE"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-5 font-inter">
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[log.new_value?.status || ""] || "bg-slate-50 text-slate-500"} font-inter`}>
+                                  {log.new_value?.status || "-"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-5 font-inter text-sm font-bold text-primary">
+                                {log.new_value?.today_progress || 0} {act?.unit || ""}
+                              </td>
+                              <td className="px-6 py-5 font-inter text-sm font-medium text-slate-600">
+                                {log.new_value?.total_completed || 0} {act?.unit || ""}
+                              </td>
+                            </tr>
+                          );
+                        }) : (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-32 text-center text-slate-400 font-medium text-sm font-inter">
+                              No global logs found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </>
               )}
             </div>

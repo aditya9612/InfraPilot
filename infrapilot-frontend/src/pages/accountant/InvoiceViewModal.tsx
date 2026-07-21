@@ -2,10 +2,14 @@ import { useState, useEffect } from "react";
 import { FileText } from "lucide-react";
 import api from "../../services/api";
 import Modal from "../../components/common/Modal";
+import { userService } from "../../services/userService";
+import { projectService } from "../../services/projectService";
 
 export default function InvoiceViewModal({ invoiceId, projects, onClose }: { invoiceId: number | null; projects: any[]; onClose: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [fetchedOwnerName, setFetchedOwnerName] = useState<string>("");
+  const [fetchedProjectName, setFetchedProjectName] = useState<string>("");
 
   useEffect(() => {
     const load = async () => {
@@ -13,6 +17,29 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
         setLoading(true);
         const res = await api.get(`/invoices/${invoiceId}`);
         setData(res.data);
+        
+        if (res.data?.project_id) {
+          const p = projects?.find(proj => String(proj.id) === String(res.data.project_id));
+          if (p) {
+            setFetchedProjectName(p.name || p.project_name || p.client_name);
+          } else {
+            try {
+              const proj = await projectService.getProjectById(res.data.project_id);
+              setFetchedProjectName(proj.name || proj.project_name || String(res.data.project_id));
+            } catch (e) {
+              setFetchedProjectName(String(res.data.project_id));
+            }
+          }
+        }
+
+        if (res.data?.owner_id) {
+          try {
+            const user = await userService.getUserById(res.data.owner_id);
+            setFetchedOwnerName(user?.name || user?.full_name || res.data.owner_id);
+          } catch (e) {
+            setFetchedOwnerName(res.data.owner_id);
+          }
+        }
       } catch (err) {
         console.error("Failed to load invoice details:", err);
       } finally {
@@ -23,12 +50,13 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
       load();
     } else {
       setData(null);
+      setFetchedOwnerName("");
+      setFetchedProjectName("");
     }
-  }, [invoiceId]);
+  }, [invoiceId, projects]);
 
-  const p = projects?.find(proj => proj.id === data?.project_id);
-  const projectName = p ? p.project_name : data?.project_id;
-  const ownerName = p ? p.client_name : data?.owner_id;
+  const projectName = fetchedProjectName || data?.project_id;
+  const ownerName = fetchedOwnerName || data?.owner_id;
 
   return (
     <Modal isOpen={!!invoiceId} onClose={onClose} title="Invoice Profile" maxWidth="max-w-4xl">
@@ -74,7 +102,7 @@ export default function InvoiceViewModal({ invoiceId, projects, onClose }: { inv
             </div>
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">reference_id</p>
-              <p className="text-sm font-semibold text-slate-700">{data.reference_id}</p>
+              <p className="text-sm font-semibold text-slate-700">{data.reference_id || 'N/A'}</p>
             </div>
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">amount</p>

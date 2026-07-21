@@ -17,14 +17,14 @@ const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "
 const TRANSFER_STATUSES: TransferStatus[] = ["PENDING", "COMPLETED", "CANCELLED"];
 
 const MaterialConsumptionPage = () => {
-    const { selectedProjectId: globalProjectId } = useProject();
+    const { selectedProjectId: globalProjectId, setSelectedProjectId } = useProject();
     const formatINR = (amount: number | string | undefined | null) => {
         if (amount === undefined || amount === null || isNaN(Number(amount))) return "₹0";
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(Number(amount));
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Usage");
-    const [projectId, setProjectId] = useState<number>(Number(globalProjectId) || 1);
+    const projectId = Number(globalProjectId) || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -52,38 +52,7 @@ const MaterialConsumptionPage = () => {
     // Forms & Selected Items
     const [selectedInventory, setSelectedInventory] = useState<InventoryItem | null>(null);
 
-    useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) setProjectId(Number(pId));
-            } catch (e) { console.error(e); }
-        }
-    }, []);
 
-    useEffect(() => {
-        if (globalProjectId) {
-            setProjectId(Number(globalProjectId));
-        }
-    }, [globalProjectId]);
-
-    const handleProjectChange = (newProjectId: number) => {
-        setProjectId(newProjectId);
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                if (user.user) {
-                    user.user.project_id = newProjectId;
-                } else {
-                    user.project_id = newProjectId;
-                }
-                localStorage.setItem("infrapilot_user", JSON.stringify(user));
-            } catch (e) { }
-        }
-    };
     const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
     const [usageForm, setUsageForm] = useState<any>({ quantity: 0, project_id: projectId, issue_type: "SITE", task_id: 0, boq_item_id: 0 });
@@ -107,11 +76,11 @@ const MaterialConsumptionPage = () => {
 
     const fetchTransactions = async () => {
         setIsLoading(true);
-        try { 
+        try {
             const params: any = { project_id: projectId };
             if (selectedMaterialId) params.material_id = Number(selectedMaterialId);
-            const data = await materialService.getLogs(params); 
-            setTransactions(data as any); 
+            const data = await materialService.getLogs(params);
+            setTransactions(data as any);
         }
         catch (e) { toast.error("Failed to load transactions"); }
         finally { setIsLoading(false); }
@@ -127,6 +96,40 @@ const MaterialConsumptionPage = () => {
             setBoqsList(boqsRes.items || []);
         } catch (e) {
             console.error("Failed to fetch tasks or boqs", e);
+        }
+    };
+
+    const handleProjectChange = (id: number) => {
+        const newProjectId = id === 0 ? null : id;
+        setSelectedProjectId(newProjectId);
+        if (newProjectId) {
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    const selectedProjObj = projectsList.find(p => Number(p.id) === newProjectId);
+                    parsed.project_id = newProjectId;
+                    parsed.default_project_id = newProjectId;
+                    if (selectedProjObj) parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                    if (parsed.user) {
+                        parsed.user.project_id = newProjectId;
+                        if (selectedProjObj) parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                    }
+                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    window.dispatchEvent(new Event('storage'));
+                }
+            } catch (e) { }
+        } else {
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    parsed.project_id = null;
+                    if (parsed.user) parsed.user.project_id = null;
+                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    window.dispatchEvent(new Event('storage'));
+                }
+            } catch (e) { }
         }
     };
 
@@ -295,6 +298,7 @@ const MaterialConsumptionPage = () => {
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-slate-500">Project:</span>
                         <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            <option value={0}>All Projects</option>
                             {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
                         </select>
                     </div>
@@ -310,8 +314,8 @@ const MaterialConsumptionPage = () => {
                                 <input type="text" placeholder={`Search ${activeTab.toLowerCase()}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
                             </div>
                             {activeTab === "Transactions" && (
-                                <select 
-                                    value={selectedMaterialId} 
+                                <select
+                                    value={selectedMaterialId}
                                     onChange={e => setSelectedMaterialId(e.target.value)}
                                     className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-slate-600"
                                 >

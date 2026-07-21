@@ -11,29 +11,25 @@ import {
 import { paymentService } from '../../../services/paymentService';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../../utils/currencyUtils';
+import { useProject } from '../../../context/ProjectContext';
 
 
 const PayrollReportPage: React.FC = () => {
     const [reports, setReports] = useState<any[]>([]);
+    const [payrollList, setPayrollList] = useState<any[]>([]);
+    const [payrollStats, setPayrollStats] = useState<any>(null);
+    const [contractorLiability, setContractorLiability] = useState<any[]>([]);
+    const [disbursementHistory, setDisbursementHistory] = useState<any[]>([]);
+    const [weeklyVelocity, setWeeklyVelocity] = useState<any[]>([]);
+    const [momentum, setMomentum] = useState<any>(null);
 
-    const [activeTab, setActiveTab] = useState<string>('daily');
+    const [activeTab, setActiveTab] = useState<string>('aggregate');
     const [isLoading, setIsLoading] = useState(true);
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "High" | "OT" | "Summary">("All");
     const [isExportingExcel, setIsExportingExcel] = useState(false);
     const now = new Date();
-    const [projectId] = useState<number>(() => {
-        try {
-            const userStr = localStorage.getItem("infrapilot_user");
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) return Number(pId);
-            }
-        } catch (err) {
-            console.error("Failed to load user project context:", err);
-        }
-        return 92; // Default fallback to 92 to ensure list renders and matches registered project
-    });
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
 
@@ -54,28 +50,50 @@ const PayrollReportPage: React.FC = () => {
     const fetchReports = async () => {
         setIsLoading(true);
         try {
-            console.log(`Reports: Fetching aggregate report for Project ${projectId || 'all'}`);
+            console.log(`Reports: Fetching all payroll data for Project ${projectId || 'all'}`);
 
-            const [aggregateRes, summaryRes] = await Promise.all([
+            const [aggregateRes, summaryRes, payrollRes, statsRes, liabilityRes, disbursementRes, velocityRes, momentumRes] = await Promise.allSettled([
                 paymentService.getAggregateReport({ project_id: projectId, month: selectedMonth, year: selectedYear }),
-                paymentService.getFiscalSummary({ project_id: projectId, month: selectedMonth, year: selectedYear })
+                paymentService.getFiscalSummary({ project_id: projectId, month: selectedMonth, year: selectedYear }),
+                paymentService.getActivePayroll({ project_id: projectId, month: selectedMonth, year: selectedYear }),
+                paymentService.getPayrollStats({ project_id: projectId, month: selectedMonth, year: selectedYear }),
+                paymentService.getPendingDues({ project_id: projectId }),
+                paymentService.getPaymentHistory({ project_id: projectId, month: selectedMonth, year: selectedYear }),
+                paymentService.getWeeklyVelocity({ project_id: projectId }),
+                paymentService.getPayrollMomentum({ project_id: projectId }),
             ]);
 
-            const enrichedLabours = aggregateRes || [];
-
+            const enrichedLabours = aggregateRes.status === 'fulfilled' ? (aggregateRes.value || []) : [];
             setReports(enrichedLabours);
 
-            // Summary Stats derived from the fiscal-summary API
-            const totalPayout = summaryRes?.total_payout || 0;
-            const highPayouts = summaryRes?.high_payouts || 0;
-            const otIntensive = summaryRes?.ot_intensive || 0;
-            const advanceAdjusted = summaryRes?.advance_adjusted || 0;
+            const summaryData = summaryRes.status === 'fulfilled' ? summaryRes.value : null;
+            setStats({
+                totalPayout: summaryData?.total_payout || 0,
+                highPayouts: summaryData?.high_payouts || 0,
+                otIntensive: summaryData?.ot_intensive || 0,
+                advanceAdjusted: summaryData?.advance_adjusted || 0,
+            });
 
-            setStats({ totalPayout, highPayouts, otIntensive, advanceAdjusted });
+            if (payrollRes.status === 'fulfilled') {
+                const d: any = payrollRes.value;
+                setPayrollList(Array.isArray(d) ? d : (d?.items || d?.data || []));
+            }
+            if (statsRes.status === 'fulfilled') setPayrollStats(statsRes.value);
+            if (liabilityRes.status === 'fulfilled') {
+                const d: any = liabilityRes.value;
+                setContractorLiability(Array.isArray(d) ? d : (d?.items || d?.data || []));
+            }
+            if (disbursementRes.status === 'fulfilled') {
+                const d: any = disbursementRes.value;
+                setDisbursementHistory(Array.isArray(d) ? d : (d?.items || d?.data || []));
+            }
+            if (velocityRes.status === 'fulfilled') {
+                const d: any = velocityRes.value;
+                setWeeklyVelocity(Array.isArray(d) ? d : (d?.items || d?.data || []));
+            }
+            if (momentumRes.status === 'fulfilled') setMomentum(momentumRes.value);
 
-
-
-            console.log("Reports Sync Success (200 OK)");
+            console.log("All Payroll Reports Sync Success (200 OK)");
         } catch (error) {
             console.error("Reports Sync Failure:", error);
             toast.error('Failed to load payroll reports');
@@ -174,9 +192,37 @@ const PayrollReportPage: React.FC = () => {
                     ))}
                 </div>
 
-                {/* Chart has been moved to the bottom */}
+                {/* Payroll Stats & Momentum Info Strip (payroll/stats + payroll/momentum APIs) */}
+                {(payrollStats || momentum) && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                        {payrollStats && [
+                            { label: "Total Labours", val: payrollStats.total_labour || payrollStats.total_labours || 0, color: "text-slate-700" },
+                            { label: "Paid Count", val: payrollStats.paid_count || payrollStats.total_paid || 0, color: "text-emerald-600" },
+                            { label: "Pending Count", val: payrollStats.pending_count || payrollStats.total_pending || 0, color: "text-amber-500" },
+                            { label: "Avg Daily Wage", val: `${Number(payrollStats.avg_daily_wage || payrollStats.average_wage || 0).toLocaleString()}`, color: "text-primary" },
+                        ].map(item => (
+                            <div key={item.label} className="bg-white border border-slate-100 rounded-xl px-4 py-3 shadow-sm">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.label}</p>
+                                <p className={`text-lg font-bold mt-0.5 ${item.color}`}>{item.val}</p>
+                            </div>
+                        ))}
+                        {momentum && (
+                            <div className="bg-white border border-slate-100 rounded-xl px-4 py-3 shadow-sm md:col-span-4">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Payroll Momentum</p>
+                                <div className="flex items-center gap-6 flex-wrap">
+                                    {Object.entries(momentum).filter(([k]) => !k.startsWith('_')).slice(0, 6).map(([key, val]) => (
+                                        <div key={key} className="text-sm">
+                                            <span className="text-slate-400 text-xs font-medium capitalize">{key.replace(/_/g, ' ')}: </span>
+                                            <span className="font-bold text-slate-700">{String(val)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
 
-                {/* â”€â”€ Report Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+                {/* Report Container */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
                     <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between flex-wrap gap-4 bg-white">
                         <div className="flex items-center gap-3">
@@ -187,12 +233,11 @@ const PayrollReportPage: React.FC = () => {
                                     onChange={(e) => setActiveTab(e.target.value)}
                                     className="px-6 py-2 rounded-xl text-xs font-bold transition-all bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer"
                                 >
-                                    <option value="daily">Daily Analysis</option>
-                                    <option value="weekly">Weekly Summary</option>
-                                    <option value="monthly">Monthly Report</option>
-                                    <option value="3_months">3 Months</option>
-                                    <option value="6_months">6 Months</option>
-                                    <option value="1_year">1 Year</option>
+                                    <option value="aggregate">Aggregate Report</option>
+                                    <option value="payroll_list">Payroll List</option>
+                                    <option value="contractor_liability">Contractor Liability</option>
+                                    <option value="disbursement">Disbursement History</option>
+                                    <option value="velocity">Weekly Velocity</option>
                                 </select>
                             </div>
                             <div className="flex gap-3">
@@ -265,7 +310,8 @@ const PayrollReportPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
-                                    {filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, idx) => (
+                                    {/* Aggregate Report Table */}
+                                    {(activeTab === 'aggregate') && filteredReports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
@@ -301,13 +347,75 @@ const PayrollReportPage: React.FC = () => {
                                             </td>
                                         </tr>
                                     ))}
-                                    {filteredReports.length === 0 && !isLoading && (
+
+                                    {/* Payroll List Table */}
+                                    {activeTab === 'payroll_list' && payrollList.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r: any, idx: number) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-6 py-4 font-bold text-slate-800 text-sm">{r.labour_name || r.name || 'Unknown'}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">{r.skill_type || r.skill || '—'}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-slate-700">₹{Number(r.daily_wage || r.wage_rate || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-slate-700">{r.days_present || r.present_days || 0}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-amber-500">{r.ot_hours || 0}h</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-emerald-600">₹{Number(r.total_wage || r.total_payout || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${r.status === 'paid' || r.is_paid ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                    {r.status || (r.is_paid ? 'Paid' : 'Pending')}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+
+                                    {/* Contractor Liability Table */}
+                                    {activeTab === 'contractor_liability' && contractorLiability.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r: any, idx: number) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-6 py-4 font-bold text-slate-800 text-sm">{r.contractor_name || r.name || `Contractor #${r.contractor_id}`}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-slate-700">{r.total_labour || r.labour_count || 0}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-rose-600">₹{Number(r.total_liability || r.outstanding || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-emerald-600">₹{Number(r.paid_amount || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-amber-500">₹{Number(r.pending_amount || r.total_liability || 0).toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+
+                                    {/* Disbursement History Table */}
+                                    {activeTab === 'disbursement' && disbursementHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r: any, idx: number) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-6 py-4 font-bold text-slate-800 text-sm">{r.labour_name || r.name || 'Unknown'}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-600">{r.payment_date || r.disbursement_date || r.date || '—'}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-emerald-600">₹{Number(r.amount || r.paid_amount || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-500">{r.payment_mode || r.mode || '—'}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="px-2 py-1 rounded-lg text-[10px] font-bold uppercase bg-emerald-50 text-emerald-600">{r.status || 'Disbursed'}</span>
+                                            </td>
+                                        </tr>
+                                    ))}
+
+                                    {/* Weekly Velocity Table */}
+                                    {activeTab === 'velocity' && weeklyVelocity.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((r: any, idx: number) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-6 py-4 text-sm text-slate-600 font-bold">{r.week_label || r.week || r.period || `Week ${idx + 1}`}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-primary">₹{Number(r.total_payout || r.amount || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-slate-700">{r.present_days || r.days || 0}</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold text-amber-500">{r.ot_hours || 0}h</td>
+                                            <td className="px-6 py-4 text-center text-sm font-bold">
+                                                <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${(r.velocity_pct || 0) >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                    {r.velocity_pct !== undefined ? `${r.velocity_pct}%` : '—'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+
+                                    {((filteredReports.length === 0 && activeTab === 'aggregate') ||
+                                      (payrollList.length === 0 && activeTab === 'payroll_list') ||
+                                      (contractorLiability.length === 0 && activeTab === 'contractor_liability') ||
+                                      (disbursementHistory.length === 0 && activeTab === 'disbursement') ||
+                                      (weeklyVelocity.length === 0 && activeTab === 'velocity')) && !isLoading && (
                                         <tr>
                                             <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
                                                 <p className="text-[10px] font-bold uppercase tracking-widest">No payroll records found</p>
                                             </td>
                                         </tr>
                                     )}
+
                                 </tbody>
                             </table>
                         )}

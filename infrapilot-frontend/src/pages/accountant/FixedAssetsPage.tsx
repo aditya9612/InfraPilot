@@ -4,6 +4,8 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
+import { accountingService } from "../../services/accountingService";
+import { projectService } from "../../services/projectService";
 
 // --- GENERIC COMPONENTS ---
 const GenericTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => (
@@ -28,7 +30,50 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
 
 // --- SECTIONS ---
 
-const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => (
+const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  const [formData, setFormData] = useState({
+    name: "",
+    purchase_value: 0,
+    purchase_date: "",
+    depreciation_rate: 10,
+    project_id: 0
+  });
+  const [loading, setLoading] = useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      projectService.getProjects().then(res => {
+        const items = Array.isArray(res) ? res : res.items || res.data || [];
+        setProjects(items);
+        if (items.length > 0 && formData.project_id === 0) {
+           setFormData(prev => ({ ...prev, project_id: items[0].id }));
+        }
+      }).catch(() => {});
+    }
+  }, [isOpen]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const val = e.target.name === "project_id" || e.target.name === "purchase_value" || e.target.name === "depreciation_rate" ? Number(e.target.value) : e.target.value;
+    setFormData({ ...formData, [e.target.name]: val });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name) return toast.error("Asset name is required");
+    setLoading(true);
+    try {
+      await accountingService.createAsset(formData);
+      toast.success("Asset added to Register!");
+      onClose();
+    } catch (err) {
+      toast.error("Failed to create asset");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
   <Modal
     isOpen={isOpen}
     onClose={onClose}
@@ -37,69 +82,48 @@ const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
     footer={
       <>
         <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-        <button onClick={() => { toast.success("Asset added to Register!"); onClose(); }} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95">Create Asset</button>
+        <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">{loading ? "Saving..." : "Create Asset"}</button>
       </>
     }
   >
-    <form className="space-y-6" onSubmit={e => e.preventDefault()}>
+    <form className="space-y-6" onSubmit={handleSubmit}>
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
           <span className="w-6 h-6 bg-blue-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-          Basic Information
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset ID *</label><input type="text" readOnly value="AST-2024-090" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-mono" /></div>
-          <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Name *</label><input type="text" placeholder="e.g. CAT 320 Excavator" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Category *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Construction Machinery</option><option>Vehicles</option><option>Land & Buildings</option><option>Equipment</option><option>Office Assets</option><option>IT Assets</option></select></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Type *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Owned</option><option>Leased</option></select></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date *</label><input type="date" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5 md:col-span-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asset Serial Number</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-mono uppercase" /></div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-emerald-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-          Purchase Details
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="space-y-1.5 md:col-span-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vendor Name</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice Number</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Cost (₹)</label><input type="number" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">GST Amount (₹)</label><input type="number" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Cost (₹)</label><input type="number" readOnly className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-100 font-bold text-emerald-600" /></div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-indigo-500 text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-          Asset Location
+          Asset Details
         </h3>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Metro Line 3</option></select></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Site Location</label><input type="text" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Civil</option></select></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned To</label><input type="text" placeholder="Employee Name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="w-6 h-6 bg-amber-500 text-white text-xs font-black rounded-lg flex items-center justify-center">4</span>
-          Depreciation Details
-        </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Method *</label><select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50"><option>Straight Line Method (SLM)</option><option>Written Down Value (WDV)</option></select></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Rate (%) *</label><input type="number" defaultValue="15" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Useful Life (Years) *</label><input type="number" defaultValue="10" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salvage Value (₹) *</label><input type="number" defaultValue="50000" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" /></div>
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Value (₹) *</label><input type="number" defaultValue="6500000" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 font-bold" /></div>
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Name *</label>
+            <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Asset name" className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Value *</label>
+            <input type="number" name="purchase_value" value={formData.purchase_value || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date *</label>
+            <input type="date" name="purchase_date" value={formData.purchase_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Depreciation Rate (%) *</label>
+            <input type="number" name="depreciation_rate" value={formData.depreciation_rate || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project ID *</label>
+            <select name="project_id" value={formData.project_id || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50">
+              <option value="" disabled>Select Project</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     </form>
   </Modal>
-);
+  );
+};
 
 const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "list");
@@ -113,7 +137,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
           {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
         </div>
         <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
-          + Add Asset
+          Add Asset
         </button>
       </div>
 
@@ -179,10 +203,10 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
           </div>
           <GenericTableSection
             title="Monthly Depreciation Schedule"
-            columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Monthly Depreciation"]}
+            columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Monthly Depreciation", "Action"]}
             data={[
-              ["CAT 320 Excavator", "₹65,00,000", "15% (SLM)", "₹55,25,000", "₹81,250"],
-              ["Tata Prima Tipper", "₹35,00,000", "15% (SLM)", "₹29,75,000", "₹43,750"]
+              ["CAT 320 Excavator", "₹65,00,000", "15% (SLM)", "₹55,25,000", "₹81,250", <button key="1" onClick={async () => { try { await accountingService.depreciateAsset(1, {}); toast.success("Asset Depreciated!"); } catch(e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>],
+              ["Tata Prima Tipper", "₹35,00,000", "15% (SLM)", "₹29,75,000", "₹43,750", <button key="2" onClick={async () => { try { await accountingService.depreciateAsset(2, {}); toast.success("Asset Depreciated!"); } catch(e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>]
             ]}
           />
         </div>
@@ -345,58 +369,22 @@ const FixedAssetsPage = () => {
     assets: {
       title: "Assets Register",
       subtitle: "Manage and track all company fixed assets.",
-      actions: (
-        <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📤</span> Export
-          </button>
-          <button onClick={() => toast.success("Opening New Asset Form...")} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-            <span className="text-base leading-none">+</span> New Asset
-          </button>
-        </div>
-      ),
+      actions: null,
     },
     depreciation: {
       title: "Depreciation",
       subtitle: "Calculate and manage asset depreciation.",
-      actions: (
-        <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📤</span> Export
-          </button>
-          <button onClick={() => toast.success("Running Depreciation...")} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-            <span className="text-base leading-none">🔄</span> Run Depreciation
-          </button>
-        </div>
-      ),
+      actions: null,
     },
     maintenance: {
       title: "Maintenance",
       subtitle: "Log and track asset maintenance activities.",
-      actions: (
-        <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📤</span> Export
-          </button>
-          <button onClick={() => toast.success("Opening New Maintenance Log...")} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-            <span className="text-base leading-none">+</span> Log Maintenance
-          </button>
-        </div>
-      ),
+      actions: null,
     },
     transfers: {
       title: "Transfers",
       subtitle: "Manage transfer of assets across branches or projects.",
-      actions: (
-        <div className="flex flex-wrap items-center gap-3">
-          <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-            <span className="text-lg">📤</span> Export
-          </button>
-          <button onClick={() => toast.success("Opening New Transfer...")} className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-            <span className="text-base leading-none">+</span> New Transfer
-          </button>
-        </div>
-      ),
+      actions: null,
     },
   };
 

@@ -4,6 +4,7 @@ import { Camera, RefreshCw, Check, MapPin, Building2, Calendar, Clock } from "lu
 import toast from 'react-hot-toast';
 import { projectService } from '../../../../services/projectService';
 import { labourService } from '../../../../services/labourService';
+import { useProject } from "../../../../context/ProjectContext";
 
 interface SelfCheckInModalProps {
     isOpen: boolean;
@@ -18,7 +19,8 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
 
     // ── State — fields in exact API request body sequence ──────────────────
     const [attendanceDate, setAttendanceDate] = useState(today);
-    const [projectId, setProjectId] = useState('');
+    const { selectedProjectId } = useProject();
+    const [projectId, setProjectId] = useState<string>('');
     const [status, setStatus] = useState('present');
     const [inTime, setInTime] = useState(new Date().toISOString().slice(0, 16));
     const [checkInLatitude, setCheckInLatitude] = useState<number | null>(null);
@@ -94,8 +96,6 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
                 const raw = localStorage.getItem("infrapilot_user");
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    const pid = parsed.user?.project_id || parsed.project_id;
-                    if (pid) setProjectId(pid.toString());
                     const uid = parsed.user?.id || parsed.id;
                     if (uid) setUserId(uid.toString());
                 }
@@ -107,8 +107,11 @@ const SelfCheckInModal: React.FC<SelfCheckInModalProps> = ({ isOpen, onClose, on
             stopCamera();
             setCapturedImage(null);
         }
+        if (selectedProjectId) {
+            setProjectId(selectedProjectId.toString());
+        }
         return () => stopCamera();
-    }, [isOpen]);
+    }, [isOpen, selectedProjectId]);
 
     // ── Submit ────────────────────────────────────────────────────────────────
     const handleSubmit = async () => {

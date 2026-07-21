@@ -5,7 +5,7 @@
 [build.environment]
   NODE_OPTIONS = "--max-old-space-size=4096"
   CI = "false"
-  VITE_API_URL = "https://infrapilot.in/api/v1"
+  VITE_API_URL = "https://api-testing.infrapilot.in/api/v1"
 
 # API proxy removed - VITE_API_URL now points directly to https://infrapilot.in/api/v1
 

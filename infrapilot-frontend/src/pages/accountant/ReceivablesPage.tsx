@@ -14,6 +14,29 @@ import QuotationViewModal from "./QuotationViewModal";
 import InvoiceViewModal from "./InvoiceViewModal";
 import InvoiceEditModal from "./InvoiceEditModal";
 
+const ProjectNameCell = ({ projectId, projects }: { projectId: number | string, projects: any[] }) => {
+  const [name, setName] = useState<string>("");
+
+  useEffect(() => {
+    if (!projectId) {
+      setName("—");
+      return;
+    }
+    const p = projects.find(proj => String(proj.id) === String(projectId));
+    if (p) {
+      setName(p.name || p.project_name || p.client_name || String(projectId));
+    } else {
+      projectService.getProjectById(Number(projectId)).then(proj => {
+        setName(proj.name || proj.project_name || String(projectId));
+      }).catch(() => {
+        setName(String(projectId));
+      });
+    }
+  }, [projectId, projects]);
+
+  return <>{name}</>;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock Data
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,8 +77,11 @@ const MOCK_LEDGER = [
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-const fmt = (v: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v);
+const fmt = (v: any) => {
+  const num = Number(v);
+  if (isNaN(num)) return "₹0";
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(num);
+};
 
 const statusBadge = (s: any) => {
   if (!s || typeof s !== 'string') return "bg-slate-100 text-slate-500";
@@ -312,7 +338,7 @@ const InvoicesSection = ({
             <table className="w-full text-left min-w-max">
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
-                  {["Quotation No", "Project ID", "Client Name", "Company Name", "Mobile Number", "Site Address", "Project Name", "Project Type", "Subtotal", "GST Amt", "TDS Amt", "Discount", "Grand Total", "Advance Paid", "Balance Due", "Payment Mode", "Status", "Created At", "Due Date", "Actions"].map(h => (
+                  {["Quotation No", "Client Name", "Company Name", "Mobile Number", "Site Address", "Project Name", "Project Type", "Subtotal", "GST Amt", "TDS Amt", "Discount", "Grand Total", "Advance Paid", "Balance Due", "Payment Mode", "Status", "Created At", "Due Date", "Actions"].map(h => (
                     <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -321,20 +347,19 @@ const InvoicesSection = ({
                 {paginatedInvoices.map(inv => (
                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
                     <td className="px-4 py-3 text-xs font-bold text-primary">{inv.quotation_no || inv.invoice_number}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{inv.project_id || '-'}</td>
                     <td className="px-4 py-3 text-xs font-semibold text-slate-700">{inv.client_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.company_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.mobile_number}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 max-w-[140px] truncate">{inv.site_address}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 max-w-[120px] truncate">{inv.project_name}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.project_type}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.subtotal || inv.amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.gst_amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.tds_amount)}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.discount_amount)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(inv.grand_total || inv.total_with_gst)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700">{fmt(inv.advance_paid || inv.received_amount)}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-rose-600">{fmt(inv.balance_due || inv.pending_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.subtotal ?? inv.amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.gst_amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.tds_amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{fmt(inv.discount_amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(inv.grand_total ?? inv.total_with_gst ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-emerald-700">{fmt(inv.advance_paid ?? inv.received_amount ?? 0)}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-rose-600">{fmt(inv.balance_due ?? inv.pending_amount ?? 0)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.payment_mode}</td>
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(inv.status || inv.payment_status)}`}>{inv.status || inv.payment_status}</span></td>
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.created_at?.substring(0,10)}</td>
@@ -507,7 +532,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
         let pRes: any = [];
         try { pRes = await projPromise; } catch (e) { console.error(e); }
 
-        const projList = Array.isArray(pRes) ? pRes : (pRes.items || []);
+        const projList = Array.isArray(pRes) ? pRes : (pRes.data || pRes.items || []);
         setProjects(projList);
 
         let invRes: any = { data: [] };
@@ -732,11 +757,11 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
                     <td colSpan={14} className="px-4 py-8 text-center text-slate-400 text-sm">No invoices found.</td>
                   </tr>
                 ) : paginatedInvoices.map(inv => {
-                  const p = projects.find(proj => proj.id === inv.project_id);
-                  const projName = p ? (p.project_name || p.name) : inv.project_id;
                   return (
                   <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
-                    <td className="px-4 py-3 text-xs text-slate-600">{projName}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      <ProjectNameCell projectId={inv.project_id} projects={projects} />
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-600">{inv.type}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{inv.amount}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{inv.gst_percent}</td>
@@ -1406,15 +1431,6 @@ const ReceivablesPage = () => {
             <p className="text-slate-500 text-sm mt-1">Manage invoices, running bills, collections, client ledger &amp; reports.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📥</span> Import
-            </button>
-            <button className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
-              <span className="text-lg">📤</span> Export
-            </button>
-            <button className="flex items-center gap-2 bg-primary text-white text-sm font-bold px-5 py-2.5 rounded-2xl shadow-sm hover:bg-blue-600 transition-all active:scale-95">
-              <span className="text-base leading-none">+</span> New Receivable
-            </button>
           </div>
         </div>
 

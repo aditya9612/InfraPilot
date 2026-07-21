@@ -28,6 +28,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as
 
 import { dsrService } from "../../services/dsrService";
 import { reportService } from "../../services/reportService";
+import { useProject } from "../../context/ProjectContext";
 import { sitePhotoService } from "../../services/sitePhotoService";
 import type { DsrItem, LabourTrend, ContractorAnalytics, IssueAnalytics } from "../../types/dsr";
 
@@ -46,7 +47,8 @@ const DSRPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
 
     // Filter state for StatCards
     const [activeStatFilter, setActiveStatFilter] = useState<"All" | "Draft" | "Submitted" | "Approved">("All");
@@ -82,7 +84,7 @@ const DSRPage = () => {
             if (exportFilters.start_date) params.start_date = exportFilters.start_date;
             if (exportFilters.end_date) params.end_date = exportFilters.end_date;
             if (exportFilters.contractor_name.trim()) params.contractor_name = exportFilters.contractor_name.trim();
-            await dsrService.exportDsrExcel(projectId || 92, params);
+            await dsrService.exportDsrExcel(projectId || 0, params);
             toast.success("Excel report exported!", { id: toastId });
             setIsExportModalOpen(false);
         } catch (err: any) {
@@ -111,7 +113,7 @@ const DSRPage = () => {
         setIsPdfExporting(true);
         const toastId = toast.loading("Generating PDF report...");
         try {
-            const blob = await reportService.exportDailyPDF(projectId || 92, pdfExportDate);
+            const blob = await reportService.exportDailyPDF(projectId || 0, pdfExportDate);
             const url = window.URL.createObjectURL(new Blob([blob]));
             const link = document.createElement('a');
             link.href = url;
@@ -129,31 +131,6 @@ const DSRPage = () => {
         }
     };
     // ──────────────────────────────────────────────────────────────────────────
-
-    const resolveProjectId = useCallback(() => {
-        try {
-            const userStr = localStorage.getItem("infrapilot_user");
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                const pId = user?.default_project_id || user?.project_id || user?.user?.project_id;
-                if (pId) {
-                    setProjectId(Number(pId));
-                } else {
-                    // Default fallback for Site Engineer context
-                    setProjectId(92);
-                }
-            }
-        } catch (err) {
-            console.error("Failed to resolve project context", err);
-            setProjectId(92);
-        }
-    }, []);
-
-    useEffect(() => {
-        resolveProjectId();
-        window.addEventListener('storage', resolveProjectId);
-        return () => window.removeEventListener('storage', resolveProjectId);
-    }, [resolveProjectId]);
 
     const fetchDsr = useCallback(async () => {
         if (!projectId) return;
@@ -196,7 +173,7 @@ const DSRPage = () => {
             const startDate = new Date();
             startDate.setFullYear(startDate.getFullYear() - 1);
             const endDate = new Date();
-            
+
             const [labour, contractor, issues] = await Promise.all([
                 dsrService.getLabourTrend(projectId, startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]).catch(() => []),
                 dsrService.getContractorAnalytics(projectId).catch(() => []),

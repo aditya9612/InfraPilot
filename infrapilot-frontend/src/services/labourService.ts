@@ -135,19 +135,7 @@ export const labourService = {
         }
     },
 
-    /**
-     * Assign Labour to Project
-     * POST /api/v1/labour/assign-project
-     */
-    async assignLabourToProject(labour_id: number, project_id: number): Promise<any> {
-        try {
-            const response = await api.post('/labour/assign-project', { labour_id, project_id });
-            return response.data;
-        } catch (error: any) {
-            console.error("assignLabourToProject API error:", error.message);
-            throw error;
-        }
-    },
+
 
     /**
      * List all labour records for a project
@@ -915,6 +903,98 @@ export const labourService = {
                 period_end: "2026-06-18",
                 total_days: 7
             }];
+        }
+    },
+
+    /**
+     * GET /api/v1/labour/dashboard/stats
+     * Dashboard-level Labour statistics
+     */
+    async getDashboardStats(projectId?: number | string) {
+        try {
+            const params: any = {};
+            if (projectId) params.project_id = projectId;
+            console.log("GET /api/v1/labour/dashboard/stats", params);
+            const response = await api.get("labour/dashboard/stats", { params });
+            console.log("GET /api/v1/labour/dashboard/stats Raw Response:", response.data);
+            return response.data;
+        } catch (error: any) {
+            console.warn("getDashboardStats API error, using virtual fallback:", error.message);
+            return {
+                total_labours: 0,
+                active_labours: 0,
+                total_present_today: 0,
+                total_absent_today: 0,
+                total_wage_this_month: 0,
+            };
+        }
+    },
+
+    /**
+     * GET /api/v1/labour/contractor/{contractor_id}
+     * Get all labours under a specific contractor
+     */
+    async getLaboursByContractor(contractorId: number | string, projectId?: number | string) {
+        try {
+            const params: any = {};
+            if (projectId) params.project_id = projectId;
+            console.log(`GET /api/v1/labour/contractor/${contractorId}`, params);
+            const response = await api.get(`labour/contractor/${contractorId}`, { params });
+            console.log(`GET /api/v1/labour/contractor/${contractorId} Raw Response:`, response.data);
+            const data = response.data;
+            const items = Array.isArray(data) ? data : (data.items || data.data || []);
+            return items.map((item: any) => this._normalizeLabour(item));
+        } catch (error: any) {
+            console.warn(`getLaboursByContractor API error, using virtual fallback:`, error.message);
+            return this._mockLabours.filter((l: any) => l.contractor_id === Number(contractorId));
+        }
+    },
+
+    /**
+     * GET /api/v1/labour/summary/skill
+     * Labour Skill-wise summary counts
+     */
+    async getSkillSummary(projectId?: number | string) {
+        try {
+            const params: any = {};
+            if (projectId) params.project_id = projectId;
+            console.log("GET /api/v1/labour/summary/skill", params);
+            const response = await api.get("labour/summary/skill", { params });
+            console.log("GET /api/v1/labour/summary/skill Raw Response:", response.data);
+            return response.data;
+        } catch (error: any) {
+            console.warn("getSkillSummary API error, using virtual fallback:", error.message);
+            // Build mock skill summary from in-memory data
+            const skills: Record<string, number> = {};
+            this._mockLabours.forEach((l: any) => {
+                const s = l.skill_type || "General";
+                skills[s] = (skills[s] || 0) + 1;
+            });
+            return Object.entries(skills).map(([skill_type, count]) => ({ skill_type, count }));
+        }
+    },
+
+    /**
+     * GET /api/v1/labour/report/export
+     * Export Labour Excel report
+     */
+    async exportLabourReport(params?: { project_id?: number; from_date?: string; to_date?: string; format?: string }) {
+        try {
+            const cleanParams: any = {};
+            if (params?.project_id) cleanParams.project_id = params.project_id;
+            if (params?.from_date) cleanParams.from_date = params.from_date;
+            if (params?.to_date) cleanParams.to_date = params.to_date;
+            if (params?.format) cleanParams.format = params.format;
+            console.log("GET /api/v1/labour/report/export", cleanParams);
+            const response = await api.get("labour/report/export", {
+                params: cleanParams,
+                responseType: "blob",
+            });
+            console.log("Labour Report Export Success: 200 OK");
+            return response.data;
+        } catch (error: any) {
+            console.error("exportLabourReport API error:", error.message);
+            throw error;
         }
     },
 

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { materialService, type InventoryItem, type MaterialReport, type MaterialLog } from "../../../services/materialService";
 import { projectService } from "../../../services/projectService";
+import { useProject } from "../../../context/ProjectContext";
 
 type TabType = "Stock Overview" | "Global Inventory" | "Reports" | "Inventory Adjustment";
 
@@ -19,7 +20,8 @@ const MaterialStockPage = () => {
     };
 
     const [activeTab, setActiveTab] = useState<TabType>("Stock Overview");
-    const [projectId, setProjectId] = useState<number>(1);
+    const { selectedProjectId, setSelectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [isLoading, setIsLoading] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,15 +35,6 @@ const MaterialStockPage = () => {
     const [projectsList, setProjectsList] = useState<any[]>([]);
 
     useEffect(() => {
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                const pId = user?.project_id || user?.user?.project_id;
-                if (pId) setProjectId(Number(pId));
-            } catch (e) { console.error(e); }
-        }
-
         const fetchProjects = async () => {
             try {
                 const res = await projectService.getProjects(100, 0);
@@ -51,18 +44,36 @@ const MaterialStockPage = () => {
         fetchProjects();
     }, []);
 
-    const handleProjectChange = (newProjectId: number) => {
-        setProjectId(newProjectId);
-        const userStr = localStorage.getItem("infrapilot_user");
-        if (userStr) {
+    const handleProjectChange = (id: number) => {
+        const newProjectId = id === 0 ? null : id;
+        setSelectedProjectId(newProjectId);
+        if (newProjectId) {
             try {
-                const user = JSON.parse(userStr);
-                if (user.user) {
-                    user.user.project_id = newProjectId;
-                } else {
-                    user.project_id = newProjectId;
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    const selectedProjObj = projectsList.find(p => Number(p.id) === newProjectId);
+                    parsed.project_id = newProjectId;
+                    parsed.default_project_id = newProjectId;
+                    if (selectedProjObj) parsed.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                    if (parsed.user) {
+                        parsed.user.project_id = newProjectId;
+                        if (selectedProjObj) parsed.user.project_name = selectedProjObj.project_name || selectedProjObj.name;
+                    }
+                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    window.dispatchEvent(new Event('storage'));
                 }
-                localStorage.setItem("infrapilot_user", JSON.stringify(user));
+            } catch (e) { }
+        } else {
+            try {
+                const userStr = localStorage.getItem("infrapilot_user");
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    parsed.project_id = null;
+                    if (parsed.user) parsed.user.project_id = null;
+                    localStorage.setItem("infrapilot_user", JSON.stringify(parsed));
+                    window.dispatchEvent(new Event('storage'));
+                }
             } catch (e) { }
         }
     };
@@ -254,6 +265,7 @@ const MaterialStockPage = () => {
                     <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-slate-500">Project:</span>
                         <select value={projectId} onChange={(e) => handleProjectChange(Number(e.target.value))} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary shadow-sm min-w-[200px]">
+                            <option value={0}>All Projects</option>
                             {projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}
                         </select>
                     </div>

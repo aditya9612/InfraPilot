@@ -3,10 +3,11 @@ import { useParams, useNavigate, useLocation, useSearchParams } from "react-rout
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
+import { accountingService } from "../../services/accountingService";
 
 
 // --- MOCK DATA ---
-const fmt = (num: number) => `₹${num.toLocaleString("en-IN")}`;
+const fmt = (num: number) => `₹${(Number(num) || 0).toLocaleString("en-IN")}`;
 const statusBadge = (s: string) => {
   if (s === "Paid" || s === "Approved") return "bg-emerald-100 text-emerald-700 border border-emerald-200";
   if (s === "Partial" || s === "Pending") return "bg-amber-100 text-amber-700 border border-amber-200";
@@ -30,16 +31,127 @@ const MOCK_CONTRACTOR_BILLS = [
 // --- SECTIONS ---
 
 // 1. Dashboard
+const DashboardSection = () => {
+  const [summary, setSummary] = useState<any>(null);
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [dateRangePayables, setDateRangePayables] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    accountingService.getPayablesSummary().then(setSummary).catch(() => {});
+  }, []);
 
+  const handleFetchDateRange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dateRange.start || !dateRange.end) return toast.error("Select both start and end dates");
+    setIsLoading(true);
+    try {
+      const res = await accountingService.getPayablesByDateRange(dateRange.start, dateRange.end);
+      setDateRangePayables(Array.isArray(res) ? res : res?.data || []);
+    } catch (err) {
+      toast.error("Failed to fetch payables by date");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Outstanding</p>
+            <p className="text-2xl font-black text-slate-800">{summary?.total_outstanding ? fmt(summary.total_outstanding) : "₹ 0"}</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 text-xl">📉</div>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Approvals</p>
+            <p className="text-2xl font-black text-slate-800">{summary?.pending_approvals || "0"}</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 text-xl">⏳</div>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Paid (This Month)</p>
+            <p className="text-2xl font-black text-slate-800">{summary?.total_paid ? fmt(summary.total_paid) : "₹ 0"}</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl">💸</div>
+        </div>
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <h3 className="font-bold text-slate-800 mb-4">Payables By Date Range</h3>
+        <form onSubmit={handleFetchDateRange} className="flex flex-wrap items-end gap-4 mb-6">
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Start Date</label>
+            <input type="date" required value={dateRange.start} onChange={e => setDateRange({ ...dateRange, start: e.target.value })} className="border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 transition-all" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">End Date</label>
+            <input type="date" required value={dateRange.end} onChange={e => setDateRange({ ...dateRange, end: e.target.value })} className="border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 transition-all" />
+          </div>
+          <button type="submit" disabled={isLoading} className="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-70">
+            {isLoading ? "Searching..." : "Search"}
+          </button>
+        </form>
+
+        {dateRangePayables.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50/60 border-b border-slate-100">
+                <tr>
+                  {["Bill No", "Date", "Due", "Amount", "Status"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {dateRangePayables.map(b => (
+                  <tr key={b.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{b.date}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{b.due || "—"}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{fmt(b.payable || b.amount || 0)}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(b.status || "Pending")}`}>{b.status || "Pending"}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-400 text-sm">No payables found in this date range. Select dates and search.</div>
+        )}
+      </div>
+    </div>
+  );
+};
 // 2. Vendor Bills
 const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval" | "payments">(
     (initialSubTab as any) || "list"
   );
-  const [vendorBills, setVendorBills] = useState<any[]>(MOCK_VENDOR_BILLS);
+  const [vendorBills, setVendorBills] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [editingBill, setEditingBill] = useState<any>(null);
+
+  const fetchPayables = async () => {
+    try {
+      const data = await accountingService.getPayables();
+      setVendorBills(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      toast.error("Failed to fetch payables");
+    }
+  };
+
+  useEffect(() => {
+    if (activeSubTab === "list" || activeSubTab === "approval" || activeSubTab === "payments") {
+      fetchPayables();
+    }
+  }, [activeSubTab]);
 
   const handleDelete = (id: number) => {
     setVendorBills(prev => prev.filter(b => b.id !== id));
@@ -81,8 +193,8 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   };
 
   const filtered = vendorBills.filter(b => 
-    b.vendor.toLowerCase().includes(search.toLowerCase()) || 
-    b.bill_no.toLowerCase().includes(search.toLowerCase())
+    (b?.vendor || "").toLowerCase().includes((search || "").toLowerCase()) || 
+    (b?.bill_no || "").toLowerCase().includes((search || "").toLowerCase())
   );
 
   useEffect(() => {
@@ -341,6 +453,8 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
   const [search, setSearch] = useState("");
   const [editingBill, setEditingBill] = useState<any>(null);
 
+  const [payingBill, setPayingBill] = useState<any>(null);
+
   const handleDelete = (id: number) => {
     setContractorBills(prev => prev.filter(b => b.id !== id));
     toast.success("Contractor bill deleted!");
@@ -351,9 +465,29 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
     toast.success("Contractor bill approved!");
   };
 
-  const handlePay = (id: number) => {
-    setContractorBills(prev => prev.map(b => b.id === id ? { ...b, status: "Paid", paid: b.payable } : b));
-    toast.success("Payment recorded!");
+  const handlePay = (bill: any) => {
+    setPayingBill(bill);
+  };
+
+  const handleConfirmPay = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!payingBill) return;
+    
+    const formData = new FormData(e.currentTarget);
+    const payload = {
+      amount: Number(formData.get("amount")),
+      mode: formData.get("mode") as string,
+      reference: formData.get("reference") as string,
+    };
+
+    try {
+      await accountingService.payContractor(payingBill.id, payload);
+      setContractorBills(prev => prev.map(b => b.id === payingBill.id ? { ...b, status: "Paid", paid: (b.paid || 0) + payload.amount } : b));
+      toast.success("Payment recorded successfully!");
+      setPayingBill(null);
+    } catch (err) {
+      toast.error("Failed to record payment");
+    }
   };
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -611,8 +745,8 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
                   <p className="text-xs text-slate-400 mt-0.5">Due: {b.due || b.date}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-slate-800">{fmt(b.payable - b.paid)} Due</span>
-                  <button onClick={() => handlePay(b.id)} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-all">Record Payment</button>
+                  <span className="text-sm font-bold text-slate-800">{fmt(b.payable - (b.paid || 0))} Due</span>
+                  <button onClick={() => handlePay(b)} className="px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-all">Record Payment</button>
                 </div>
               </div>
             ))}
@@ -620,6 +754,45 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
         </div>
       )}
 
+      {/* Payment Modal */}
+      {payingBill && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleConfirmPay} className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="font-bold text-slate-800">Record Payment</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Bill: {payingBill.bill_no}</p>
+              </div>
+              <button type="button" onClick={() => setPayingBill(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+            
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Amount to Pay (Due: {fmt(payingBill.payable - (payingBill.paid || 0))})</label>
+                <input type="number" name="amount" defaultValue={payingBill.payable - (payingBill.paid || 0)} required max={payingBill.payable - (payingBill.paid || 0)} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Payment Mode</label>
+                <select name="mode" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all cursor-pointer">
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="UPI">UPI</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Reference No (Optional)</label>
+                <input type="text" name="reference" placeholder="e.g. UTR / Cheque No" className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all" />
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+              <button type="button" onClick={() => setPayingBill(null)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-all">Cancel</button>
+              <button type="submit" className="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-all">Submit Payment</button>
+            </div>
+          </form>
+        </div>
+      )}
 
     </div>
   );
@@ -679,9 +852,10 @@ const OutstandingPayablesSection = () => (
 
 // --- MAIN COMPONENT ---
 
-type TabKey = "vendor-bills" | "contractor-bills" | "outstanding" | "payment-requests";
+type TabKey = "dashboard" | "vendor-bills" | "contractor-bills" | "outstanding" | "payment-requests";
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: "dashboard", label: "Dashboard" },
   { key: "vendor-bills", label: "Vendor Bills" },
   { key: "contractor-bills", label: "Contractor Bills" },
   { key: "outstanding", label: "Outstanding" },
@@ -701,12 +875,13 @@ const PayablesPage = () => {
     const currentSub = category || lastPart;
 
     const map: Record<string, TabKey> = {
+      "dashboard": "dashboard",
       "vendor-bills": "vendor-bills",
       "contractor-bills": "contractor-bills",
       "payment-requests": "payment-requests",
       "outstanding": "outstanding",
     };
-    return map[currentSub || ""] || "vendor-bills";
+    return map[currentSub || ""] || "dashboard";
   };
 
   const [activeTab, setActiveTab] = useState<TabKey>(resolveTab);
@@ -764,6 +939,7 @@ const PayablesPage = () => {
         </div>
 
         {/* Content Rendering */}
+        {activeTab === "dashboard"         && <DashboardSection />}
         {activeTab === "vendor-bills"      && <VendorBillsSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "contractor-bills"  && <ContractorBillsSection key={subTab || "list"} initialSubTab={subTab} />}
         {activeTab === "outstanding"       && <OutstandingPayablesSection />}

@@ -25,6 +25,7 @@ import { projectService } from "../../../services/projectService";
 import type { IssueItem } from "../../../types/issue";
 import IssueFilterModal from "../../../components/dashboard/IssueFilterModal";
 import type { IssueFilterSelection } from "../../../components/dashboard/IssueFilterModal";
+import { useProject } from "../../../context/ProjectContext";
 
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -41,7 +42,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const INITIAL_FORM_DATA = {
-    project_id: 92,
+    project_id: 0,
     title: "",
     category: "Material",
     description: "",
@@ -61,12 +62,13 @@ const IssueTrackerPage = () => {
     const [statusFilter, setStatusFilter] = useState("All");
     const [priorityFilter, setPriorityFilter] = useState("All");
     const [categoryFilter, setCategoryFilter] = useState("All");
-    const [projectId, setProjectId] = useState<number | null>(null);
+    const { selectedProjectId } = useProject();
+    const projectId = selectedProjectId || 0;
     const [projects, setProjects] = useState<any[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isExporting, setIsExporting] = useState(false);
-    
+
     // Export Modal State
     const [isIssueFilterOpen, setIsIssueFilterOpen] = useState(false);
     const [issueFilterFormat, setIssueFilterFormat] = useState<"PDF" | "Excel">("PDF");
@@ -98,29 +100,15 @@ const IssueTrackerPage = () => {
         const initializeProject = async () => {
             try {
                 const res = await projectService.getProjects(100, 0);
-                const list = Array.isArray(res) ? res : (res.items || res.data || []);
-                setProjects(list);
+                const projectsList = Array.isArray(res) ? res : (res.items || res.data || []);
+                setProjects(projectsList);
             } catch (err) {
-                console.error("Failed to fetch projects", err);
+                console.error("Failed to fetch projects list", err);
             }
-            try {
-                const userStr = localStorage.getItem("infrapilot_user");
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    const pId = user?.project_id || user?.user?.project_id;
-                    if (pId) {
-                        const resolvedId = Number(pId);
-                        setProjectId(resolvedId);
-                        setFormData(prev => ({ ...prev, project_id: resolvedId }));
-                        return;
-                    }
-                }
-            } catch (e) { console.error(e); }
-            setProjectId(92);
-            setFormData(prev => ({ ...prev, project_id: 92 }));
         };
+        setFormData(prev => ({ ...prev, project_id: projectId || 0 }));
         initializeProject();
-    }, []);
+    }, [projectId]);
 
     const openExportModal = (type: 'pdf' | 'excel') => {
         if (!projectId) {

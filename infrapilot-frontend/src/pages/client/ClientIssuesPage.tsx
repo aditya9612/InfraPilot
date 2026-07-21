@@ -304,22 +304,22 @@ const ClientIssuesPage = () => {
                     </td>
                     <td className="py-6 px-10">
                       <span className={`px-5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border font-inter ${issue.status?.toLowerCase() === 'open'
-                          ? 'bg-transparent text-rose-500 border-rose-500/30'
-                          : issue.status?.toLowerCase() === 'in progress' || issue.status?.toLowerCase() === 'pending'
-                            ? 'bg-transparent text-orange-500 border-orange-500/30'
-                            : 'bg-transparent text-emerald-500 border-emerald-500/30'
+                        ? 'bg-transparent text-rose-500 border-rose-500/30'
+                        : issue.status?.toLowerCase() === 'in progress' || issue.status?.toLowerCase() === 'pending'
+                          ? 'bg-transparent text-orange-500 border-orange-500/30'
+                          : 'bg-transparent text-emerald-500 border-emerald-500/30'
                         }`}>
                         {issue.status?.toUpperCase() || 'OPEN'}
                       </span>
                     </td>
                     <td className="py-6 px-10">
                       <span className={`px-5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border font-inter ${issue.priority?.toLowerCase() === 'critical'
-                          ? 'bg-[#E11D48] text-white border-[#E11D48] shadow-sm'
-                          : issue.priority?.toLowerCase() === 'high'
-                            ? 'bg-transparent text-[#E11D48] border-[#E11D48]/30'
-                            : issue.priority?.toLowerCase() === 'medium'
-                              ? 'bg-transparent text-[#F59E0B] border-[#F59E0B]/30'
-                              : 'bg-transparent text-blue-500 border-blue-500/30 font-inter'
+                        ? 'bg-[#E11D48] text-white border-[#E11D48] shadow-sm'
+                        : issue.priority?.toLowerCase() === 'high'
+                          ? 'bg-transparent text-[#E11D48] border-[#E11D48]/30'
+                          : issue.priority?.toLowerCase() === 'medium'
+                            ? 'bg-transparent text-[#F59E0B] border-[#F59E0B]/30'
+                            : 'bg-transparent text-blue-500 border-blue-500/30 font-inter'
                         }`}>
                         {issue.priority?.toUpperCase() || 'MEDIUM'}
                       </span>
@@ -379,8 +379,8 @@ const ClientIssuesPage = () => {
                   key={page}
                   onClick={() => setCurrentPage(page)}
                   className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-black transition-all font-inter ${currentPage === page
-                      ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20"
-                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm font-inter"
+                    ? "bg-blue-600 text-white shadow-xl shadow-blue-500/20"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm font-inter"
                     }`}
                 >
                   {page}
@@ -438,11 +438,10 @@ const ClientIssuesPage = () => {
                     <p className="text-[11px] text-blue-200 font-bold uppercase tracking-widest mb-3">
                       ✉ ISSUE.REF-#{selectedIssue.id}
                     </p>
-                    <span className={`inline-block px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
-                      selectedIssue.priority?.toLowerCase() === 'high' || selectedIssue.priority?.toLowerCase() === 'critical'
+                    <span className={`inline-block px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${selectedIssue.priority?.toLowerCase() === 'high' || selectedIssue.priority?.toLowerCase() === 'critical'
                         ? 'bg-white/20 border-white/30 text-white'
                         : 'bg-white/10 border-white/20 text-white'
-                    }`}>
+                      }`}>
                       PRIORITY: {selectedIssue.priority?.toUpperCase() || "MEDIUM"}
                     </span>
                   </div>
@@ -472,13 +471,12 @@ const ClientIssuesPage = () => {
                   </div>
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Priority</p>
-                    <p className={`text-sm font-black uppercase ${
-                      selectedIssue.priority?.toLowerCase() === 'high' || selectedIssue.priority?.toLowerCase() === 'critical'
+                    <p className={`text-sm font-black uppercase ${selectedIssue.priority?.toLowerCase() === 'high' || selectedIssue.priority?.toLowerCase() === 'critical'
                         ? 'text-red-500'
                         : selectedIssue.priority?.toLowerCase() === 'medium'
-                        ? 'text-orange-500'
-                        : 'text-slate-700'
-                    }`}>{selectedIssue.priority?.toUpperCase() || "MEDIUM"}</p>
+                          ? 'text-orange-500'
+                          : 'text-slate-700'
+                      }`}>{selectedIssue.priority?.toUpperCase() || "MEDIUM"}</p>
                   </div>
                 </div>
 

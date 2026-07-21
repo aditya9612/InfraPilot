@@ -101,68 +101,57 @@ export const drawingService = {
             throw error;
         }
     },
-
     /**
-     * Get all versions of drawings for a project
-     * GET /api/v1/drawings/{project_id}/versions
+     * List Drawings
+     * GET /api/v1/drawings
      */
-    async getVersions(projectId: number) {
+    async getList(params: {
+        project_id: number;
+        parent_id?: number | null;
+        search?: string | null;
+        approval_status?: string | null;
+        latest_only?: boolean;
+        is_folder?: boolean | null;
+        limit?: number;
+        offset?: number;
+    }) {
         try {
-            const response = await api.get(`/drawings/${projectId}/versions`);
-            return Array.isArray(response.data) ? response.data : [];
+            console.log(`GET /api/v1/drawings`, params);
+            const response = await api.get(`/drawings`, { params });
+            return Array.isArray(response.data) ? response.data : (response.data?.items || []);
         } catch (error: any) {
-            console.warn("Fetch Drawing Versions Failed:", error?.response?.data || error.message);
-            // Robust fallback for maintenance/failure periods
-            if (error?.response?.status === 500) {
-                return [
-                    {
-                        "id": 101,
-                        "project_id": projectId,
-                        "drawing_name": "Structural Framework Blueprint",
-                        "version": "v1.0",
-                        "date": "2026-05-20",
-                        "remarks": "Verified via Oracle Sync",
-                        "file_url": "uploads/drawings/sample.png",
-                        "approval_status": "Approved"
-                    },
-                    {
-                        "id": 102,
-                        "project_id": projectId,
-                        "drawing_name": "Site Grading Plan",
-                        "version": "v2.1",
-                        "date": "2026-05-25",
-                        "remarks": "Re-verified for safety compliance",
-                        "file_url": "uploads/drawings/sample.png",
-                        "approval_status": "Pending"
-                    }
-                ];
-            }
+            console.error("Fetch Drawings List Failed:", error?.message);
             return [];
         }
     },
 
-    async getLatest(projectId: number) {
-        console.log(`GET /api/v1/drawings/${projectId}/latest`);
+    /**
+     * Get Latest
+     * GET /api/v1/drawings/{project_id}/latest
+     */
+    async getLatest(projectId: number, params?: { parent_id?: number | null }) {
         try {
-            const response = await api.get(`/drawings/${projectId}/latest`);
-            return response.data;
+            console.log(`GET /api/v1/drawings/${projectId}/latest`, params);
+            const response = await api.get(`/drawings/${projectId}/latest`, { params });
+            return Array.isArray(response.data) ? response.data : [response.data]; // Wrap in array if single object
         } catch (error: any) {
             console.error("Fetch Latest Drawing Failed:", error?.message);
-            // Fallback for missing or failing endpoints
-            if (error?.response?.status === 404 || error?.response?.status === 401 || error?.response?.status === 500) {
-                return {
-                    "project_id": projectId,
-                    "drawing_name": "Master Structural Plan",
-                    "version": "v1.5",
-                    "date": new Date().toISOString().split('T')[0],
-                    "remarks": "Latest verified engineering release",
-                    "id": 101,
-                    "file_url": "uploads/drawings/sample.png",
-                    "approval_status": "Pending",
-                    "approval_id": 99
-                };
-            }
-            throw error;
+            return [];
+        }
+    },
+
+    /**
+     * Get Versions
+     * GET /api/v1/drawings/{project_id}/versions
+     */
+    async getVersions(projectId: number, params?: { parent_id?: number | null; skip?: number; limit?: number }) {
+        try {
+            console.log(`GET /api/v1/drawings/${projectId}/versions`, params);
+            const response = await api.get(`/drawings/${projectId}/versions`, { params });
+            return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+        } catch (error: any) {
+            console.warn("Fetch Drawing Versions Failed:", error?.message);
+            return [];
         }
     },
 

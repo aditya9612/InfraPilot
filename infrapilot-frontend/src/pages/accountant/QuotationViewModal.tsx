@@ -70,7 +70,7 @@ export default function QuotationViewModal({ quotationId, onClose }: { quotation
               { label: 'Created At', value: data.created_at ? data.created_at.substring(0, 10) : '—' },
               { label: 'Subtotal (₹)', value: data.subtotal != null ? `₹${data.subtotal.toLocaleString("en-IN")}` : '—' },
               { label: `GST (${data.gst_percent || 0}%)`, value: data.gst_amount != null ? `₹${data.gst_amount.toLocaleString("en-IN")}` : '—' },
-              { label: 'Discount (₹)', value: data.discount_amount != null ? `-₹${data.discount_amount.toLocaleString("en-IN")}` : '—' },
+              { label: 'Discount (₹)', value: data.discount_amount != null ? (data.discount_amount === 0 ? '0' : `-${data.discount_amount.toLocaleString("en-IN")}`) : '—' },
               { label: `TDS (${data.tds_percent || 0}%)`, value: data.tds_amount != null ? `₹${data.tds_amount.toLocaleString("en-IN")}` : '—' },
               { label: 'Advance Paid (₹)', value: data.advance_paid != null ? `₹${data.advance_paid.toLocaleString("en-IN")}` : '—' },
               { label: 'Grand Total (₹)', value: data.grand_total != null ? `₹${data.grand_total.toLocaleString("en-IN")}` : '—', highlight: true },

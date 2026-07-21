@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
+import { accountingService } from "../../services/accountingService";
 
 
 // --- GENERIC COMPONENTS ---
@@ -123,14 +124,29 @@ const FinancialReportsWrapper = createWrapper([
       <div className="flex justify-between font-black text-emerald-600 text-base"><span>Net Profit</span><span>₹6,30,00,000</span></div>
     </div>
   ),
-  "bs": () => (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 font-mono text-sm max-w-3xl">
-      <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Balance Sheet</h3>
-      <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Assets</span><span>₹45,00,00,000</span></div>
-      <div className="flex justify-between text-slate-600 mb-2"><span>Liabilities</span><span>₹22,00,00,000</span></div>
-      <div className="flex justify-between text-slate-600"><span>Equity</span><span>₹23,00,00,000</span></div>
-    </div>
-  ),
+  "bs": () => {
+    const [data, setData] = useState<any>(null);
+    useEffect(() => { accountingService.getBalanceSheet().then(r => setData(r?.data || r || {})).catch(() => {}) }, []);
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 font-mono text-sm max-w-3xl">
+        <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Balance Sheet</h3>
+        <div className="flex justify-between font-bold text-slate-800 mb-2"><span>Assets</span><span>{data?.total_assets !== undefined ? `₹${data.total_assets}` : "Loading..."}</span></div>
+        <div className="flex justify-between text-slate-600 mb-2"><span>Liabilities</span><span>{data?.total_liabilities !== undefined ? `₹${data.total_liabilities}` : ""}</span></div>
+        <div className="flex justify-between text-slate-600"><span>Equity</span><span>{data?.total_equity !== undefined ? `₹${data.total_equity}` : ""}</span></div>
+      </div>
+    );
+  },
+  "trial": () => {
+    const [data, setData] = useState<any[]>([]);
+    useEffect(() => { accountingService.getTrialBalance().then(r => setData(Array.isArray(r) ? r : r?.data || [])).catch(() => {}) }, []);
+    return (
+      <GenericTableSection 
+        title="Trial Balance" 
+        columns={["Account", "Debit (₹)", "Credit (₹)"]} 
+        data={data.length > 0 ? data.map(d => [d.account_name || d.account, d.debit || "0", d.credit || "0"]) : [["No data found", "-", "-"]]} 
+      />
+    );
+  },
   "cashflow": () => (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 font-mono text-sm max-w-3xl">
       <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Cash Flow</h3>

@@ -141,7 +141,7 @@ export const equipmentService = {
     // ==========================================
     // 1. CRUD Equipment
     // ==========================================
-    async listEquipment(params?: { limit?: number; project_id?: number }): Promise<EquipmentResponse> {
+    async listEquipment(params?: { limit?: number; project_id?: number, is_deleted?: boolean }): Promise<EquipmentResponse> {
         const response = await api.get<any>('/equipment', { params });
         const data = response.data;
         const items = Array.isArray(data) ? data : (data.items || data.data || []);
@@ -167,6 +167,11 @@ export const equipmentService = {
 
     async deleteEquipment(equipment_id: number): Promise<any> {
         await api.delete(`/equipment/${equipment_id}`);
+    },
+
+    async restoreEquipment(equipment_id: number): Promise<any> {
+        const response = await api.put(`/equipment/${equipment_id}/restore`);
+        return response.data;
     },
 
     // ==========================================
@@ -222,7 +227,7 @@ export const equipmentService = {
     },
 
     async listUsage(equipment_id: number): Promise<UsageItem[]> {
-        const response = await api.get<UsageItem[]>(`/equipment/${equipment_id}/usage`);
+        const response = await api.get<UsageItem[]>(`/equipment/usage`, { params: { equipment_id } });
         return response.data;
     },
 
@@ -272,7 +277,7 @@ export const equipmentService = {
     },
 
     async listMaintenance(equipment_id: number): Promise<MaintenanceItem[]> {
-        const response = await api.get<MaintenanceItem[]>(`/equipment/${equipment_id}/maintenance`);
+        const response = await api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: { equipment_id } });
         return response.data;
     },
 
@@ -294,7 +299,7 @@ export const equipmentService = {
     },
 
     async listRental(equipment_id: number): Promise<RentalItem[]> {
-        const response = await api.get<RentalItem[]>(`/equipment/${equipment_id}/rental`);
+        const response = await api.get<RentalItem[]>(`/equipment/rental`, { params: { equipment_id } });
         return response.data;
     },
 
@@ -305,15 +310,15 @@ export const equipmentService = {
             const eqRes = await api.get<any>('/equipment', { params: { project_id: params?.project_id, limit: 100 } });
             const data = eqRes.data;
             const eqList = Array.isArray(data) ? data : (data.items || data.data || []);
-            
+
             const rentalPromises = eqList.map((eq: any) => this.listRental(eq.id));
             const results = await Promise.allSettled(rentalPromises);
-            
+
             const allRentals = results
                 .filter((r): r is PromiseFulfilledResult<RentalItem[]> => r.status === 'fulfilled')
                 .map(r => r.value)
                 .flat();
-                
+
             return allRentals.sort((a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime());
         } catch (error) {
             console.error("Failed to fetch all rentals:", error);
@@ -378,12 +383,17 @@ export const equipmentService = {
     },
 
     async getEquipmentPurchaseHistory(equipment_id: number): Promise<any> {
-        const response = await api.get(`/equipment/purchase/equipment/${equipment_id}`);
+        const response = await api.get(`/equipment/purchase/history`, { params: { equipment_id } });
         return response.data;
     },
 
     async transferEquipment(data: { equipment_id: number, to_project_id: number, transfer_date: string, condition_notes?: string }): Promise<any> {
         const response = await api.post('/equipment/transfer', data);
+        return response.data;
+    },
+
+    async getTransferHistory(equipment_id: number): Promise<any> {
+        const response = await api.get(`/equipment/${equipment_id}/transfer-history`);
         return response.data;
     },
 
