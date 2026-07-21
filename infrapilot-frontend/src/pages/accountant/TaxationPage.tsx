@@ -6,7 +6,7 @@ import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
+import { ChevronLeft, ChevronRight, FileText, Pencil, Eye, FileImage } from "lucide-react";
 export interface GSTReturn {
   id: number;
   filing_period: string;
@@ -246,6 +246,8 @@ const GSTInvoicesWrapperSection = () => {
   const [modalType, setModalType] = useState<"Sales" | "Purchase">("Sales");
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -289,12 +291,14 @@ const GSTInvoicesWrapperSection = () => {
       try {
         await accountingService.importGst(file);
         toast.success("GST Invoices imported successfully!");
-        // Refetch invoices (simplified here)
       } catch (err) {
         toast.error("Failed to import GST Invoices");
       }
     }
   };
+
+  const totalPages = Math.ceil(invoices.length / recordsPerPage);
+  const paginatedInvoices = invoices.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   return (
     <div className="space-y-6">
@@ -333,10 +337,10 @@ const GSTInvoicesWrapperSection = () => {
             <tbody className="divide-y divide-slate-50">
               {isLoading ? (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-500">Loading Invoices...</td></tr>
-              ) : invoices.length === 0 ? (
+              ) : paginatedInvoices.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-sm text-slate-500">No GST invoices found.</td></tr>
               ) : (
-                invoices.map((inv: any, idx: number) => (
+                paginatedInvoices.map((inv: any, idx: number) => (
                   <tr key={inv.id || idx} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3 text-xs text-slate-500">{inv.date || inv.invoice_date}</td>
                     <td className="px-4 py-3 text-xs font-bold text-primary">{inv.invoice_no || inv.invoice_number}</td>
@@ -352,14 +356,18 @@ const GSTInvoicesWrapperSection = () => {
                     <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">₹{Number(inv.invoice_total || inv.total_amount || 0).toLocaleString("en-IN")}</td>
                     <td className="px-4 py-3 text-xs">
                       <div className="flex gap-2">
-                        <span className="flex items-center gap-1 text-slate-500 hover:text-primary cursor-pointer" title="Invoice Copy">📄</span>
-                        <span className="flex items-center gap-1 text-slate-500 hover:text-primary cursor-pointer" title="GST Document">📑</span>
+                        <button className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Invoice Copy">
+                          <FileText className="w-4 h-4" />
+                        </button>
+                        <button className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="GST Document">
+                          <FileImage className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-xs">
                       <div className="flex gap-2">
-                        <button className="text-slate-400 hover:text-primary">👁</button>
-                        <button className="text-slate-400 hover:text-primary">✏️</button>
+                        <button className="p-1.5 text-slate-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
+                        <button className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -368,6 +376,28 @@ const GSTInvoicesWrapperSection = () => {
             </tbody>
           </table>
         </div>
+        {!isLoading && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {invoices.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} – {Math.min(currentPage * recordsPerPage, invoices.length)} of {invoices.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <GSTInvoiceModal 

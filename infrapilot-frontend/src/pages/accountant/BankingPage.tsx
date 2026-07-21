@@ -6,6 +6,7 @@ import Modal from "../../components/common/Modal";
 import LedgerModal from "../../components/forms/accounting/LedgerModal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // --- UI COMPONENTS ---
 
@@ -377,15 +378,14 @@ const AddBankAccountModal = ({ isOpen, onClose, onSuccess, initialData }: { isOp
 
 const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
   const [accounts, setAccounts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Modals state
+  const [isLoading, setIsLoading] = useState(true);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editingData, setEditingData] = useState<any | null>(null);
-
+  const [editingData, setEditingData] = useState<any>(null);
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
-  const [ledgerAccount, setLedgerAccount] = useState<any | null>(null);
+  const [ledgerAccount, setLedgerAccount] = useState<any>(null);
   const [ledgerData, setLedgerData] = useState<any[] | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   const fetchAccounts = async () => {
     setIsLoading(true);
@@ -446,7 +446,7 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
               <tr><td colSpan={6} className="text-center py-6 text-sm text-slate-400">Loading accounts...</td></tr>
             ) : accounts.length === 0 ? (
               <tr><td colSpan={6} className="text-center py-6 text-sm text-slate-400">No bank accounts found. Click "Add Account" to create one.</td></tr>
-            ) : accounts.map(acc => (
+            ) : accounts.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map(acc => (
               <tr key={acc.id} className="hover:bg-slate-50/50">
                 <td className="px-4 py-3 text-xs font-bold text-slate-800">{acc.account_name || "Primary Current"}</td>
                 <td className="px-4 py-3 text-xs text-slate-600">{acc.bank_name}</td>
@@ -464,6 +464,26 @@ const BankAccountList = ({ refreshKey }: { refreshKey: number }) => {
           </tbody>
         </table>
       </div>
+      {!isLoading && accounts.length > 0 && (
+        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+            <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage - 1) * recordsPerPage + 1} – {Math.min(currentPage * recordsPerPage, accounts.length)} of {accounts.length} records</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(accounts.length / recordsPerPage), p + 1))} disabled={currentPage === Math.ceil(accounts.length / recordsPerPage)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <AddBankAccountModal
@@ -709,6 +729,10 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
   const [isAutoRunModalOpen, setIsAutoRunModalOpen] = useState(false);
   const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
   const [selectedMatchTxn, setSelectedMatchTxn] = useState<string | number>("");
+  const [pendingPage, setPendingPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [pendingRpp, setPendingRpp] = useState(10);
+  const [historyRpp, setHistoryRpp] = useState(10);
 
   const fetchReconData = () => {
     accountingService.getReconciliationDashboard().then(res => setDashboardData(res?.data || res || {})).catch(() => { });
@@ -743,26 +767,46 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden p-5">
           <h3 className="font-bold text-slate-800 mb-4">Pending Reconciliation</h3>
           {pendingData.length === 0 ? <p className="text-sm text-slate-500">No pending transactions.</p> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 border-b border-slate-100">
-                  <tr>{["Date", "Description", "Amount", "Reference", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {pendingData.map((row: any, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 text-xs text-slate-600">{row.transaction_date || "-"}</td>
-                      <td className="px-4 py-3 text-xs text-slate-600">{row.description || "-"}</td>
-                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.amount || "-"}</td>
-                      <td className="px-4 py-3 text-xs font-mono text-slate-500">{row.reference_number || "-"}</td>
-                      <td className="px-4 py-3 text-xs">
-                        <button onClick={() => openMatchModal(row.id)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded text-xs font-bold hover:bg-indigo-100">Match</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>{["Date", "Description", "Amount", "Reference", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {pendingData.slice((pendingPage - 1) * pendingRpp, pendingPage * pendingRpp).map((row: any, i) => (
+                      <tr key={i} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-xs text-slate-600">{row.transaction_date || "-"}</td>
+                        <td className="px-4 py-3 text-xs text-slate-600">{row.description || "-"}</td>
+                        <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.amount || "-"}</td>
+                        <td className="px-4 py-3 text-xs font-mono text-slate-500">{row.reference_number || "-"}</td>
+                        <td className="px-4 py-3 text-xs">
+                          <button onClick={() => openMatchModal(row.id)} className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded text-xs font-bold hover:bg-indigo-100">Match</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+                  <select value={pendingRpp} onChange={(e) => { setPendingRpp(Number(e.target.value)); setPendingPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                    {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <span className="text-xs text-slate-500 font-semibold">Showing {(pendingPage - 1) * pendingRpp + 1} – {Math.min(pendingPage * pendingRpp, pendingData.length)} of {pendingData.length} records</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPendingPage(p => Math.max(1, p - 1))} disabled={pendingPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50">
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{pendingPage}</span>
+                  <button onClick={() => setPendingPage(p => Math.min(Math.ceil(pendingData.length / pendingRpp), p + 1))} disabled={pendingPage === Math.ceil(pendingData.length / pendingRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50">
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -776,24 +820,44 @@ const BankReconciliationWrapper = ({ initialSubTab }: { initialSubTab?: string }
             <button onClick={async () => { try { await accountingService.exportReconciliationCsv(); toast.success("Exported!"); } catch (e) { toast.error("Export failed"); } }} className="text-xs font-bold text-blue-600 hover:text-blue-700">Export CSV</button>
           </div>
           {historyData.length === 0 ? <p className="text-sm text-slate-500">No history available.</p> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 border-b border-slate-100">
-                  <tr>{["Period", "Account", "Opening Bal", "Closing Bal", "Status"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {historyData.map((row: any, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 text-xs text-slate-600">{row.period || "-"}</td>
-                      <td className="px-4 py-3 text-xs text-slate-600">{row.account || "-"}</td>
-                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.opening_balance || "-"}</td>
-                      <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.closing_balance || "-"}</td>
-                      <td className="px-4 py-3 text-xs text-emerald-600 font-bold">{row.status || "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>{["Period", "Account", "Opening Bal", "Closing Bal", "Status"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {historyData.slice((historyPage - 1) * historyRpp, historyPage * historyRpp).map((row: any, i) => (
+                      <tr key={i} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 text-xs text-slate-600">{row.period || "-"}</td>
+                        <td className="px-4 py-3 text-xs text-slate-600">{row.account || "-"}</td>
+                        <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.opening_balance || "-"}</td>
+                        <td className="px-4 py-3 text-xs font-bold text-slate-800">{row.closing_balance || "-"}</td>
+                        <td className="px-4 py-3 text-xs text-emerald-600 font-bold">{row.status || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+                  <select value={historyRpp} onChange={(e) => { setHistoryRpp(Number(e.target.value)); setHistoryPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                    {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <span className="text-xs text-slate-500 font-semibold">Showing {(historyPage - 1) * historyRpp + 1} – {Math.min(historyPage * historyRpp, historyData.length)} of {historyData.length} records</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setHistoryPage(p => Math.max(1, p - 1))} disabled={historyPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50">
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{historyPage}</span>
+                  <button onClick={() => setHistoryPage(p => Math.min(Math.ceil(historyData.length / historyRpp), p + 1))} disabled={historyPage === Math.ceil(historyData.length / historyRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50">
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -850,6 +914,8 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
 const PettyCashLedgerTable = () => {
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   useEffect(() => {
     setIsLoading(true);
@@ -861,6 +927,9 @@ const PettyCashLedgerTable = () => {
       setIsLoading(false);
     });
   }, []);
+
+  const totalPages = Math.ceil(data.length / recordsPerPage);
+  const paginatedData = data.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -878,7 +947,7 @@ const PettyCashLedgerTable = () => {
             ) : data.length === 0 ? (
               <tr><td colSpan={5} className="text-center py-5 text-sm text-slate-500">No petty cash entries found.</td></tr>
             ) : (
-              data.map((row, i) => (
+              paginatedData.map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/50">
                   <td className="px-4 py-3 text-xs text-slate-500">{row.date}</td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-700">{row.voucher_no || row.id}</td>
@@ -891,6 +960,26 @@ const PettyCashLedgerTable = () => {
           </tbody>
         </table>
       </div>
+      {!isLoading && data.length > 0 && (
+        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+            <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage - 1) * recordsPerPage + 1} – {Math.min(currentPage * recordsPerPage, data.length)} of {data.length} records</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -898,6 +987,8 @@ const PettyCashLedgerTable = () => {
 const BankBookLedgerTable = () => {
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   useEffect(() => {
     setIsLoading(true);
@@ -909,6 +1000,9 @@ const BankBookLedgerTable = () => {
       setIsLoading(false);
     });
   }, []);
+
+  const totalPages = Math.ceil(data.length / recordsPerPage);
+  const paginatedData = data.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -926,7 +1020,7 @@ const BankBookLedgerTable = () => {
             ) : data.length === 0 ? (
               <tr><td colSpan={6} className="text-center py-5 text-sm text-slate-500">No bank book entries found.</td></tr>
             ) : (
-              data.map((row, i) => (
+              paginatedData.map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/50">
                   <td className="px-4 py-3 text-xs text-slate-500">{row.date}</td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-700">{row.ref || row.id}</td>
@@ -940,6 +1034,26 @@ const BankBookLedgerTable = () => {
           </tbody>
         </table>
       </div>
+      {!isLoading && data.length > 0 && (
+        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+            <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage - 1) * recordsPerPage + 1} – {Math.min(currentPage * recordsPerPage, data.length)} of {data.length} records</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -970,6 +1084,8 @@ const BankAccountsWrapper = ({ initialSubTab, refreshKey }: { initialSubTab?: st
 const CashLedgerTable = () => {
   const [data, setData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   useEffect(() => {
     setIsLoading(true);
@@ -981,6 +1097,9 @@ const CashLedgerTable = () => {
       setIsLoading(false);
     });
   }, []);
+
+  const totalPages = Math.ceil(data.length / recordsPerPage);
+  const paginatedData = data.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -998,7 +1117,7 @@ const CashLedgerTable = () => {
             ) : data.length === 0 ? (
               <tr><td colSpan={6} className="text-center py-5 text-sm text-slate-500">No ledger entries found.</td></tr>
             ) : (
-              data.map((row, i) => (
+              paginatedData.map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/50">
                   <td className="px-4 py-3 text-xs text-slate-500">{row.date}</td>
                   <td className="px-4 py-3 text-xs font-bold text-slate-700">{row.voucher_no || row.id}</td>
@@ -1012,6 +1131,26 @@ const CashLedgerTable = () => {
           </tbody>
         </table>
       </div>
+      {!isLoading && data.length > 0 && (
+        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+            <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage - 1) * recordsPerPage + 1} – {Math.min(currentPage * recordsPerPage, data.length)} of {data.length} records</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50">
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

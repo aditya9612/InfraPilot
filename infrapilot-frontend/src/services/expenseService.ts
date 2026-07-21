@@ -21,8 +21,8 @@ export const expenseService = {
    * List all expenses
    * GET /api/v1/expenses
    */
-  async listExpenses(): Promise<Expense[]> {
-    const response = await api.get('/expenses');
+  async listExpenses(params?: any): Promise<Expense[]> {
+    const response = await api.get('/expenses', { params });
     return response.data;
   },
 
@@ -106,6 +106,57 @@ export const expenseService = {
    */
   async getBoqComparison(projectId: number): Promise<ExpenseBoqComparison> {
     const response = await api.get(`/expenses/boq-comparison/${projectId}`);
+    return response.data;
+  },
+
+  /**
+   * Get dashboard stats
+   * GET /api/v1/expenses/dashboard
+   */
+  async getDashboardStats(): Promise<any> {
+    const response = await api.get('/expenses/dashboard');
+    return response.data;
+  },
+
+  /**
+   * Get project allocations
+   * GET /api/v1/expenses/project-allocations
+   */
+  async getProjectAllocations(): Promise<any> {
+    const response = await api.get('/expenses/project-allocations');
+    return response.data;
+  },
+
+  /**
+   * Get expense ledger
+   * GET /api/v1/expenses/ledger
+   */
+  async getExpenseLedger(): Promise<any> {
+    const response = await api.get('/expenses/ledger');
+    return response.data;
+  },
+
+  /**
+   * Import expenses
+   * POST /api/v1/expenses/import
+   */
+  async importExpenses(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/expenses/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+
+  /**
+   * Export expenses
+   * GET /api/v1/expenses/export
+   */
+  async exportExpenses(): Promise<any> {
+    const response = await api.get('/expenses/export', { responseType: 'blob' });
     return response.data;
   }
 };

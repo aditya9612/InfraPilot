@@ -38,7 +38,11 @@ export const journalService = {
 
   importAdjustmentJournals: async (fileData: any) => {
     // Assuming fileData is a form data or properly formatted payload for the import
-    const response = await api.post('/journal/adjustment/import', fileData);
+    const response = await api.post('/journal/adjustment/import', fileData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
     return response.data;
   },
 
