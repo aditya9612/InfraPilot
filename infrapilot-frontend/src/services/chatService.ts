@@ -17,6 +17,34 @@ export const chatService = {
         }));
     },
 
+    async getAllSystemUsers(): Promise<ChatUser[]> {
+        const limit = 100;
+        let offset = 0;
+        let allUsers: any[] = [];
+        let hasMore = true;
+
+        while (hasMore) {
+            const response = await api.get<any>("/users", { params: { limit, offset } });
+            const data = Array.isArray(response.data) ? response.data : (response.data.items || response.data.data || response.data.users || []);
+            allUsers = allUsers.concat(data);
+            
+            if (data.length < limit) {
+                hasMore = false;
+            } else {
+                offset += limit;
+            }
+            
+            // Safety break to prevent infinite loops (max 1000 users)
+            if (offset >= 1000) break;
+        }
+
+        return allUsers.map((u: any) => ({
+            ...u,
+            id: u.user_id || u.id || u.ID,
+            name: u.full_name || u.name
+        }));
+    },
+
     async searchUsers(query: string): Promise<ChatUser[]> {
         const response = await api.get<any[]>(`/chats/search-users?q=${query}`);
         return response.data.map(u => ({
@@ -301,8 +329,9 @@ export const chatService = {
     },
 
     async getMentionUsers(chatId: number): Promise<{ items: { user_id: number; full_name: string | null; profile_image: string | null }[] }> {
-        const response = await api.get<{ items: { user_id: number; full_name: string | null; profile_image: string | null }[] }>(`/chats/${chatId}/mention-users`);
-        return response.data;
+        const response = await api.get<any>(`/chats/${chatId}/mention-users`);
+        const data = Array.isArray(response.data) ? response.data : (response.data.items || response.data.users || response.data.data || []);
+        return { items: data };
     },
 
     // --- Utilities ---

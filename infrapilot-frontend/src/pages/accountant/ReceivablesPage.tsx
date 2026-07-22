@@ -9,7 +9,8 @@ import AccountantCreateInvoice from "./AccountantCreateInvoice";
 import { quotationService } from "../../services/quotationService";
 import api from "../../services/api";
 import { projectService } from "../../services/projectService";
-import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { measurementService } from "../../services/measurementService";
+import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote } from "lucide-react";
 import QuotationViewModal from "./QuotationViewModal";
 import InvoiceViewModal from "./InvoiceViewModal";
 import InvoiceEditModal from "./InvoiceEditModal";
@@ -46,12 +47,6 @@ const MOCK_INVOICES = [
   { id: 2, invoice_number: "INV-2026-002", client_name: "BuildCorp Solutions", project_name: "Metropolis Hub", billing_date: "2026-05-20", due_date: "2026-06-20", work_description: "RCC Column Casting – Ground Floor", quantity: 500, unit: "CuM", rate: 200, amount: 100000, gst_percent: 18, gst_amount: 18000, total_with_gst: 118000, payment_status: "Partial", received_amount: 60000, pending_amount: 58000 },
   { id: 3, invoice_number: "INV-2026-003", client_name: "Zenith Infrastructures", project_name: "NH-48 Expansion", billing_date: "2026-06-01", due_date: "2026-07-01", work_description: "Bitumen Laying – Km 22 to 28", quantity: 250, unit: "Km", rate: 450, amount: 112500, gst_percent: 18, gst_amount: 20250, total_with_gst: 132750, payment_status: "Pending", received_amount: 0, pending_amount: 132750 },
   { id: 4, invoice_number: "INV-2026-004", client_name: "Greenfield Developers", project_name: "Green Valley Township", billing_date: "2026-06-05", due_date: "2026-06-25", work_description: "Plumbing & Electrical Rough-in", quantity: 800, unit: "Sqft", rate: 90, amount: 72000, gst_percent: 18, gst_amount: 12960, total_with_gst: 84960, payment_status: "Overdue", received_amount: 0, pending_amount: 84960 },
-];
-
-const MOCK_RA_BILLS = [
-  { id: 1, bill_no: "RA/SKY/001", client: "Aditya Enterprises", project: "Skyline Residency", billing_from: "2026-04-01", billing_to: "2026-04-30", billing_date: "2026-05-02", gross_amount: 1250000, gst_percent: 18, gst_amount: 225000, total_with_gst: 1475000, net_payable: 1475000, status: "Certified", certified_by: "PMC – Tata Projects" },
-  { id: 2, bill_no: "RA/MET/004", client: "BuildCorp Solutions", project: "Metropolis Hub", billing_from: "2026-04-01", billing_to: "2026-04-30", billing_date: "2026-05-05", gross_amount: 850000, gst_percent: 18, gst_amount: 153000, total_with_gst: 1003000, net_payable: 1003000, status: "Pending Approval", certified_by: "—" },
-  { id: 3, bill_no: "RA/SKY/002", client: "Aditya Enterprises", project: "Skyline Residency", billing_from: "2026-05-01", billing_to: "2026-05-31", billing_date: "2026-06-01", gross_amount: 2100000, gst_percent: 18, gst_amount: 378000, total_with_gst: 2478000, net_payable: 2478000, status: "Submitted", certified_by: "Internal Audit" },
 ];
 
 
@@ -908,27 +903,229 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
     </div>
   );
 };
-
-// 3. RA Bills
 const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   const [, setSearchParams] = useSearchParams();
   const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval">(
     (initialSubTab as any) || "list"
   );
 
+  // ── dropdown data ──
+  const [projects, setProjects] = useState<any[]>([]);
+  const [contractors, setContractors] = useState<any[]>([]);
+  const [measurements, setMeasurements] = useState<any[]>([]);
+  const [workOrders, setWorkOrders] = useState<any[]>([]);
+  const [quotations, setQuotations] = useState<any[]>([]);
+  const [dropdownLoading, setDropdownLoading] = useState(false);
+
+  // ── form state matching API schema ──
+  const defaultForm = {
+    project_id: "" as any,
+    contractor_id: "" as any,
+    measurement_id: "" as any,
+    work_order_id: "" as any,
+    bill_number: "",
+    work_description: "",
+    quantity: "" as any,
+    rate: "" as any,
+    deductions: "" as any,
+    gst_percent: 18 as any,
+    bill_date: new Date().toISOString().split("T")[0],
+  };
+  const [formData, setFormData] = useState(defaultForm);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleTabChange = (key: "list" | "create" | "approval") => {
     setActiveSubTab(key);
     setSearchParams({ sub: key }, { replace: true });
-    if (key !== "create") setEditingRABill(null);
+    if (key !== "create") {
+      setEditingRABill(null);
+      setFormData(defaultForm);
+    }
   };
-  const [raBills, setRaBills] = useState<any[]>(MOCK_RA_BILLS);
+  const [raBills, setRaBills] = useState<any[]>([]);
+  const [listLoading, setListLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
+  const [viewingRABill, setViewingRABill] = useState<any>(null);
   const [editingRABill, setEditingRABill] = useState<any>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const handleApprove = (id: number) => {
-    setRaBills(prev => prev.map(rb => rb.id === id ? { ...rb, status: "Certified" } : rb));
-    toast.success("RA Bill certified!");
+  const [raCurrentPage, setRaCurrentPage] = useState(1);
+  const [raRecordsPerPage, setRaRecordsPerPage] = useState(10);
+  const [appCurrentPage, setAppCurrentPage] = useState(1);
+  const [appRecordsPerPage, setAppRecordsPerPage] = useState(10);
+
+  useEffect(() => {
+    setRaCurrentPage(1);
+    setAppCurrentPage(1);
+  }, [search, filter, activeSubTab]);
+
+  // ── fetch ALL dropdown data when "create" tab opens ──
+  useEffect(() => {
+    if (activeSubTab !== "create") return;
+    const fetchAll = async () => {
+      setDropdownLoading(true);
+      try {
+        // 1. Projects
+        const projRes = await projectService.getProjects(100, 0).catch(() => []);
+        const projList: any[] = Array.isArray(projRes) ? projRes : (projRes as any).items || [];
+        setProjects(projList);
+
+        // 2. Contractors — GET /api/v1/contractors (requires auth, returns ContractorOut[])
+        const contrRes = await api.get("/contractors", { params: { limit: 200 } }).catch(() => ({ data: [] }));
+        const contrRaw = Array.isArray(contrRes.data) ? contrRes.data : (contrRes.data?.items || []);
+        setContractors(contrRaw.map((c: any) => ({
+          id: c.id,
+          name: c.name || "Unknown Contractor",
+          code: c.contractor_id || "",
+          work_type: c.work_type || "",
+        })));
+
+        // 3. Measurements — no global GET exists, fetch for all projects concurrently
+        if (projList.length > 0) {
+          const measResults = await Promise.allSettled(
+            projList.slice(0, 10).map((p: any) =>   // limit to first 10 projects
+              measurementService.getMeasurementsByProject(Number(p.id)).catch(() => [])
+            )
+          );
+          const allMeas: any[] = [];
+          measResults.forEach(r => {
+            if (r.status === "fulfilled") allMeas.push(...(r.value || []));
+          });
+          setMeasurements(allMeas);
+        }
+
+        // 4. Work Orders — GET /api/v1/work-orders (auth required, no project filter needed)
+        const woRes = await api.get("/work-orders").catch(() => ({ data: [] }));
+        const woList = Array.isArray(woRes.data) ? woRes.data : (woRes.data?.items || []);
+        setWorkOrders(woList);
+
+      } catch (_) {}
+      setDropdownLoading(false);
+    };
+    fetchAll();
+  }, [activeSubTab]);
+
+  // ── when project changes, re-filter measurements & work-orders by project ──
+  useEffect(() => {
+    if (!formData.project_id) return; // keep the full list when no project
+
+    // re-fetch measurements for the selected project
+    measurementService.getMeasurementsByProject(Number(formData.project_id))
+      .then(d => { if (d.length > 0) setMeasurements(Array.isArray(d) ? d : []); })
+      .catch(() => {}); // on error keep existing full list
+
+    // re-fetch work orders for the selected project
+    api.get("/work-orders", { params: { project_id: formData.project_id, limit: 200 } })
+      .then(res => {
+        const d = res.data;
+        const list = Array.isArray(d) ? d : (d?.items || []);
+        if (list.length > 0) setWorkOrders(list);
+      })
+      .catch(() => {}); // on error keep existing full list
+  }, [formData.project_id]);
+
+  // ── fetch RA bills list when "list" tab is active ──
+  useEffect(() => {
+    if (activeSubTab !== "list") return;
+    const fetchList = async () => {
+      setListLoading(true);
+      try {
+        const projRes = await projectService.getProjects(100, 0).catch(() => []);
+        const loadedProjects = Array.isArray(projRes) ? projRes : (projRes as any).items || [];
+        setProjects(loadedProjects);
+
+        const [billsRes, contrRes, woRes, quotRes, measResults] = await Promise.allSettled([
+          api.get("/billing", { params: { limit: 200 } }).catch(() => ({ data: [] })),
+          api.get("/contractors", { params: { limit: 200 } }).catch(() => ({ data: [] })),
+          api.get("/work-orders", { params: { limit: 200 } }).catch(() => ({ data: [] })),
+          api.get("/quotations", { params: { limit: 200 } }).catch(() => ({ data: [] })),
+          loadedProjects.length > 0 ? Promise.allSettled(
+            loadedProjects.slice(0, 10).map((p: any) =>
+              measurementService.getMeasurementsByProject(Number(p.id)).catch(() => [])
+            )
+          ) : Promise.resolve([])
+        ]);
+
+        if (contrRes.status === "fulfilled") {
+          const raw = contrRes.value?.data;
+          const contrList = Array.isArray(raw) ? raw : (raw?.items || []);
+          setContractors(contrList.map((c: any) => ({
+            id: c.id,
+            name: c.name || "Unknown Contractor",
+            code: c.contractor_id || "",
+            work_type: c.work_type || "",
+          })));
+        }
+        
+        if (measResults.status === "fulfilled") {
+          const allMeas: any[] = [];
+          (measResults.value as any[]).forEach((r: any) => {
+            if (r.status === "fulfilled") allMeas.push(...(r.value || []));
+          });
+          setMeasurements(allMeas);
+        }
+        
+        if (woRes.status === "fulfilled") {
+          const raw = woRes.value?.data;
+          setWorkOrders(Array.isArray(raw) ? raw : (raw?.items || []));
+        }
+        if (quotRes.status === "fulfilled") {
+          const raw = quotRes.value?.data;
+          setQuotations(Array.isArray(raw) ? raw : (raw?.items || []));
+        }
+
+        if (billsRes.status === "fulfilled") {
+          const raw = billsRes.value.data;
+          const billsList = Array.isArray(raw) ? raw : (raw?.items || []);
+          setRaBills(billsList);
+        }
+      } catch (e) {
+        console.error("Failed to load RA bills", e);
+      } finally {
+        setListLoading(false);
+      }
+    };
+    fetchList();
+  }, [activeSubTab, refreshTrigger]);
+
+  const handleView = async (id: number) => {
+    try {
+      const res = await api.get(`/billing/${id}`);
+      setViewingRABill(res.data);
+    } catch (e) {
+      toast.error("Failed to load RA Bill details");
+    }
+  };
+  const handleSubmitRABill = async (id: number) => {
+    try {
+      await api.put(`/billing/${id}/submit`);
+      toast.success("RA Bill submitted for approval!");
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || err?.message || "Failed to submit RA Bill");
+    }
+  };
+
+  const handlePayRABill = async (id: number) => {
+    try {
+      await api.put(`/billing/${id}/pay`);
+      toast.success("RA Bill marked as paid!");
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || err?.message || "Failed to mark RA Bill as paid");
+    }
+  };
+
+
+  const handleApprove = async (id: number) => {
+    try {
+      await api.put(`/billing/${id}/approve`);
+      toast.success("RA Bill approved!");
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || err?.message || "Failed to approve RA Bill");
+    }
   };
 
   const handleReject = (id: number) => {
@@ -936,39 +1133,64 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
     toast("RA Bill rejected.");
   };
 
-  const handleDelete = (id: number) => {
-    setRaBills(prev => prev.filter(rb => rb.id !== id));
-    toast.success("RA Bill deleted!");
-  };
+  const [deleteRABillId, setDeleteRABillId] = useState<number | null>(null);
+  const [isDeletingRABill, setIsDeletingRABill] = useState(false);
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const newRb: any = {};
-    formData.forEach((value, key) => { newRb[key] = value; });
-
-    if (editingRABill) {
-      setRaBills(prev => prev.map(rb => rb.id === editingRABill.id ? { ...rb, ...newRb } : rb));
-      toast.success("RA Bill updated successfully!");
-    } else {
-      newRb.id = Date.now();
-      newRb.bill_no = newRb.bill_no || `RAB-${Math.floor(Math.random() * 1000)}`;
-      // use mock calculated amounts
-      newRb.amount = BOQ_ITEMS.reduce((s, item) => s + item.curr_qty * item.rate, 0);
-      newRb.status = "Pending";
-      setRaBills(prev => [newRb, ...prev]);
-      toast.success("RA Bill created successfully!");
+  const handleDeleteConfirm = async () => {
+    if (!deleteRABillId) return;
+    try {
+      setIsDeletingRABill(true);
+      await api.delete(`/billing/${deleteRABillId}`);
+      toast.success("RA Bill deleted successfully!");
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || err?.message || "Failed to delete RA Bill");
+    } finally {
+      setIsDeletingRABill(false);
+      setDeleteRABillId(null);
     }
-    handleTabChange("list");
   };
 
-  // Sync when sidebar item changes (e.g., "RA Bill List" → "Create RA Bill")
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.project_id) { toast.error("Please select a Project"); return; }
+    if (!formData.bill_number) { toast.error("Bill Number is required"); return; }
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        project_id: Number(formData.project_id),
+        contractor_id: formData.contractor_id ? Number(formData.contractor_id) : undefined,
+        measurement_id: formData.measurement_id ? Number(formData.measurement_id) : undefined,
+        work_order_id: formData.work_order_id ? Number(formData.work_order_id) : undefined,
+        bill_number: formData.bill_number,
+        work_description: formData.work_description,
+        quantity: formData.quantity ? Number(formData.quantity) : 0,
+        rate: formData.rate ? Number(formData.rate) : 0,
+        deductions: formData.deductions ? Number(formData.deductions) : 0,
+        gst_percent: formData.gst_percent ? Number(formData.gst_percent) : 0,
+        bill_date: formData.bill_date,
+      };
+      await api.post("/billing", payload);
+      toast.success(editingRABill ? "RA Bill updated!" : "RA Bill created successfully!");
+      setFormData(defaultForm);
+      handleTabChange("list");
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.message || "Failed to create RA Bill";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Sync when sidebar item changes
   useEffect(() => {
     if (initialSubTab) setActiveSubTab(initialSubTab as "list" | "create" | "approval");
   }, [initialSubTab]);
 
   const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
-  const inputClasses = (readOnly?: boolean) => `w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 ${readOnly ? "bg-slate-50 text-slate-400 cursor-not-allowed" : "bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary"}`;
+  const inputClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder:text-slate-300";
+  const selectClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer";
+  const readOnlyClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none bg-slate-50 text-slate-400 cursor-not-allowed";
 
   const subTabs = [
     { key: "create", label: "Create RA Bill" },
@@ -978,24 +1200,30 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
   const filtered = raBills.filter(rb =>
     (filter === "All" || rb.status === filter) &&
-    (rb.bill_no.toLowerCase().includes(search.toLowerCase()) ||
-      rb.client.toLowerCase().includes(search.toLowerCase()))
+    ((rb.bill_number?.toLowerCase() || "").includes(search.toLowerCase()) ||
+     (rb.work_description?.toLowerCase() || "").includes(search.toLowerCase()))
   );
 
-  const BOQ_ITEMS = [
-    { id: 1, item: "Earthwork Excavation", unit: "CuM", rate: 45, prev_qty: 1200, curr_qty: 400 },
-    { id: 2, item: "PCC 1:4:8 Work", unit: "CuM", rate: 4200, prev_qty: 80, curr_qty: 30 },
-    { id: 3, item: "RCC M25 Column", unit: "CuM", rate: 8500, prev_qty: 40, curr_qty: 15 },
-    { id: 4, item: "Brick Masonry", unit: "CuM", rate: 3200, prev_qty: 120, curr_qty: 60 },
-  ];
+  const raTotalPages = Math.ceil(filtered.length / raRecordsPerPage);
+  const paginatedRABills = filtered.slice((raCurrentPage - 1) * raRecordsPerPage, raCurrentPage * raRecordsPerPage);
 
-  const grossAmount = BOQ_ITEMS.reduce((s, item) => s + item.curr_qty * item.rate, 0);
-  const gstAmount = grossAmount * 0.18;
+  const pendingApprovalBills = raBills.filter(r => r.status !== "Certified");
+  const appTotalPages = Math.ceil(pendingApprovalBills.length / appRecordsPerPage);
+  const paginatedAppBills = pendingApprovalBills.slice((appCurrentPage - 1) * appRecordsPerPage, appCurrentPage * appRecordsPerPage);
+
+  // ── live bill summary calculations ──
+  const qty = Number(formData.quantity) || 0;
+  const rate = Number(formData.rate) || 0;
+  const deductions = Number(formData.deductions) || 0;
+  const gstPct = Number(formData.gst_percent) || 0;
+  const grossAmount = qty * rate;
+  const gstAmount = grossAmount * (gstPct / 100);
   const totalWithGST = grossAmount + gstAmount;
+  const netPayable = totalWithGST - deductions;
 
   return (
     <div className="space-y-5">
-      {/* Header Row: Sub-tabs + Action Button — same layout as InvoicesSection */}
+      {/* Header Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
           {subTabs.map(t => (
@@ -1028,123 +1256,299 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
             <table className="w-full text-left">
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
-                  {["RA Bill No", "Client", "Project", "Billing Period", "Billing Date", "Gross Amt", "GST %", "GST Amt", "Total w/ GST", "Net Payable", "Status", "Certified By", "Actions"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                  {["project_id", "contractor_id", "measurement_id", "work_order_id", "quotation_id", "bill_number", "work_description", "quantity", "rate", "gross_amount", "deductions", "net_amount", "gst_percent", "total_amount", "bill_date", "status", "progress_percent", "total_billed_quantity", "remaining_quantity", "available_to_bill", "Actions"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h.replace(/_id$/, '').replace(/_/g, ' ')}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filtered.map(rb => (
+                {listLoading ? (
+                  <tr>
+                    <td colSpan={21} className="text-center py-8 text-slate-400">Loading bills...</td>
+                  </tr>
+                ) : paginatedRABills.length === 0 ? (
+                  <tr>
+                    <td colSpan={21} className="text-center py-8 text-slate-400">No RA bills found.</td>
+                  </tr>
+                ) : paginatedRABills.map(rb => (
                   <tr key={rb.id} className="hover:bg-slate-50/50 transition-colors whitespace-nowrap">
-                    <td className="px-4 py-3 text-xs font-bold text-primary">{rb.bill_no}</td>
-                    <td className="px-4 py-3 text-xs font-semibold text-slate-700">{rb.client}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{rb.project}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{rb.billing_from} to {rb.billing_to}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{rb.billing_date}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      {projects.find(p => p.id === rb.project_id)?.project_name || rb.project_id || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      {contractors.find(c => c.id === rb.contractor_id)?.name || rb.contractor_id || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      {measurements.find(m => m.id === rb.measurement_id) ? `Measurement #${rb.measurement_id}` : (rb.measurement_id || "-")}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      {workOrders.find(w => w.id === rb.work_order_id)?.work_order_number || rb.work_order_id || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      {quotations.find(q => q.id === rb.quotation_id)?.quotation_no || rb.quotation_id || "-"}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-bold text-primary">{rb.bill_number}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600">{rb.work_description || "-"}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{rb.quantity}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(rb.rate)}</td>
                     <td className="px-4 py-3 text-xs font-semibold text-slate-700 text-right">{fmt(rb.gross_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(rb.deductions)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(rb.net_amount)}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 text-right">{rb.gst_percent}%</td>
-                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{fmt(rb.gst_amount)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(rb.total_with_gst)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(rb.net_payable)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-800 text-right">{fmt(rb.total_amount)}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{rb.bill_date}</td>
                     <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(rb.status)}`}>{rb.status}</span></td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{rb.certified_by}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{rb.progress_percent ?? "-"}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{rb.total_billed_quantity ?? "-"}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{rb.remaining_quantity ?? "-"}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 text-right">{rb.available_to_bill ?? "-"}</td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        <button className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-primary transition-all" title="View">👁</button>
-                        <button onClick={() => { setEditingRABill(rb); handleTabChange("create"); }} className="p-1.5 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-all" title="Edit">✏️</button>
-                        <button onClick={() => toast.success("RA Bill PDF downloaded!")} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all" title="PDF">📄</button>
-                        <button onClick={() => handleDelete(rb.id)} className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all" title="Delete">🗑</button>
+                      <div className="flex items-center gap-3 justify-end">
+                        <button onClick={() => handleView(rb.id)} className="text-slate-400 hover:text-primary transition-colors" title="View"><Eye className="w-4 h-4" /></button>
+                        {rb.status === "Draft" && (
+                          <button onClick={() => handleSubmitRABill(rb.id)} className="text-slate-400 hover:text-blue-500 transition-colors" title="Submit for Approval"><Send className="w-4 h-4" /></button>
+                        )}
+                        {rb.status === "Certified" && (
+                          <button onClick={() => handlePayRABill(rb.id)} className="text-slate-400 hover:text-emerald-500 transition-colors" title="Record Payment"><Banknote className="w-4 h-4" /></button>
+                        )}
+                        <button onClick={() => setEditingRABill(rb)} className="text-slate-400 hover:text-amber-500 transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => setDeleteRABillId(rb.id)} className="text-slate-400 hover:text-rose-600 transition-colors" title="Delete"><Trash className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+                <select 
+                  value={raRecordsPerPage} 
+                  onChange={(e) => { setRaRecordsPerPage(Number(e.target.value)); setRaCurrentPage(1); }}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
+                >
+                  {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <span className="text-xs text-slate-500 font-semibold">
+                Showing {filtered.length === 0 ? 0 : (raCurrentPage - 1) * raRecordsPerPage + 1} - {Math.min(raCurrentPage * raRecordsPerPage, filtered.length)} of {filtered.length} records
+              </span>
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setRaCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={raCurrentPage === 1}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
+                  {raCurrentPage}
+                </span>
+                <button 
+                  onClick={() => setRaCurrentPage(p => Math.min(raTotalPages, p + 1))}
+                  disabled={raCurrentPage === raTotalPages || raTotalPages === 0}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {activeSubTab === "create" && (
         <form onSubmit={handleFormSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form */}
+          {/* Left: Form panels */}
           <div className="lg:col-span-2 space-y-5">
-            {/* Project Details */}
+
+            {/* ── Section 1: Project Details ── */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
               <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
                 <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
                 Project Details
               </h3>
+              {dropdownLoading && (
+                <p className="text-xs text-slate-400 mb-4">Loading dropdown options…</p>
+              )}
               <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: "RA Bill Number", name: "bill_no", placeholder: "Auto: RA/PRJ/005", readOnly: true, val: editingRABill?.bill_no },
-                  { label: "Client Name", name: "client", placeholder: "Select client…", val: editingRABill?.client },
-                  { label: "Project Name", name: "project", placeholder: "Select project…", val: editingRABill?.project },
-                  { label: "Billing Period From", name: "billing_from", placeholder: "2026-06-01", type: "date", val: editingRABill?.billing_from },
-                  { label: "Billing Period To", name: "billing_to", placeholder: "2026-06-30", type: "date", val: editingRABill?.billing_to },
-                  { label: "Billing Date", name: "billing_date", placeholder: "2026-07-01", type: "date", val: editingRABill?.billing_date },
-                ].map((f, i) => (
-                  <div key={i}>
-                    <label className={labelClasses}>{f.label}</label>
-                    <input type={f.type || "text"} name={f.name} placeholder={f.placeholder} readOnly={f.readOnly} defaultValue={f.val || ""}
-                      className={inputClasses(f.readOnly)} />
-                  </div>
-                ))}
+
+                {/* RA Bill Number - auto */}
+                <div>
+                  <label className={labelClasses}>RA Bill Number</label>
+                  <input
+                    type="text"
+                    className={readOnlyClasses}
+                    value={formData.bill_number || `Auto: RA/PRJ/${String(Math.floor(Math.random() * 900) + 100)}`}
+                    readOnly
+                    placeholder="Auto: RA/PRJ/005"
+                  />
+                </div>
+
+                {/* Project dropdown */}
+                <div>
+                  <label className={labelClasses}>Project Name</label>
+                  <select
+                    required
+                    className={selectClasses}
+                    value={formData.project_id}
+                    onChange={e => setFormData({ ...formData, project_id: e.target.value, measurement_id: "", work_order_id: "" })}
+                  >
+                    <option value="">-- Select Project --</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.project_name || p.name}{p.client_name ? ` (${p.client_name})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Contractor dropdown */}
+                <div>
+                  <label className={labelClasses}>Contractor</label>
+                  <select
+                    className={selectClasses}
+                    value={formData.contractor_id}
+                    onChange={e => setFormData({ ...formData, contractor_id: e.target.value })}
+                  >
+                    <option value="">-- Select Contractor --</option>
+                    {contractors.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{c.code ? ` (${c.code})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Measurement dropdown */}
+                <div>
+                  <label className={labelClasses}>Measurement</label>
+                  <select
+                    className={selectClasses}
+                    value={formData.measurement_id}
+                    onChange={e => setFormData({ ...formData, measurement_id: e.target.value })}
+                  >
+                    <option value="">-- Select Measurement --</option>
+                    {measurements.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.measurement_no || m.title || `Measurement #${m.id}  (Qty: ${m.measured_qty ?? m.certified_qty ?? ""})`.trim()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Work Order dropdown */}
+                <div>
+                  <label className={labelClasses}>Work Order</label>
+                  <select
+                    className={selectClasses}
+                    value={formData.work_order_id}
+                    onChange={e => setFormData({ ...formData, work_order_id: e.target.value })}
+                  >
+                    <option value="">-- Select Work Order --</option>
+                    {workOrders.map(w => (
+                      <option key={w.id} value={w.id}>
+                        {w.title || w.work_order_no || w.order_no || `Work Order #${w.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Bill Date */}
+                <div>
+                  <label className={labelClasses}>Bill Date</label>
+                  <input
+                    type="date"
+                    required
+                    className={inputClasses}
+                    value={formData.bill_date}
+                    onChange={e => setFormData({ ...formData, bill_date: e.target.value })}
+                  />
+                </div>
+
               </div>
             </div>
 
-            {/* BOQ Work Progress Table */}
+            {/* ── Section 2: Work Details ── */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
               <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
                 <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-                BOQ Work Progress
+                Work Details
               </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b border-slate-100">
-                    <tr>
-                      {[
-                        { label: "#", align: "text-left" },
-                        { label: "BOQ Item", align: "text-left" },
-                        { label: "Unit", align: "text-left" },
-                        { label: "Rate (₹)", align: "text-right" },
-                        { label: "Prev Qty", align: "text-right" },
-                        { label: "Curr Qty", align: "text-right" },
-                        { label: "Total Qty", align: "text-right" },
-                        { label: "Amount (₹)", align: "text-right" },
-                      ].map(h => (
-                        <th key={h.label} className={`px-3 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap ${h.align}`}>{h.label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {BOQ_ITEMS.map((item, idx) => {
-                      const totalQty = item.prev_qty + item.curr_qty;
-                      const amount = item.curr_qty * item.rate;
-                      return (
-                        <tr key={item.id} className="hover:bg-slate-50/50">
-                          <td className="px-3 py-2.5 text-xs text-slate-400">{idx + 1}</td>
-                          <td className="px-3 py-2.5 text-xs font-semibold text-slate-700">{item.item}</td>
-                          <td className="px-3 py-2.5 text-xs text-slate-500">{item.unit}</td>
-                          <td className="px-3 py-2.5 text-xs font-semibold text-slate-700 text-right">{item.rate.toLocaleString("en-IN")}</td>
-                          <td className="px-3 py-2.5 text-xs text-slate-500 text-right">{item.prev_qty.toLocaleString("en-IN")}</td>
-                          <td className="px-3 py-2.5 text-right">
-                            <input type="number" defaultValue={editingRABill ? item.curr_qty : ""}
-                              className="w-20 px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-right" />
-                          </td>
-                          <td className="px-3 py-2.5 text-xs font-semibold text-slate-700 text-right">{totalQty.toLocaleString("en-IN")}</td>
-                          <td className="px-3 py-2.5 text-xs font-bold text-slate-800 text-right">{fmt(amount)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="grid grid-cols-2 gap-4">
+
+                {/* Work Description */}
+                <div className="col-span-2">
+                  <label className={labelClasses}>Work Description</label>
+                  <input
+                    type="text"
+                    className={inputClasses}
+                    placeholder="e.g. Earthwork Excavation – Phase 2"
+                    value={formData.work_description}
+                    onChange={e => setFormData({ ...formData, work_description: e.target.value })}
+                  />
+                </div>
+
+                {/* Quantity */}
+                <div>
+                  <label className={labelClasses}>Quantity</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className={inputClasses}
+                    placeholder="e.g. 1200"
+                    value={formData.quantity}
+                    onChange={e => setFormData({ ...formData, quantity: e.target.value })}
+                  />
+                </div>
+
+                {/* Rate */}
+                <div>
+                  <label className={labelClasses}>Rate (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className={inputClasses}
+                    placeholder="e.g. 45"
+                    value={formData.rate}
+                    onChange={e => setFormData({ ...formData, rate: e.target.value })}
+                  />
+                </div>
+
+                {/* Deductions */}
+                <div>
+                  <label className={labelClasses}>Deductions (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className={inputClasses}
+                    placeholder="e.g. 0"
+                    value={formData.deductions}
+                    onChange={e => setFormData({ ...formData, deductions: e.target.value })}
+                  />
+                </div>
+
+                {/* GST Percent */}
+                <div>
+                  <label className={labelClasses}>GST (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    className={inputClasses}
+                    placeholder="18"
+                    value={formData.gst_percent}
+                    onChange={e => setFormData({ ...formData, gst_percent: e.target.value })}
+                  />
+                </div>
+
               </div>
             </div>
 
-            {/* Attachments */}
+            {/* ── Section 3 (left): Attachments ── */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
               <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">4</span>
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
                 Attachments
               </h3>
               <div className="grid grid-cols-3 gap-3">
@@ -1159,19 +1563,20 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
             </div>
           </div>
 
-          {/* Bill Summary Sidebar */}
+          {/* ── Bill Summary Sidebar ── */}
           <div className="space-y-5">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
               <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">4</span>
                 Bill Summary
               </h3>
               <div className="space-y-3">
                 {[
                   { label: "Gross Amount", value: fmt(grossAmount) },
-                  { label: "GST (18%)", value: fmt(gstAmount) },
+                  { label: `GST (${gstPct}%)`, value: fmt(gstAmount) },
                   { label: "Total with GST", value: fmt(totalWithGST), bold: true },
-                  { label: "Net Payable", value: fmt(totalWithGST), bold: true, accent: true },
+                  { label: "Deductions", value: `– ${fmt(deductions)}`, bold: false },
+                  { label: "Net Payable", value: fmt(netPayable), bold: true, accent: true },
                 ].map((row, i) => (
                   <div key={i} className={`flex justify-between items-center py-2 ${i > 1 ? "border-t border-slate-100" : ""}`}>
                     <span className={`text-xs ${row.accent ? "font-black text-primary" : "text-slate-500"}`}>{row.label}</span>
@@ -1186,18 +1591,22 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                 <div className="flex gap-2">
                   {["Paid", "Partial", "Pending"].map(s => (
                     <label key={s} className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="radio" name="payment_status" value={s} defaultChecked={editingRABill?.payment_status === s || s === "Pending"} className="accent-primary" />
+                      <input type="radio" name="payment_status" value={s} defaultChecked={s === "Pending"} className="accent-primary" />
                       <span className="text-xs font-semibold text-slate-600">{s}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              <button type="submit"
-                className="w-full mt-6 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all active:scale-95 shadow-md shadow-primary/20">
-                {editingRABill ? "Update RA Bill" : "Create RA Bill"}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full mt-6 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all active:scale-95 shadow-md shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed">
+                {isSubmitting ? "Saving…" : editingRABill ? "Update RA Bill" : "Create RA Bill"}
               </button>
-              <button type="button" onClick={() => handleTabChange("list")}
+              <button
+                type="button"
+                onClick={() => handleTabChange("list")}
                 className="w-full mt-2 bg-slate-50 text-slate-500 py-2.5 rounded-xl text-sm font-bold border border-slate-200 hover:bg-slate-100 transition-all">
                 Cancel
               </button>
@@ -1213,23 +1622,93 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
             <p className="text-xs text-slate-400 mt-0.5">Bills pending PMC / client certification</p>
           </div>
           <div className="divide-y divide-slate-50">
-            {raBills.filter(r => r.status !== "Certified").map(rb => (
+            {paginatedAppBills.map(rb => {
+              const projName = projects?.find((p: any) => p.id === rb.project_id)?.project_name || rb.project_id || "N/A";
+              const contrName = contractors?.find((c: any) => c.id === rb.contractor_id)?.name || rb.contractor_id || "N/A";
+              return (
               <div key={rb.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors">
                 <div>
-                  <p className="text-sm font-bold text-slate-800">{rb.bill_no} — {rb.client}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{rb.project} · Period: {rb.billing_from} to {rb.billing_to}</p>
+                  <p className="text-sm font-bold text-slate-800">{rb.bill_number || "—"} — {contrName}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{projName} · Date: {rb.bill_date || "—"}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-700">{fmt(rb.total_with_gst)}</span>
-                  <span className={`px-2 py-0.5 text-[10px] font-black rounded-full ${statusBadge(rb.status)}`}>{rb.status}</span>
-                  <button onClick={() => handleApprove(rb.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all active:scale-95">Certify</button>
+                  <span className="text-sm font-bold text-slate-700">{fmt(rb.total_amount)}</span>
+                  <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(rb.status)}`}>{rb.status}</span>
+                  <button onClick={() => handleApprove(rb.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all active:scale-95">Approve</button>
                   <button onClick={() => handleReject(rb.id)} className="px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition-all active:scale-95">Reject</button>
                 </div>
               </div>
-            ))}
+              );
+            })}
+          </div>
+          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select 
+                value={appRecordsPerPage} 
+                onChange={(e) => { setAppRecordsPerPage(Number(e.target.value)); setAppCurrentPage(1); }}
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
+              >
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">
+              Showing {pendingApprovalBills.length === 0 ? 0 : (appCurrentPage - 1) * appRecordsPerPage + 1} - {Math.min(appCurrentPage * appRecordsPerPage, pendingApprovalBills.length)} of {pendingApprovalBills.length} records
+            </span>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setAppCurrentPage(p => Math.max(1, p - 1))}
+                disabled={appCurrentPage === 1}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
+                {appCurrentPage}
+              </span>
+              <button 
+                onClick={() => setAppCurrentPage(p => Math.min(appTotalPages, p + 1))}
+                disabled={appCurrentPage === appTotalPages || appTotalPages === 0}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {viewingRABill && (
+        <ViewRABillModal 
+          bill={viewingRABill} 
+          projects={projects}
+          contractors={contractors}
+          measurements={measurements}
+          workOrders={workOrders}
+          quotations={quotations}
+          onClose={() => setViewingRABill(null)} 
+        />
+      )}
+
+      {editingRABill && activeSubTab === "list" && (
+        <EditRABillModal 
+          bill={editingRABill} 
+          workOrders={workOrders} 
+          onClose={() => setEditingRABill(null)} 
+          onSuccess={() => { setEditingRABill(null); setRefreshTrigger(prev => prev + 1); }} 
+        />
+      )}
+
+      <ConfirmModal
+        isOpen={!!deleteRABillId}
+        onClose={() => setDeleteRABillId(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete RA Bill"
+        message="Are you sure you want to delete this RA Bill? This action cannot be undone."
+        confirmText="Confirm Deletion"
+        type="danger"
+        isLoading={isDeletingRABill}
+      />
     </div>
   );
 };
@@ -1480,6 +1959,189 @@ const ReceivablesPage = () => {
         type="danger"
       />
     </>
+  );
+};
+
+const ViewRABillModal = ({ bill, projects, contractors, measurements, workOrders, quotations, onClose }: any) => {
+  if (!bill) return null;
+
+  const projName = projects?.find((p: any) => p.id === bill.project_id)?.project_name || bill.project_id || "N/A";
+  const contrName = contractors?.find((c: any) => c.id === bill.contractor_id)?.name || bill.contractor_id || "N/A";
+  const measName = measurements?.find((m: any) => m.id === bill.measurement_id) ? `Measurement #${bill.measurement_id}` : bill.measurement_id || "—";
+  const woName = workOrders?.find((w: any) => w.id === bill.work_order_id)?.work_order_number || bill.work_order_id || "—";
+  const quotName = quotations?.find((q: any) => q.id === bill.quotation_id)?.quotation_no || bill.quotation_id || "—";
+
+  const fmt = (v: any) => v != null ? `₹${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
+  const isApproved = bill.status === 'Certified';
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 sticky top-0 z-10">
+          <h2 className="text-xl font-bold text-slate-800 tracking-tight">RA Bill Profile</h2>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 bg-white shadow-sm border border-slate-200 rounded-full text-slate-500 transition-all"><XCircle size={20}/></button>
+        </div>
+        
+        <div className="p-6 font-inter bg-white">
+          {/* Header card */}
+          <div className="bg-primary rounded-2xl p-6 mb-6 text-white shadow-xl relative overflow-hidden">
+            <div className="flex items-center gap-5">
+              <div className="w-20 h-20 bg-blue-400/30 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 relative flex-shrink-0">
+                <FileText className="w-10 h-10 text-white" />
+                <div className={`absolute -bottom-1 -right-1 w-5 h-5 ${isApproved ? 'bg-emerald-500' : 'bg-rose-500'} border-4 border-primary rounded-full`} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-xl font-bold tracking-tight">{contrName}</h3>
+                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-widest ${isApproved ? 'bg-emerald-500/30 text-emerald-100' : 'bg-amber-500/30 text-amber-100'}`}>{bill.status}</span>
+                </div>
+                <p className="text-white/70 text-xs font-bold mb-2">{bill.bill_number ? `RA Bill #${bill.bill_number}` : 'No Identifier'}</p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">{projName}</span>
+                  <span className="px-2.5 py-1 bg-white/15 rounded-full text-[10px] font-bold uppercase tracking-widest">Grand Total: {fmt(bill.total_amount)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* All fields */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+            {([
+              { label: 'RA Bill No', value: bill.bill_number || '—' },
+              { label: 'Contractor', value: contrName },
+              { label: 'Project Name', value: projName },
+              { label: 'Bill Date', value: bill.bill_date || '—' },
+              { label: 'Status', value: bill.status || '—' },
+              { label: 'Measurement', value: measName },
+              { label: 'Work Order', value: woName },
+              { label: 'Quotation', value: quotName },
+              { label: 'Quantity', value: bill.quantity != null ? bill.quantity : '—' },
+              { label: 'Rate (₹)', value: bill.rate != null ? fmt(bill.rate) : '—' },
+              { label: 'Gross Amount (₹)', value: bill.gross_amount != null ? fmt(bill.gross_amount) : '—' },
+              { label: 'Deductions (₹)', value: bill.deductions != null && bill.deductions > 0 ? `-${fmt(bill.deductions)}` : '0' },
+              { label: 'Net Amount (₹)', value: bill.net_amount != null ? fmt(bill.net_amount) : '—' },
+              { label: `GST (${bill.gst_percent || 0}%)`, value: bill.total_amount != null && bill.net_amount != null ? fmt(bill.total_amount - bill.net_amount) : '—' },
+              { label: 'Total Payable Amount (₹)', value: bill.total_amount != null ? fmt(bill.total_amount) : '—', highlight: true },
+            ] as { label: string; value: any; highlight?: boolean }[]).map(({ label, value, highlight }) => (
+              <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                <p className={`text-sm font-bold truncate ${highlight ? 'text-emerald-600' : 'text-slate-800'}`}>{String(value)}</p>
+              </div>
+            ))}
+
+            <div className="col-span-full bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Work Description</p>
+              <p className="text-sm font-bold text-slate-800">{bill.work_description || '—'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const EditRABillModal = ({ bill, workOrders, onClose, onSuccess }: { bill: any, workOrders: any[], onClose: () => void, onSuccess: () => void }) => {
+  const [formData, setFormData] = useState({
+    work_order_id: bill.work_order_id || "",
+    work_description: bill.work_description || "",
+    quantity: bill.quantity || 0,
+    rate: bill.rate || 0,
+    deductions: bill.deductions || 0,
+    gst_percent: bill.gst_percent || 0,
+    status: bill.status || "Draft",
+    bill_date: bill.bill_date || new Date().toISOString().split("T")[0]
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        work_order_id: formData.work_order_id ? Number(formData.work_order_id) : undefined,
+        work_description: formData.work_description,
+        quantity: Number(formData.quantity),
+        rate: Number(formData.rate),
+        deductions: Number(formData.deductions),
+        gst_percent: Number(formData.gst_percent),
+        status: formData.status,
+        bill_date: formData.bill_date
+      };
+      await api.put(`/billing/${bill.id}`, payload);
+      toast.success("RA Bill updated successfully!");
+      onSuccess();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.detail || err?.message || "Failed to update RA Bill");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const inputClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none transition-all bg-white text-slate-700 focus:ring-2 focus:ring-primary/20 focus:border-primary";
+  const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="p-5 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white">
+          <h2 className="text-lg font-bold text-slate-800">Edit RA Bill</h2>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-500"><XCircle size={20}/></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className={labelClasses}>Work Order</label>
+              <select className={inputClasses} value={formData.work_order_id} onChange={e => setFormData({...formData, work_order_id: e.target.value})}>
+                <option value="">-- Select Work Order --</option>
+                {workOrders.map(w => (
+                  <option key={w.id} value={w.id}>{w.title || w.work_order_no || w.order_no || `Work Order #${w.id}`}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className={labelClasses}>Work Description</label>
+              <input type="text" className={inputClasses} value={formData.work_description} onChange={e => setFormData({...formData, work_description: e.target.value})} />
+            </div>
+            <div>
+              <label className={labelClasses}>Quantity</label>
+              <input type="number" step="any" className={inputClasses} value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} />
+            </div>
+            <div>
+              <label className={labelClasses}>Rate</label>
+              <input type="number" step="any" className={inputClasses} value={formData.rate} onChange={e => setFormData({...formData, rate: e.target.value})} />
+            </div>
+            <div>
+              <label className={labelClasses}>Deductions</label>
+              <input type="number" step="any" className={inputClasses} value={formData.deductions} onChange={e => setFormData({...formData, deductions: e.target.value})} />
+            </div>
+            <div>
+              <label className={labelClasses}>GST Percent</label>
+              <input type="number" step="any" className={inputClasses} value={formData.gst_percent} onChange={e => setFormData({...formData, gst_percent: e.target.value})} />
+            </div>
+            <div>
+              <label className={labelClasses}>Status</label>
+              <select className={inputClasses} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                <option value="Draft">Draft</option>
+                <option value="Submitted">Submitted</option>
+                <option value="Certified">Certified</option>
+                <option value="Pending Approval">Pending Approval</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClasses}>Bill Date</label>
+              <input type="date" className={inputClasses} value={formData.bill_date} onChange={e => setFormData({...formData, bill_date: e.target.value})} />
+            </div>
+          </div>
+          <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+            <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className="px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50">
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 };
 

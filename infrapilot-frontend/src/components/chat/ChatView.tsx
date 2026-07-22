@@ -24,6 +24,80 @@ const ChatView: React.FC = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [activeChatFetched, setActiveChatFetched] = useState<Conversation | null>(null);
 
+    const handleOpenGroupInfo = async (chatToOpen: Conversation) => {
+        openProfile({
+            name: chatToOpen.name || "Group",
+            profile_image: chatToOpen.avatar_url,
+            role: `${chatToOpen.member_count || 0} members`,
+            isGroup: true,
+            members: (chatToOpen as any).members || [],
+            memberCount: chatToOpen.member_count || 0
+        });
+        setIsLoadingMembers(true);
+        try {
+            let membersRes: any = null;
+            try {
+                membersRes = await chatService.getGroupMembers(chatToOpen.id);
+            } catch (primaryErr) {
+                console.warn("[GroupFetch] Primary API failed", primaryErr);
+            }
+
+            let members: any[] = [];
+            if (membersRes) {
+                members = Array.isArray(membersRes) 
+                    ? membersRes 
+                    : (membersRes as any).members || (membersRes as any).data || (membersRes as any).items || (membersRes as any).group_members || [];
+            }
+
+            if (members.length === 0 && (chatToOpen as any).members && Array.isArray((chatToOpen as any).members)) members = (chatToOpen as any).members;
+            if (members.length === 0 && (chatToOpen as any).users && Array.isArray((chatToOpen as any).users)) members = (chatToOpen as any).users;
+            if (members.length === 0 && (chatToOpen as any).group_members && Array.isArray((chatToOpen as any).group_members)) members = (chatToOpen as any).group_members;
+            if (members.length === 0 && (chatToOpen as any).participants && Array.isArray((chatToOpen as any).participants)) members = (chatToOpen as any).participants;
+
+            if (members.length === 0) {
+                try {
+                    const mentionUsers = await chatService.getMentionUsers(chatToOpen.id);
+                    if (mentionUsers?.items && mentionUsers.items.length > 0) {
+                        members = mentionUsers.items.map(u => ({
+                            user_id: u.user_id,
+                            name: u.full_name || "Member",
+                            role: "member",
+                            profile_image: u.profile_image
+                        }));
+                    }
+                } catch (e) {
+                    console.warn("[GroupFetch] Mentions fallback failed:", e);
+                }
+            }
+
+            let userStates: any[] = [];
+            try {
+                userStates = await chatService.getUserStates(chatToOpen.id);
+            } catch (e) {
+                console.warn("[GroupFetch] Failed to fetch user states", e);
+            }
+
+            const mappedMembers = members.map((m: any) => {
+                const memberId = m.user_id || m.id || m.ID || 0;
+                const state = userStates.find((s: any) => s.user_id === memberId);
+                return {
+                    user_id: memberId,
+                    name: m.name || m.full_name || m.fullName || "User",
+                    role: m.role || "member",
+                    profile_image: m.profile_image || m.avatar_url,
+                    online: state?.online || false,
+                    last_seen: state?.last_seen || null
+                };
+            });
+
+            setSelectedProfile(prev => prev ? { ...prev, members: mappedMembers, memberCount: mappedMembers.length } : null);
+        } catch (error) {
+            console.error("Failed to load group members", error);
+        } finally {
+            setIsLoadingMembers(false);
+        }
+    };
+
     // Derive activeChat by merging fetched details with context metadata (source of truth for status)
     const activeChatFromContext = conversations.find(c => Number(c.id) === Number(activeChatId));
     const activeChat = activeChatFetched
@@ -37,6 +111,7 @@ const ChatView: React.FC = () => {
     const [showPinned, setShowPinned] = useState(false);
     const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
     const [typingUsers, setTypingUsers] = useState<{ user_id: number; name: string }[]>([]);
+    const [activeUsers, setActiveUsers] = useState<number[]>([]);
     const [activeReactionMsgId, setActiveReactionMsgId] = useState<number | null>(null);
     const [isTyping, setIsTyping] = useState(false);
     const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
@@ -191,10 +266,16 @@ const ChatView: React.FC = () => {
         if (!activeChatId) return;
         if (!confirm("Are you sure you want to remove this member?")) return;
         try {
-            await chatService.kickMember(activeChatId, userId);
+            await chatService.removeMember(activeChatId, userId);
             toast.success("Member removed");
-            // Refresh members by simulating click or re-fetching
-            document.getElementById('view-info-button')?.click();
+            
+            // Update local state directly instead of requiring refresh
+            setSelectedProfile(prev => {
+                if (!prev || !prev.members) return prev;
+                const updatedMembers = prev.members.filter(m => m.user_id !== userId);
+                return { ...prev, members: updatedMembers, memberCount: updatedMembers.length };
+            });
+            setActiveChatFetched(prev => prev ? { ...prev, member_count: Math.max(0, (prev.member_count || 0) - 1) } : null);
         } catch {
             toast.error("Failed to remove member");
         }
@@ -206,7 +287,17 @@ const ChatView: React.FC = () => {
         try {
             await chatService.transferAdmin(activeChatId, userId);
             toast.success("Admin rights transferred");
-            document.getElementById('view-info-button')?.click();
+            
+            // Update local state directly instead of requiring refresh
+            setSelectedProfile(prev => {
+                if (!prev || !prev.members) return prev;
+                const updatedMembers = prev.members.map(m => {
+                    if (m.user_id === userId) return { ...m, role: "admin" };
+                    if (m.user_id === myUserId) return { ...m, role: "member" }; // Current admin loses rights locally
+                    return m;
+                });
+                return { ...prev, members: updatedMembers };
+            });
         } catch {
             toast.error("Failed to transfer admin rights");
         }
@@ -233,11 +324,18 @@ const ChatView: React.FC = () => {
                     setMessages(msgs);
                     const typing = await chatService.getTypingUsers(activeChatId);
                     setTypingUsers(typing.users.filter(u => u.user_id !== myUserId));
+                    const activeRes = await chatService.getActiveUsers(activeChatId);
+                    setActiveUsers(activeRes.active_users.filter(id => id !== myUserId));
+                    
+                    if (activeChat?.type !== 'group' && activeChat?.other_user_id) {
+                        const status = await chatService.getUserStatus(activeChat.other_user_id);
+                        setUserStatus(status);
+                    }
                 } catch { /* silent */ }
             }, 5000);
         }
         return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-    }, [activeChatId, myUserId]);
+    }, [activeChatId, myUserId, activeChat]);
 
     useEffect(() => { fetchChatData(); }, [fetchChatData]);
 
@@ -355,8 +453,10 @@ const ChatView: React.FC = () => {
                 toast.success("Message unpinned");
             } else {
                 await chatService.pinMessage(msg.id);
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: true } : m));
                 const pins = await chatService.getPinnedMessages(activeChatId!);
                 setPinnedMessages(pins);
+                toast.success("Message pinned");
             }
         } catch { toast.error("Operation failed", { position: "top-right" }); }
     };
@@ -397,8 +497,8 @@ const ChatView: React.FC = () => {
                 onClick={handleShowReceipts}
                 className="hover:scale-110 transition-transform cursor-pointer flex items-center relative"
             >
-                {status === "read" ? <CheckCheck className="w-3 h-3 text-blue-400" /> :
-                    status === "delivered" ? <CheckCheck className="w-3 h-3 text-slate-400" /> :
+                {(status === "read" || msg.is_read) ? <CheckCheck className="w-3 h-3 text-blue-400" /> :
+                    (status === "delivered" || msg.is_delivered) ? <CheckCheck className="w-3 h-3 text-slate-400" /> :
                         <Check className="w-3 h-3 text-slate-300" />}
 
                 <AnimatePresence>
@@ -456,18 +556,7 @@ const ChatView: React.FC = () => {
                     onClick={() => {
                         if (activeChat) {
                             if (activeChat.type === "group") {
-                                // Trigger the "View Information" fetch logic for groups
-                                const viewInfoBtn = document.getElementById('view-info-button');
-                                if (viewInfoBtn) {
-                                    viewInfoBtn.click();
-                                } else {
-                                    // Fallback if button id not found
-                                    openProfile({
-                                        name: activeChat.name || "Group",
-                                        profile_image: activeChat.avatar_url,
-                                        isGroup: true,
-                                    });
-                                }
+                                handleOpenGroupInfo(activeChat as Conversation);
                             } else {
                                 openProfile({
                                     name: activeChat.other_user_name || conversations.find(c => c.id === activeChatId)?.other_user_name || "Unknown",
@@ -507,13 +596,24 @@ const ChatView: React.FC = () => {
                                 {typingUsers[0].name} is typing...
                             </p>
                         ) : activeChat?.type === 'group' ? (
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                                {activeChat?.member_count || 0} Members
-                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    {activeChat?.member_count || 0} Members
+                                </p>
+                                {activeUsers.length > 0 && (
+                                    <span className="text-[10px] font-black text-emerald-500 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        {activeUsers.length} Active
+                                    </span>
+                                )}
+                            </div>
                         ) : userStatus ? (
                             <p className="text-[10px] font-bold flex items-center gap-1 mt-0.5">
                                 {userStatus.online ? (
-                                    <span className="text-emerald-500">online</span>
+                                    <span className="text-emerald-500 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        online
+                                    </span>
                                 ) : (
                                     <span className="text-slate-500 font-medium lowercase">
                                         last seen {
@@ -585,102 +685,7 @@ const ChatView: React.FC = () => {
                                             setShowMoreMenu(false);
                                             if (activeChat) {
                                                 if (activeChat.type === "group") {
-                                                    // Show group info with members
-                                                    openProfile({
-                                                        name: activeChat.name || "Group",
-                                                        profile_image: activeChat.avatar_url,
-                                                        role: `${activeChat.member_count || 0} members`,
-                                                        isGroup: true,
-                                                        members: (activeChat as any).members || [],
-                                                        memberCount: activeChat.member_count || 0
-                                                    });
-                                                    setIsLoadingMembers(true);
-                                                    try {
-                                                        let membersRes: any = null;
-                                                        try {
-                                                            membersRes = await chatService.getGroupMembers(activeChat.id);
-                                                            console.log(`[GroupFetch] Primary API Response for ${activeChat.id}:`, membersRes);
-                                                        } catch (primaryErr) {
-                                                            console.warn("[GroupFetch] Primary API failed, trying fallbacks", primaryErr);
-                                                        }
-
-                                                        let members: any[] = [];
-                                                        if (membersRes) {
-                                                            members = Array.isArray(membersRes) 
-                                                                ? membersRes 
-                                                                : (membersRes as any).members || (membersRes as any).data || (membersRes as any).items || (membersRes as any).group_members || [];
-                                                        }
-
-                                                        // Fallback 2: Check activeChat object itself
-                                                        if (members.length === 0 && (activeChat as any).members && Array.isArray((activeChat as any).members)) {
-                                                            console.log("[GroupFetch] Fallback 2: Using activeChat.members");
-                                                            members = (activeChat as any).members;
-                                                        }
-                                                        if (members.length === 0 && (activeChat as any).users && Array.isArray((activeChat as any).users)) {
-                                                            members = (activeChat as any).users;
-                                                        }
-                                                        if (members.length === 0 && (activeChat as any).group_members && Array.isArray((activeChat as any).group_members)) {
-                                                            members = (activeChat as any).group_members;
-                                                        }
-                                                        if (members.length === 0 && (activeChat as any).participants && Array.isArray((activeChat as any).participants)) {
-                                                            members = (activeChat as any).participants;
-                                                        }
-
-                                                        // Fallback 3: Try getMentionUsers (often contains all chat participants)
-                                                        if (members.length === 0) {
-                                                            console.log("[GroupFetch] Fallback 3: Attempting getMentionUsers...");
-                                                            try {
-                                                                const mentionUsers = await chatService.getMentionUsers(activeChat.id);
-                                                                if (mentionUsers?.items && mentionUsers.items.length > 0) {
-                                                                    members = mentionUsers.items.map(u => ({
-                                                                        user_id: u.user_id,
-                                                                        name: u.full_name || "Member",
-                                                                        role: "member",
-                                                                        profile_image: u.profile_image
-                                                                    }));
-                                                                }
-                                                            } catch (e) {
-                                                                console.warn("[GroupFetch] Mentions fallback failed:", e);
-                                                            }
-                                                        }
-
-                                                        // Fetch User States (Online/Offline)
-                                                        let userStates: any[] = [];
-                                                        try {
-                                                            userStates = await chatService.getUserStates(activeChat.id);
-                                                        } catch (e) {
-                                                            console.warn("[GroupFetch] Failed to fetch user states", e);
-                                                        }
-
-                                                        const mappedMembers = members.map((m: any) => {
-                                                            const memberId = m.user_id || m.id || m.ID || 0;
-                                                            const state = userStates.find((s: any) => s.user_id === memberId);
-                                                            return {
-                                                                user_id: memberId,
-                                                                name: m.name || m.full_name || m.fullName || "User",
-                                                                role: m.role || "member",
-                                                                profile_image: m.profile_image || m.avatar_url,
-                                                                online: state?.online || false,
-                                                                last_seen: state?.last_seen || null
-                                                            };
-                                                        });
-
-                                                        console.log("[GroupFetch] Final Result:", mappedMembers);
-
-                                                        setSelectedProfile(prev => {
-                                                            if (!prev) return null;
-                                                            return {
-                                                                ...prev,
-                                                                members: mappedMembers,
-                                                                memberCount: mappedMembers.length > 0 ? mappedMembers.length : (activeChat.member_count || 0)
-                                                            };
-                                                        });
-                                                    } catch (err) {
-                                                        console.error("[GroupFetch] All paths failed:", err);
-                                                        setSelectedProfile(prev => prev ? { ...prev, memberCount: activeChat.member_count || 0 } : null);
-                                                    } finally {
-                                                        setIsLoadingMembers(false);
-                                                    }
+                                                    handleOpenGroupInfo(activeChat as Conversation);
                                                 } else {
                                                     openProfile({
                                                         name: activeChat.other_user_name || "Unknown",
@@ -1031,9 +1036,11 @@ const ChatView: React.FC = () => {
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-forward"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
                                         </button>
                                         <button onClick={() => setReplyTo(msg)} className="p-1.5 text-slate-300 hover:text-slate-500 hover:bg-white rounded-lg transition-all text-xs" title="Reply">↩</button>
-                                        <button onClick={() => handlePin(msg)} className={`p-1.5 hover:bg-white rounded-lg transition-all ${msg.is_pinned ? "text-amber-500" : "text-slate-300 hover:text-amber-500"}`} title="Pin Message">
-                                            <Pin className="w-3.5 h-3.5" />
-                                        </button>
+                                        {activeChat?.type !== "group" && (
+                                            <button onClick={() => handlePin(msg)} className={`p-1.5 hover:bg-white rounded-lg transition-all ${msg.is_pinned ? "text-amber-500" : "text-slate-300 hover:text-amber-500"}`} title="Pin Message">
+                                                <Pin className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                         {isMine && (
                                             <>
                                                 <button onClick={() => { setEditMessageContent(msg.message); setEditingMessageId(msg.id); }} className="p-1.5 text-slate-300 hover:text-primary hover:bg-white rounded-lg transition-all" title="Edit Message">
@@ -1147,7 +1154,7 @@ const ChatView: React.FC = () => {
                         </button>
                         <button
                             onClick={handleSend}
-                            disabled={!inputText.trim()}
+                            disabled={!inputText.trim() && !selectedFile}
                             className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-md shadow-primary/25 hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:scale-100"
                         >
                             <Send className="w-4 h-4" />
@@ -1323,21 +1330,28 @@ const ChatView: React.FC = () => {
                                                 <Users className="w-3.5 h-3.5" /> Members
                                             </p>
                                             <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedToRemoveIds([]);
-                                                        setIsRemoveMemberModalOpen(true);
-                                                    }}
-                                                    className="text-rose-500 hover:bg-rose-50 p-1 rounded-md transition-colors"
-                                                    title="Remove Members"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                </button>
+                                                {selectedProfile?.members?.find(m => m.user_id === myUserId)?.role === "admin" && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedToRemoveIds([]);
+                                                            setIsRemoveMemberModalOpen(true);
+                                                        }}
+                                                        className="text-rose-500 hover:bg-rose-50 p-1 rounded-md transition-colors"
+                                                        title="Remove Members"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={async () => {
                                                         if (!activeChatId) return;
+                                                        const me = selectedProfile.members?.find(m => m.user_id === myUserId);
+                                                        if (me?.role !== "admin") {
+                                                            toast.error("Only admin can add members");
+                                                            return;
+                                                        }
                                                         try {
-                                                            const users = await chatService.getChatUsers();
+                                                            const users = await chatService.getAllSystemUsers();
                                                             const existingIds = selectedProfile.members?.map(m => m.user_id) || [];
                                                             const available = users.filter(u => {
                                                                 const uId = Number(u.id);
@@ -1403,7 +1417,7 @@ const ChatView: React.FC = () => {
                                                             </span>
                                                         )}
                                                         <div className="flex items-center gap-1 shrink-0 ml-1">
-                                                            {member.user_id !== myUserId && (
+                                                            {member.user_id !== myUserId && selectedProfile?.members?.find(m => m.user_id === myUserId)?.role === "admin" && (
                                                                 <>
                                                                     <button
                                                                         onClick={() => handleTransferAdmin(member.user_id)}
@@ -1584,7 +1598,15 @@ const ChatView: React.FC = () => {
                                     await chatService.removeMultipleMembers(activeChatId, selectedToRemoveIds);
                                     toast.success("Members removed!");
                                     setIsRemoveMemberModalOpen(false);
-                                    document.getElementById('view-info-button')?.click(); // Refresh info
+                                    
+                                    // Update local state directly instead of requiring refresh
+                                    setSelectedProfile(prev => {
+                                        if (!prev || !prev.members) return prev;
+                                        const updatedMembers = prev.members.filter(m => !selectedToRemoveIds.includes(m.user_id));
+                                        return { ...prev, members: updatedMembers, memberCount: updatedMembers.length };
+                                    });
+                                    setActiveChatFetched(prev => prev ? { ...prev, member_count: Math.max(0, (prev.member_count || 0) - selectedToRemoveIds.length) } : null);
+                                    setSelectedToRemoveIds([]);
                                 } catch {
                                     toast.error("Failed to remove members");
                                 } finally {
@@ -1651,15 +1673,15 @@ const ChatView: React.FC = () => {
                                 disabled={isForwarding}
                                 className="w-full flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl transition-all text-left"
                             >
-                                {chat.avatar_url ? (
-                                    <img src={chat.avatar_url} alt={chat.name || "Chat"} className="w-10 h-10 rounded-full object-cover bg-slate-200" />
+                                {chat.avatar_url || chat.other_user_avatar ? (
+                                    <img src={getFullImageUrl(chat.avatar_url || chat.other_user_avatar)} alt={chat.name || chat.other_user_name || "Chat"} className="w-10 h-10 rounded-full object-cover bg-slate-200" />
                                 ) : (
                                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
-                                        {chat.name?.charAt(0)?.toUpperCase() || "?"}
+                                        {(chat.name || chat.other_user_name || "?").charAt(0)?.toUpperCase()}
                                     </div>
                                 )}
                                 <div className="flex-1 overflow-hidden">
-                                    <p className="text-sm font-bold text-slate-800 truncate">{chat.name || "Unknown"}</p>
+                                    <p className="text-sm font-bold text-slate-800 truncate">{chat.name || chat.other_user_name || "Unknown"}</p>
                                     <p className="text-[10px] text-slate-500 uppercase tracking-wider">{chat.type}</p>
                                 </div>
                             </button>

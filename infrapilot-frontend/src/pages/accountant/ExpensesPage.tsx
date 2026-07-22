@@ -9,6 +9,7 @@ import ConfirmationModal from "../../components/common/ConfirmationModal";
 import Modal from "../../components/common/Modal";
 import { expenseService } from "../../services/expenseService";
 import { projectService } from "../../services/projectService";
+import api from "../../services/api";
 import type { ExpenseCreateData } from "../../types/expense";
 
 
@@ -428,9 +429,22 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
 };
 
 const ExpenseListSection = () => {
-  const PROJECT_MAP: any = { 1: "Wing A", 4: "Metro" };
   const BOQ_MAP: any = { 1: "Civil Work", 4: "Sand & Cement" };
   const fmt = (num: number) => `₹${Number(num).toLocaleString("en-IN")}`;
+
+  const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await projectService.getProjects(100, 0);
+        const list = Array.isArray(data) ? data : (data as any).items || [];
+        setProjects(list);
+      } catch (err) {}
+    };
+    fetchProjects();
+  }, []);
+
 
   const [expenses, setExpenses] = useState<any[]>([]);
   const [startDate, setStartDate] = useState("");
@@ -500,6 +514,19 @@ const ExpenseListSection = () => {
     }
   };
 
+  const handleCategoryDropdownChange = async (val: string) => {
+    if (!val) {
+      fetchExpenses();
+      return;
+    }
+    try {
+      const res = await api.get(`/expenses/category/${val}`);
+      setExpenses(res.data);
+    } catch (err) {
+      toast.error(`Failed to fetch ${val} expenses`);
+    }
+  };
+
   const handleCategoryClick = async (category: string) => {
     try {
       const data = await expenseService.getExpensesByCategory(category);
@@ -544,7 +571,7 @@ const ExpenseListSection = () => {
     const descMatch = (expense.description || "").toLowerCase().includes(q);
     const catMatch = (expense.category || "").toLowerCase().includes(q);
     const modeMatch = (expense.payment_mode || "").toLowerCase().includes(q);
-    const projMatch = (PROJECT_MAP[expense.project_id] || expense.project_id?.toString() || "").toLowerCase().includes(q);
+    const projMatch = (projects.find(p => String(p.id) === String(expense.project_id))?.project_name || expense.project_id?.toString() || "").toLowerCase().includes(q);
     return idMatch || descMatch || catMatch || modeMatch || projMatch;
   });
 
@@ -567,8 +594,17 @@ const ExpenseListSection = () => {
             <input type="text" placeholder="Search expense entry..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="text-xs font-semibold border border-slate-200 rounded-xl px-4 py-2.5 w-64 bg-white outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm" />
             <select onChange={e => handleProjectChange(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors shadow-sm outline-none cursor-pointer">
               <option value="">All Projects</option>
-              <option value="1">Wing A</option>
-              <option value="4">Metro</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.project_name || p.name || p.id}</option>
+              ))}
+            </select>
+            <select onChange={e => handleCategoryDropdownChange(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors shadow-sm outline-none cursor-pointer">
+              <option value="">All Categories</option>
+              <option value="Construction">Construction</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Fuel">Fuel</option>
+              <option value="Travel">Travel</option>
+              <option value="Material">Material</option>
             </select>
             <select onChange={e => handlePaymentModeChange(e.target.value)} className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-colors shadow-sm outline-none cursor-pointer">
               <option value="">All Payment Modes</option>
@@ -584,7 +620,7 @@ const ExpenseListSection = () => {
           <table className="w-full text-left">
             <thead className="bg-slate-50/60 border-b border-slate-100">
               <tr>
-                {["Expense No", "Date", "Category", "Project", "Description", "Amount", "Payment Mode", "BOQ Item", "Status", "Actions"].map(h => (
+                {["Expense No", "Date", "Category", "Project", "Description", "Amount", "Payment Mode", "BOQ Item", "Actions"].map(h => (
                   <th key={h} className="px-5 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -597,17 +633,11 @@ const ExpenseListSection = () => {
                   <td className="px-5 py-4 text-xs font-bold">
                     <span onClick={() => handleCategoryClick(e.category)} className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg cursor-pointer hover:bg-indigo-100 transition-colors">{e.category}</span>
                   </td>
-                  <td className="px-5 py-4 text-xs font-bold text-slate-600">{PROJECT_MAP[e.project_id] || e.project_id}</td>
+                  <td className="px-5 py-4 text-xs font-bold text-slate-600">{projects.find(p => String(p.id) === String(e.project_id))?.project_name || e.project_id}</td>
                   <td className="px-5 py-4 text-xs font-semibold text-slate-500 max-w-[200px] truncate">{e.description}</td>
                   <td className="px-5 py-4 text-sm font-black text-rose-500">{fmt(e.amount)}</td>
                   <td className="px-5 py-4 text-xs font-bold text-slate-600">{e.payment_mode}</td>
                   <td className="px-5 py-4 text-xs font-bold text-slate-600">{BOQ_MAP[e.boq_item_id] || e.boq_item_id || "-"}</td>
-                  <td className="px-5 py-4">
-                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${e.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' :
-                      e.status === 'Rejected' ? 'bg-rose-100 text-rose-700' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>{e.status || 'Pending Approval'}</span>
-                  </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2">
                       <button onClick={() => setViewingExpense(e)} className="p-2 text-slate-400 hover:text-primary transition-colors">
@@ -625,7 +655,7 @@ const ExpenseListSection = () => {
               ))}
               {filteredExpenses.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-5 py-8 text-center text-sm font-semibold text-slate-400">
+                  <td colSpan={9} className="px-5 py-8 text-center text-sm font-semibold text-slate-400">
                     No expense entries found matching your criteria.
                   </td>
                 </tr>

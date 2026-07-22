@@ -15,7 +15,7 @@ type ChatFilter = "all" | "private" | "group" | "unread";
 type SidebarMode = "list" | "new-chat" | "new-group";
 
 const ChatSidebar: React.FC = () => {
-    const { conversations, activeChatId, setActiveChatId, isLoading, refreshChatList } = useChat();
+    const { conversations, activeChatId, setActiveChatId, isLoading, refreshChatList, typingStatus } = useChat();
     const [filter, setFilter] = useState<ChatFilter>("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [mode, setMode] = useState<SidebarMode>("list");
@@ -37,7 +37,7 @@ const ChatSidebar: React.FC = () => {
     const fetchUsers = async () => {
         setIsLoadingUsers(true);
         try {
-            const data = await chatService.getChatUsers();
+            const data = await chatService.getAllSystemUsers();
             setUsers(data);
         } catch { 
             toast.error("Could not load users", { position: "top-right" }); 
@@ -359,7 +359,11 @@ const ChatSidebar: React.FC = () => {
                                             )}
                                         </div>
                                         <p className="text-[11px] text-slate-400 truncate font-medium">
-                                            {c.last_message || "Tap to begin..."}
+                                            {typingStatus[c.id] ? (
+                                                <span className="text-amber-500 font-black">{typingStatus[c.id]}</span>
+                                            ) : (
+                                                c.last_message || "Tap to begin..."
+                                            )}
                                         </p>
                                     </div>
                                     <div className="flex flex-col items-end gap-1.5 shrink-0 ml-2">
