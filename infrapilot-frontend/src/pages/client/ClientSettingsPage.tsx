@@ -95,7 +95,7 @@ const ClientSettingsPage = () => {
 
     const togglePreference = (key: string) => {
         const newValue = !settings.preferences?.[key];
-        
+
         setSettings(prev => ({
             ...prev,
             preferences: {
@@ -146,7 +146,7 @@ const ClientSettingsPage = () => {
                     ...settings,
                     default_project_id: activeProjectId
                 });
-                
+
                 // Persist notification preferences locally to ensure consistency across refreshes
                 localStorage.setItem("client_notif_email", String(settings.preferences?.notif_email ?? true));
                 localStorage.setItem("client_notif_sms", String(settings.preferences?.notif_sms ?? true));

@@ -129,13 +129,30 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
   const bellBadgeCount = user?.role === "Client" ? clientTotalCount : unreadCount;
 
   const handleNotifClick = async (notif: Notification) => {
-    setSelectedNotif(notif);
-    setIsDetailOpen(true);
-    setIsNotificationOpen(false);
+    // Mark as read first
     if (!notif.read) {
       await notificationService.markAsRead(notif.id, notif.source);
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
     }
+
+    // Detect quotation-related notifications and navigate to the approval page
+    const titleLower = (notif.title || "").toLowerCase();
+    const typeLower = (notif.type || "").toLowerCase();
+    const descLower = (notif.description || "").toLowerCase();
+    const isQuotationNotif =
+      titleLower.includes("quotation") ||
+      typeLower.includes("quotation") ||
+      descLower.includes("quotation");
+
+    if (isQuotationNotif && user?.role === "Client") {
+      setIsNotificationOpen(false);
+      navigate("/client/payment/quotation");
+      return;
+    }
+
+    setSelectedNotif(notif);
+    setIsDetailOpen(true);
+    setIsNotificationOpen(false);
   };
 
   const markAllRead = async () => {
@@ -294,8 +311,8 @@ const Navbar = ({ title, breadcrumb, action, rightElement }: Props) => {
                       setIsNotificationOpen(false);
                       const target = user?.role === "Admin" ? "/admin/notifications" :
                         user?.role === "SiteEngineer" ? "/engineer/notifications" :
-                          user?.role === "Client" ? "/client/notifications" : 
-                          user?.role === "Labour" ? "/labour/notifications" : "/";
+                          user?.role === "Client" ? "/client/notifications" :
+                            user?.role === "Labour" ? "/labour/notifications" : "/";
                       navigate(target);
                     }}
                     className="w-full py-2 text-[10px] font-black text-slate-900 hover:text-black transition-colors uppercase tracking-[0.2em]"

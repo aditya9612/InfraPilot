@@ -196,9 +196,22 @@ const ClientReportsPage = () => {
       const totalActivities = weekly?.total_activities || 0;
       const completedActivities = weekly?.completed_activities || 0;
       const delayedActivities = weekly?.delayed_activities || 0;
-      const overallCompletion = weekly?.completion_percentage !== undefined 
-        ? weekly.completion_percentage 
-        : (totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0);
+
+      // Compute quantity-based completion (matches PDF: total_completed / planned_quantity)
+      let overallCompletion = 0;
+      try {
+        const activities = await workProgressService.listActivities(Number(pid));
+        const totalPlanned = activities.reduce((sum: number, a: any) => sum + (a.planned_quantity || 0), 0);
+        const totalCompleted = activities.reduce((sum: number, a: any) => sum + (a.total_completed || 0), 0);
+        overallCompletion = totalPlanned > 0
+          ? Math.round((totalCompleted / totalPlanned) * 10000) / 100
+          : (weekly?.completion_percentage || 0);
+      } catch {
+        overallCompletion = weekly?.completion_percentage !== undefined
+          ? weekly.completion_percentage
+          : (totalActivities > 0 ? Math.round((completedActivities / totalActivities) * 100) : 0);
+      }
+
       setWeeklyProgress({
         tasks: [],
         total_activities: totalActivities,

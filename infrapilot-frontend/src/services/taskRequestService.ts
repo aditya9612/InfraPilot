@@ -1,7 +1,7 @@
 import api from "./api";
 
 /**
- * Shape returned by POST /api/v1/projects/ (task request endpoint)
+ * Shape returned by GET/POST /api/v1/projects/task-requests
  * Backend response fields: title, category, project_id, priority,
  * description, attachment_url, assigned_to, id, status, created_at, updated_at
  */
@@ -22,17 +22,16 @@ export interface TaskRequest {
 
 /**
  * Service for the Labour Module → Task Requests page.
- * Uses POST /api/v1/projects/ and GET /api/v1/projects/ (with trailing slash)
+ * Uses POST/GET /api/v1/projects/task-requests
  */
 export const taskRequestService = {
     /**
      * Fetch all task requests
-     * GET /api/v1/projects/
+     * GET /api/v1/projects/task-requests
      */
     async getRequests(): Promise<TaskRequest[]> {
         try {
-            // Note the trailing slash at the end of 'projects/' to request the task requests API
-            const response = await api.get("projects/");
+            const response = await api.get("projects/task-requests");
             const data = response.data;
             if (!data) return [];
             const items = Array.isArray(data)
@@ -47,7 +46,7 @@ export const taskRequestService = {
 
     /**
      * Submit a new task request
-     * POST /api/v1/projects/
+     * POST /api/v1/projects/task-requests
      */
     async createRequest(formData: {
         title: string;
@@ -76,15 +75,14 @@ export const taskRequestService = {
             body.assigned_to = formData.assigned_to;
         }
 
-        console.log("[taskRequestService] POST /api/v1/projects/ body:", body);
-        // Note the trailing slash at the end of 'projects/'
-        const response = await api.post("projects/", body);
+        console.log("[taskRequestService] POST /api/v1/projects/task-requests body:", body);
+        const response = await api.post("projects/task-requests", body);
         return response.data;
     },
 
     /**
      * Update an existing task request
-     * PUT /api/v1/projects/{request_id}
+     * PUT /api/v1/projects/task-requests/{request_id}
      */
     async updateRequest(
         requestId: number | string,
@@ -107,18 +105,18 @@ export const taskRequestService = {
         if (formData.attachment_url)            body.attachment_url = formData.attachment_url;
         if (formData.assigned_to && formData.assigned_to > 0) body.assigned_to = formData.assigned_to;
 
-        console.log(`[taskRequestService] PUT /api/v1/projects/${requestId} body:`, body);
-        const response = await api.put(`projects/${requestId}`, body);
+        console.log(`[taskRequestService] PUT /api/v1/projects/task-requests/${requestId} body:`, body);
+        const response = await api.put(`projects/task-requests/${requestId}`, body);
         return response.data;
     },
 
     /**
      * Delete an existing task request
-     * DELETE /api/v1/projects/{request_id}
+     * DELETE /api/v1/projects/task-requests/{request_id}
      */
     async deleteRequest(requestId: number | string) {
-        console.log(`[taskRequestService] DELETE /api/v1/projects/${requestId}`);
-        const response = await api.delete(`projects/${requestId}`);
+        console.log(`[taskRequestService] DELETE /api/v1/projects/task-requests/${requestId}`);
+        const response = await api.delete(`projects/task-requests/${requestId}`);
         return response.data;
     },
 };

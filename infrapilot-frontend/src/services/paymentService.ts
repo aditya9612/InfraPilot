@@ -253,6 +253,171 @@ export const paymentService = {
         });
         return response.data;
     },
+
+    /**
+     * Get Invoice Payment Summary
+     * GET /api/v1/client-payments/invoice-summary
+     */
+    async getInvoiceSummary(): Promise<any> {
+        try {
+            const response = await api.get("client-payments/invoice-summary");
+            return response.data;
+        } catch (err) {
+            console.error("Failed to fetch invoice summary:", err);
+            return null;
+        }
+    },
+
+    /**
+     * Get Pending Invoices
+     * GET /api/v1/client-payments/pending-invoices
+     */
+    async getPendingInvoices(): Promise<any[]> {
+        try {
+            const response = await api.get("client-payments/pending-invoices");
+            const data = response.data;
+            return Array.isArray(data) ? data : data?.items || data?.data || data?.invoices || [];
+        } catch (err) {
+            console.error("Failed to fetch pending invoices:", err);
+            return [];
+        }
+    },
+
+    /**
+     * Export Client Payments to Excel
+     * GET /api/v1/client-payments/export/excel
+     */
+    async exportClientPaymentsExcel(params?: Record<string, any>): Promise<void> {
+        const response = await api.get("client-payments/export/excel", {
+            params,
+            responseType: "blob",
+        });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `Client_Payments_${new Date().toISOString().split("T")[0]}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    },
+
+    /**
+     * Export Client Payments to PDF
+     * GET /api/v1/client-payments/export/pdf
+     */
+    async exportClientPaymentsPdf(params?: Record<string, any>): Promise<void> {
+        const response = await api.get("client-payments/export/pdf", {
+            params,
+            responseType: "blob",
+        });
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `Client_Payments_${new Date().toISOString().split("T")[0]}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    },
+
+    /**
+     * Create Client Payment
+     * POST /api/v1/client-payments
+     */
+    async createClientPayment(payload: {
+        invoice_id: string;
+        amount: number;
+        paid_amount?: number;
+        project_id?: string;
+        project_name?: string;
+        payment_method?: string;
+        bank_name?: string;
+        status?: string;
+    }): Promise<any> {
+        const response = await api.post("client-payments", payload);
+        return response.data;
+    },
+
+    /**
+     * Get Client Payment History
+     * GET /api/v1/client-payments/history
+     */
+    async getClientPaymentHistory(params?: any): Promise<any[]> {
+        try {
+            const response = await api.get("client-payments/history", { params });
+            const data = response.data;
+            return Array.isArray(data) ? data : data?.items || data?.data || data?.history || [];
+        } catch (err) {
+            console.error("Failed to fetch client payment history:", err);
+            return [];
+        }
+    },
+
+    /**
+     * List Client Payments
+     * GET /api/v1/client-payments
+     */
+    async listClientPayments(params?: any): Promise<any[]> {
+        try {
+            const response = await api.get("client-payments", { params });
+            const data = response.data;
+            return Array.isArray(data) ? data : data?.items || data?.data || data?.payments || [];
+        } catch (err) {
+            console.error("Failed to fetch client payments list:", err);
+            return [];
+        }
+    },
+
+    /**
+     * Get Payment Analytics
+     * GET /api/v1/client-payments/analytics
+     */
+    async getClientPaymentAnalytics(params?: any): Promise<any> {
+        try {
+            const response = await api.get("client-payments/analytics", { params });
+            return response.data;
+        } catch (err) {
+            console.error("Failed to fetch client payment analytics:", err);
+            return null;
+        }
+    },
+
+    /**
+     * Update Client Payment
+     * PUT /api/v1/client-payments/{payment_id}
+     */
+    async updateClientPayment(paymentId: string | number, payload: any): Promise<any> {
+        const response = await api.put(`client-payments/${paymentId}`, payload);
+        return response.data;
+    },
+
+    /**
+     * Delete Client Payment
+     * DELETE /api/v1/client-payments/{payment_id}
+     */
+    async deleteClientPayment(paymentId: string | number): Promise<any> {
+        const response = await api.delete(`client-payments/${paymentId}`);
+        return response.data;
+    },
+
+    /**
+     * Download Payment Receipt
+     * GET /api/v1/client-payments/{payment_id}/receipt
+     */
+    async downloadPaymentReceipt(paymentId: string | number): Promise<void> {
+        const response = await api.get(`client-payments/${paymentId}/receipt`, {
+            responseType: "blob",
+        });
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `Receipt_${paymentId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    },
 };
 
 export default paymentService;

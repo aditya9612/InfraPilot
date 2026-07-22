@@ -304,7 +304,7 @@ const AttendancePage: React.FC = () => {
 
                                 <div className="flex items-center gap-2 text-slate-400 mb-12">
                                     <MapPin className="w-4 h-4" />
-                                    <span className="text-xs font-bold italic">
+                                    <span className="text-xs font-bold">
                                         {statusData?.attendance?.check_in_address || liveLocation || "Locating..."}
                                     </span>
                                 </div>
