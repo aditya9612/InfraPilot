@@ -7,14 +7,40 @@ import Modal from "../common/Modal";
 import {
     Search, Send, Paperclip, MoreVertical, Smile, Pin, Check, X,
     User, Shield, Info, Archive, BellOff, CheckCheck, Users, Phone,
-    Plus, Trash2, RotateCcw, Edit2
+    Plus, Trash2, RotateCcw, Edit2, FileText
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import { getFullImageUrl } from "../../utils/imageUtils";
 import { formatToIST } from "../../utils/dateUtils";
+import { userService } from "../../services/userService";
 
-const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "🙏", "🔥"];
+const EMOJI_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+const saveAttachmentLocally = (msgId: number, attachments: any[]) => {
+    try {
+        const stored = JSON.parse(localStorage.getItem('chat_attachments') || '{}');
+        stored[msgId] = attachments;
+        localStorage.setItem('chat_attachments', JSON.stringify(stored));
+    } catch {}
+};
+
+const getLocalAttachments = (msgId: number) => {
+    try {
+        const stored = JSON.parse(localStorage.getItem('chat_attachments') || '{}');
+        return stored[msgId] || null;
+    } catch {
+        return null;
+    }
+};
+
+const removeLocalAttachment = (msgId: number) => {
+    try {
+        const stored = JSON.parse(localStorage.getItem('chat_attachments') || '{}');
+        delete stored[msgId];
+        localStorage.setItem('chat_attachments', JSON.stringify(stored));
+    } catch {}
+};
 
 const ChatView: React.FC = () => {
     const { activeChatId, conversations, setActiveChatId, updateConversation } = useChat();
@@ -24,7 +50,80 @@ const ChatView: React.FC = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [activeChatFetched, setActiveChatFetched] = useState<Conversation | null>(null);
 
-    // Derive activeChat by merging fetched details with context metadata (source of truth for status)
+    const handleOpenGroupInfo = async (chatToOpen: Conversation) => {
+        openProfile({
+            name: chatToOpen.name || "Group",
+            profile_image: chatToOpen.avatar_url,
+            role: `${chatToOpen.member_count || 0} members`,
+            isGroup: true,
+            members: (chatToOpen as any).members || [],
+            memberCount: chatToOpen.member_count || 0
+        });
+        setIsLoadingMembers(true);
+        try {
+            let membersRes: any = null;
+            try {
+                membersRes = await chatService.getGroupMembers(chatToOpen.id);
+            } catch (primaryErr) {
+                console.warn("[GroupFetch] Primary API failed", primaryErr);
+            }
+
+            let members: any[] = [];
+            if (membersRes) {
+                members = Array.isArray(membersRes) 
+                    ? membersRes 
+                    : (membersRes as any).members || (membersRes as any).data || (membersRes as any).items || (membersRes as any).group_members || [];
+            }
+
+            if (members.length === 0 && (chatToOpen as any).members && Array.isArray((chatToOpen as any).members)) members = (chatToOpen as any).members;
+            if (members.length === 0 && (chatToOpen as any).users && Array.isArray((chatToOpen as any).users)) members = (chatToOpen as any).users;
+            if (members.length === 0 && (chatToOpen as any).group_members && Array.isArray((chatToOpen as any).group_members)) members = (chatToOpen as any).group_members;
+            if (members.length === 0 && (chatToOpen as any).participants && Array.isArray((chatToOpen as any).participants)) members = (chatToOpen as any).participants;
+
+            if (members.length === 0) {
+                try {
+                    const mentionUsers = await chatService.getMentionUsers(chatToOpen.id);
+                    if (mentionUsers?.items && mentionUsers.items.length > 0) {
+                        members = mentionUsers.items.map(u => ({
+                            user_id: u.user_id,
+                            name: u.full_name || "Member",
+                            role: "member",
+                            profile_image: u.profile_image
+                        }));
+                    }
+                } catch (e) {
+                    console.warn("[GroupFetch] Mentions fallback failed:", e);
+                }
+            }
+
+            let userStates: any[] = [];
+            try {
+                userStates = await chatService.getUserStates(chatToOpen.id);
+            } catch (e) {
+                console.warn("[GroupFetch] Failed to fetch user states", e);
+            }
+
+            const mappedMembers = members.map((m: any) => {
+                const memberId = m.user_id || m.id || m.ID || 0;
+                const state = userStates.find((s: any) => s.user_id === memberId);
+                return {
+                    user_id: memberId,
+                    name: m.name || m.full_name || m.fullName || "User",
+                    role: m.role || "member",
+                    profile_image: m.profile_image || m.avatar_url,
+                    online: state?.online || false,
+                    last_seen: state?.last_seen || null
+                };
+            });
+
+            setSelectedProfile(prev => prev ? { ...prev, members: mappedMembers, memberCount: mappedMembers.length } : null);
+        } catch (error) {
+            console.error("Failed to load group members", error);
+        } finally {
+            setIsLoadingMembers(false);
+        }
+    };
+
     const activeChatFromContext = conversations.find(c => Number(c.id) === Number(activeChatId));
     const activeChat = activeChatFetched
         ? { ...activeChatFetched, ...activeChatFromContext }
@@ -37,13 +136,13 @@ const ChatView: React.FC = () => {
     const [showPinned, setShowPinned] = useState(false);
     const [pinnedMessages, setPinnedMessages] = useState<ChatMessage[]>([]);
     const [typingUsers, setTypingUsers] = useState<{ user_id: number; name: string }[]>([]);
+    const [activeUsers, setActiveUsers] = useState<number[]>([]);
     const [activeReactionMsgId, setActiveReactionMsgId] = useState<number | null>(null);
     const [isTyping, setIsTyping] = useState(false);
     const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    // User info panel
     type GroupMemberInfo = { user_id: number; name: string; role: "admin" | "member"; profile_image?: string | null; online?: boolean; last_seen?: string | null };
-    type UserProfile = { name: string; mobile?: string | null; role?: string; profile_image?: string | null; isGroup?: boolean; members?: GroupMemberInfo[]; memberCount?: number; };
+    type UserProfile = { id?: number; name: string; mobile?: string | null; role?: string; profile_image?: string | null; isGroup?: boolean; members?: GroupMemberInfo[]; memberCount?: number; };
     const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
     const [isLoadingMembers, setIsLoadingMembers] = useState(false);
     const openProfile = (profile: UserProfile) => setSelectedProfile(profile);
@@ -52,7 +151,6 @@ const ChatView: React.FC = () => {
     const [receiptMsgId, setReceiptMsgId] = useState<number | null>(null);
     const [isLoadingReceipts, setIsLoadingReceipts] = useState(false);
 
-    // Mentions state
     const [mentionUsers, setMentionUsers] = useState<{ user_id: number; full_name: string | null; profile_image: string | null }[]>([]);
     const [mentionSearch, setMentionSearch] = useState("");
     const [showMentions, setShowMentions] = useState(false);
@@ -60,7 +158,6 @@ const ChatView: React.FC = () => {
 
     const [userStatus, setUserStatus] = useState<{ online: boolean; last_seen: string | null } | null>(null);
 
-    // Add Member Modal State
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [availableUsers, setAvailableUsers] = useState<ChatUser[]>([]);
     const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
@@ -69,22 +166,18 @@ const ChatView: React.FC = () => {
     const [isForwarding, setIsForwarding] = useState(false);
     const [isAddingMembers, setIsAddingMembers] = useState(false);
 
-    // Remove Member Modal State
     const [isRemoveMemberModalOpen, setIsRemoveMemberModalOpen] = useState(false);
     const [selectedToRemoveIds, setSelectedToRemoveIds] = useState<number[]>([]);
     const [isRemovingMembers, setIsRemovingMembers] = useState(false);
 
-    // Edit Group State
     const [isEditingGroupName, setIsEditingGroupName] = useState(false);
     const [editGroupName, setEditGroupName] = useState("");
     const [isUpdatingGroup, setIsUpdatingGroup] = useState(false);
 
-    // Edit Message State
     const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
     const [editMessageContent, setEditMessageContent] = useState("");
     const [isSavingMessage, setIsSavingMessage] = useState(false);
 
-    // Delete Message Modal State
     const [messageToDelete, setMessageToDelete] = useState<number | null>(null);
     const [isDeletingMessage, setIsDeletingMessage] = useState(false);
 
@@ -94,7 +187,6 @@ const ChatView: React.FC = () => {
     const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Click outside more menu
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
@@ -113,7 +205,23 @@ const ChatView: React.FC = () => {
                 chatService.getMessages(activeChatId),
                 chatService.getChatInfo(activeChatId)
             ]);
-            setMessages(messagesData);
+            setMessages(prev => {
+                return messagesData.map(incoming => {
+                    const existing = prev.find(p => p.id === incoming.id);
+                    const localAtts = getLocalAttachments(incoming.id);
+                    const finalAttachments = incoming.attachments?.length ? incoming.attachments : (existing?.attachments?.length ? existing.attachments : localAtts);
+                    
+                    if (finalAttachments && finalAttachments.length > 0) {
+                        saveAttachmentLocally(incoming.id, finalAttachments);
+                    }
+
+                    return {
+                        ...incoming,
+                        attachments: finalAttachments,
+                        attachment_url: incoming.attachment_url || existing?.attachment_url || localAtts?.[0]?.file_url,
+                    };
+                });
+            });
             setActiveChatFetched(chatInfo);
             const otherUserId = chatInfo.other_user_id || activeChatFromContext?.other_user_id || conversations.find(c => c.id === activeChatId)?.other_user_id;
             
@@ -127,7 +235,6 @@ const ChatView: React.FC = () => {
                 setUserStatus(null);
             }
 
-            // Mark delivered
             messagesData
                 .filter(m => m.sender_id !== myUserId && m.status === "sent")
                 .forEach(m => chatService.markDelivered(m.id).catch(() => { }));
@@ -143,6 +250,7 @@ const ChatView: React.FC = () => {
         setIsDeletingMessage(true);
         try {
             await chatService.deleteMessage(messageToDelete);
+            removeLocalAttachment(messageToDelete);
             setMessages(prev => prev.filter(m => m.id !== messageToDelete));
             toast.success("Message deleted");
             setMessageToDelete(null);
@@ -191,10 +299,15 @@ const ChatView: React.FC = () => {
         if (!activeChatId) return;
         if (!confirm("Are you sure you want to remove this member?")) return;
         try {
-            await chatService.kickMember(activeChatId, userId);
+            await chatService.removeMember(activeChatId, userId);
             toast.success("Member removed");
-            // Refresh members by simulating click or re-fetching
-            document.getElementById('view-info-button')?.click();
+            
+            setSelectedProfile(prev => {
+                if (!prev || !prev.members) return prev;
+                const updatedMembers = prev.members.filter(m => m.user_id !== userId);
+                return { ...prev, members: updatedMembers, memberCount: updatedMembers.length };
+            });
+            setActiveChatFetched(prev => prev ? { ...prev, member_count: Math.max(0, (prev.member_count || 0) - 1) } : null);
         } catch {
             toast.error("Failed to remove member");
         }
@@ -206,7 +319,16 @@ const ChatView: React.FC = () => {
         try {
             await chatService.transferAdmin(activeChatId, userId);
             toast.success("Admin rights transferred");
-            document.getElementById('view-info-button')?.click();
+            
+            setSelectedProfile(prev => {
+                if (!prev || !prev.members) return prev;
+                const updatedMembers = prev.members.map(m => {
+                    if (m.user_id === userId) return { ...m, role: "admin" };
+                    if (m.user_id === myUserId) return { ...m, role: "member" };
+                    return m;
+                });
+                return { ...prev, members: updatedMembers };
+            });
         } catch {
             toast.error("Failed to transfer admin rights");
         }
@@ -224,20 +346,42 @@ const ChatView: React.FC = () => {
         }
     };
 
-    // Polling for new messages & typing
     useEffect(() => {
         if (activeChatId) {
             pollingRef.current = setInterval(async () => {
                 try {
                     const msgs = await chatService.getMessages(activeChatId);
-                    setMessages(msgs);
+                    setMessages(prev => {
+                        return msgs.map(incoming => {
+                            const existing = prev.find(p => p.id === incoming.id);
+                            const localAtts = getLocalAttachments(incoming.id);
+                            const finalAttachments = incoming.attachments?.length ? incoming.attachments : (existing?.attachments?.length ? existing.attachments : localAtts);
+                            
+                            if (finalAttachments && finalAttachments.length > 0) {
+                                saveAttachmentLocally(incoming.id, finalAttachments);
+                            }
+
+                            return {
+                                ...incoming,
+                                attachments: finalAttachments,
+                                attachment_url: incoming.attachment_url || existing?.attachment_url || localAtts?.[0]?.file_url,
+                            };
+                        });
+                    });
                     const typing = await chatService.getTypingUsers(activeChatId);
                     setTypingUsers(typing.users.filter(u => u.user_id !== myUserId));
-                } catch { /* silent */ }
+                    const activeRes = await chatService.getActiveUsers(activeChatId);
+                    setActiveUsers(activeRes.active_users.filter(id => id !== myUserId));
+                    
+                    if (activeChat?.type !== 'group' && activeChat?.other_user_id) {
+                        const status = await chatService.getUserStatus(activeChat.other_user_id);
+                        setUserStatus(status);
+                    }
+                } catch { }
             }, 5000);
         }
         return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-    }, [activeChatId, myUserId]);
+    }, [activeChatId, myUserId, activeChat]);
 
     useEffect(() => { fetchChatData(); }, [fetchChatData]);
 
@@ -248,7 +392,6 @@ const ChatView: React.FC = () => {
     const handleInputChange = (val: string) => {
         setInputText(val);
 
-        // Mention detection
         const lastWord = val.split(" ").pop() || "";
 
         if (lastWord.startsWith("@")) {
@@ -273,12 +416,12 @@ const ChatView: React.FC = () => {
         typingTimerRef.current = setTimeout(() => {
             setIsTyping(false);
             chatService.setTyping(activeChatId, false).catch(() => { });
-        }, 2000);
+        }, 6000);
     };
 
     const handleMentionSelect = (user: { user_id: number; full_name: string | null }) => {
         const words = inputText.split(" ");
-        words.pop(); // Remove the partial @mention
+        words.pop();
         const newText = [...words, `@${user.full_name}`, ""].join(" ");
         setInputText(newText);
         setMentionedUserIds(prev => Array.from(new Set([...prev, user.user_id])));
@@ -301,10 +444,11 @@ const ChatView: React.FC = () => {
         try {
             let attachment_id = null;
             let attachment_url = null;
+            let uploadRes: any = null;
 
             if (fileToUpload) {
                 toast.loading("Uploading file...", { id: "uploading", position: "top-right" });
-                const uploadRes = await chatService.uploadChatFile(fileToUpload);
+                uploadRes = await chatService.uploadChatFile(fileToUpload);
                 attachment_id = uploadRes.attachment_id;
                 attachment_url = uploadRes.file_url;
                 toast.dismiss("uploading");
@@ -317,6 +461,20 @@ const ChatView: React.FC = () => {
                 attachment_url,
                 mention_user_ids: mentionedUserIds
             });
+            
+            if (uploadRes && (!response.attachments || response.attachments.length === 0)) {
+                const newAttachments = [{
+                    id: uploadRes.attachment_id,
+                    file_url: uploadRes.file_url,
+                    file_name: uploadRes.file_name || uploadRes.file_url.split('/').pop() || "Attached File",
+                    file_type: uploadRes.file_type || "",
+                    file_size: uploadRes.file_size || 0,
+                    uploaded_by: response.sender_id
+                }];
+                response.attachments = newAttachments;
+                saveAttachmentLocally(response.id, newAttachments);
+            }
+
             setMentionedUserIds([]);
             setMessages(prev => [...prev, response]);
         } catch {
@@ -330,7 +488,7 @@ const ChatView: React.FC = () => {
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            if (file.size > 10 * 1024 * 1024) {
                 toast.error("File size exceeds 10MB", { position: "top-right" });
                 return;
             }
@@ -344,7 +502,7 @@ const ChatView: React.FC = () => {
             await chatService.reactToMessage(msgId, reaction);
             const msgs = await chatService.getMessages(activeChatId!);
             setMessages(msgs);
-        } catch { /* silent */ }
+        } catch { }
     };
 
     const handlePin = async (msg: ChatMessage) => {
@@ -355,8 +513,10 @@ const ChatView: React.FC = () => {
                 toast.success("Message unpinned");
             } else {
                 await chatService.pinMessage(msg.id);
+                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: true } : m));
                 const pins = await chatService.getPinnedMessages(activeChatId!);
                 setPinnedMessages(pins);
+                toast.success("Message pinned");
             }
         } catch { toast.error("Operation failed", { position: "top-right" }); }
     };
@@ -397,8 +557,8 @@ const ChatView: React.FC = () => {
                 onClick={handleShowReceipts}
                 className="hover:scale-110 transition-transform cursor-pointer flex items-center relative"
             >
-                {status === "read" ? <CheckCheck className="w-3 h-3 text-blue-400" /> :
-                    status === "delivered" ? <CheckCheck className="w-3 h-3 text-slate-400" /> :
+                {(status === "read" || msg.is_read) ? <CheckCheck className="w-3 h-3 text-blue-400" /> :
+                    (status === "delivered" || msg.is_delivered) ? <CheckCheck className="w-3 h-3 text-slate-400" /> :
                         <Check className="w-3 h-3 text-slate-300" />}
 
                 <AnimatePresence>
@@ -456,20 +616,10 @@ const ChatView: React.FC = () => {
                     onClick={() => {
                         if (activeChat) {
                             if (activeChat.type === "group") {
-                                // Trigger the "View Information" fetch logic for groups
-                                const viewInfoBtn = document.getElementById('view-info-button');
-                                if (viewInfoBtn) {
-                                    viewInfoBtn.click();
-                                } else {
-                                    // Fallback if button id not found
-                                    openProfile({
-                                        name: activeChat.name || "Group",
-                                        profile_image: activeChat.avatar_url,
-                                        isGroup: true,
-                                    });
-                                }
+                                handleOpenGroupInfo(activeChat as Conversation);
                             } else {
                                 openProfile({
+                                    id: Number(activeChat.other_user_id),
                                     name: activeChat.other_user_name || conversations.find(c => c.id === activeChatId)?.other_user_name || "Unknown",
                                     profile_image: activeChat.other_user_avatar || activeChat.avatar_url || conversations.find(c => c.id === activeChatId)?.other_user_avatar,
                                 });
@@ -500,38 +650,41 @@ const ChatView: React.FC = () => {
                             )}
                         </div>
                         {typingUsers.length > 0 ? (
-                            <p className="text-[10px] font-black text-amber-500 flex items-center gap-1">
-                                <span className="flex gap-0.5">
-                                    {[0, 1, 2].map(i => <span key={i} className="w-1 h-1 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />)}
-                                </span>
-                                {typingUsers[0].name} is typing...
+                            <p className="text-[12px] font-semibold text-[#00a884] flex items-center gap-1">
+                                {activeChat?.type === 'group' ? `${typingUsers[0].name} is typing...` : 'typing...'}
                             </p>
                         ) : activeChat?.type === 'group' ? (
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                                {activeChat?.member_count || 0} Members
-                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                    {activeChat?.member_count || 0} Members
+                                </p>
+                                {activeUsers.length > 0 && (
+                                    <span className="text-[10px] font-black text-[#00a884] flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse" />
+                                        {activeUsers.length} Active
+                                    </span>
+                                )}
+                            </div>
                         ) : userStatus ? (
-                            <p className="text-[10px] font-bold flex items-center gap-1 mt-0.5">
+                            <p className="text-[12px] font-medium flex items-center gap-1 mt-0.5">
                                 {userStatus.online ? (
-                                    <span className="text-emerald-500">online</span>
+                                    <span className="text-slate-500 font-medium">online</span>
                                 ) : (
                                     <span className="text-slate-500 font-medium lowercase">
-                                        last seen {
-                                            userStatus.last_seen ? (() => {
-                                                const d = new Date(userStatus.last_seen);
-                                                const now = new Date();
-                                                const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-                                                
-                                                const yesterday = new Date();
-                                                yesterday.setDate(yesterday.getDate() - 1);
-                                                const isYesterday = d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth() && d.getFullYear() === yesterday.getFullYear();
-                                                
-                                                const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                                if (isToday) return `today at ${time}`;
-                                                if (isYesterday) return `yesterday at ${time}`;
-                                                return `${d.toLocaleDateString()} at ${time}`;
-                                            })() : 'offline'
-                                        }
+                                        {userStatus.last_seen ? `last seen ${(() => {
+                                            const d = new Date(userStatus.last_seen);
+                                            const now = new Date();
+                                            const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                                            
+                                            const yesterday = new Date();
+                                            yesterday.setDate(yesterday.getDate() - 1);
+                                            const isYesterday = d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth() && d.getFullYear() === yesterday.getFullYear();
+                                            
+                                            const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                            if (isToday) return `today at ${time}`;
+                                            if (isYesterday) return `yesterday at ${time}`;
+                                            return `${d.toLocaleDateString()} at ${time}`;
+                                        })()}` : 'offline'}
                                     </span>
                                 )}
                             </p>
@@ -585,104 +738,10 @@ const ChatView: React.FC = () => {
                                             setShowMoreMenu(false);
                                             if (activeChat) {
                                                 if (activeChat.type === "group") {
-                                                    // Show group info with members
-                                                    openProfile({
-                                                        name: activeChat.name || "Group",
-                                                        profile_image: activeChat.avatar_url,
-                                                        role: `${activeChat.member_count || 0} members`,
-                                                        isGroup: true,
-                                                        members: (activeChat as any).members || [],
-                                                        memberCount: activeChat.member_count || 0
-                                                    });
-                                                    setIsLoadingMembers(true);
-                                                    try {
-                                                        let membersRes: any = null;
-                                                        try {
-                                                            membersRes = await chatService.getGroupMembers(activeChat.id);
-                                                            console.log(`[GroupFetch] Primary API Response for ${activeChat.id}:`, membersRes);
-                                                        } catch (primaryErr) {
-                                                            console.warn("[GroupFetch] Primary API failed, trying fallbacks", primaryErr);
-                                                        }
-
-                                                        let members: any[] = [];
-                                                        if (membersRes) {
-                                                            members = Array.isArray(membersRes) 
-                                                                ? membersRes 
-                                                                : (membersRes as any).members || (membersRes as any).data || (membersRes as any).items || (membersRes as any).group_members || [];
-                                                        }
-
-                                                        // Fallback 2: Check activeChat object itself
-                                                        if (members.length === 0 && (activeChat as any).members && Array.isArray((activeChat as any).members)) {
-                                                            console.log("[GroupFetch] Fallback 2: Using activeChat.members");
-                                                            members = (activeChat as any).members;
-                                                        }
-                                                        if (members.length === 0 && (activeChat as any).users && Array.isArray((activeChat as any).users)) {
-                                                            members = (activeChat as any).users;
-                                                        }
-                                                        if (members.length === 0 && (activeChat as any).group_members && Array.isArray((activeChat as any).group_members)) {
-                                                            members = (activeChat as any).group_members;
-                                                        }
-                                                        if (members.length === 0 && (activeChat as any).participants && Array.isArray((activeChat as any).participants)) {
-                                                            members = (activeChat as any).participants;
-                                                        }
-
-                                                        // Fallback 3: Try getMentionUsers (often contains all chat participants)
-                                                        if (members.length === 0) {
-                                                            console.log("[GroupFetch] Fallback 3: Attempting getMentionUsers...");
-                                                            try {
-                                                                const mentionUsers = await chatService.getMentionUsers(activeChat.id);
-                                                                if (mentionUsers?.items && mentionUsers.items.length > 0) {
-                                                                    members = mentionUsers.items.map(u => ({
-                                                                        user_id: u.user_id,
-                                                                        name: u.full_name || "Member",
-                                                                        role: "member",
-                                                                        profile_image: u.profile_image
-                                                                    }));
-                                                                }
-                                                            } catch (e) {
-                                                                console.warn("[GroupFetch] Mentions fallback failed:", e);
-                                                            }
-                                                        }
-
-                                                        // Fetch User States (Online/Offline)
-                                                        let userStates: any[] = [];
-                                                        try {
-                                                            userStates = await chatService.getUserStates(activeChat.id);
-                                                        } catch (e) {
-                                                            console.warn("[GroupFetch] Failed to fetch user states", e);
-                                                        }
-
-                                                        const mappedMembers = members.map((m: any) => {
-                                                            const memberId = m.user_id || m.id || m.ID || 0;
-                                                            const state = userStates.find((s: any) => s.user_id === memberId);
-                                                            return {
-                                                                user_id: memberId,
-                                                                name: m.name || m.full_name || m.fullName || "User",
-                                                                role: m.role || "member",
-                                                                profile_image: m.profile_image || m.avatar_url,
-                                                                online: state?.online || false,
-                                                                last_seen: state?.last_seen || null
-                                                            };
-                                                        });
-
-                                                        console.log("[GroupFetch] Final Result:", mappedMembers);
-
-                                                        setSelectedProfile(prev => {
-                                                            if (!prev) return null;
-                                                            return {
-                                                                ...prev,
-                                                                members: mappedMembers,
-                                                                memberCount: mappedMembers.length > 0 ? mappedMembers.length : (activeChat.member_count || 0)
-                                                            };
-                                                        });
-                                                    } catch (err) {
-                                                        console.error("[GroupFetch] All paths failed:", err);
-                                                        setSelectedProfile(prev => prev ? { ...prev, memberCount: activeChat.member_count || 0 } : null);
-                                                    } finally {
-                                                        setIsLoadingMembers(false);
-                                                    }
+                                                    handleOpenGroupInfo(activeChat as Conversation);
                                                 } else {
                                                     openProfile({
+                                                        id: Number(activeChat.other_user_id),
                                                         name: activeChat.other_user_name || "Unknown",
                                                         profile_image: activeChat.other_user_avatar,
                                                         role: "Private Chat",
@@ -702,20 +761,16 @@ const ChatView: React.FC = () => {
                                             setShowMoreMenu(false);
                                             if (activeChat) {
                                                 try {
-                                                    // Source of truth for current status is our merged activeChat (from context)
                                                     const currentStatus = !!(activeChat.is_archived || (activeChat as any).archived || (activeChat as any).isArchived);
                                                     const targetStatus = !currentStatus;
 
-                                                    // 1. Instantly update context (Source of Truth for Sidebar/Header)
                                                     updateConversation(activeChatId!, {
                                                         is_archived: targetStatus,
                                                         archived: targetStatus
                                                     } as any);
 
-                                                    // 2. Call API in background
                                                     await chatService.archiveChat(activeChatId!, targetStatus);
 
-                                                    // 3. Clear active view if archiving
                                                     if (targetStatus) {
                                                         setActiveChatId(null);
                                                     }
@@ -740,13 +795,11 @@ const ChatView: React.FC = () => {
                                                     const currentMuted = !!(activeChat.is_muted || (activeChat as any).muted || (activeChat as any).isMuted);
                                                     const targetMuted = !currentMuted;
 
-                                                    // 1. Instantly update context
                                                     updateConversation(activeChatId!, {
                                                         is_muted: targetMuted,
                                                         muted: targetMuted
                                                     } as any);
 
-                                                    // 2. Call API
                                                     await chatService.muteChat(activeChatId!, targetMuted);
 
                                                     toast.success(targetMuted ? "Notifications muted" : "Notifications enabled", { position: "top-right", icon: targetMuted ? "🔇" : "🔔" });
@@ -770,12 +823,8 @@ const ChatView: React.FC = () => {
                                             if (activeChat) {
                                                 try {
                                                     const targetPin = !activeChat.is_pinned;
-                                                    // Instant UI update
                                                     updateConversation(activeChatId!, { is_pinned: targetPin });
 
-                                                    // In a real scenario, we might have a specific /chats/{id}/pin endpoint
-                                                    // But for now, we use the message pin as a proxy or assume context handles it.
-                                                    // The user mentioned "Chat Member: is_pinned" - so it's a member property.
                                                     if (targetPin) await chatService.pinChat(activeChatId!);
                                                     else await chatService.unpinChat(activeChatId!);
 
@@ -847,7 +896,6 @@ const ChatView: React.FC = () => {
                 </div>
             </div>
 
-            {/* ── Search Bar ── */}
             <AnimatePresence>
                 {showSearch && (
                     <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden border-b border-slate-50 bg-white px-6 py-3">
@@ -862,7 +910,6 @@ const ChatView: React.FC = () => {
                 )}
             </AnimatePresence>
 
-            {/* ── Pinned Messages Panel ── */}
             <AnimatePresence>
                 {showPinned && pinnedMessages.length > 0 && (
                     <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden border-b border-slate-100 bg-amber-50 px-6 py-3">
@@ -886,7 +933,6 @@ const ChatView: React.FC = () => {
                 )}
             </AnimatePresence>
 
-            {/* ── Messages ── */}
             <div
                 className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 bg-slate-50/30"
                 style={{
@@ -911,7 +957,6 @@ const ChatView: React.FC = () => {
 
                             return (
                                 <div key={msg.id} className={`flex items-end gap-3 group relative ${isMine ? "flex-row-reverse" : "flex-row"}`}>
-                                    {/* Avatar */}
                                     {!isMine && (
                                         <div
                                             onClick={() => openProfile({ name: msg.sender?.name || "Unknown", profile_image: msg.sender?.profile_image })}
@@ -925,7 +970,6 @@ const ChatView: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {/* My avatar on right side */}
                                     {isMine && showAvatar && (
                                         <div
                                             onClick={() => openProfile({ name: user?.name || "Me", mobile: user?.mobile, role: user?.role, profile_image: user?.profile_image })}
@@ -939,21 +983,17 @@ const ChatView: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {/* Bubble + reactions */}
                                     <div className={`flex flex-col gap-1 max-w-[70%] relative ${isMine ? "items-end" : "items-start"}`}>
-                                        {/* Sender name */}
                                         {!isMine && showAvatar && (
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider px-1">{msg.sender?.name || "Unknown"}</span>
                                         )}
 
-                                        {/* Reply preview */}
                                         {msg.parent && (
                                             <div className={`px-3 py-1.5 rounded-xl text-[10px] font-semibold border-l-2 ${isMine ? "bg-white/20 border-white/60 text-white/80" : "bg-slate-200/70 border-primary text-slate-500"}`}>
                                                 ↩ {msg.parent.message}
                                             </div>
                                         )}
 
-                                        {/* Reaction picker */}
                                         <AnimatePresence>
                                             {reacting && (
                                                 <motion.div
@@ -969,7 +1009,6 @@ const ChatView: React.FC = () => {
                                             )}
                                         </AnimatePresence>
 
-                                        {/* Message Bubble */}
                                         <div className={`px-5 py-3.5 rounded-3xl text-sm font-semibold leading-relaxed shadow-sm relative ${isMine ? "bg-primary text-white rounded-tr-none shadow-primary/20" : "bg-white border border-slate-100 text-slate-800 rounded-tl-none"}`}>
                                             {msg.is_pinned && (
                                                 <span className={`flex items-center gap-1 text-[9px] font-black uppercase mb-1 ${isMine ? "text-white/60" : "text-amber-500"}`}>
@@ -996,15 +1035,75 @@ const ChatView: React.FC = () => {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                msg.message.split(/(@[^\s]+)/g).map((part, i) =>
-                                                    part.startsWith("@") ? (
-                                                        <span key={i} className={isMine ? "text-amber-200 font-bold" : "text-primary font-bold"}>{part}</span>
-                                                    ) : part
-                                                )
+                                                <div className="flex flex-col">
+                                                    {(() => {
+                                                        const attachment = msg.attachments?.[0];
+                                                        const fileUrl = attachment?.file_url || msg.attachment_url;
+                                                        const fileName = attachment?.file_name || fileUrl?.split('/').pop()?.split('?')[0] || "Attached File";
+                                                        const fileType = attachment?.file_type || fileUrl?.split('.').pop() || "";
+                                                        const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(fileUrl || "") || fileType.startsWith("image/");
+                                                        const isPdf = fileType.includes("pdf") || fileName.toLowerCase().endsWith(".pdf");
+                                                        const extension = fileType.includes("pdf") || isPdf ? "PDF" : fileName.split('.').pop()?.toUpperCase() || "FILE";
+
+                                                        if (!fileUrl) return null;
+
+                                                        return (
+                                                            <div className="mb-1">
+                                                                {isImage ? (
+                                                                    <a href={chatService.resolveUrl(fileUrl) || "#"} target="_blank" rel="noreferrer">
+                                                                        <img src={chatService.resolveUrl(fileUrl) || ""} alt="Attachment" className="max-w-full sm:max-w-[260px] rounded-xl object-cover" />
+                                                                    </a>
+                                                                ) : (
+                                                                    <div>
+                                                                        <div className={`flex items-center gap-4 p-3 rounded-xl mb-1 ${isMine ? "bg-white/10" : "bg-slate-100/50"} transition-colors`}>
+                                                                            <div className={`w-10 h-12 rounded flex items-center justify-center text-white font-black text-[10px] uppercase shadow-sm ${isPdf ? 'bg-rose-500' : 'bg-primary'}`}>
+                                                                                {extension}
+                                                                            </div>
+                                                                            <div className="flex flex-col overflow-hidden">
+                                                                                <span className="text-sm text-slate-800 font-medium truncate max-w-[180px]">{fileName}</span>
+                                                                                <span className="text-xs opacity-60">{extension} • {attachment?.file_size ? Math.round(attachment.file_size / 1024) + ' kB' : 'File'}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                    
+                                                    {msg.message ? (
+                                                        <div className="text-[15px] leading-relaxed px-1">
+                                                            {msg.message.split(/(@[^\s]+)/g).map((part, i) =>
+                                                                part.startsWith("@") ? (
+                                                                    <span key={i} className={isMine ? "text-white font-bold" : "text-primary font-bold"}>{part}</span>
+                                                                ) : part
+                                                            )}
+                                                        </div>
+                                                    ) : null}
+
+                                                    {(() => {
+                                                        const attachment = msg.attachments?.[0];
+                                                        const fileUrl = attachment?.file_url || msg.attachment_url;
+                                                        const fileType = attachment?.file_type || fileUrl?.split('.').pop() || "";
+                                                        const isImage = /\.(jpeg|jpg|gif|png|webp|svg)$/i.test(fileUrl || "") || fileType.startsWith("image/");
+                                                        
+                                                        if (fileUrl && !isImage) {
+                                                            return (
+                                                                <div className="flex items-center gap-6 pt-3 mt-1 border-t border-slate-200/50 px-1 pb-1">
+                                                                    <a href={chatService.resolveUrl(fileUrl) || "#"} target="_blank" rel="noreferrer" className="text-sm font-semibold text-[#00a884] hover:underline">
+                                                                        View
+                                                                    </a>
+                                                                    <a href={chatService.resolveUrl(fileUrl) || "#"} download target="_blank" rel="noreferrer" className="text-sm font-semibold text-[#00a884] hover:underline">
+                                                                        Save as...
+                                                                    </a>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                </div>
                                             )}
                                         </div>
 
-                                        {/* Reaction bubbles */}
                                         {msg.reactions?.length > 0 && (
                                             <div className={`flex gap-1 flex-wrap ${isMine ? "justify-end" : "justify-start"}`}>
                                                 {msg.reactions?.slice(0, 6).map((r, i) => (
@@ -1013,7 +1112,6 @@ const ChatView: React.FC = () => {
                                             </div>
                                         )}
 
-                                        {/* Timestamp + status */}
                                         <div className={`flex items-center gap-1.5 px-1 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
                                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-tight">
                                                 {formatToIST(msg.created_at)}
@@ -1022,7 +1120,6 @@ const ChatView: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    {/* Hover actions */}
                                     <div className={`opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 items-center ${isMine ? "flex-row-reverse" : "flex-row"}`}>
                                         <button onClick={() => setActiveReactionMsgId(reacting ? null : msg.id)} className="p-1.5 text-slate-300 hover:text-slate-500 hover:bg-white rounded-lg transition-all" title="React">
                                             <Smile className="w-3.5 h-3.5" />
@@ -1031,9 +1128,11 @@ const ChatView: React.FC = () => {
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-forward"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></svg>
                                         </button>
                                         <button onClick={() => setReplyTo(msg)} className="p-1.5 text-slate-300 hover:text-slate-500 hover:bg-white rounded-lg transition-all text-xs" title="Reply">↩</button>
-                                        <button onClick={() => handlePin(msg)} className={`p-1.5 hover:bg-white rounded-lg transition-all ${msg.is_pinned ? "text-amber-500" : "text-slate-300 hover:text-amber-500"}`} title="Pin Message">
-                                            <Pin className="w-3.5 h-3.5" />
-                                        </button>
+                                        {activeChat?.type !== "group" && (
+                                            <button onClick={() => handlePin(msg)} className={`p-1.5 hover:bg-white rounded-lg transition-all ${msg.is_pinned ? "text-amber-500" : "text-slate-300 hover:text-amber-500"}`} title="Pin Message">
+                                                <Pin className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                         {isMine && (
                                             <>
                                                 <button onClick={() => { setEditMessageContent(msg.message); setEditingMessageId(msg.id); }} className="p-1.5 text-slate-300 hover:text-primary hover:bg-white rounded-lg transition-all" title="Edit Message">
@@ -1049,10 +1148,27 @@ const ChatView: React.FC = () => {
                             );
                         })
                 )}
+
+                {/* WhatsApp Style Typing Bubble */}
+                {typingUsers.length > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-3 flex-row mb-4">
+                        {activeChat?.type === 'group' && (
+                            <div className="w-8 h-8 rounded-full flex flex-shrink-0 items-center justify-center text-[10px] font-black text-white shadow-sm overflow-hidden bg-slate-300">
+                                {typingUsers[0].name.charAt(0).toUpperCase()}
+                            </div>
+                        )}
+                        <div className="bg-white border border-slate-100 text-slate-800 rounded-2xl rounded-tl-none px-4 py-3 shadow-sm flex items-center h-[38px]">
+                            <div className="flex gap-1.5 items-center">
+                                <motion.span animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="w-1.5 h-1.5 bg-[#00a884] rounded-full" />
+                                <motion.span animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="w-1.5 h-1.5 bg-[#00a884] rounded-full" />
+                                <motion.span animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="w-1.5 h-1.5 bg-[#00a884] rounded-full" />
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* ── Reply Preview ── */}
             <AnimatePresence>
                 {replyTo && (
                     <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }}
@@ -1084,7 +1200,6 @@ const ChatView: React.FC = () => {
                 )}
             </AnimatePresence>
 
-            {/* ── Mention Picker ── */}
             <AnimatePresence>
                 {showMentions && mentionUsers.length > 0 && (
                     <motion.div
@@ -1118,7 +1233,65 @@ const ChatView: React.FC = () => {
                 )}
             </AnimatePresence>
 
-            {/* ── Input ── */}
+            {selectedFile && (
+                <div className="absolute inset-0 bg-slate-50/95 z-50 flex flex-col backdrop-blur-sm">
+                    <div className="flex items-center px-6 py-4 border-b border-slate-200 bg-white">
+                        <button onClick={() => setSelectedFile(null)} className="text-slate-500 hover:text-slate-800 transition-colors p-2">
+                            <X className="w-6 h-6" />
+                        </button>
+                        <h2 className="text-slate-800 text-base font-bold mx-auto truncate max-w-[50%]">{selectedFile.name}</h2>
+                        <div className="w-10"></div>
+                    </div>
+
+                    <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
+                         {selectedFile.type.startsWith("image/") ? (
+                             <img src={URL.createObjectURL(selectedFile)} alt="Preview" className="max-w-full max-h-full object-contain rounded-2xl shadow-lg border border-slate-200" />
+                         ) : (
+                             <div className="bg-white p-10 rounded-2xl flex flex-col items-center justify-center min-w-[320px] shadow-xl border border-slate-100">
+                                 <div className="w-20 h-24 bg-slate-50 rounded-md mb-6 shadow-sm border border-slate-200 flex items-center justify-center">
+                                     <FileText className="w-10 h-10 text-slate-400" />
+                                 </div>
+                                 <p className="text-slate-800 text-lg font-bold mb-1">No preview available</p>
+                                 <p className="text-slate-500 text-sm font-medium">
+                                     {Math.round(selectedFile.size / 1024)} kB - {selectedFile.name.split('.').pop()?.toUpperCase()}
+                                 </p>
+                             </div>
+                         )}
+                    </div>
+
+                    <div className="p-6 flex flex-col items-center gap-6 bg-white border-t border-slate-200 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
+                        <div className="w-full max-w-3xl bg-slate-50 border border-slate-200 rounded-xl px-5 py-4 flex items-center gap-4 focus-within:ring-2 focus-within:border-primary ring-primary/10 transition-all">
+                            <Smile className="w-6 h-6 text-slate-400 shrink-0" />
+                            <input 
+                                type="text"
+                                placeholder="Type a message..."
+                                value={inputText}
+                                onChange={(e) => handleInputChange(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                                autoFocus
+                                className="flex-1 bg-transparent text-slate-800 font-medium text-[15px] outline-none placeholder:text-slate-400"
+                            />
+                        </div>
+                        
+                        <div className="w-full max-w-3xl flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-14 h-14 bg-slate-50 rounded-lg flex flex-col items-center justify-center border-2 border-primary overflow-hidden shadow-sm">
+                                    <div className="w-6 h-8 bg-rose-500 rounded-sm flex items-center justify-center text-white text-[8px] font-black uppercase shadow-sm">
+                                        PDF
+                                    </div>
+                                </div>
+                                <button onClick={() => fileInputRef.current?.click()} className="w-14 h-14 flex items-center justify-center border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors shadow-sm">
+                                    <Plus className="w-6 h-6" />
+                                </button>
+                            </div>
+                            <button onClick={handleSend} disabled={!inputText.trim() && !selectedFile} className="w-14 h-14 rounded-full bg-primary flex items-center justify-center text-white hover:bg-primary/90 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-lg shadow-primary/30">
+                                <Send className="w-6 h-6 ml-1" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="p-5 bg-white border-t border-slate-50">
                 <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3.5 focus-within:border-primary focus-within:bg-white focus-within:shadow-lg focus-within:shadow-primary/5 transition-all">
                     <input
@@ -1147,7 +1320,7 @@ const ChatView: React.FC = () => {
                         </button>
                         <button
                             onClick={handleSend}
-                            disabled={!inputText.trim()}
+                            disabled={!inputText.trim() && !selectedFile}
                             className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-md shadow-primary/25 hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:scale-100"
                         >
                             <Send className="w-4 h-4" />
@@ -1155,11 +1328,9 @@ const ChatView: React.FC = () => {
                     </div>
                 </div>
             </div>
-            {/* ── User / Group Info Panel ── */}
             <AnimatePresence>
                 {selectedProfile && (
                     <>
-                        {/* Backdrop */}
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -1167,7 +1338,6 @@ const ChatView: React.FC = () => {
                             onClick={() => setSelectedProfile(null)}
                             className="absolute inset-0 bg-black/20 z-40"
                         />
-                        {/* Panel */}
                         <motion.div
                             initial={{ x: "100%" }}
                             animate={{ x: 0 }}
@@ -1175,7 +1345,6 @@ const ChatView: React.FC = () => {
                             transition={{ type: "spring", damping: 28, stiffness: 300 }}
                             className="absolute right-0 top-0 h-full w-80 bg-white shadow-2xl z-50 flex flex-col"
                         >
-                            {/* Panel Header */}
                             <div className="bg-primary px-4 pt-10 pb-6 flex flex-col items-center relative">
                                 <button
                                     onClick={() => setSelectedProfile(null)}
@@ -1187,14 +1356,63 @@ const ChatView: React.FC = () => {
                                     {selectedProfile.isGroup ? "Group Info" : "Profile Info"}
                                 </span>
 
-                                {/* Avatar */}
-                                <div className="w-24 h-24 rounded-3xl overflow-hidden bg-white/20 flex items-center justify-center text-4xl font-black text-white shadow-xl border-4 border-white/30 mb-3">
+                                <div className="relative w-24 h-24 rounded-3xl overflow-hidden bg-white/20 flex items-center justify-center text-4xl font-black text-white shadow-xl border-4 border-white/30 mb-3 group">
                                     {selectedProfile.profile_image ? (
                                         <img src={getFullImageUrl(selectedProfile.profile_image)} alt="Profile" className="w-full h-full object-cover" />
                                     ) : selectedProfile.isGroup ? (
                                         <Users className="w-12 h-12 text-white/80" />
                                     ) : (
                                         <span>{(selectedProfile.name || "?").charAt(0).toUpperCase()}</span>
+                                    )}
+
+                                    {!selectedProfile.isGroup && selectedProfile.id === Number(user?.id) && (
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <input 
+                                                type="file" 
+                                                id="profile-pic-upload"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={async (e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (!file || !user?.id) return;
+                                                    try {
+                                                        const toastId = toast.loading("Uploading profile picture...");
+                                                        const res = await userService.updateUser(Number(user.id), { profile_image: file } as any);
+                                                        toast.success("Profile picture updated", { id: toastId });
+                                                        setSelectedProfile(prev => prev ? { ...prev, profile_image: res?.user?.profile_image || res?.profile_image } : null);
+                                                    } catch {
+                                                        toast.error("Failed to upload image");
+                                                    }
+                                                }}
+                                            />
+                                            <label 
+                                                htmlFor="profile-pic-upload"
+                                                className="w-8 h-8 rounded-full bg-white/20 hover:bg-primary text-white flex items-center justify-center cursor-pointer transition-colors"
+                                                title="Upload Picture"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                            </label>
+                                            
+                                            {selectedProfile.profile_image && (
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!user?.id) return;
+                                                        try {
+                                                            const toastId = toast.loading("Removing profile picture...");
+                                                            await userService.updateUser(Number(user.id), { profile_image: '' } as any);
+                                                            toast.success("Profile picture removed", { id: toastId });
+                                                            setSelectedProfile(prev => prev ? { ...prev, profile_image: null } : null);
+                                                        } catch {
+                                                            toast.error("Failed to remove image");
+                                                        }
+                                                    }}
+                                                    className="w-8 h-8 rounded-full bg-white/20 hover:bg-rose-500 text-white flex items-center justify-center transition-colors"
+                                                    title="Remove Picture"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                                 {selectedProfile.isGroup && isEditingGroupName ? (
@@ -1323,21 +1541,28 @@ const ChatView: React.FC = () => {
                                                 <Users className="w-3.5 h-3.5" /> Members
                                             </p>
                                             <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedToRemoveIds([]);
-                                                        setIsRemoveMemberModalOpen(true);
-                                                    }}
-                                                    className="text-rose-500 hover:bg-rose-50 p-1 rounded-md transition-colors"
-                                                    title="Remove Members"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                </button>
+                                                {selectedProfile?.members?.find(m => m.user_id === myUserId)?.role === "admin" && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedToRemoveIds([]);
+                                                            setIsRemoveMemberModalOpen(true);
+                                                        }}
+                                                        className="text-rose-500 hover:bg-rose-50 p-1 rounded-md transition-colors"
+                                                        title="Remove Members"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={async () => {
                                                         if (!activeChatId) return;
+                                                        const me = selectedProfile.members?.find(m => m.user_id === myUserId);
+                                                        if (me?.role !== "admin") {
+                                                            toast.error("Only admin can add members");
+                                                            return;
+                                                        }
                                                         try {
-                                                            const users = await chatService.getChatUsers();
+                                                            const users = await chatService.getAllSystemUsers();
                                                             const existingIds = selectedProfile.members?.map(m => m.user_id) || [];
                                                             const available = users.filter(u => {
                                                                 const uId = Number(u.id);
@@ -1403,7 +1628,7 @@ const ChatView: React.FC = () => {
                                                             </span>
                                                         )}
                                                         <div className="flex items-center gap-1 shrink-0 ml-1">
-                                                            {member.user_id !== myUserId && (
+                                                            {member.user_id !== myUserId && selectedProfile?.members?.find(m => m.user_id === myUserId)?.role === "admin" && (
                                                                 <>
                                                                     <button
                                                                         onClick={() => handleTransferAdmin(member.user_id)}
@@ -1584,7 +1809,15 @@ const ChatView: React.FC = () => {
                                     await chatService.removeMultipleMembers(activeChatId, selectedToRemoveIds);
                                     toast.success("Members removed!");
                                     setIsRemoveMemberModalOpen(false);
-                                    document.getElementById('view-info-button')?.click(); // Refresh info
+                                    
+                                    // Update local state directly instead of requiring refresh
+                                    setSelectedProfile(prev => {
+                                        if (!prev || !prev.members) return prev;
+                                        const updatedMembers = prev.members.filter(m => !selectedToRemoveIds.includes(m.user_id));
+                                        return { ...prev, members: updatedMembers, memberCount: updatedMembers.length };
+                                    });
+                                    setActiveChatFetched(prev => prev ? { ...prev, member_count: Math.max(0, (prev.member_count || 0) - selectedToRemoveIds.length) } : null);
+                                    setSelectedToRemoveIds([]);
                                 } catch {
                                     toast.error("Failed to remove members");
                                 } finally {
@@ -1651,15 +1884,15 @@ const ChatView: React.FC = () => {
                                 disabled={isForwarding}
                                 className="w-full flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl transition-all text-left"
                             >
-                                {chat.avatar_url ? (
-                                    <img src={chat.avatar_url} alt={chat.name || "Chat"} className="w-10 h-10 rounded-full object-cover bg-slate-200" />
+                                {chat.avatar_url || chat.other_user_avatar ? (
+                                    <img src={getFullImageUrl(chat.avatar_url || chat.other_user_avatar)} alt={chat.name || chat.other_user_name || "Chat"} className="w-10 h-10 rounded-full object-cover bg-slate-200" />
                                 ) : (
                                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
-                                        {chat.name?.charAt(0)?.toUpperCase() || "?"}
+                                        {(chat.name || chat.other_user_name || "?").charAt(0)?.toUpperCase()}
                                     </div>
                                 )}
                                 <div className="flex-1 overflow-hidden">
-                                    <p className="text-sm font-bold text-slate-800 truncate">{chat.name || "Unknown"}</p>
+                                    <p className="text-sm font-bold text-slate-800 truncate">{chat.name || chat.other_user_name || "Unknown"}</p>
                                     <p className="text-[10px] text-slate-500 uppercase tracking-wider">{chat.type}</p>
                                 </div>
                             </button>

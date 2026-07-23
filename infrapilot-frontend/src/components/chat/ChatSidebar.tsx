@@ -15,7 +15,7 @@ type ChatFilter = "all" | "private" | "group" | "unread";
 type SidebarMode = "list" | "new-chat" | "new-group";
 
 const ChatSidebar: React.FC = () => {
-    const { conversations, activeChatId, setActiveChatId, isLoading, refreshChatList } = useChat();
+    const { conversations, activeChatId, setActiveChatId, isLoading, refreshChatList, typingStatus, onlineStatus } = useChat();
     const [filter, setFilter] = useState<ChatFilter>("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [mode, setMode] = useState<SidebarMode>("list");
@@ -32,17 +32,21 @@ const ChatSidebar: React.FC = () => {
 
     useEffect(() => {
         fetchUsers();
+        const intervalId = setInterval(() => {
+            fetchUsers(true);
+        }, 15000);
+        return () => clearInterval(intervalId);
     }, []);
 
-    const fetchUsers = async () => {
-        setIsLoadingUsers(true);
+    const fetchUsers = async (isBackground = false) => {
+        if (!isBackground) setIsLoadingUsers(true);
         try {
-            const data = await chatService.getChatUsers();
+            const data = await chatService.getAllSystemUsers();
             setUsers(data);
         } catch { 
-            toast.error("Could not load users", { position: "top-right" }); 
+            if (!isBackground) toast.error("Could not load users", { position: "top-right" }); 
         } finally {
-            setIsLoadingUsers(false);
+            if (!isBackground) setIsLoadingUsers(false);
         }
     };
 
@@ -292,7 +296,13 @@ const ChatSidebar: React.FC = () => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-sm font-black text-slate-700 truncate">{c.name || c.other_user_name}</h3>
-                                    <p className="text-[11px] text-slate-400 truncate font-medium">{c.last_message || "No messages"}</p>
+                                    <p className="text-[11px] text-slate-400 truncate font-medium">
+                                        {typingStatus[c.id] ? (
+                                            <span className="text-[#00a884] font-medium">{typingStatus[c.id]}</span>
+                                        ) : (
+                                            c.last_message || "No messages"
+                                        )}
+                                    </p>
                                 </div>
                                 {c.unread_count > 0 && (
                                     <span className="min-w-[18px] h-[18px] bg-rose-500 text-white text-[9px] font-black rounded-md px-1 flex items-center justify-center">
@@ -335,13 +345,18 @@ const ChatSidebar: React.FC = () => {
                                     <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-primary rounded-r-full" />
                                 )}
                                 {/* Avatar */}
-                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black text-white shrink-0 uppercase shadow-sm overflow-hidden ${c.type === "group" ? "bg-violet-500" : "bg-primary"}`}>
-                                    {c.type === "group" ? (
-                                        <Users className="w-4 h-4" />
-                                    ) : c.other_user_avatar || c.avatar_url ? (
-                                        <img src={getFullImageUrl(c.other_user_avatar || c.avatar_url)} alt="A" className="w-full h-full object-cover" />
-                                    ) : (
-                                        (c.name || c.other_user_name || "U").charAt(0)
+                                <div className="relative shrink-0">
+                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black text-white uppercase shadow-sm overflow-hidden ${c.type === "group" ? "bg-violet-500" : "bg-primary"}`}>
+                                        {c.type === "group" ? (
+                                            <Users className="w-4 h-4" />
+                                        ) : c.other_user_avatar || c.avatar_url ? (
+                                            <img src={getFullImageUrl(c.other_user_avatar || c.avatar_url)} alt="A" className="w-full h-full object-cover" />
+                                        ) : (
+                                            (c.name || c.other_user_name || "U").charAt(0)
+                                        )}
+                                    </div>
+                                    {c.type !== 'group' && onlineStatus[c.id] && (
+                                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#00a884] border-[2px] border-white rounded-full"></div>
                                     )}
                                 </div>
                                 {/* Details */}
@@ -359,7 +374,11 @@ const ChatSidebar: React.FC = () => {
                                             )}
                                         </div>
                                         <p className="text-[11px] text-slate-400 truncate font-medium">
-                                            {c.last_message || "Tap to begin..."}
+                                            {typingStatus[c.id] ? (
+                                                <span className="text-[#00a884] font-medium">{typingStatus[c.id]}</span>
+                                            ) : (
+                                                c.last_message || "Tap to begin..."
+                                            )}
                                         </p>
                                     </div>
                                     <div className="flex flex-col items-end gap-1.5 shrink-0 ml-2">
@@ -442,11 +461,16 @@ const ChatSidebar: React.FC = () => {
                                         onClick={() => startPrivateChat(u)}
                                         className="w-full flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-all group cursor-pointer"
                                     >
-                                        <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xs font-black text-slate-400 uppercase shadow-sm group-hover:border-primary group-hover:text-primary transition-all overflow-hidden">
-                                            {u.profile_image ? (
-                                                <img src={chatService.resolveUrl(u.profile_image) || ''} alt="U" className="w-full h-full object-cover" />
-                                            ) : (
-                                                (u.full_name || u.mobile_number || "U").charAt(0)
+                                        <div className="relative shrink-0">
+                                            <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xs font-black text-slate-400 uppercase shadow-sm group-hover:border-primary group-hover:text-primary transition-all overflow-hidden">
+                                                {u.profile_image ? (
+                                                    <img src={chatService.resolveUrl(u.profile_image) || ''} alt="U" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    (u.full_name || u.mobile_number || "U").charAt(0)
+                                                )}
+                                            </div>
+                                            {u.is_online && (
+                                                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#00a884] border-[2px] border-white rounded-full"></div>
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">

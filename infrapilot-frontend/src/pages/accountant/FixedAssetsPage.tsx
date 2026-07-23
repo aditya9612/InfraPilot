@@ -6,6 +6,7 @@ import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { accountingService } from "../../services/accountingService";
 import { projectService } from "../../services/projectService";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // --- GENERIC COMPONENTS ---
 const GenericTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => (
@@ -27,6 +28,51 @@ const GenericTableSection = ({ title, columns, data }: { title: string; columns:
     </div>
   </div>
 );
+
+const PaginatedTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => {
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [recordsPerPage, setRecordsPerPage] = React.useState(10);
+  const totalPages = Math.ceil(data.length / recordsPerPage);
+  const paginatedData = data.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">{title}</h3></div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>{columns.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {paginatedData.length > 0 ? paginatedData.map((row, i) => (
+              <tr key={i} className="hover:bg-slate-50/50">
+                {row.map((cell: any, j: number) => <td key={j} className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{cell}</td>)}
+              </tr>
+            )) : (
+              <tr><td colSpan={columns.length} className="px-4 py-8 text-center text-sm text-slate-400">No data available.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {data.length > 0 && (
+        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+            <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage-1)*recordsPerPage+1} – {Math.min(currentPage*recordsPerPage, data.length)} of {data.length} records</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(p => Math.max(1,p-1))} disabled={currentPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
+            <button onClick={() => setCurrentPage(p => Math.min(totalPages,p+1))} disabled={currentPage===totalPages||totalPages===0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // --- SECTIONS ---
 
@@ -156,13 +202,13 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</label><input type="date" className="px-3 py-1 text-xs border border-slate-200 rounded-lg text-slate-600" /></div>
             <button className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold mt-5">Apply</button>
           </div>
-          <GenericTableSection title="Asset List" columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status"]} data={[
+        <PaginatedTableSection title="Asset List" columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status"]} data={[
             ["AST-2024-001", "CAT 320 Excavator", "Machinery", "₹65,00,000", "₹55,25,000", "Metro Line 3", "Active"],
             ["AST-2024-002", "Tata Prima Tipper", "Vehicles", "₹35,00,000", "₹29,75,000", "Highway Proj", "Active"]
           ]} />
         </div>
       )}
-      {activeSubTab === "details" && <GenericTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]} data={[["AST-2024-001", "CAT 320 Excavator", "2023-01-15", "10 Years", "SLM", "₹5,00,000"]]} />}
+      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]} data={[["AST-2024-001", "CAT 320 Excavator", "2023-01-15", "10 Years", "SLM", "₹5,00,000"]]} />}
       {activeSubTab === "transfer" && <AssetTransferForm />}
     </div>
   );
@@ -183,7 +229,7 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
         {tabs.map(t => <button key={t.key} onClick={() => setActiveSubTab(t.key)} className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === t.key ? "bg-primary/10 text-primary" : "text-slate-500 hover:bg-slate-100"}`}>{t.icon && <span>{t.icon}</span>}{t.label}</button>)}
       </div>
 
-      {activeSubTab === "setup" && <GenericTableSection title="Depreciation Methods Configured" columns={["Asset Category", "Method", "Rate (%)", "Status"]} data={[["Vehicles", "SLM", "15", "Active"], ["Machinery", "WDV", "20", "Active"]]} />}
+      {activeSubTab === "setup" && <PaginatedTableSection title="Depreciation Methods Configured" columns={["Asset Category", "Method", "Rate (%)", "Status"]} data={[["Vehicles", "SLM", "15", "Active"], ["Machinery", "WDV", "20", "Active"]]} />}
 
       {activeSubTab === "monthly" && (
         <div className="space-y-6">
@@ -201,7 +247,7 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
               <div className="flex justify-between pl-8"><span>To Accumulated Depreciation A/c</span><span>Cr</span><span>₹1,25,000</span></div>
             </div>
           </div>
-          <GenericTableSection
+          <PaginatedTableSection
             title="Monthly Depreciation Schedule"
             columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Monthly Depreciation", "Action"]}
             data={[
@@ -212,8 +258,8 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
         </div>
       )}
 
-      {activeSubTab === "annual" && <GenericTableSection title="Annual Depreciation Summary" columns={["Financial Year", "Total Gross Block", "Depreciation Claimed", "Net Block"]} data={[["2023-24", "₹4,50,00,000", "₹45,20,000", "₹4,04,80,000"]]} />}
-      {activeSubTab === "history" && <GenericTableSection title="Depreciation Entry History" columns={["Date", "Journal No", "Amount", "Period", "Status"]} data={[["2024-10-31", "JE-DEP-010", "₹1,25,000", "October 2024", "Posted"]]} />}
+      {activeSubTab === "annual" && <PaginatedTableSection title="Annual Depreciation Summary" columns={["Financial Year", "Total Gross Block", "Depreciation Claimed", "Net Block"]} data={[["2023-24", "₹4,50,00,000", "₹45,20,000", "₹4,04,80,000"]]} />}
+      {activeSubTab === "history" && <PaginatedTableSection title="Depreciation Entry History" columns={["Date", "Journal No", "Amount", "Period", "Status"]} data={[["2024-10-31", "JE-DEP-010", "₹1,25,000", "October 2024", "Posted"]]} />}
     </div>
   );
 };
@@ -250,14 +296,14 @@ const AssetMaintenanceWrapper = ({ initialSubTab }: { initialSubTab?: string }) 
             </div>
           </div>
           <div className="xl:col-span-2">
-            <GenericTableSection title="Upcoming Maintenance" columns={["Asset", "Due Date", "Service Type", "Status"]} data={[["Concrete Mixer 2", "2024-12-02", "Oil change", "Pending"]]} />
+              <PaginatedTableSection title="Upcoming Maintenance" columns={["Asset", "Due Date", "Service Type", "Status"]} data={[["Concrete Mixer 2", "2024-12-02", "Oil change", "Pending"]]} />
           </div>
         </div>
       )}
 
-      {activeSubTab === "history" && <GenericTableSection title="Service History Log" columns={["Date", "Asset", "Vendor", "Cost", "Next Due", "Remarks"]} data={[["2024-10-15", "CAT 320 Excavator", "ABC Heavy Machinery Repair", "₹45,000", "2025-04-15", "Routine servicing"]]} />}
-      {activeSubTab === "cost" && <GenericTableSection title="Repair Cost Analysis" columns={["Asset Category", "YTD Maintenance Cost", "Avg Cost/Asset"]} data={[["Construction Machinery", "₹1,20,000", "₹24,000"], ["Vehicles", "₹45,000", "₹15,000"]]} />}
-      {activeSubTab === "amc" && <GenericTableSection title="AMC Tracking" columns={["Vendor", "Asset Covered", "AMC Start", "AMC End", "Amount"]} data={[["Reliable IT Services", "Office Computers (x20)", "2024-01-01", "2024-12-31", "₹50,000"]]} />}
+      {activeSubTab === "history" && <PaginatedTableSection title="Service History Log" columns={["Date", "Asset", "Vendor", "Cost", "Next Due", "Remarks"]} data={[["2024-10-15", "CAT 320 Excavator", "ABC Heavy Machinery Repair", "₹45,000", "2025-04-15", "Routine servicing"]]} />}
+      {activeSubTab === "cost" && <PaginatedTableSection title="Repair Cost Analysis" columns={["Asset Category", "YTD Maintenance Cost", "Avg Cost/Asset"]} data={[["Construction Machinery", "₹1,20,000", "₹24,000"], ["Vehicles", "₹45,000", "₹15,000"]]} />}
+      {activeSubTab === "amc" && <PaginatedTableSection title="AMC Tracking" columns={["Vendor", "Asset Covered", "AMC Start", "AMC End", "Amount"]} data={[["Reliable IT Services", "Office Computers (x20)", "2024-01-01", "2024-12-31", "₹50,000"]]} />}
     </div>
   );
 };

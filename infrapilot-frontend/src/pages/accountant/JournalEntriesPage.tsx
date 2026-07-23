@@ -6,27 +6,9 @@ import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { journalService } from "../../services/journalService";
 import { accountingService } from "../../services/accountingService";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// --- GENERIC COMPONENTS ---
-const GenericTableSection = ({ title, columns, data }: { title: string; columns: string[]; data: any[][] }) => (
-  <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-    <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">{title}</h3></div>
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50 border-b border-slate-100">
-          <tr>{columns.map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {data.map((row, i) => (
-            <tr key={i} className="hover:bg-slate-50/50">
-              {row.map((cell, j) => <td key={j} className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{cell}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
+
 
 // --- SECTIONS ---
 
@@ -35,8 +17,8 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     entry_date: "",
     description: "",
     lines: [
-      { account_id: 1, debit: 0, credit: 0 },
-      { account_id: 2, debit: 0, credit: 0 }
+      { account_id: 0, debit: 0, credit: 0 },
+      { account_id: 0, debit: 0, credit: 0 }
     ]
   });
   const [loading, setLoading] = useState(false);
@@ -61,7 +43,7 @@ const JournalEntryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   };
 
   const addLine = () => {
-    setFormData({ ...formData, lines: [...formData.lines, { account_id: 1, debit: 0, credit: 0 }] });
+    setFormData({ ...formData, lines: [...formData.lines, { account_id: 0, debit: 0, credit: 0 }] });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -245,17 +227,20 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
     entry_date: "",
     description: "",
     lines: [
-      { account_id: 1, debit: 0, credit: 0 },
-      { account_id: 2, debit: 0, credit: 0 }
+      { account_id: 0, debit: 0, credit: 0 },
+      { account_id: 0, debit: 0, credit: 0 }
     ]
   });
   const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState<any[]>([]);
 
-  const mockAccounts = [
-    { id: 1, name: "Material Expense A/c" },
-    { id: 2, name: "HDFC Bank A/c" },
-    { id: 3, name: "Cash A/c" },
-  ];
+  useEffect(() => {
+    if (isOpen) {
+      accountingService.getAccounts({ limit: 100 }).then(res => {
+        setAccounts(Array.isArray(res) ? res : res?.items || res?.data || []);
+      }).catch(() => { });
+    }
+  }, [isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -268,7 +253,7 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
   };
 
   const addLine = () => {
-    setFormData({ ...formData, lines: [...formData.lines, { account_id: 1, debit: 0, credit: 0 }] });
+    setFormData({ ...formData, lines: [...formData.lines, { account_id: 0, debit: 0, credit: 0 }] });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -359,7 +344,8 @@ const AdjustmentJournalModal = ({ isOpen, onClose }: { isOpen: boolean; onClose:
                   <tr key={index}>
                     <td className="px-2 py-2">
                       <select value={line.account_id} onChange={(e) => handleLineChange(index, "account_id", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50">
-                        {mockAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        <option value={0}>Select Account</option>
+                        {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                       </select>
                     </td>
                     <td className="px-2 py-2"><input type="number" value={line.debit || ""} onChange={(e) => handleLineChange(index, "debit", Number(e.target.value))} className="w-full px-2 py-1.5 text-xs font-bold text-emerald-600 border border-slate-200 rounded-lg bg-slate-50" /></td>
@@ -387,6 +373,8 @@ const ManualEntriesWrapper = () => {
   const [journals, setJournals] = useState<any[]>([]);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchJournals = async () => {
@@ -410,28 +398,59 @@ const ManualEntriesWrapper = () => {
     }
   };
 
-  const tableData = journals.map(j => [
-    j.journal_number || `JE-${j.id}`,
-    j.entry_date ? new Date(j.entry_date).toLocaleDateString() : "-",
-    j.description || "-",
-    j.status || "Posted",
-    j.entry_type || "-",
-    j.created_at ? new Date(j.created_at).toLocaleString() : "-",
-    <button key={j.id} onClick={() => viewDetails(j.id)} className="p-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors" title="View Details">
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-    </button>
-  ]);
+  const totalPages = Math.ceil(journals.length / recordsPerPage);
+  const paginatedJournals = journals.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <h3 className="font-bold text-slate-800">Manual Journal Entries</h3>
       </div>
-      <GenericTableSection
-        title="Recent Manual Entries"
-        columns={["Journal Number", "Entry Date", "Description", "Status", "Entry Type", "Created At", "Action"]}
-        data={tableData.length > 0 ? tableData : [["-", "-", "No entries found", "-", "-", "-", "-"]]}
-      />
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Recent Manual Entries</h3></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>{["Journal Number", "Entry Date", "Description", "Status", "Entry Type", "Created At", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {paginatedJournals.length > 0 ? paginatedJournals.map(j => (
+                <tr key={j.id} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-3 text-xs font-bold text-primary">{j.journal_number || `JE-${j.id}`}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{j.entry_date ? new Date(j.entry_date).toLocaleDateString() : "-"}</td>
+                  <td className="px-4 py-3 text-xs text-slate-700">{j.description || "-"}</td>
+                  <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px]">{j.status || "Posted"}</span></td>
+                  <td className="px-4 py-3 text-xs font-semibold text-slate-800">{j.entry_type || "-"}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{j.created_at ? new Date(j.created_at).toLocaleString() : "-"}</td>
+                  <td className="px-4 py-3 text-xs">
+                    <button onClick={() => viewDetails(j.id)} className="p-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors" title="View Details">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    </button>
+                  </td>
+                </tr>
+              )) : (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-slate-500">No entries found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {journals.length > 0 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage-1)*recordsPerPage+1} – {Math.min(currentPage*recordsPerPage, journals.length)} of {journals.length} records</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCurrentPage(p => Math.max(1,p-1))} disabled={currentPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages,p+1))} disabled={currentPage===totalPages||totalPages===0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+          </div>
+        )}
+      </div>
       <ViewJournalDetailsModal isOpen={detailsModalOpen} onClose={() => setDetailsModalOpen(false)} details={selectedDetails} />
     </div>
   );
@@ -443,6 +462,8 @@ const AdjustmentRegisterSection = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [adjPage, setAdjPage] = useState(1);
+  const [adjRpp, setAdjRpp] = useState(10);
 
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState<any>(null);
@@ -488,36 +509,12 @@ const AdjustmentRegisterSection = () => {
       <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/50">
         <span className="text-sm font-bold text-slate-700 whitespace-nowrap">All Adjustment Registers</span>
         <div className="flex flex-col md:flex-row items-center gap-3 w-full justify-end">
-          <input
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full md:w-auto px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white"
-          />
-          <input
-            type="text"
-            placeholder="Status..."
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            className="w-full md:w-auto px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white"
-          />
+          <input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="w-full md:w-auto px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white" />
+          <input type="text" placeholder="Status..." value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full md:w-auto px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white" />
           <div className="flex items-center gap-2 w-full md:w-auto">
-            <input
-              type="date"
-              value={fromDate}
-              onChange={e => setFromDate(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white"
-              title="From Date"
-            />
+            <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white" title="From Date" />
             <span className="text-slate-400">-</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={e => setToDate(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white"
-              title="To Date"
-            />
+            <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-white" title="To Date" />
           </div>
           <button onClick={handleFilter} className="w-full md:w-auto flex items-center justify-center gap-1.5 px-4 py-1.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-sm">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" /></svg>
@@ -537,7 +534,7 @@ const AdjustmentRegisterSection = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {journals.map(row => (
+            {journals.slice((adjPage-1)*adjRpp, adjPage*adjRpp).map(row => (
               <tr key={row.id} className="hover:bg-slate-50/50">
                 <td className="px-5 py-3.5 text-xs font-bold text-emerald-600">{row.journal_number || `ADJ-${row.id}`}</td>
                 <td className="px-5 py-3.5 text-xs text-slate-500">{row.entry_date ? new Date(row.entry_date).toLocaleDateString() : "-"}</td>
@@ -562,6 +559,22 @@ const AdjustmentRegisterSection = () => {
           </tbody>
         </table>
       </div>
+      {journals.length > 0 && (
+        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+            <select value={adjRpp} onChange={(e) => { setAdjRpp(Number(e.target.value)); setAdjPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <span className="text-xs text-slate-500 font-semibold">Showing {(adjPage-1)*adjRpp+1} – {Math.min(adjPage*adjRpp, journals.length)} of {journals.length} records</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setAdjPage(p => Math.max(1,p-1))} disabled={adjPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{adjPage}</span>
+            <button onClick={() => setAdjPage(p => Math.min(Math.ceil(journals.length/adjRpp),p+1))} disabled={adjPage===Math.ceil(journals.length/adjRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+        </div>
+      )}
       <ViewJournalDetailsModal isOpen={detailsModalOpen} onClose={() => setDetailsModalOpen(false)} details={selectedDetails} />
     </div>
   );
@@ -569,6 +582,8 @@ const AdjustmentRegisterSection = () => {
 
 const RecurringJournalsSection = () => {
   const [journals, setJournals] = useState<any[]>([]);
+  const [recurPage, setRecurPage] = useState(1);
+  const [recurRpp, setRecurRpp] = useState(10);
 
   useEffect(() => {
     const fetchJournals = async () => {
@@ -593,24 +608,55 @@ const RecurringJournalsSection = () => {
     }
   };
 
-  const tableData = journals.map(j => [
-    j.template_name || "-",
-    j.frequency || "-",
-    j.next_run_date ? new Date(j.next_run_date).toLocaleDateString() : "-",
-    j.status || "Active",
-    <button key={j.id} onClick={() => toggleStatus(j.id)} className="px-3 py-1 bg-amber-50 text-amber-600 rounded hover:bg-amber-100 font-bold text-xs">Toggle Status</button>
-  ]);
+  const totalPages = Math.ceil(journals.length / recurRpp);
+  const paginatedJournals = journals.slice((recurPage - 1) * recurRpp, recurPage * recurRpp);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
         <h3 className="font-bold text-slate-800">Recurring Entries</h3>
       </div>
-      <GenericTableSection
-        title="Active Recurring Journals"
-        columns={["Template Name", "Frequency", "Next Run Date", "Status", "Action"]}
-        data={tableData.length > 0 ? tableData : [["-", "-", "-", "-", "-"]]}
-      />
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Active Recurring Journals</h3></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>{["Template Name", "Frequency", "Next Run Date", "Status", "Action"].map(h => <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {paginatedJournals.length > 0 ? paginatedJournals.map(j => (
+                <tr key={j.id} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">{j.template_name || "-"}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{j.frequency || "-"}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{j.next_run_date ? new Date(j.next_run_date).toLocaleDateString() : "-"}</td>
+                  <td className="px-4 py-3 text-xs"><span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px]">{j.status || "Active"}</span></td>
+                  <td className="px-4 py-3 text-xs">
+                    <button onClick={() => toggleStatus(j.id)} className="px-3 py-1 bg-amber-50 text-amber-600 rounded hover:bg-amber-100 font-bold text-xs">Toggle Status</button>
+                  </td>
+                </tr>
+              )) : (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">No recurring journals found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {journals.length > 0 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select value={recurRpp} onChange={(e) => { setRecurRpp(Number(e.target.value)); setRecurPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">Showing {(recurPage-1)*recurRpp+1} – {Math.min(recurPage*recurRpp, journals.length)} of {journals.length} records</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setRecurPage(p => Math.max(1,p-1))} disabled={recurPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{recurPage}</span>
+              <button onClick={() => setRecurPage(p => Math.min(totalPages,p+1))} disabled={recurPage===totalPages||totalPages===0} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -719,6 +765,26 @@ const JournalEntriesPage = () => {
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templateRows, setTemplateRows] = useState<any[]>([
+    { "Entry Date": "2026-07-20", "Description": "Opening Balance", "Account ID": "3", "Debit": "1000", "Credit": "0" },
+    { "Entry Date": "2026-07-20", "Description": "Opening Balance", "Account ID": "2", "Debit": "0", "Credit": "1000" }
+  ]);
+  const cols = ["Entry Date", "Description", "Account ID", "Debit", "Credit"];
+
+  const handleSaveTemplate = () => {
+    import('xlsx').then(XLSX => {
+      const ws = XLSX.utils.json_to_sheet(templateRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Template");
+      XLSX.writeFile(wb, "Adjustment_Journal_Template.csv");
+      toast.success("Template saved and downloaded!");
+      setIsTemplateModalOpen(false);
+    }).catch(() => {
+      toast.error("Failed to generate template");
+    });
+  };
 
   const handleExportAdjustment = async () => {
     try {
@@ -843,6 +909,9 @@ const JournalEntriesPage = () => {
       subtitle: "Manage accounting adjustments and corrections.",
       actions: (
         <div className="flex flex-wrap items-center gap-3">
+          <button onClick={() => setIsTemplateModalOpen(true)} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
+            <span className="text-lg">📄</span> Template
+          </button>
           <input type="file" ref={fileInputRef} onChange={handleImportAdjustment} className="hidden" accept=".csv,.xlsx" />
           <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold px-4 py-2.5 rounded-2xl shadow-sm hover:bg-slate-50 transition-all active:scale-95">
             <span className="text-lg">📥</span> Import
@@ -903,6 +972,80 @@ const JournalEntriesPage = () => {
       <JournalEntryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <AdjustmentJournalModal isOpen={isAdjModalOpen} onClose={() => setIsAdjModalOpen(false)} />
       <RecurringJournalModal isOpen={isRecurringModalOpen} onClose={() => setIsRecurringModalOpen(false)} />
+      
+      <Modal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        title="Fill Excel Template"
+        maxWidth="max-w-4xl"
+      >
+        <div className="p-4 flex flex-col h-full">
+          <p className="text-sm text-slate-500 mb-4">Add your journal details below. This will be saved as an Excel file which you can then import.</p>
+          <div className="overflow-x-auto border border-slate-300 bg-white">
+            <table className="w-full text-left border-collapse select-none">
+              <thead className="sticky top-0 z-10 bg-[#f8f9fa]">
+                <tr>
+                  <th className="w-10 border border-slate-300 p-1 text-center text-xs font-normal text-slate-500 bg-[#f8f9fa]"></th>
+                  {cols.map((col, i) => (
+                    <th key={col} className="border border-slate-300 p-1.5 text-center text-xs font-normal text-slate-600 bg-[#f8f9fa] min-w-[120px]">
+                      {String.fromCharCode(65 + i)} ({col})
+                    </th>
+                  ))}
+                  <th className="border border-slate-300 p-1.5 text-center text-xs font-normal text-slate-600 bg-[#f8f9fa] w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="border border-slate-300 p-1 text-center text-xs font-normal text-slate-500 bg-[#f8f9fa]">1</td>
+                  {cols.map(col => (
+                    <td key={col} className="border border-slate-300 p-1 text-sm font-semibold text-slate-800 bg-white">{col}</td>
+                  ))}
+                  <td className="border border-slate-300 bg-white"></td>
+                </tr>
+                {templateRows.map((row, idx) => (
+                  <tr key={idx}>
+                    <td className="border border-slate-300 p-1 text-center text-xs font-normal text-slate-500 bg-[#f8f9fa]">{idx + 2}</td>
+                    {cols.map(col => (
+                      <td key={col} className="border border-slate-300 bg-white p-0 relative">
+                        <input
+                          className="w-full h-full absolute inset-0 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:z-10 bg-transparent"
+                          value={row[col] || ""}
+                          onChange={(e) => {
+                            const newRows = [...templateRows];
+                            newRows[idx][col] = e.target.value;
+                            setTemplateRows(newRows);
+                          }}
+                        />
+                        <div className="px-2 py-1.5 invisible text-sm">H</div>
+                      </td>
+                    ))}
+                    <td className="border border-slate-300 bg-white p-0 text-center">
+                      <button onClick={() => setTemplateRows(templateRows.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-rose-500 transition-colors w-full h-full flex items-center justify-center p-1.5">
+                        &times;
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button
+            onClick={() => {
+              const newRow: any = {};
+              cols.forEach(c => newRow[c] = "");
+              setTemplateRows([...templateRows, newRow]);
+            }}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700 mt-2 self-start flex items-center gap-1"
+          >
+            + Add Row
+          </button>
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+            <button onClick={() => setIsTemplateModalOpen(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 text-sm transition-all">Cancel</button>
+            <button onClick={handleSaveTemplate} className="px-5 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 text-sm shadow-sm transition-all">Save Template</button>
+          </div>
+        </div>
+      </Modal>
+
     </>
   );
 };

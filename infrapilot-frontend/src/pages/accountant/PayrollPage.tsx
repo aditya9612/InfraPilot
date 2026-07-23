@@ -5,6 +5,7 @@ import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { payrollService } from "../../services/payrollService";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // --- SECTIONS ---
 
@@ -183,6 +184,8 @@ const StaffSalaryWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [staffRegister, setStaffRegister] = useState<any[]>([]);
   const [staffHistory, setStaffHistory] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
 
   useEffect(() => {
     if (activeSubTab === 'register') {
@@ -241,7 +244,7 @@ const StaffSalaryWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
                 <tr>{["Emp ID", "Name", "Gross Pay", "Deductions", "Net Pay", "Status"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {staffRegister.length > 0 ? staffRegister.map((emp, idx) => (
+                {staffRegister.length > 0 ? staffRegister.slice((currentPage-1)*recordsPerPage, currentPage*recordsPerPage).map((emp, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/50">
                     <td className="px-4 py-3 text-xs font-mono">{emp.emp_id || `EMP-00${idx+1}`}</td><td className="px-4 py-3 text-xs font-bold text-slate-800">{emp.name}</td>
                     <td className="px-4 py-3 text-xs font-semibold text-slate-600">₹{emp.gross_pay || 0}</td><td className="px-4 py-3 text-xs text-rose-500">₹{emp.deductions || 0}</td>
@@ -253,6 +256,22 @@ const StaffSalaryWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
               </tbody>
             </table>
           </div>
+          {staffRegister.length > 0 && (
+            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+                <select value={recordsPerPage} onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                  {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <span className="text-xs text-slate-500 font-semibold">Showing {(currentPage-1)*recordsPerPage+1} – {Math.min(currentPage*recordsPerPage, staffRegister.length)} of {staffRegister.length} records</span>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setCurrentPage(p => Math.max(1,p-1))} disabled={currentPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{currentPage}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(staffRegister.length/recordsPerPage),p+1))} disabled={currentPage===Math.ceil(staffRegister.length/recordsPerPage)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {activeSubTab === "history" && (
@@ -407,6 +426,8 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
     start_date: new Date(new Date().getFullYear(), new Date().getMonth(), 2).toISOString().split('T')[0],
     end_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]
   });
+  const [wagePage, setWagePage] = useState(1);
+  const [wageRpp, setWageRpp] = useState(10);
 
   useEffect(() => {
     if (activeSubTab === "register") {
@@ -466,7 +487,7 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
                 <tr>{["Labor Name", "Type", "Period", "Gross Wage", "Net Wage", "Status"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {wages.length > 0 ? wages.map((wage, idx) => (
+                {wages.length > 0 ? wages.slice((wagePage-1)*wageRpp, wagePage*wageRpp).map((wage, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/50">
                     <td className="px-4 py-3 text-xs font-bold text-slate-800">{wage.labor_name || 'Labor'}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{wage.type || 'Skilled'}</td>
@@ -481,6 +502,22 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
               </tbody>
             </table>
           </div>
+          {wages.length > 0 && (
+            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+                <select value={wageRpp} onChange={(e) => { setWageRpp(Number(e.target.value)); setWagePage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                  {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <span className="text-xs text-slate-500 font-semibold">Showing {(wagePage-1)*wageRpp+1} – {Math.min(wagePage*wageRpp, wages.length)} of {wages.length} records</span>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setWagePage(p => Math.max(1,p-1))} disabled={wagePage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{wagePage}</span>
+                <button onClick={() => setWagePage(p => Math.min(Math.ceil(wages.length/wageRpp),p+1))} disabled={wagePage===Math.ceil(wages.length/wageRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -498,6 +535,8 @@ const ContractorPaymentSection = () => {
   });
   const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [billPage, setBillPage] = useState(1);
+  const [billRpp, setBillRpp] = useState(10);
 
   const mockBankAccounts = [
     { id: 1, name: "SBI - 1001" },
@@ -621,7 +660,7 @@ const ContractorPaymentSection = () => {
                 <tr>{["Bill ID", "Contractor", "Amount", "Status"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {bills.length > 0 ? bills.map((b) => (
+                {bills.length > 0 ? bills.slice((billPage-1)*billRpp, billPage*billRpp).map((b) => (
                   <tr key={b.id} className="hover:bg-slate-50/50">
                     <td className="px-4 py-3 text-xs font-mono">Bill #{b.id}</td>
                     <td className="px-4 py-3 text-xs font-bold text-slate-800">{b.contractor_name || 'Contractor'}</td>
@@ -634,6 +673,22 @@ const ContractorPaymentSection = () => {
               </tbody>
             </table>
           </div>
+          {bills.length > 0 && (
+            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+                <select value={billRpp} onChange={(e) => { setBillRpp(Number(e.target.value)); setBillPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                  {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <span className="text-xs text-slate-500 font-semibold">Showing {(billPage-1)*billRpp+1} – {Math.min(billPage*billRpp, bills.length)} of {bills.length} records</span>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setBillPage(p => Math.max(1,p-1))} disabled={billPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{billPage}</span>
+                <button onClick={() => setBillPage(p => Math.min(Math.ceil(bills.length/billRpp),p+1))} disabled={billPage===Math.ceil(bills.length/billRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </form>
@@ -642,6 +697,8 @@ const ContractorPaymentSection = () => {
 
 const LedgerSection = () => {
   const [registerData, setRegisterData] = useState<any[]>([]);
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const [ledgerRpp, setLedgerRpp] = useState(10);
 
   useEffect(() => {
     const fetchRegister = async () => {
@@ -664,7 +721,7 @@ const LedgerSection = () => {
             <tr>{["Date", "Employee/Contractor", "Type", "Debit", "Credit", "Balance"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {registerData.length > 0 ? registerData.map((item, idx) => (
+            {registerData.length > 0 ? registerData.slice((ledgerPage-1)*ledgerRpp, ledgerPage*ledgerRpp).map((item, idx) => (
               <tr key={idx} className="hover:bg-slate-50/50">
                 <td className="px-4 py-3 text-xs text-slate-500">{item.date || '-'}</td>
                 <td className="px-4 py-3 text-xs font-bold text-slate-800">{item.name || item.employee || item.contractor || '-'}</td>
@@ -679,6 +736,22 @@ const LedgerSection = () => {
           </tbody>
         </table>
       </div>
+      {registerData.length > 0 && (
+        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+            <select value={ledgerRpp} onChange={(e) => { setLedgerRpp(Number(e.target.value)); setLedgerPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <span className="text-xs text-slate-500 font-semibold">Showing {(ledgerPage-1)*ledgerRpp+1} – {Math.min(ledgerPage*ledgerRpp, registerData.length)} of {registerData.length} records</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setLedgerPage(p => Math.max(1,p-1))} disabled={ledgerPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{ledgerPage}</span>
+            <button onClick={() => setLedgerPage(p => Math.min(Math.ceil(registerData.length/ledgerRpp),p+1))} disabled={ledgerPage===Math.ceil(registerData.length/ledgerRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

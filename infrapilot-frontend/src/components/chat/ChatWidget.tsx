@@ -88,7 +88,7 @@ const ChatWidget: React.FC = () => {
     useEffect(() => {
         if (isOpen) {
             refreshChatList();
-            chatService.getChatUsers().then(setChatUsers).catch(() => { });
+            chatService.getAllSystemUsers().then(setChatUsers).catch(() => { });
         }
     }, [isOpen, refreshChatList]);
 
