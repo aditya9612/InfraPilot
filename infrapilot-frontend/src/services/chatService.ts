@@ -300,18 +300,23 @@ export const chatService = {
     },
 
     async getTypingUsers(chatId: number): Promise<{ users: { user_id: number; name: string }[] }> {
-        const response = await api.get<{ users: { user_id: number; name: string }[] }>(`/chats/${chatId}/typing-users`);
-        return response.data;
+        const response = await api.get<any>(`/chats/${chatId}/typing-users`);
+        const data = Array.isArray(response.data) ? response.data : (response.data.users || response.data.items || response.data.data || []);
+        return { users: data.map((u: any) => ({ user_id: u.user_id || u.id, name: u.full_name || u.name || "Someone" })) };
     },
 
     async getUserStatus(userId: number): Promise<{ online: boolean; last_seen: string | null }> {
-        const response = await api.get<{ online: boolean; last_seen: string | null }>(`/chats/users/${userId}/status`);
-        return response.data;
+        const response = await api.get<any>(`/chats/users/${userId}/status`);
+        return {
+            online: response.data?.online === true || response.data?.is_online === true || response.data?.status === 'online',
+            last_seen: response.data?.last_seen || null
+        };
     },
 
     async getActiveUsers(chatId: number): Promise<{ active_users: number[] }> {
-        const response = await api.get<{ active_users: number[] }>(`/chats/${chatId}/active-users`);
-        return response.data;
+        const response = await api.get<any>(`/chats/${chatId}/active-users`);
+        const data = Array.isArray(response.data) ? response.data : (response.data.active_users || response.data.items || response.data.data || []);
+        return { active_users: data };
     },
 
     async getUserStates(chatId: number): Promise<{ user_id: number; online: boolean; last_seen: string | null }[]> {
@@ -322,8 +327,9 @@ export const chatService = {
     async uploadChatFile(file: File): Promise<ChatFileUploadResponse> {
         const formData = new FormData();
         formData.append("file", file);
+
         const response = await api.post<ChatFileUploadResponse>("/chats/chat", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
+            headers: { "Content-Type": "multipart/form-data" }
         });
         return response.data;
     },

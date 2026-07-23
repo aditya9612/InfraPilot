@@ -10,7 +10,7 @@ import { quotationService } from "../../services/quotationService";
 import api from "../../services/api";
 import { projectService } from "../../services/projectService";
 import { measurementService } from "../../services/measurementService";
-import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote } from "lucide-react";
+import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote, Check, X } from "lucide-react";
 import QuotationViewModal from "./QuotationViewModal";
 import InvoiceViewModal from "./InvoiceViewModal";
 import InvoiceEditModal from "./InvoiceEditModal";
@@ -905,7 +905,7 @@ const ClientInvoicesSection = ({ initialSubTab }: { initialSubTab?: string; }) =
 };
 const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   const [, setSearchParams] = useSearchParams();
-  const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval">(
+  const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "drafts" | "approval" | "certified" | "paid">(
     (initialSubTab as any) || "list"
   );
 
@@ -934,7 +934,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   const [formData, setFormData] = useState(defaultForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleTabChange = (key: "list" | "create" | "approval") => {
+  const handleTabChange = (key: "list" | "create" | "drafts" | "approval" | "certified" | "paid") => {
     setActiveSubTab(key);
     setSearchParams({ sub: key }, { replace: true });
     if (key !== "create") {
@@ -1027,7 +1027,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
   // ── fetch RA bills list when "list" tab is active ──
   useEffect(() => {
-    if (activeSubTab !== "list") return;
+    if (activeSubTab === "create") return;
     const fetchList = async () => {
       setListLoading(true);
       try {
@@ -1098,33 +1098,39 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
     }
   };
   const handleSubmitRABill = async (id: number) => {
+    setRaBills(prev => prev.map(rb => rb.id === id ? { ...rb, status: "Pending Approval" } : rb));
     try {
       await api.put(`/billing/${id}/submit`);
       toast.success("RA Bill submitted for approval!");
       setRefreshTrigger(prev => prev + 1);
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || err?.message || "Failed to submit RA Bill");
+      setRefreshTrigger(prev => prev + 1); // Revert on failure
     }
   };
 
   const handlePayRABill = async (id: number) => {
+    setRaBills(prev => prev.map(rb => rb.id === id ? { ...rb, status: "Paid" } : rb));
     try {
       await api.put(`/billing/${id}/pay`);
       toast.success("RA Bill marked as paid!");
       setRefreshTrigger(prev => prev + 1);
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || err?.message || "Failed to mark RA Bill as paid");
+      setRefreshTrigger(prev => prev + 1); // Revert on failure
     }
   };
 
 
   const handleApprove = async (id: number) => {
+    setRaBills(prev => prev.map(rb => rb.id === id ? { ...rb, status: "Certified" } : rb));
     try {
       await api.put(`/billing/${id}/approve`);
       toast.success("RA Bill approved!");
       setRefreshTrigger(prev => prev + 1);
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || err?.message || "Failed to approve RA Bill");
+      setRefreshTrigger(prev => prev + 1); // Revert on failure
     }
   };
 
@@ -1184,7 +1190,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
   // Sync when sidebar item changes
   useEffect(() => {
-    if (initialSubTab) setActiveSubTab(initialSubTab as "list" | "create" | "approval");
+    if (initialSubTab) setActiveSubTab(initialSubTab as "list" | "create" | "drafts" | "approval" | "certified" | "paid");
   }, [initialSubTab]);
 
   const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
@@ -1193,21 +1199,28 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
   const readOnlyClasses = "w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none bg-slate-50 text-slate-400 cursor-not-allowed";
 
   const subTabs = [
-    { key: "create", label: "Create RA Bill" },
-    { key: "list", label: "RA Bill List" },
-    { key: "approval", label: "Bill Approval" },
+    { key: "create", label: "Create Bill" },
+    { key: "drafts", label: "Drafts (To Submit)" },
+    { key: "approval", label: "Pending (To Approve)" },
+    { key: "certified", label: "Certified (To Pay)" },
+    { key: "list", label: "All Bills (History)" },
   ] as const;
 
-  const filtered = raBills.filter(rb =>
-    (filter === "All" || rb.status === filter) &&
-    ((rb.bill_number?.toLowerCase() || "").includes(search.toLowerCase()) ||
-     (rb.work_description?.toLowerCase() || "").includes(search.toLowerCase()))
-  );
+  const filtered = raBills.filter(rb => {
+    let tabMatch = true;
+    if (activeSubTab === "drafts") tabMatch = rb.status === "Draft";
+    else if (activeSubTab === "certified") tabMatch = rb.status === "Certified" || rb.status === "Approved";
+    
+    return tabMatch &&
+      (filter === "All" || rb.status === filter) &&
+      ((rb.bill_number?.toLowerCase() || "").includes(search.toLowerCase()) ||
+       (rb.work_description?.toLowerCase() || "").includes(search.toLowerCase()));
+  });
 
   const raTotalPages = Math.ceil(filtered.length / raRecordsPerPage);
   const paginatedRABills = filtered.slice((raCurrentPage - 1) * raRecordsPerPage, raCurrentPage * raRecordsPerPage);
 
-  const pendingApprovalBills = raBills.filter(r => r.status !== "Certified");
+  const pendingApprovalBills = raBills.filter(r => r.status === "Pending Approval" || r.status === "Submitted");
   const appTotalPages = Math.ceil(pendingApprovalBills.length / appRecordsPerPage);
   const paginatedAppBills = pendingApprovalBills.slice((appCurrentPage - 1) * appRecordsPerPage, appCurrentPage * appRecordsPerPage);
 
@@ -1239,17 +1252,25 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
             className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" />
           <select value={filter} onChange={e => setFilter(e.target.value)}
             className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none bg-white font-semibold text-slate-600 cursor-pointer">
-            {["All", "Certified", "Pending", "Draft", "Rejected"].map(s => <option key={s}>{s}</option>)}
+            {["All", "Submitted", "Pending", "Draft", "Rejected"].map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
       </div>
 
-      {activeSubTab === "list" && (
+      {(activeSubTab === "list" || activeSubTab === "drafts" || activeSubTab === "certified") && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex justify-between items-center">
             <div>
-              <h3 className="font-bold text-slate-800">Running Account Bills</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Progress billing based on site measurements</p>
+              <h3 className="font-bold text-slate-800">
+                {activeSubTab === "drafts" ? "Draft Bills (Ready for Submission)" : 
+                 activeSubTab === "certified" ? "Certified Bills (Ready for Payment)" : 
+                 "Running Account Bills"}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {activeSubTab === "drafts" ? "Review drafts and submit them for approval" : 
+                 activeSubTab === "certified" ? "Record payments for certified bills" : 
+                 "Progress billing based on site measurements"}
+              </p>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -1304,15 +1325,19 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                     <td className="px-4 py-3 text-xs text-slate-600 text-right">{rb.available_to_bill ?? "-"}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3 justify-end">
-                        <button onClick={() => handleView(rb.id)} className="text-slate-400 hover:text-primary transition-colors" title="View"><Eye className="w-4 h-4" /></button>
-                        {rb.status === "Draft" && (
+                        {activeSubTab === "list" && <button onClick={() => handleView(rb.id)} className="text-slate-400 hover:text-primary transition-colors" title="View"><Eye className="w-4 h-4" /></button>}
+                        
+                        {(activeSubTab === "drafts" || activeSubTab === "list") && rb.status === "Draft" && (
                           <button onClick={() => handleSubmitRABill(rb.id)} className="text-slate-400 hover:text-blue-500 transition-colors" title="Submit for Approval"><Send className="w-4 h-4" /></button>
                         )}
-                        {rb.status === "Certified" && (
+                        
+                        {(activeSubTab === "certified" || activeSubTab === "list") && (rb.status === "Certified" || rb.status === "Approved") && (
                           <button onClick={() => handlePayRABill(rb.id)} className="text-slate-400 hover:text-emerald-500 transition-colors" title="Record Payment"><Banknote className="w-4 h-4" /></button>
                         )}
-                        <button onClick={() => setEditingRABill(rb)} className="text-slate-400 hover:text-amber-500 transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => setDeleteRABillId(rb.id)} className="text-slate-400 hover:text-rose-600 transition-colors" title="Delete"><Trash className="w-4 h-4" /></button>
+                        
+                        {activeSubTab === "list" && <button onClick={() => setEditingRABill(rb)} className="text-slate-400 hover:text-amber-500 transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>}
+                        
+                        {activeSubTab === "list" && <button onClick={() => setDeleteRABillId(rb.id)} className="text-slate-400 hover:text-rose-600 transition-colors" title="Delete"><Trash className="w-4 h-4" /></button>}
                       </div>
                     </td>
                   </tr>
@@ -1545,29 +1570,13 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
               </div>
             </div>
 
-            {/* ── Section 3 (left): Attachments ── */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
-                Attachments
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                {["Measurement Sheet", "BOQ Reference", "RA Bill PDF"].map(att => (
-                  <label key={att} className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-primary/40 hover:bg-blue-50/30 transition-all group">
-                    <div className="text-2xl mb-2">📎</div>
-                    <p className="text-xs font-semibold text-slate-500 group-hover:text-primary">{att}</p>
-                    <input type="file" className="hidden" />
-                  </label>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* ── Bill Summary Sidebar ── */}
           <div className="space-y-5">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
               <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">4</span>
+                <span className="w-6 h-6 bg-primary text-white text-xs font-black rounded-lg flex items-center justify-center">3</span>
                 Bill Summary
               </h3>
               <div className="space-y-3">
@@ -1634,8 +1643,12 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold text-slate-700">{fmt(rb.total_amount)}</span>
                   <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(rb.status)}`}>{rb.status}</span>
-                  <button onClick={() => handleApprove(rb.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all active:scale-95">Approve</button>
-                  <button onClick={() => handleReject(rb.id)} className="px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg border border-rose-200 hover:bg-rose-100 transition-all active:scale-95">Reject</button>
+                  <button onClick={() => handleApprove(rb.id)} className="text-emerald-500 hover:text-emerald-600 transition-all active:scale-95" title="Approve">
+                    <Check className="w-6 h-6" strokeWidth={2.5} />
+                  </button>
+                  <button onClick={() => handleReject(rb.id)} className="text-rose-500 hover:text-rose-600 transition-all active:scale-95 ml-2" title="Reject">
+                    <X className="w-6 h-6" strokeWidth={2.5} />
+                  </button>
                 </div>
               </div>
               );
@@ -1962,12 +1975,11 @@ const ReceivablesPage = () => {
   );
 };
 
-const ViewRABillModal = ({ bill, projects, contractors, measurements, workOrders, quotations, onClose }: any) => {
+const ViewRABillModal = ({ bill, projects, contractors, workOrders, quotations, onClose }: any) => {
   if (!bill) return null;
 
   const projName = projects?.find((p: any) => p.id === bill.project_id)?.project_name || bill.project_id || "N/A";
   const contrName = contractors?.find((c: any) => c.id === bill.contractor_id)?.name || bill.contractor_id || "N/A";
-  const measName = measurements?.find((m: any) => m.id === bill.measurement_id) ? `Measurement #${bill.measurement_id}` : bill.measurement_id || "—";
   const woName = workOrders?.find((w: any) => w.id === bill.work_order_id)?.work_order_number || bill.work_order_id || "—";
   const quotName = quotations?.find((q: any) => q.id === bill.quotation_id)?.quotation_no || bill.quotation_id || "—";
 
@@ -2012,7 +2024,6 @@ const ViewRABillModal = ({ bill, projects, contractors, measurements, workOrders
               { label: 'Project Name', value: projName },
               { label: 'Bill Date', value: bill.bill_date || '—' },
               { label: 'Status', value: bill.status || '—' },
-              { label: 'Measurement', value: measName },
               { label: 'Work Order', value: woName },
               { label: 'Quotation', value: quotName },
               { label: 'Quantity', value: bill.quantity != null ? bill.quantity : '—' },
@@ -2020,8 +2031,11 @@ const ViewRABillModal = ({ bill, projects, contractors, measurements, workOrders
               { label: 'Gross Amount (₹)', value: bill.gross_amount != null ? fmt(bill.gross_amount) : '—' },
               { label: 'Deductions (₹)', value: bill.deductions != null && bill.deductions > 0 ? `-${fmt(bill.deductions)}` : '0' },
               { label: 'Net Amount (₹)', value: bill.net_amount != null ? fmt(bill.net_amount) : '—' },
-              { label: `GST (${bill.gst_percent || 0}%)`, value: bill.total_amount != null && bill.net_amount != null ? fmt(bill.total_amount - bill.net_amount) : '—' },
+              { label: 'GST %', value: bill.gst_percent != null ? String(bill.gst_percent) : '—' },
               { label: 'Total Payable Amount (₹)', value: bill.total_amount != null ? fmt(bill.total_amount) : '—', highlight: true },
+              { label: 'Total Billed Qty', value: bill.total_billed_quantity != null ? String(bill.total_billed_quantity) : '—' },
+              { label: 'Remaining Qty', value: bill.remaining_quantity != null ? String(bill.remaining_quantity) : '—' },
+              { label: 'Available to Bill', value: bill.available_to_bill != null ? String(bill.available_to_bill) : '—' },
             ] as { label: string; value: any; highlight?: boolean }[]).map(({ label, value, highlight }) => (
               <div key={label} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>

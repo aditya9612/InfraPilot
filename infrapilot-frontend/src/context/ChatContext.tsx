@@ -15,6 +15,7 @@ interface ChatContextType {
     updateConversation: (chatId: number, updates: Partial<Conversation>) => void;
     isLoading: boolean;
     typingStatus: Record<number, string>;
+    onlineStatus: Record<number, boolean>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -49,6 +50,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [activeChatId, setActiveChatId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [typingStatus, setTypingStatus] = useState<Record<number, string>>({});
+    const [onlineStatus, setOnlineStatus] = useState<Record<number, boolean>>({});
     const unreadCountsRef = useRef<Record<number, number>>({});
     const activeChatIdRef = useRef<number | null>(null);
     const isFirstLoad = useRef(true);
@@ -120,25 +122,37 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!isBackground) setIsLoading(true);
             const data = await chatService.getEnhancedChatList();
 
-            // Fetch typing status for up to 10 top active unmuted chats to avoid spam
+            // Fetch typing and online status for up to 10 top active unmuted chats to avoid spam
             try {
                 const topChats = data.slice(0, 10);
                 const typingObj: Record<number, string> = {};
+                const onlineObj: Record<number, boolean> = {};
                 
                 await Promise.all(topChats.map(async (conv) => {
                     const res = await chatService.getTypingUsers(conv.id);
                     const typers = res.users.filter(u => u.user_id.toString() !== user?.id);
                     if (typers.length > 0) {
-                        typingObj[conv.id] = `${typers[0].name} is typing...`;
+                        typingObj[conv.id] = conv.type === "group" ? `${typers[0].name} is typing...` : `typing...`;
+                    }
+                    
+                    if (conv.type !== 'group' && conv.other_user_id) {
+                        try {
+                            const statusRes = await chatService.getUserStatus(conv.other_user_id);
+                            onlineObj[conv.id] = statusRes.online;
+                        } catch { }
                     }
                 }));
                 setTypingStatus(typingObj);
-            } catch { /* silent typing fetch err */ }
+                setOnlineStatus(onlineObj);
+            } catch { /* silent fetch err */ }
+
+            // Merge with local overrides (in-memory + localStorage) BEFORE checking unread messages to ensure mute state is accurate
+            const mergedData = mergeWithLocalStatuses(data);
 
             // Check for new messages
             if (!isFirstLoad.current) {
                 const prevCounts = unreadCountsRef.current;
-                data.forEach(conv => {
+                mergedData.forEach(conv => {
                     const prevCount = prevCounts[conv.id] || 0;
                     if (conv.unread_count > prevCount) {
                         const isMuted = !!(conv.is_muted || (conv as any).muted || (conv as any).isMuted || (conv as any).is_mute);
@@ -211,12 +225,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Update unread count tracking
             const nextCounts: Record<number, number> = {};
-            data.forEach(c => { nextCounts[c.id] = c.unread_count; });
+            mergedData.forEach(c => { nextCounts[c.id] = c.unread_count; });
             unreadCountsRef.current = nextCounts;
             isFirstLoad.current = false;
 
-            // Merge with local overrides (in-memory + localStorage)
-            const mergedData = mergeWithLocalStatuses(data);
             setConversations(mergedData);
         } catch (error: any) {
             // Silence 401s for background tasks or for Labour role (mock session) to keep console clean
@@ -318,7 +330,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 refreshChatList,
                 updateConversation,
                 isLoading,
-                typingStatus
+                typingStatus,
+                onlineStatus
             }}
         >
             {children}
