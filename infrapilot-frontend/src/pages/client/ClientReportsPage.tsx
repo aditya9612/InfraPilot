@@ -93,15 +93,20 @@ const ClientReportsPage = () => {
   const [weeklyProgress, setWeeklyProgress] = useState<any>(null);
   const [materialSummary, setMaterialSummary] = useState<any>(null);
   const [issueSummary, setIssueSummary] = useState<any>(null);
-  const [reportDate, setReportDate] = useState(() => {
+  const [reportStartDate, setReportStartDate] = useState(() => {
     const saved = localStorage.getItem('client_report_date');
+    return saved || new Date().toISOString().split('T')[0];
+  });
+  const reportDate = reportStartDate;
+  const [reportEndDate, setReportEndDate] = useState(() => {
+    const saved = localStorage.getItem('client_report_date_end');
     return saved || new Date().toISOString().split('T')[0];
   });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [frequency, setFrequency] = useState("All Cycles");
+  const [frequency, setFrequency] = useState("Daily");
   const [labourSummary, setLabourSummary] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("daily");
   const [showInsight, setShowInsight] = useState(false);
   const [selectedInsight, setSelectedInsight] = useState<any>(null);
 
@@ -496,12 +501,12 @@ const ClientReportsPage = () => {
       }
     },
     {
-      level: "AS NEEDED",
+      level: "MONTHLY",
       title: "Issue Report",
       size: "0.5 MB",
       colorClass: "text-amber-600",
       iconBg: "bg-red-50",
-      frequency: "As Needed",
+      frequency: "Monthly",
       time: "5 Mins Ago",
       icon: (
         <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none">
@@ -1215,77 +1220,103 @@ const ClientReportsPage = () => {
             sub="High Priority Items"
             red
             active={activeTab === "issues"}
-            onClick={() => { setActiveTab("issues"); setFrequency("As Needed"); }}
+            onClick={() => { setActiveTab("issues"); setFrequency("All Cycles"); }}
           />
         </div>
 
-        {/* FILTER BAR */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col xl:flex-row items-center justify-between gap-8 mb-10">
-          <div className="flex items-center gap-5 shrink-0">
-            <div className="w-14 h-14 bg-[#2563EB] rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-100">
-              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+        {/* FILTER BAR - Matched to mockup */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-5 mb-8">
+          {/* Left Title */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 bg-[#2563EB] rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-100">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
             </div>
-            <h3 className="text-lg font-black text-slate-800 tracking-tight">Report Catalog Filter</h3>
+            <h3 className="text-sm font-bold text-slate-800 tracking-tight whitespace-nowrap">Report Catalog Filter</h3>
           </div>
 
-          <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-3xl">
-            <div className="relative">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest absolute -top-2.5 left-4 bg-white px-2 z-10">SEARCH</label>
+          {/* Center Form Controls */}
+          <div className="flex flex-wrap items-center gap-3 flex-1 w-full max-w-4xl">
+            {/* Search */}
+            <div className="flex-1 min-w-[170px]">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">SEARCH</label>
               <div className="relative">
-                <svg className="w-3.5 h-3.5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <svg className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 <input
                   type="text"
                   placeholder="Search reports..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl pl-10 pr-4 py-3.5 text-[11px] font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 transition-all outline-none"
+                  className="w-full bg-slate-50 border border-slate-200/60 rounded-xl pl-9 pr-3 py-2 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
-            <div className="relative">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest absolute -top-2.5 left-4 bg-white px-2 z-10">REPORT DATE</label>
+
+            {/* Start Date */}
+            <div className="w-full sm:w-[135px]">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">START DATE</label>
               <input
                 type="date"
-                value={reportDate}
+                value={reportStartDate}
                 max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => {
                   const newDate = e.target.value;
-                  setReportDate(newDate);
+                  setReportStartDate(newDate);
                   localStorage.setItem('client_report_date', newDate);
                 }}
-                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-3.5 text-[11px] font-bold text-slate-700 focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 cursor-pointer"
               />
             </div>
-            <div className="relative">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest absolute -top-2.5 left-4 bg-white px-2 z-10">FREQUENCY</label>
-              <select
-                value={frequency}
+
+            {/* End Date */}
+            <div className="w-full sm:w-[135px]">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">END DATE</label>
+              <input
+                type="date"
+                value={reportEndDate}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setFrequency(val);
-                  if (val === "All Cycles") setActiveTab("all");
-                  else if (val === "Daily") setActiveTab("daily");
-                  else if (val === "Weekly") setActiveTab("weekly");
-                  else if (val === "As Needed") setActiveTab("issues");
-                  else setActiveTab("none");
+                  const newDate = e.target.value;
+                  setReportEndDate(newDate);
+                  localStorage.setItem('client_report_date_end', newDate);
                 }}
-                className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl px-4 py-3.5 text-[11px] font-bold text-slate-700 focus:outline-none appearance-none cursor-pointer"
-              >
-                <option>All Cycles</option>
-                <option>Daily</option>
-                <option>Weekly</option>
-                <option>As Needed</option>
-              </select>
-              <svg className="w-3.5 h-3.5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+                className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* Frequency */}
+            <div className="w-full sm:w-[135px]">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">FREQUENCY</label>
+              <div className="relative">
+                <select
+                  value={frequency}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFrequency(val);
+                    if (val === "Daily") setActiveTab("daily");
+                    else if (val === "Weekly") setActiveTab("weekly");
+                    else if (val === "Monthly") setActiveTab("monthly");
+                    else if (val === "Quarterly") setActiveTab("quarterly");
+                    else setActiveTab("none");
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 outline-none focus:border-blue-500 appearance-none cursor-pointer pr-8"
+                >
+                  <option value="Daily">Daily</option>
+                  <option value="Weekly">Weekly</option>
+                  <option value="Monthly">Monthly</option>
+                  <option value="Quarterly">Quarterly</option>
+                </select>
+                <svg className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-3 shrink-0">
-            <button onClick={handleExportProjectPDF} className="px-6 py-3.5 bg-[#2563EB] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 active:scale-95 shadow-lg shadow-blue-100">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> PDF
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0 self-end lg:self-center pt-3 lg:pt-0">
+            <button onClick={handleExportProjectPDF} className="px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 active:scale-95 transition-all shadow-md shadow-blue-100 cursor-pointer">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> PDF
             </button>
-            <button onClick={handleExportProjectExcel} className="px-6 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2.5 hover:bg-slate-50 active:scale-95 transition-all shadow-sm">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Export
+            <button onClick={handleExportProjectExcel} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-slate-50 active:scale-95 transition-all shadow-sm cursor-pointer">
+              <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Export
             </button>
           </div>
         </div>
@@ -1304,7 +1335,10 @@ const ClientReportsPage = () => {
                   report.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                   report.level.toLowerCase().includes(searchQuery.toLowerCase());
 
-                const matchesFrequency = frequency === "All Cycles" || report.frequency === frequency;
+                const matchesFrequency =
+                  frequency === "All Cycles" ||
+                  frequency === "Daily" ||
+                  report.frequency.toLowerCase() === frequency.toLowerCase();
                 if (activeTab === "issues" && report.title !== "Issue Report") return false;
                 return matchesSearch && matchesFrequency;
               })

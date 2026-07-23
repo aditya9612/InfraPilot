@@ -150,7 +150,6 @@ const ClientDashboard = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
           <div>
-            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px] mb-1">Project Command Center</p>
             <h1 className="text-4xl font-black text-slate-800 tracking-tight">{(projectData?.project_name || projectData?.name || "PROPOSAL STAGE").toUpperCase()}</h1>
           </div>
           <div className="flex items-center gap-4">

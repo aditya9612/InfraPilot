@@ -258,9 +258,12 @@ export const paymentService = {
      * Get Invoice Payment Summary
      * GET /api/v1/client-payments/invoice-summary
      */
-    async getInvoiceSummary(): Promise<any> {
+    async getInvoiceSummary(projectId?: number | string, params?: any): Promise<any> {
         try {
-            const response = await api.get("client-payments/invoice-summary");
+            const pId = projectId || params?.project_id || 4;
+            const response = await api.get("client-payments/invoice-summary", {
+                params: { project_id: pId, ...params }
+            });
             return response.data;
         } catch (err) {
             console.error("Failed to fetch invoice summary:", err);
@@ -272,9 +275,12 @@ export const paymentService = {
      * Get Pending Invoices
      * GET /api/v1/client-payments/pending-invoices
      */
-    async getPendingInvoices(): Promise<any[]> {
+    async getPendingInvoices(projectId?: number | string, params?: any): Promise<any[]> {
         try {
-            const response = await api.get("client-payments/pending-invoices");
+            const pId = projectId || params?.project_id || 4;
+            const response = await api.get("client-payments/pending-invoices", {
+                params: { project_id: pId, ...params }
+            });
             const data = response.data;
             return Array.isArray(data) ? data : data?.items || data?.data || data?.invoices || [];
         } catch (err) {
@@ -288,8 +294,9 @@ export const paymentService = {
      * GET /api/v1/client-payments/export/excel
      */
     async exportClientPaymentsExcel(params?: Record<string, any>): Promise<void> {
+        const pId = params?.project_id || 4;
         const response = await api.get("client-payments/export/excel", {
-            params,
+            params: { project_id: pId, ...params },
             responseType: "blob",
         });
         const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -307,8 +314,9 @@ export const paymentService = {
      * GET /api/v1/client-payments/export/pdf
      */
     async exportClientPaymentsPdf(params?: Record<string, any>): Promise<void> {
+        const pId = params?.project_id || 4;
         const response = await api.get("client-payments/export/pdf", {
-            params,
+            params: { project_id: pId, ...params },
             responseType: "blob",
         });
         const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
@@ -329,13 +337,14 @@ export const paymentService = {
         invoice_id: string;
         amount: number;
         paid_amount?: number;
-        project_id?: string;
+        project_id?: string | number;
         project_name?: string;
         payment_method?: string;
         bank_name?: string;
         status?: string;
     }): Promise<any> {
-        const response = await api.post("client-payments", payload);
+        const pId = payload.project_id || 4;
+        const response = await api.post("client-payments", { ...payload, project_id: pId });
         return response.data;
     },
 
@@ -343,9 +352,18 @@ export const paymentService = {
      * Get Client Payment History
      * GET /api/v1/client-payments/history
      */
-    async getClientPaymentHistory(params?: any): Promise<any[]> {
+    async getClientPaymentHistory(projectId?: number | string | any, params?: any): Promise<any[]> {
         try {
-            const response = await api.get("client-payments/history", { params });
+            let pId: any;
+            let queryParams = {};
+            if (typeof projectId === "object" && projectId !== null) {
+                queryParams = projectId;
+                pId = projectId.project_id || 4;
+            } else {
+                pId = projectId || params?.project_id || 4;
+                queryParams = { project_id: pId, ...params };
+            }
+            const response = await api.get("client-payments/history", { params: queryParams });
             const data = response.data;
             return Array.isArray(data) ? data : data?.items || data?.data || data?.history || [];
         } catch (err) {
@@ -360,7 +378,8 @@ export const paymentService = {
      */
     async listClientPayments(params?: any): Promise<any[]> {
         try {
-            const response = await api.get("client-payments", { params });
+            const pId = params?.project_id || 4;
+            const response = await api.get("client-payments", { params: { project_id: pId, ...params } });
             const data = response.data;
             return Array.isArray(data) ? data : data?.items || data?.data || data?.payments || [];
         } catch (err) {
@@ -375,7 +394,8 @@ export const paymentService = {
      */
     async getClientPaymentAnalytics(params?: any): Promise<any> {
         try {
-            const response = await api.get("client-payments/analytics", { params });
+            const pId = params?.project_id || 4;
+            const response = await api.get("client-payments/analytics", { params: { project_id: pId, ...params } });
             return response.data;
         } catch (err) {
             console.error("Failed to fetch client payment analytics:", err);

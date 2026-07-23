@@ -186,7 +186,7 @@ const LabourDashboard: React.FC = () => {
 
     const handleTaskClick = (task: Task) => {
         if (task.status === 'Completed') return;
-        navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
+        navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || 4}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
     };
 
     const stats = [
