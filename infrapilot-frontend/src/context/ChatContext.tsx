@@ -129,11 +129,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const onlineObj: Record<number, boolean> = {};
                 
                 await Promise.all(topChats.map(async (conv) => {
-                    const res = await chatService.getTypingUsers(conv.id);
-                    const typers = res.users.filter(u => u.user_id.toString() !== user?.id);
-                    if (typers.length > 0) {
-                        typingObj[conv.id] = conv.type === "group" ? `${typers[0].name} is typing...` : `typing...`;
-                    }
+                    try {
+                        const res = await chatService.getTypingUsers(conv.id);
+                        const typers = res.users;
+                        if (typers && typers.length > 0) {
+                            typingObj[conv.id] = conv.type === "group" ? `${typers[0].name} is typing...` : `typing...`;
+                        }
+                    } catch { }
                     
                     if (conv.type !== 'group' && conv.other_user_id) {
                         try {
@@ -249,13 +251,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
 
         const poll = async () => {
-            if (!isAuthenticated || (user?.role === "Labour")) return;
-            await refreshChatList(true);
-            pollTimerRef.current = setTimeout(poll, 5000);
+            if (isAuthenticated && document.visibilityState === 'visible') {
+                await refreshChatList(true);
+            }
+            pollTimerRef.current = setTimeout(poll, 2000);
         };
-
-        pollTimerRef.current = setTimeout(poll, 5000);
-    }, [isAuthenticated, user, refreshChatList]);
+        pollTimerRef.current = setTimeout(poll, 2000);
+    }, [isAuthenticated, refreshChatList]);
 
     useEffect(() => {
         const handleRefresh = () => refreshChatList();

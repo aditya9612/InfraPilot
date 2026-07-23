@@ -1344,6 +1344,7 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                 ))}
               </tbody>
             </table>
+            </div>
             <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-3">
                 <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
@@ -1378,7 +1379,6 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
                 </button>
               </div>
             </div>
-          </div>
         </div>
       )}
 

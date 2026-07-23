@@ -301,8 +301,13 @@ export const chatService = {
 
     async getTypingUsers(chatId: number): Promise<{ users: { user_id: number; name: string }[] }> {
         const response = await api.get<any>(`/chats/${chatId}/typing-users`);
-        const data = Array.isArray(response.data) ? response.data : (response.data.users || response.data.items || response.data.data || []);
-        return { users: data.map((u: any) => ({ user_id: u.user_id || u.id, name: u.full_name || u.name || "Someone" })) };
+        const data = Array.isArray(response.data) ? response.data : (response.data?.users || response.data?.items || response.data?.data || response.data?.typing_users || []);
+        return { 
+            users: Array.isArray(data) ? data.map((u: any) => {
+                if (typeof u === 'number' || typeof u === 'string') return { user_id: Number(u), name: "typing..." };
+                return { user_id: u?.user_id || u?.id || 0, name: u?.full_name || u?.name || "typing..." };
+            }) : []
+        };
     },
 
     async getUserStatus(userId: number): Promise<{ online: boolean; last_seen: string | null }> {

@@ -368,17 +368,25 @@ const ChatView: React.FC = () => {
                             };
                         });
                     });
+                } catch { }
+
+                try {
                     const typing = await chatService.getTypingUsers(activeChatId);
-                    setTypingUsers(typing.users.filter(u => u.user_id !== myUserId));
+                    if (typing && typing.users) setTypingUsers(typing.users);
+                } catch { }
+
+                try {
                     const activeRes = await chatService.getActiveUsers(activeChatId);
-                    setActiveUsers(activeRes.active_users.filter(id => id !== myUserId));
-                    
+                    if (activeRes && activeRes.active_users) setActiveUsers(activeRes.active_users);
+                } catch { }
+                
+                try {
                     if (activeChat?.type !== 'group' && activeChat?.other_user_id) {
                         const status = await chatService.getUserStatus(activeChat.other_user_id);
-                        setUserStatus(status);
+                        if (status) setUserStatus(status);
                     }
                 } catch { }
-            }, 5000);
+            }, 1500);
         }
         return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
     }, [activeChatId, myUserId, activeChat]);
