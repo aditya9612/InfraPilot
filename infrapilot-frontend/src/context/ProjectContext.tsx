@@ -28,7 +28,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         setIsLoading(true);
         try {
-            if (user.role === 'ProjectManager') {
+            if (user.role === 'ProjectManager' || user.role === 'Manager') {
                 let localProjects: Project[] = [];
                 const userStr = localStorage.getItem('infrapilot_user');
                 if (userStr) {
@@ -40,7 +40,30 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
                 try {
                     const projects = await projectService.getAssignedProjects(Number(user.id), force);
-                    const finalProjects = projects.length > 0 ? projects : localProjects;
+                    let finalProjects = projects.length > 0 ? projects : localProjects;
+
+                    if (finalProjects.length === 0 && user.project_id) {
+                        finalProjects = [{
+                            id: user.project_id,
+                            project_name: user.project_name || `Project ${user.project_id}`,
+                            owner_id: 0,
+                            description: "",
+                            type: "RESIDENTIAL",
+                            location_type: "URBAN",
+                            site_address: "",
+                            city: "",
+                            state: "",
+                            country: "",
+                            pincode: "",
+                            latitude: 0,
+                            longitude: 0,
+                            start_date: new Date().toISOString().split('T')[0],
+                            end_date: new Date().toISOString().split('T')[0],
+                            status: "Ongoing",
+                            completion_percentage: 0
+                        } as Project];
+                    }
+
                     setAssignedProjects(finalProjects);
 
                     // Auto-select first project if none selected
@@ -57,7 +80,29 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     }
                 } catch (error) {
                     console.error('Failed to fetch assigned projects:', error);
-                    setAssignedProjects(localProjects);
+                    const fallbackProjects = localProjects.length > 0 ? localProjects : (user.project_id ? [{
+                        id: user.project_id,
+                        project_name: user.project_name || `Project ${user.project_id}`,
+                        owner_id: 0,
+                        description: "",
+                        type: "RESIDENTIAL",
+                        location_type: "URBAN",
+                        site_address: "",
+                        city: "",
+                        state: "",
+                        country: "",
+                        pincode: "",
+                        latitude: 0,
+                        longitude: 0,
+                        start_date: new Date().toISOString().split('T')[0],
+                        end_date: new Date().toISOString().split('T')[0],
+                        status: "Ongoing",
+                        completion_percentage: 0
+                    } as Project] : []);
+                    setAssignedProjects(fallbackProjects);
+                    if (fallbackProjects.length > 0 && !selectedProjectId) {
+                        setSelectedProjectIdState(fallbackProjects[0].id);
+                    }
                 }
             } else if (user.role === 'SiteEngineer') {
                 // Site Engineer project is fixed in their user object

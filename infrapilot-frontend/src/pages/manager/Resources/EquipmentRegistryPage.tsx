@@ -44,6 +44,7 @@ const EquipmentRegistryPage = () => {
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false);
+    const [isModalLoading, setIsModalLoading] = useState(false);
     const [formData, setFormData] = useState<any>({});
     const [currentPage, setCurrentPage] = useState(0);
     const PAGE_SIZE = 10;
@@ -51,6 +52,7 @@ const EquipmentRegistryPage = () => {
     // Data States for Other Tabs
     const [usageReport, setUsageReport] = useState<UsageReport[]>([]);
     const [maintenanceAlerts, setMaintenanceAlerts] = useState<MaintenanceAlert[]>([]);
+    const [kpiData, setKpiData] = useState<any>(null);
     const [rentalCostReport, setRentalCostReport] = useState<CostReport[]>([]);
     const [equipmentAlerts, setEquipmentAlerts] = useState<EquipmentAlert[]>([]);
     const [utilizationReport, setUtilizationReport] = useState<UtilizationReport[]>([]);
@@ -69,8 +71,9 @@ const EquipmentRegistryPage = () => {
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [auditLogs, setAuditLogs] = useState<any[]>([]);
-    const [selectedEquipmentLogs, setSelectedEquipmentLogs] = useState<{ usage: any[]; maint: any[]; rental: any[] }>({ usage: [], maint: [], rental: [] });
+    const [selectedEquipmentLogs, setSelectedEquipmentLogs] = useState<{ usage: any[]; maint: any[]; rental: any[]; transfer: any[] }>({ usage: [], maint: [], rental: [], transfer: [] });
     const [allRentalLogs, setAllRentalLogs] = useState<RentalItem[]>([]);
+    const [allTransferLogs, setAllTransferLogs] = useState<any[]>([]);
     const [isRentalViewOnly, setIsRentalViewOnly] = useState(false);
     const [transferForm, setTransferForm] = useState<any>({ equipment_id: undefined, to_project_id: undefined, transfer_date: new Date().toISOString().split('T')[0], condition_notes: '' });
 
@@ -81,18 +84,22 @@ const EquipmentRegistryPage = () => {
             const pIdObj = { project_id: effectiveProjectId };
 
             if (activeTab === "Dashboard") {
-                const [eqRes, usageRes, maintRes, rentalRes, alertsRes] = await Promise.all([
+                const [eqRes, usageRes, maintRes, rentalRes, alertsRes, availRes, kpiRes] = await Promise.all([
                     equipmentService.listEquipment(params),
                     equipmentService.getUsageReport(pIdObj),
                     equipmentService.getMaintenanceAlerts(pIdObj),
                     equipmentService.getCostReport(pIdObj),
-                    equipmentService.getEquipmentAlerts(pIdObj)
+                    equipmentService.getEquipmentAlerts(pIdObj),
+                    equipmentService.getAvailabilityReport(pIdObj),
+                    equipmentService.getKpi(pIdObj)
                 ]);
                 setEquipmentList(eqRes.items || []);
                 setUsageReport(usageRes);
                 setMaintenanceAlerts(maintRes);
                 setRentalCostReport(rentalRes);
                 setEquipmentAlerts(alertsRes);
+                setAvailability(availRes || []);
+                setKpiData(kpiRes || null);
             } else if (activeTab === "Machinery & Equipment List") {
                 const res = await equipmentService.listEquipment(params);
                 setEquipmentList(res.items || []);
@@ -179,13 +186,13 @@ const EquipmentRegistryPage = () => {
     const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
     const dashStats = useMemo(() => ({
-        totalEquipment: equipmentList.length,
-        available: equipmentList.filter(item => !item.project_id).length,
-        allocated: equipmentList.filter(item => item.project_id).length,
-        maintenanceAlerts: maintenanceAlerts.length,
-        equipmentAlerts: equipmentAlerts.length,
-        rentalCost: rentalCostReport.reduce((sum, item) => sum + (item.total_cost || 0), 0)
-    }), [equipmentList, maintenanceAlerts, equipmentAlerts, rentalCostReport]);
+        totalEquipment: kpiData?.total_equipment ?? equipmentList.length,
+        available: kpiData?.available ?? (availability?.filter(a => a.is_available).length ?? equipmentList.filter(item => !item.project_id).length),
+        allocated: kpiData?.allocated ?? equipmentList.filter(item => item.project_id).length,
+        maintenanceAlerts: kpiData?.maintenance ?? maintenanceAlerts.length,
+        equipmentAlerts: kpiData?.damaged ?? equipmentAlerts.length,
+        rentalCost: kpiData?.total_rental_revenue ?? rentalCostReport.reduce((sum, item) => sum + (item.total_cost || 0), 0)
+    }), [equipmentList, maintenanceAlerts, equipmentAlerts, rentalCostReport, kpiData, availability]);
 
     // Reset page on tab or search change
     useEffect(() => { setCurrentPage(0); }, [activeTab, searchTerm, conditionFilter, projectFilter]);
@@ -257,11 +264,46 @@ const EquipmentRegistryPage = () => {
         })();
     }, [activeTab, selectedEquipment, equipmentList]);
 
-    const openViewModal = (item: Equipment) => {
+    useEffect(() => {
+        if (activeTab !== "Transfer Equipment") return;
+
+        // load transfers for selected equipment
+        if (selectedEquipment) {
+            equipmentService.getTransferHistory(selectedEquipment.id)
+                .then(res => setSelectedEquipmentLogs(prev => ({ ...prev, transfer: res })))
+                .catch(() => setSelectedEquipmentLogs(prev => ({ ...prev, transfer: [] })));
+        } else {
+            setSelectedEquipmentLogs(prev => ({ ...prev, transfer: [] }));
+        }
+
+        // aggregate all transfers (one call per equipment) for history view
+        (async () => {
+            try {
+                const results = await Promise.all((equipmentList || []).map(eq => equipmentService.getTransferHistory(eq.id).catch(() => [])));
+                setAllTransferLogs(results.flat());
+            } catch (err) {
+                setAllTransferLogs([]);
+            }
+        })();
+    }, [activeTab, selectedEquipment, equipmentList]);
+
+    const openViewModal = async (item: Equipment) => {
         setSelectedEquipment(item);
         setFormData(item);
         setIsViewOnly(true);
         setIsEquipmentModalOpen(true);
+        try {
+            setIsModalLoading(true);
+            const fresh = await equipmentService.getEquipment(item.id);
+            if (fresh) {
+                setFormData(fresh as any);
+                setSelectedEquipment(fresh as any);
+            }
+        } catch (err) {
+            toast.error('Failed to load equipment details');
+        } finally {
+            setIsModalLoading(false);
+        }
     };
 
     const openEditModal = (item: Equipment) => {
@@ -710,7 +752,7 @@ const EquipmentRegistryPage = () => {
                                         return (
                                             <tr key={report.equipment_id} onClick={() => equipment && setSelectedEquipment(equipment)} className={`cursor-pointer hover:bg-slate-50 transition-colors ${selectedEquipment?.id === report.equipment_id ? 'bg-slate-100' : ''}`}>
                                                 <td className="px-4 py-4 font-semibold text-slate-800">{report.equipment_code}</td>
-                                                <td className="px-4 py-4 text-slate-700">{report.total_hours}</td>
+                                                <td className="px-4 py-4 text-slate-700">{report.total_hours != null ? Number(report.total_hours).toFixed(1) : '-'}</td>
                                                 <td className="px-4 py-4 text-orange-600 font-bold">{report.total_fuel}</td>
                                                 <td className="px-4 py-4 text-slate-500">{report.usage_count}</td>
                                             </tr>
@@ -1174,11 +1216,26 @@ const EquipmentRegistryPage = () => {
                 </div>
 
                 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-                    <h3 className="text-sm font-bold text-slate-800 mb-4">Action Items</h3>
-                    <div className="space-y-3 text-sm text-slate-600">
-                        <p>• Use the Registry tab to add or update equipment details.</p>
-                        <p>• Track usage and maintenance entries in dedicated tabs.</p>
-                        <p>• Review rental costs and alerts before approving deployments.</p>
+                    <h3 className="text-sm font-bold text-slate-800 mb-4">Equipment Alerts</h3>
+                    <div className="space-y-4">
+                        {equipmentAlerts && equipmentAlerts.length > 0 ? (
+                            equipmentAlerts.slice(0, 6).map((alert) => (
+                                <div key={alert.equipment_id || alert.equipment_code || Math.random()} className="p-3 rounded-2xl border border-slate-100 bg-slate-50">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-900">{alert.equipment_name}</p>
+                                            <p className="text-xs text-slate-500">{alert.equipment_code} {alert.project_id ? `— Project ${alert.project_id}` : ''}</p>
+                                        </div>
+                                        <span className="text-[10px] uppercase tracking-[0.22em] font-bold text-rose-600 bg-rose-100 rounded-full px-2 py-1">Alert</span>
+                                    </div>
+                                    {alert.issues && alert.issues.length > 0 && (
+                                        <p className="mt-2 text-xs text-slate-600">{alert.issues.map((issue: any) => `${issue.type} (${issue.current_hours ?? ''}/${issue.limit ?? ''})`).join(' • ')}</p>
+                                    )}
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center py-6 text-slate-400">No equipment alerts.</div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1208,11 +1265,8 @@ const EquipmentRegistryPage = () => {
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="relative max-w-md flex-1">
-                            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input type="text" placeholder={`Search in ${activeTab}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
-                        </div>
+                    <div className="p-4 border-b border-slate-50 flex items-center justify-between gap-4">
+                        <div className="flex-1" />
                         {activeTab === "Machinery & Equipment List" && (
                             <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                                 Total: {filteredEquipment.length}

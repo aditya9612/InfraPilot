@@ -141,6 +141,20 @@ export const drawingService = {
         }
     },
 
+    /**
+     * Get all drawings for a project
+     * GET /api/v1/drawings
+     */
+    async getDrawings(projectId: number | string) {
+        try {
+            const response = await api.get(`/drawings`, { params: { project_id: projectId } });
+            return Array.isArray(response.data) ? response.data : (response.data as any).items || [];
+        } catch (error: any) {
+            console.warn("Fetch Drawings Failed:", error?.response?.data || error.message);
+            return [];
+        }
+    },
+
     async getLatest(projectId: number) {
         console.log(`GET /api/v1/drawings/${projectId}/latest`);
         try {

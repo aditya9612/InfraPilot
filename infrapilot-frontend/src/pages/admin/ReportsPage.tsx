@@ -520,7 +520,7 @@ const ReportsPage = () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.setAttribute("download", `fixed_assets_report.${assetFilterFormat === "PDF" ? "pdf" : "xlsx"}`);
+        a.setAttribute("download", `fixed_asset_depreciation_report.${assetFilterFormat === "PDF" ? "pdf" : "xlsx"}`);
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -546,7 +546,7 @@ const ReportsPage = () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.setAttribute("download", `labour_distribution.${labourFilterFormat === "PDF" ? "pdf" : "xlsx"}`);
+        a.setAttribute("download", `labour_distribution_summary.${labourFilterFormat === "PDF" ? "pdf" : "xlsx"}`);
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -693,7 +693,7 @@ const ReportsPage = () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.setAttribute("download", `site_issues_report.${issueFilterFormat === "PDF" ? "pdf" : "xlsx"}`);
+        a.setAttribute("download", `executive_site_issue_report.${issueFilterFormat === "PDF" ? "pdf" : "xlsx"}`);
         document.body.appendChild(a);
         a.click();
         a.remove();

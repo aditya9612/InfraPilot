@@ -494,9 +494,14 @@ export const projectService = {
     const cache = projectService._getCache();
     const cached = cache.get(userId);
 
-    if (!forceRefresh && cached && (Date.now() - cached.timestamp < projectService._CACHE_TTL)) {
+    const shouldUseCache = !forceRefresh && cached && cached.data.length > 0 && (Date.now() - cached.timestamp < projectService._CACHE_TTL);
+    if (shouldUseCache) {
       console.log(`[ProjectService] Using cached assigned projects for user ${userId} (${cached.data.length} found)`);
       return cached.data;
+    }
+
+    if (cached && cached.data.length === 0 && !forceRefresh) {
+      console.warn(`[ProjectService] Cached assigned projects for user ${userId} are empty; refreshing from server.`);
     }
 
     try {
