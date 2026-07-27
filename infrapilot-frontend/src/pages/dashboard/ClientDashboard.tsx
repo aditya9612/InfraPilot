@@ -1,105 +1,72 @@
-import Navbar from "../../components/common/Navbar";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  Calendar,
+  Clock,
+  ShieldAlert,
+  Wallet,
+  FileText,
+  Users,
+  Heart,
+  TrendingUp,
+} from "lucide-react";
+
+import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
 import { type ClientDashboardData, dashboardService } from "../../services/dashboardService";
 import { projectService } from "../../services/projectService";
-import { workProgressService } from "../../services/workProgressService";
-import toast from "react-hot-toast";
+import { expenseService } from "../../services/expenseService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-
+import toast from "react-hot-toast";
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const [isBotOpen, setIsBotOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<ClientDashboardData | null>(null);
   const [projectData, setProjectData] = useState<any>(null);
-  const [liveFeed, setLiveFeed] = useState<any[]>([]);
-  const [activitiesCount, setActivitiesCount] = useState(0);
-  const [calculatedOverallProgress, setCalculatedOverallProgress] = useState(0);
+  const [recentExpensesList, setRecentExpensesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { projectId } = useClientProjectId();
 
   useEffect(() => {
     if (!projectId) return;
-
     let active = true;
 
     const fetchDashboardContent = async () => {
-      let activeProject: any = null;
       try {
         setLoading(true);
 
-        // 1. Fetch project data (wrap in try/catch to prevent blocking dashboard on failure)
         try {
-          activeProject = await projectService.getProjectById(projectId);
-          if (active) {
-            setProjectData(activeProject);
-          }
-        } catch (projError) {
-          console.warn("Project details fetch failed, continuing with dashboard stats:", projError);
+          const activeProject = await projectService.getProjectById(projectId);
+          if (active) setProjectData(activeProject);
+        } catch (projErr) {
+          console.warn("Project details fetch warning:", projErr);
         }
 
-        // 2. Fetch dashboard stats for that project (Simplified API)
         const statsData = await dashboardService.getClientDashboard(projectId);
-        if (!active) return;
+        if (active) setDashboardData(statsData);
 
-        setDashboardData(statsData);
-
-        // 3. Populate Live Execution Feed from work-progress/activities API
         try {
-          const activities = await workProgressService.listActivities(projectId, undefined, 50);
-          if (active && activities.length > 0) {
-            const onTrackActivities = activities.filter((act: any) =>
-              act.status?.toUpperCase() === 'ON_TRACK' || act.status?.toUpperCase() === 'ON TRACK'
-            );
-
-            setActivitiesCount(onTrackActivities.length);
-
-            if (onTrackActivities.length > 0) {
-              const avgProgress = Math.round(onTrackActivities.reduce((sum: number, a: any) => sum + (Number(a.completion_percentage) || 0), 0) / onTrackActivities.length);
-              setCalculatedOverallProgress(avgProgress);
-            } else {
-              setCalculatedOverallProgress(0);
-            }
-
-            const mappedFeed = onTrackActivities.slice(0, 10).map((act: any) => {
-              const timeVal = act.updated_at || act.created_at || new Date().toISOString();
-              const dateObj = new Date(timeVal);
-              return {
-                id: act.id,
-                text: `${act.activity_name} - ${act.completion_percentage}%`,
-                time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                icon: act.status?.toUpperCase() === 'COMPLETED' ? "✔" : "🏗️"
-              };
-            });
-            setLiveFeed(mappedFeed);
+          const expData = await expenseService.getExpensesByProject(Number(projectId));
+          if (active && Array.isArray(expData) && expData.length > 0) {
+            setRecentExpensesList(expData.slice(0, 5));
           }
         } catch (e) {
-          console.warn("Activities fetch failed for dashboard feed:", e);
+          console.warn("Expenses fetch failed:", e);
         }
 
       } catch (error: any) {
         if (!active) return;
         console.error("Dashboard Fetch Error:", error);
         toast.error(error.message || "Failed to load dashboard data");
-        // Fallback matching the new dashboard schema
-        setDashboardData({
-          project_id: Number(projectId),
-          status: "PLANNED",
-          progress_percent: 0,
-          budget_total: 12000,
-          total_expense: 0,
-          budget_used_percent: 0,
-          remaining_budget: 12000,
-          milestones_total: 0,
-          milestones_completed: 0,
-          tasks_total: 0,
-          tasks_completed: 0,
-          start_date: "2026-06-01",
-          end_date: "2027-12-31",
-          days_remaining: 561
-        });
       } finally {
         if (active) setLoading(false);
       }
@@ -109,146 +76,536 @@ const ClientDashboard = () => {
     return () => { active = false; };
   }, [projectId]);
 
+  // ── Fields from API only ──
+  const projectName = projectData?.project_name || projectData?.name || "";
+  const projectStatus = (dashboardData?.status || projectData?.status || "").toUpperCase();
+  const startDateStr = dashboardData?.start_date || projectData?.start_date || "";
+  const endDateStr = dashboardData?.end_date || projectData?.end_date || "";
+
+  const daysRemaining       = dashboardData?.days_remaining ?? 0;
+  const progressPercent     = Number(dashboardData?.progress_percent ?? 0);
+  const budgetTotal         = Number(dashboardData?.budget_total ?? 0);
+  const totalExpense        = Number(dashboardData?.total_expense ?? 0);
+  const remainingBudget     = Number(dashboardData?.remaining_budget ?? 0);
+  const budgetUsedPercent   = Number(dashboardData?.budget_used_percent ?? 0);
+  const tasksCompleted      = Number(dashboardData?.tasks_completed ?? 0);
+  const tasksTotal          = Number(dashboardData?.tasks_total ?? 0);
+  const tasksPending        = Math.max(0, tasksTotal - tasksCompleted);
+  const milestonesCompleted = Number(dashboardData?.milestones_completed ?? 0);
+  const milestonesTotal     = Number(dashboardData?.milestones_total ?? 0);
+  const milestonesPending   = Math.max(0, milestonesTotal - milestonesCompleted);
+
+  // Derived from real API fields
+  const remainingPercent = budgetTotal > 0 ? (remainingBudget / budgetTotal) * 100 : 0;
+  const spentPercent     = budgetTotal > 0 ? (totalExpense / budgetTotal) * 100 : 0;
+  const budgetStatus     = remainingBudget >= 0 ? "Healthy" : "Over Budget";
+
+  // Fields NOT in the API — default 0 / ""
+  const projectHealth      = (dashboardData as any)?.project_health || (dashboardData as any)?.health || "";
+  const projectDuration    = (dashboardData as any)?.project_duration ?? 0;
+  const elapsedDays        = (dashboardData as any)?.elapsed_days ?? 0;
+  const timelineProgress   = (dashboardData as any)?.timeline_progress ?? 0;
+  const scheduleVariance   = (dashboardData as any)?.variance_percent ?? 0;
+  const scheduleStatus     = (dashboardData as any)?.schedule_status || "";
+  const riskLevel          = (dashboardData as any)?.risk_level || "";
+  const overdueTasks       = (dashboardData as any)?.overdue_tasks ?? 0;
+  const overdueMilestones  = (dashboardData as any)?.overdue_milestones ?? 0;
+  const highPriorityOverdue = (dashboardData as any)?.high_priority_overdue ?? 0;
+
+  const taskCompletionPct      = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
+  const milestoneCompletionPct = milestonesTotal > 0 ? Math.round((milestonesCompleted / milestonesTotal) * 100) : 0;
+
+  const formatCurrency = (val: number) =>
+    "₹" + val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "—";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+
+  // Dynamic 6-month expense trend from real data
+  const expenseTrendData = (() => {
+    const months: { month: string; amount: number }[] = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key   = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      const total = recentExpensesList
+        .filter((e: any) => (e.created_at || e.date || "").startsWith(key))
+        .reduce((sum: number, e: any) => sum + Number(e.amount || e.total_amount || 0), 0);
+      months.push({ month: label, amount: total });
+    }
+    return months;
+  })();
+
   const botMessages = [
     { role: "assistant", text: "Hello! I am your InfraPilot AI assistant. How can I help you today?", time: "Just now" },
-    { role: "user", text: "What is the current status of Phase 3?", time: "Just now" },
-    { role: "assistant", text: "Phase 3 (Roof Slab & MEP Hookups) is currently 42% complete. Rebar arrangement is the current focus today.", time: "Just now" },
+    { role: "user",      text: "What is the current project health and progress?", time: "Just now" },
+    { role: "assistant", text: `Project health is ${projectHealth || "unknown"} with ${progressPercent}% completion.`, time: "Just now" },
   ];
-
-  const formatDate = (d: string | undefined) => {
-    if (!d) return "N/A";
-    const date = new Date(d);
-    return isNaN(date.getTime()) ? d : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  };
 
   if (loading) {
     return (
       <>
         <Navbar title="Dashboard" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
         <div className="flex items-center justify-center min-h-screen bg-slate-50">
-          <div className="w-12 h-12 border-4 border-slate-200 border-t-primary rounded-full animate-spin" />
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin" />
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Loading Dashboard…</p>
+          </div>
         </div>
       </>
     );
   }
 
-  if (!dashboardData) {
-    return (
-      <>
-        <Navbar title="Dashboard" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
-        <div className="p-6 bg-slate-50 min-h-screen font-inter">
-          <p className="text-slate-500">Failed to load dashboard data.</p>
-        </div>
-      </>
-    );
-  }
-
+  // ─────────────────────────────────────────────────────────────────
   return (
     <>
       <Navbar title="Dashboard" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />
-      <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+
+      <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12 space-y-6">
+
+        {/* ── HEADER ── */}
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tight">{(projectData?.project_name || projectData?.name || "PROPOSAL STAGE").toUpperCase()}</h1>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight">{projectName || "Dashboard"}</h1>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+              Project overview &amp; real-time analytics
+            </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl px-6 py-3 shadow-sm flex items-center gap-3">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-sm font-black text-slate-700">Project Status: {dashboardData ? (dashboardData.status || "PLANNED").charAt(0) + (dashboardData.status || "PLANNED").slice(1).toLowerCase() : "Loading..."}</p>
-            </div>
+          <div className="flex items-center gap-2 text-xs bg-white border border-slate-100 rounded-2xl px-4 py-2 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-blue-500" />
+            <span className="font-bold text-slate-500">Project Status:</span>
+            <span className="font-black text-slate-800">{projectStatus || "—"}</span>
           </div>
         </div>
-        {/* Vital Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {[
-            { label: "Overall Progress", value: dashboardData ? `${Number(dashboardData.progress_percent ?? 0).toFixed(2)}%` : "—", sub: "Progress Percent" },
-            { label: "Total Budget", value: dashboardData ? `₹${(dashboardData.budget_total ?? 0).toLocaleString("en-IN")}` : "—", sub: "Project Budget" },
-            { label: "Remaining Budget", value: dashboardData ? `₹${(dashboardData.remaining_budget ?? 0).toLocaleString("en-IN")}` : "—", sub: "Remaining" },
-            { label: "Milestones", value: dashboardData ? `${dashboardData.milestones_completed ?? 0} / ${dashboardData.milestones_total ?? 0}` : "—", sub: "Completed / Total" },
-            { label: "Tasks", value: dashboardData ? `${dashboardData.tasks_completed ?? 0} / ${dashboardData.tasks_total ?? 0}` : "—", sub: "Completed / Total" },
-            { label: "Start Date", value: dashboardData ? formatDate(dashboardData.start_date) : "—", sub: "Project Start" },
-            { label: "End Date", value: dashboardData ? formatDate(dashboardData.end_date) : "—", sub: "Project End" },
-            { label: "Days Remaining", value: dashboardData ? `${dashboardData.days_remaining ?? 0}` : "—", sub: "Days Remaining" },
-          ].map((card: any, i) => (
-            <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 transition-all hover:shadow-md group flex flex-col justify-between min-h-[140px]">
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{card.label}</p>
-              <div className="flex-1 flex flex-col justify-center py-2">
-                {typeof card.value === "string" ? (
-                  <p className="text-lg font-black text-blue-600 tracking-tight leading-snug whitespace-pre-line break-words">{card.value}</p>
-                ) : (
-                  card.value
-                )}
+
+
+        {/* ── ROW 1 — 6 KPI CARDS ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+
+          {/* PROJECT HEALTH */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Project Health</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center shrink-0">
+                <Heart className="w-5 h-5 text-red-500" />
               </div>
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-          {/* Live Execution Feed - Now on the left side */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 h-full flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between p-6 border-b border-slate-50 pb-4 shrink-0">
-                <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Live Execution Feed</h2>
-                <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">{activitiesCount} Updates</span>
-              </div>
-              <div className="overflow-y-auto p-6 pt-4 custom-scrollbar h-[280px]">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                  {liveFeed.length > 0 ? liveFeed.map(update => (
-                    <div key={update.id} className="flex items-start gap-4 p-3 rounded-xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
-                      <span className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-lg shadow-sm shrink-0">{update.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-bold text-slate-700 leading-tight tracking-tight truncate">{update.text}</p>
-                      </div>
-                    </div>
-                  )) : (
-                    <div className="col-span-full py-10 text-center">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">No active feed records found</p>
-                    </div>
-                  )}
-                </div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="text-lg font-black text-slate-800 truncate">{projectHealth || "—"}</p>
+                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
               </div>
             </div>
           </div>
 
-          {/* Project Activities Overview - Now on the right side - Clickable to Progress Page */}
-          <div className="lg:col-span-1">
-            <div
-              onClick={() => navigate('/client/progress')}
-              className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 h-full flex flex-col justify-center relative overflow-hidden cursor-pointer hover:border-blue-200 hover:shadow-md transition-all group/card"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/40 rounded-full blur-2xl -mr-16 -mt-16" />
-              <div className="relative z-10 flex flex-col items-center text-center">
-                <div className="relative w-52 h-52 mb-6">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 224 224">
-                    <circle cx="112" cy="112" r="100" stroke="#f1f5f9" strokeWidth="12" fill="none" />
-                    <circle cx="112" cy="112" r="100" stroke="#2563eb" strokeWidth="12" fill="none"
-                      strokeDasharray={628.3}
-                      strokeDashoffset={628.3 * (1 - (calculatedOverallProgress || (dashboardData?.progress_percent ?? 0)) / 100)}
-                      strokeLinecap="round"
-                      className="transition-all duration-1000"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-4xl font-black text-blue-600 tracking-tighter">
-                      {Math.round(calculatedOverallProgress || (dashboardData?.progress_percent ?? 0))}%
-                    </span>
-                    <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase mt-2">Overall</span>
-                  </div>
-                </div>
-                <h2 className="text-xl font-black text-slate-800 tracking-tight mb-2">Project Activities Overview</h2>
-                <p className="text-xs text-slate-500 font-medium mb-4">
-                  {activitiesCount || 7} tracked activities in phase.
-                </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-black uppercase tracking-widest border border-emerald-100 flex items-center gap-1.5 shadow-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    On Track
-                  </span>
-                </div>
+          {/* BUDGET STATUS */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Budget Status</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
+                <Wallet className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="text-lg font-black text-slate-800 truncate">{budgetStatus}</p>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
               </div>
             </div>
           </div>
+
+          {/* PROJECT PROGRESS */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Project Progress</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-black text-slate-800">{progressPercent}%</p>
+                <p className="text-[10px] font-bold text-slate-400">Actual Progress</p>
+              </div>
+            </div>
+          </div>
+
+          {/* SCHEDULE STATUS */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Schedule Status</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5 text-amber-500" />
+              </div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="text-sm font-black text-slate-800 leading-tight">{scheduleStatus || "—"}</p>
+                {scheduleStatus && <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />}
+              </div>
+            </div>
+          </div>
+
+          {/* RISK LEVEL */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Risk Level</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-5 h-5 text-orange-500" />
+              </div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="text-lg font-black text-slate-800 truncate">{riskLevel || "—"}</p>
+                {riskLevel && <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />}
+              </div>
+            </div>
+          </div>
+
+          {/* TIMELINE PROGRESS */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Timeline Progress</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 relative shrink-0">
+                <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none" stroke="#e2e8f0" strokeWidth="4.5" />
+                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none" stroke="#2563eb" strokeWidth="4.5"
+                    strokeDasharray={`${Math.min(100, timelineProgress)}, 100`}
+                    strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-black text-slate-800">{timelineProgress.toFixed(2)}%</p>
+                <p className="text-[10px] font-bold text-slate-400">Time Elapsed</p>
+              </div>
+            </div>
+          </div>
+
         </div>
+
+
+        {/* ── ROW 2 — Budget Overview | Timeline Overview | Schedule Overview ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_2.5fr_1.8fr] gap-6">
+
+          {/* BUDGET OVERVIEW */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-5">Budget Overview</h2>
+
+            <div className="flex items-center gap-4">
+              {/* Legend */}
+              <div className="space-y-4 text-xs shrink-0">
+                <div>
+                  <div className="flex items-center gap-1.5 text-slate-500 font-bold mb-1">
+                    <span className="w-3 h-3 rounded-sm bg-slate-200 shrink-0" />
+                    Spent
+                  </div>
+                  <p className="text-xs font-black text-slate-800 pl-[18px]">{formatCurrency(totalExpense)}</p>
+                  <p className="text-[10px] font-bold text-slate-400 pl-[18px]">({spentPercent.toFixed(2)}%)</p>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 text-slate-500 font-bold mb-1">
+                    <span className="w-3 h-3 rounded-sm bg-blue-600 shrink-0" />
+                    Remaining
+                  </div>
+                  <p className="text-xs font-black text-slate-800 pl-[18px]">{formatCurrency(remainingBudget)}</p>
+                  <p className="text-[10px] font-bold text-slate-400 pl-[18px]">({remainingPercent.toFixed(2)}%)</p>
+                </div>
+              </div>
+
+              {/* Pure SVG ring — solid blue, no gray track */}
+              <div className="relative flex-1 h-56 flex items-center justify-center">
+                <svg viewBox="0 0 120 120" className="w-56 h-56">
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="46"
+                    fill="none"
+                    stroke="#2563eb"
+                    strokeWidth="12"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Budget</p>
+                  <p className="text-sm font-black text-slate-800 leading-tight mt-0.5">{formatCurrency(budgetTotal)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom stats */}
+            <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-4 gap-2 text-center">
+              {[
+                { label: "Budget",      value: formatCurrency(budgetTotal) },
+                { label: "Spent ₹",     value: formatCurrency(totalExpense) },
+                { label: "Remaining",   value: formatCurrency(remainingBudget) },
+                { label: "Remaining %", value: `${remainingPercent.toFixed(2)}%` },
+              ].map((s) => (
+                <div key={s.label}>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
+                  <p className="text-[10px] font-black text-slate-800 truncate">{s.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* TIMELINE OVERVIEW */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Timeline Overview</h2>
+              <span className="text-sm font-black text-slate-700">{timelineProgress.toFixed(2)}%</span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full bg-slate-100 rounded-full h-2.5 mb-5 overflow-hidden">
+              <div className="bg-blue-600 h-full rounded-full transition-all"
+                style={{ width: `${Math.min(100, timelineProgress)}%` }} />
+            </div>
+
+            {/* 4 stat boxes */}
+            <div className="grid grid-cols-4 gap-2 mb-5">
+              {[
+                { val: projectDuration, label: "Total Days" },
+                { val: elapsedDays,     label: "Elapsed Days" },
+                { val: daysRemaining,   label: "Remaining Days", blue: true },
+                { val: `${timelineProgress.toFixed(2)}%`, label: "Time Progress" },
+              ].map((s) => (
+                <div key={s.label} className="bg-slate-50 rounded-2xl p-3 text-center border border-slate-100">
+                  <p className={`text-base font-black ${s.blue ? "text-blue-600" : "text-slate-800"}`}>{s.val}</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Date rows */}
+            <div className="space-y-2">
+              {[
+                { icon: <Calendar className="w-3.5 h-3.5 text-slate-400" />, label: "Start Date",      val: formatDate(startDateStr) },
+                { icon: <Calendar className="w-3.5 h-3.5 text-slate-400" />, label: "End Date",        val: formatDate(endDateStr) },
+                { icon: <Clock    className="w-3.5 h-3.5 text-slate-400" />, label: "Total Duration",  val: `${projectDuration} Days` },
+              ].map((r) => (
+                <div key={r.label} className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
+                  <span className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                    {r.icon}{r.label}
+                  </span>
+                  <span className="text-[11px] font-black text-slate-800">{r.val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* SCHEDULE OVERVIEW */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-5">Schedule Overview</h2>
+
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              {[
+                { label: "Actual Progress",   val: `${progressPercent}%`,                                   color: "text-slate-800" },
+                { label: "Expected Progress", val: `${timelineProgress.toFixed(2)}%`,                        color: "text-slate-800" },
+                { label: "Variance",          val: `${scheduleVariance > 0 ? "+" : ""}${scheduleVariance.toFixed(2)}%`, color: scheduleVariance < 0 ? "text-rose-500" : "text-emerald-500" },
+              ].map((m) => (
+                <div key={m.label}>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{m.label}</p>
+                  <p className={`text-xl font-black ${m.color}`}>{m.val}</p>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Status</p>
+              {scheduleStatus ? (
+                <span className="inline-flex px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 text-[11px] font-black border border-rose-100">
+                  {scheduleStatus}
+                </span>
+              ) : (
+                <span className="inline-flex px-3 py-1.5 rounded-xl bg-slate-50 text-slate-400 text-[11px] font-bold border border-slate-100">
+                  —
+                </span>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+
+        {/* ── ROW 3 — Key KPIs | Task Summary | Milestone Summary | Recent Expenses | Expense Trend ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1.2fr_1.2fr_1.7fr_2fr] gap-4">
+
+          {/* KEY KPIs */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-5">Key KPIs</h2>
+            <div className="space-y-4">
+              {[
+                { dot: "bg-rose-500",   label: "Overdue Tasks",       val: overdueTasks },
+                { dot: "bg-amber-400",  label: "Overdue Milestones",   val: overdueMilestones },
+                { dot: "bg-purple-500", label: "High Priority Tasks",  val: highPriorityOverdue },
+              ].map((k) => (
+                <div key={k.label} className="flex items-center gap-3">
+                  <span className={`w-2.5 h-2.5 rounded-full ${k.dot} shrink-0`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{k.label}</p>
+                    <p className="text-2xl font-black text-slate-800">{k.val}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* TASK SUMMARY */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-5">Task Summary</h2>
+            <div className="space-y-3">
+              {[
+                { label: "Total Tasks", val: tasksTotal },
+                { label: "Completed",   val: tasksCompleted },
+                { label: "Pending",     val: tasksPending },
+              ].map((r) => (
+                <div key={r.label} className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500">{r.label}</span>
+                  <span className="text-[11px] font-black text-slate-800">{r.val}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-500">Completion</span>
+                <span className="text-[11px] font-black text-slate-800">{taskCompletionPct}%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* MILESTONE SUMMARY */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-5">Milestone Summary</h2>
+            <div className="space-y-3">
+              {[
+                { label: "Total Milestones", val: milestonesTotal },
+                { label: "Completed",         val: milestonesCompleted },
+                { label: "Pending",           val: milestonesPending },
+              ].map((r) => (
+                <div key={r.label} className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500">{r.label}</span>
+                  <span className="text-[11px] font-black text-slate-800">{r.val}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-500">Completion</span>
+                <span className="text-[11px] font-black text-slate-800">{milestoneCompletionPct}%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* RECENT EXPENSES */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Recent Expenses</h2>
+              <button
+                onClick={() => navigate("/client/financials")}
+                className="text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                View All
+              </button>
+            </div>
+            <div className="space-y-3.5">
+              {recentExpensesList.length === 0 ? (
+                <p className="text-[11px] font-bold text-slate-400">• No recent expenses</p>
+              ) : (
+                recentExpensesList.slice(0, 3).map((exp: any, i: number) => (
+                  <div key={exp.id || i} className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <span className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <Users className="w-3.5 h-3.5" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-slate-800 truncate">
+                          {exp.title || exp.category || exp.expense_type || ""}
+                        </p>
+                        <p className="text-[10px] font-bold text-slate-400 truncate">
+                          {exp.subtitle || exp.description || exp.notes || ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-black text-blue-600">
+                        ₹{Number(exp.amount || exp.total_amount || 0).toFixed(2)}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400">
+                        {exp.date ||
+                          (exp.created_at
+                            ? new Date(exp.created_at).toLocaleDateString("en-GB", {
+                                day: "2-digit", month: "short", year: "numeric",
+                              })
+                            : "")}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* EXPENSE TREND */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-4">
+              Expense Trend (6 Months)
+            </h2>
+            <div className="h-[140px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={expenseTrendData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 8, fill: "#94a3b8", fontWeight: 700 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 8, fill: "#94a3b8", fontWeight: 700 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    formatter={(val: any) => [`₹${Number(val).toFixed(2)}`, "Expenses"]}
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "none",
+                      boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                    }}
+                    cursor={{ fill: "#f8fafc" }}
+                  />
+                  <Bar dataKey="amount" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+        </div>
+
+
+        {/* ── ROW 4 — EXECUTIVE SUMMARY ── */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-9 h-9 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
+              <FileText className="w-4.5 h-4.5 text-blue-600" style={{ width: 18, height: 18 }} />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-1.5">
+                Executive Summary
+              </h2>
+              <p className="text-xs font-bold text-slate-500 leading-relaxed">
+                Project{" "}
+                <span className="font-black text-slate-800">{projectName || "—"}</span>{" "}
+                is{" "}
+                <span className="font-black text-slate-800">{progressPercent.toFixed(2)}%</span>{" "}
+                complete. Budget utilization is{" "}
+                <span className="font-black text-slate-800">{budgetUsedPercent.toFixed(2)}%</span>.
+                Project health is{" "}
+                <span className="font-black text-rose-500">{projectHealth || "—"}</span>.
+                There are{" "}
+                <span className="font-black text-slate-800">{tasksPending}</span>{" "}
+                pending tasks and{" "}
+                <span className="font-black text-slate-800">{milestonesPending}</span>{" "}
+                pending milestones.
+              </p>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       {/* AI Assistant Modal */}
@@ -258,32 +615,24 @@ const ClientDashboard = () => {
         title="InfraPilot AI Assistant"
         maxWidth="max-w-md"
       >
-        <div className="flex flex-col h-[500px]">
-          <div className="flex-1 overflow-y-auto space-y-4 p-2 custom-scrollbar">
+        <div className="flex flex-col h-[400px]">
+          <div className="flex-1 overflow-y-auto space-y-3 p-2">
             {botMessages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] p-4 rounded-2xl ${msg.role === "user" ? "bg-blue-600 text-white rounded-br-none" : "bg-white text-slate-800 rounded-bl-none border border-slate-100 shadow-sm"}`}>
-                  <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
-                  <p className={`text-[9px] mt-1 font-black uppercase tracking-widest ${msg.role === "user" ? "text-blue-200" : "text-slate-400"}`}>{msg.time}</p>
+                <div
+                  className={`max-w-[85%] p-3 rounded-2xl text-xs font-bold leading-relaxed
+                    ${msg.role === "user"
+                      ? "bg-blue-600 text-white rounded-br-none"
+                      : "bg-slate-100 text-slate-800 rounded-bl-none border border-slate-200/50"
+                    }`}
+                >
+                  {msg.text}
+                  <p className={`text-[9px] mt-1 font-black uppercase ${msg.role === "user" ? "text-blue-200" : "text-slate-400"}`}>
+                    {msg.time}
+                  </p>
                 </div>
               </div>
             ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <div className="flex items-center gap-3 bg-slate-50 rounded-2xl px-4 py-3 border border-slate-200 focus-within:border-primary transition-all">
-              <input
-                placeholder="Ask anything about your project..."
-                className="flex-1 text-sm outline-none bg-transparent placeholder:text-slate-400 font-bold"
-                onKeyPress={(e) => e.key === "Enter" && setIsBotOpen(false)}
-              />
-              <button
-                onClick={() => setIsBotOpen(false)}
-                className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14M12 5l7 7-7 7" /></svg>
-              </button>
-            </div>
-            <p className="text-[9px] text-slate-400 text-center mt-4 font-black uppercase tracking-[0.2em]">Powered by InfraPilot AI Core</p>
           </div>
         </div>
       </Modal>

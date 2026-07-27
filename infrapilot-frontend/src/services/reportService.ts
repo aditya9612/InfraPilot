@@ -267,36 +267,78 @@ export const reportService = {
         return response.data;
     },
 
-    exportProjectReportPDF: async (params: {
-        project_id: number;
-        type: string;
-        report_date?: string | null;
-        start_date?: string | null;
-        end_date?: string | null;
-        month?: number | null;
-        year?: number | null;
-        quarter?: number | null;
-    }) => {
-        const response = await api.get(`/reports/project/export/pdf`, {
-            params,
-            responseType: 'blob'
+    exportProjectReportPDF: async (param1: any, param2?: string) => {
+        let queryParams: any;
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const defaultDate = now.toISOString().split('T')[0];
+
+        if (typeof param1 === 'object' && param1 !== null && !Array.isArray(param1)) {
+            queryParams = {
+                project_id: param1.project_id,
+                type: param1.type || 'monthly',
+                report_date: param1.report_date || param1.start_date || defaultDate,
+                start_date: param1.start_date || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
+                end_date: param1.end_date || defaultDate,
+                month: param1.month ?? currentMonth,
+                year: param1.year ?? currentYear
+            };
+        } else {
+            queryParams = {
+                project_id: param1,
+                type: param2 || 'monthly',
+                report_date: defaultDate,
+                start_date: `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
+                end_date: defaultDate,
+                month: currentMonth,
+                year: currentYear
+            };
+        }
+        const url = `/reports/project/export/pdf`;
+        console.log(`Calling Project Report PDF Export: GET ${url} with params=`, queryParams);
+        const response = await api.get(url, {
+            params: queryParams,
+            responseType: 'blob',
+            headers: { 'Accept': 'application/pdf, application/octet-stream' }
         });
         return response.data;
     },
 
-    exportProjectReportExcel: async (params: {
-        project_id: number;
-        type: string;
-        report_date?: string | null;
-        start_date?: string | null;
-        end_date?: string | null;
-        month?: number | null;
-        year?: number | null;
-        quarter?: number | null;
-    }) => {
-        const response = await api.get(`/reports/project/export/excel`, {
-            params,
-            responseType: 'blob'
+    exportProjectReportExcel: async (param1: any, param2?: string) => {
+        let queryParams: any;
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+        const defaultDate = now.toISOString().split('T')[0];
+
+        if (typeof param1 === 'object' && param1 !== null && !Array.isArray(param1)) {
+            queryParams = {
+                project_id: param1.project_id,
+                type: param1.type || 'monthly',
+                report_date: param1.report_date || param1.start_date || defaultDate,
+                start_date: param1.start_date || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
+                end_date: param1.end_date || defaultDate,
+                month: param1.month ?? currentMonth,
+                year: param1.year ?? currentYear
+            };
+        } else {
+            queryParams = {
+                project_id: param1,
+                type: param2 || 'monthly',
+                report_date: defaultDate,
+                start_date: `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
+                end_date: defaultDate,
+                month: currentMonth,
+                year: currentYear
+            };
+        }
+        const url = `/reports/project/export/excel`;
+        console.log(`Calling Project Report Excel Export: GET ${url} with params=`, queryParams);
+        const response = await api.get(url, {
+            params: queryParams,
+            responseType: 'blob',
+            headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, application/octet-stream' }
         });
         return response.data;
     },

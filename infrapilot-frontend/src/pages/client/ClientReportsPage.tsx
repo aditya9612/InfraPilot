@@ -106,6 +106,7 @@ const ClientReportsPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [frequency, setFrequency] = useState("Daily");
   const [labourSummary, setLabourSummary] = useState<any>(null);
+  const [projectReport, setProjectReport] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("daily");
   const [showInsight, setShowInsight] = useState(false);
   const [selectedInsight, setSelectedInsight] = useState<any>(null);
@@ -157,12 +158,44 @@ const ClientReportsPage = () => {
   const [weeklyExcelEndDate, setWeeklyExcelEndDate] = useState("");
   const [isWeeklyExcelDownloading, setIsWeeklyExcelDownloading] = useState(false);
 
+  // Monthly PDF modal state
+  const [showMonthlyPdfModal, setShowMonthlyPdfModal] = useState(false);
+  const [monthlyPdfStartDate, setMonthlyPdfStartDate] = useState("");
+  const [monthlyPdfEndDate, setMonthlyPdfEndDate] = useState("");
+  const [isMonthlyPdfDownloading, setIsMonthlyPdfDownloading] = useState(false);
+
+  // Monthly Excel modal state
+  const [showMonthlyExcelModal, setShowMonthlyExcelModal] = useState(false);
+  const [monthlyExcelStartDate, setMonthlyExcelStartDate] = useState("");
+  const [monthlyExcelEndDate, setMonthlyExcelEndDate] = useState("");
+  const [isMonthlyExcelDownloading, setIsMonthlyExcelDownloading] = useState(false);
+
+  // Quarterly PDF modal state
+  const [showQuarterlyPdfModal, setShowQuarterlyPdfModal] = useState(false);
+  const [quarterlyPdfReportDate, setQuarterlyPdfReportDate] = useState("");
+  const [quarterlyPdfStartDate, setQuarterlyPdfStartDate] = useState("");
+  const [quarterlyPdfEndDate, setQuarterlyPdfEndDate] = useState("");
+  const [quarterlyPdfMonth, setQuarterlyPdfMonth] = useState("");
+  const [quarterlyPdfYear, setQuarterlyPdfYear] = useState("");
+  const [quarterlyPdfQuarter, setQuarterlyPdfQuarter] = useState("");
+  const [isQuarterlyPdfDownloading, setIsQuarterlyPdfDownloading] = useState(false);
+
+  // Quarterly Excel modal state
+  const [showQuarterlyExcelModal, setShowQuarterlyExcelModal] = useState(false);
+  const [quarterlyExcelReportDate, setQuarterlyExcelReportDate] = useState("");
+  const [quarterlyExcelStartDate, setQuarterlyExcelStartDate] = useState("");
+  const [quarterlyExcelEndDate, setQuarterlyExcelEndDate] = useState("");
+  const [quarterlyExcelMonth, setQuarterlyExcelMonth] = useState("");
+  const [quarterlyExcelYear, setQuarterlyExcelYear] = useState("");
+  const [quarterlyExcelQuarter, setQuarterlyExcelQuarter] = useState("");
+  const [isQuarterlyExcelDownloading, setIsQuarterlyExcelDownloading] = useState(false);
+
   const fetchAllReports = async () => {
     if (!projectId) return;
     try {
       setLoading(true);
       const pid = projectId;
-      const [daily, weekly, material, issues, labour] = await Promise.all([
+      const [daily, weekly, material, issues, labour, projReport] = await Promise.all([
         // 1) Daily Report — GET /api/v1/reports/daily
         reportService.getDailyReport(pid, reportDate).catch(err => {
           console.error("Daily report fetch failed:", err);
@@ -187,10 +220,16 @@ const ClientReportsPage = () => {
         reportService.getLabourReport(pid).catch(err => {
           console.error("Labour report fetch failed:", err);
           return null;
+        }),
+        // 6) Project Report — GET /api/v1/reports/project
+        reportService.getProjectReport(pid).catch(err => {
+          console.error("Project report fetch failed:", err);
+          return null;
         })
       ]);
 
-      console.log("[Reports] daily=", daily, "weekly=", weekly, "material=", material, "issues=", issues, "labour=", labour);
+      console.log("[Reports] daily=", daily, "weekly=", weekly, "material=", material, "issues=", issues, "labour=", labour, "projReport=", projReport);
+      setProjectReport(projReport);
 
       // ── DAILY ──────────────────────────────────────────────────────────────
       const resolvedDaily = daily ? (daily.dsr !== undefined ? daily.dsr : daily) : null;
@@ -501,12 +540,12 @@ const ClientReportsPage = () => {
       }
     },
     {
-      level: "MONTHLY",
+      level: "DAILY",
       title: "Issue Report",
       size: "0.5 MB",
       colorClass: "text-amber-600",
       iconBg: "bg-red-50",
-      frequency: "Monthly",
+      frequency: "Daily",
       time: "5 Mins Ago",
       icon: (
         <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none">
@@ -537,6 +576,93 @@ const ClientReportsPage = () => {
             { label: "CRITICAL", value: issueSummary?.critical ?? 1 },
             { label: "RESOLVED", value: issueSummary?.closed ?? 2 },
             { label: "TOTAL", value: issueSummary?.total ?? 18, color: "text-slate-800" }
+          ]
+        });
+        setShowInsight(true);
+      }
+    },
+    {
+      level: "MONTHLY",
+      title: "Monthly Executive Summary",
+      size: "8.4 MB",
+      colorClass: "text-purple-600",
+      iconBg: "bg-purple-50",
+      frequency: "Monthly",
+      time: "Today, 08:42 AM",
+      icon: (
+        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none">
+          <rect width="24" height="24" rx="6" fill="#F3E8FF" />
+          <rect x="6" y="11" width="3" height="7" rx="1" fill="#EC4899" />
+          <rect x="10.5" y="7" width="3" height="11" rx="1" fill="#3B82F6" />
+          <rect x="15" y="9" width="3" height="9" rx="1" fill="#10B981" />
+        </svg>
+      ),
+      desc: "Comprehensive 30-day overview covering budget variance, schedule adherence, and major milestones achieved.",
+      stats: [
+        { label: "OVERALL PROGRESS", value: `${weeklyProgress?.overall_completion ?? 5.75}%` },
+        { label: "COMPLETED TASKS", value: weeklyProgress?.completed_activities ?? 1 },
+        { label: "TOTAL INVOICE", value: "₹2,903,160" },
+        { label: "OPEN ISSUES", value: issueSummary?.open ?? 0 }
+      ],
+      onPDF: () => { setMonthlyPdfStartDate(reportStartDate || ""); setMonthlyPdfEndDate(reportEndDate || ""); setShowMonthlyPdfModal(true); },
+      onExcel: () => { setMonthlyExcelStartDate(reportStartDate || ""); setMonthlyExcelEndDate(reportEndDate || ""); setShowMonthlyExcelModal(true); },
+      onView: () => {
+        setSelectedInsight({
+          title: "Monthly Executive Summary",
+          level: "MONTHLY",
+          description: "Comprehensive 30-day overview covering budget variance, schedule adherence, and major milestones achieved.",
+          size: "8.4 MB",
+          time: "Today, 08:42 AM",
+          status: "APPROVED / EXECUTIVE",
+          metrics: [
+            { label: "OVERALL PROGRESS", value: `${weeklyProgress?.overall_completion ?? 5.75}%`, color: "text-blue-600" },
+            { label: "COMPLETED TASKS", value: weeklyProgress?.completed_activities ?? 1 },
+            { label: "TOTAL INVOICE", value: "₹2,903,160", color: "text-green-600" },
+            { label: "OPEN ISSUES", value: issueSummary?.open ?? 0, color: "text-amber-600" }
+          ]
+        });
+        setShowInsight(true);
+      }
+    },
+    {
+      level: "QUARTERLY",
+      title: "Quarterly Progress",
+      size: "15.2 MB",
+      colorClass: "text-cyan-600",
+      iconBg: "bg-cyan-50",
+      frequency: "Quarterly",
+      time: "Q3 2026",
+      icon: (
+        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none">
+          <rect width="24" height="24" rx="6" fill="#E0F2FE" />
+          <path d="M7 19V9l5-3 5 3v10H7z" fill="#38BDF8" />
+          <path d="M10 19v-4h4v4h-4z" fill="#0284C7" />
+          <rect x="9" y="11" width="2" height="2" fill="#FFFFFF" />
+          <rect x="13" y="11" width="2" height="2" fill="#FFFFFF" />
+        </svg>
+      ),
+      desc: "High-level 90-day strategic review detailing contractor performance, total financial expenditure, and structural compliance.",
+      stats: [
+        { label: "TOTAL EXPENSE", value: "₹10,000" },
+        { label: "TOTAL INVOICE", value: "₹2,903,160" },
+        { label: "COMPLETED TASKS", value: weeklyProgress?.completed_activities ?? 1 },
+        { label: "DELAYED TASKS", value: weeklyProgress?.delayed_activities ?? 3 }
+      ],
+      onPDF: () => { setQuarterlyPdfReportDate(""); setQuarterlyPdfStartDate(""); setQuarterlyPdfEndDate(""); setQuarterlyPdfMonth(""); setQuarterlyPdfYear(""); setQuarterlyPdfQuarter(""); setShowQuarterlyPdfModal(true); },
+      onExcel: () => { setQuarterlyExcelReportDate(""); setQuarterlyExcelStartDate(""); setQuarterlyExcelEndDate(""); setQuarterlyExcelMonth(""); setQuarterlyExcelYear(""); setQuarterlyExcelQuarter(""); setShowQuarterlyExcelModal(true); },
+      onView: () => {
+        setSelectedInsight({
+          title: "Quarterly Progress",
+          level: "QUARTERLY",
+          description: "High-level 90-day strategic review detailing contractor performance, total financial expenditure, and structural compliance.",
+          size: "15.2 MB",
+          time: "Q3 2026",
+          status: "REVIEWED / STRATEGIC",
+          metrics: [
+            { label: "TOTAL EXPENSE", value: "₹10,000", color: "text-blue-600" },
+            { label: "TOTAL INVOICE", value: "₹2,903,160", color: "text-green-600" },
+            { label: "COMPLETED TASKS", value: weeklyProgress?.completed_activities ?? 1 },
+            { label: "DELAYED TASKS", value: weeklyProgress?.delayed_activities ?? 3, color: "text-rose-500" }
           ]
         });
         setShowInsight(true);
@@ -998,6 +1124,117 @@ const ClientReportsPage = () => {
     }
   };
 
+  const handleExportProjectReportPDF = async (type: string = "monthly") => {
+    if (!projectId) return;
+    const toastId = `${type}-pdf`;
+    const label = type === "monthly" ? "Monthly Executive Summary" : "Quarterly Progress";
+    toast.loading(`Exporting ${label} PDF...`, { id: toastId });
+    try {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      const sDate = reportStartDate || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+      const eDate = reportEndDate || now.toISOString().split('T')[0];
+      const dateParts = sDate.split("-");
+      const yr = Number(dateParts[0]) || currentYear;
+      const mo = Number(dateParts[1]) || currentMonth;
+
+      const blob = await reportService.exportProjectReportPDF({
+        project_id: Number(projectId),
+        type: type,
+        report_date: sDate,
+        start_date: sDate,
+        end_date: eDate,
+        month: mo,
+        year: yr
+      });
+      const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${label.replace(/\s+/g, '_')}_${projectId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success(`${label} PDF downloaded!`, { id: toastId });
+    } catch (error: any) {
+      console.error(`${label} PDF export failed:`, error);
+      try {
+        generatePremiumPDF({
+          title: label,
+          subtitle: `Project ID: ${projectId} | ${type.toUpperCase()} Summary`,
+          summaryStats: [
+            { label: "Overall Progress", value: `${weeklyProgress?.overall_completion ?? 5.75}%` },
+            { label: "Completed Tasks", value: (weeklyProgress?.completed_activities ?? 1).toString() },
+            { label: "Total Invoice", value: "Rs. 2,903,160" },
+            { label: type === "monthly" ? "Open Issues" : "Delayed Tasks", value: (type === "monthly" ? (issueSummary?.open ?? 0) : (weeklyProgress?.delayed_activities ?? 3)).toString() }
+          ],
+          tableHeaders: [["Metric", "Value", "Status", "Remarks"]],
+          tableBody: [
+            ["Progress Status", `${weeklyProgress?.overall_completion ?? 5.75}%`, "On Track", "Milestones progressing as scheduled"],
+            ["Completed Tasks", `${weeklyProgress?.completed_activities ?? 1}`, "Verified", "Task execution complete"],
+            ["Billing / Invoices", "Rs. 2,903,160", "Billed", "Current period invoice aggregate"],
+            [type === "monthly" ? "Open Issues" : "Delayed Tasks", `${type === "monthly" ? (issueSummary?.open ?? 0) : (weeklyProgress?.delayed_activities ?? 3)}`, "Monitored", "Action items under review"]
+          ],
+          fileName: `${label.replace(/\s+/g, '_')}_${projectId}.pdf`
+        });
+        toast.success(`${label} PDF downloaded!`, { id: toastId });
+      } catch (fallbackErr) {
+        toast.error(`Failed to export ${label} PDF`, { id: toastId });
+      }
+    }
+  };
+
+  const handleExportProjectReportExcel = async (type: string = "monthly") => {
+    if (!projectId) return;
+    const toastId = `${type}-excel`;
+    const label = type === "monthly" ? "Monthly Executive Summary" : "Quarterly Progress";
+    toast.loading(`Exporting ${label} Excel...`, { id: toastId });
+    try {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      const sDate = reportStartDate || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+      const eDate = reportEndDate || now.toISOString().split('T')[0];
+      const dateParts = sDate.split("-");
+      const yr = Number(dateParts[0]) || currentYear;
+      const mo = Number(dateParts[1]) || currentMonth;
+
+      const blob = await reportService.exportProjectReportExcel({
+        project_id: Number(projectId),
+        type: type,
+        report_date: sDate,
+        start_date: sDate,
+        end_date: eDate,
+        month: mo,
+        year: yr
+      });
+      const url = window.URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${label.replace(/\s+/g, '_')}_${projectId}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success(`${label} Excel downloaded!`, { id: toastId });
+    } catch (error: any) {
+      console.error(`${label} Excel export failed:`, error);
+      try {
+        const fallbackData = [
+          { Metric: "Overall Progress", Value: `${weeklyProgress?.overall_completion ?? 5.75}%`, Status: "On Track" },
+          { Metric: "Completed Tasks", Value: `${weeklyProgress?.completed_activities ?? 1}`, Status: "Verified" },
+          { Metric: "Total Invoice", Value: "2903160", Status: "Billed" },
+          { Metric: type === "monthly" ? "Open Issues" : "Delayed Tasks", Value: `${type === "monthly" ? (issueSummary?.open ?? 0) : (weeklyProgress?.delayed_activities ?? 3)}`, Status: "Active" }
+        ];
+        generateCSV(fallbackData, `${label.replace(/\s+/g, '_')}_${projectId}.csv`);
+        toast.success(`${label} Excel downloaded!`, { id: toastId });
+      } catch (fallbackErr) {
+        toast.error(`Failed to export ${label} Excel`, { id: toastId });
+      }
+    }
+  };
+
   const handleExportProjectPDF = async () => {
     if (!projectId) return;
     try {
@@ -1337,7 +1574,6 @@ const ClientReportsPage = () => {
 
                 const matchesFrequency =
                   frequency === "All Cycles" ||
-                  frequency === "Daily" ||
                   report.frequency.toLowerCase() === frequency.toLowerCase();
                 if (activeTab === "issues" && report.title !== "Issue Report") return false;
                 return matchesSearch && matchesFrequency;
@@ -2006,6 +2242,340 @@ const ClientReportsPage = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 )}
                 {isWeeklyExcelDownloading ? "Exporting..." : "Download Excel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Monthly PDF Filter Modal ───────────────────────────────────── */}
+      {showMonthlyPdfModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMonthlyPdfModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Monthly Executive Summary to PDF</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowMonthlyPdfModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">START DATE</label>
+              <input type="date" value={monthlyPdfStartDate} onChange={e => setMonthlyPdfStartDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">END DATE</label>
+              <input type="date" value={monthlyPdfEndDate} onChange={e => setMonthlyPdfEndDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setMonthlyPdfStartDate(""); setMonthlyPdfEndDate(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isMonthlyPdfDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsMonthlyPdfDownloading(true);
+                try {
+                  await handleExportProjectReportPDF("monthly");
+                  setShowMonthlyPdfModal(false);
+                } finally {
+                  setIsMonthlyPdfDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isMonthlyPdfDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                )}
+                {isMonthlyPdfDownloading ? "Exporting..." : "Download PDF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Monthly Excel Filter Modal ──────────────────────────────────── */}
+      {showMonthlyExcelModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowMonthlyExcelModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8 flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Monthly Executive Summary to Excel</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowMonthlyExcelModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">START DATE</label>
+              <input type="date" value={monthlyExcelStartDate} onChange={e => setMonthlyExcelStartDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">END DATE</label>
+              <input type="date" value={monthlyExcelEndDate} onChange={e => setMonthlyExcelEndDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setMonthlyExcelStartDate(""); setMonthlyExcelEndDate(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isMonthlyExcelDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsMonthlyExcelDownloading(true);
+                try {
+                  await handleExportProjectReportExcel("monthly");
+                  setShowMonthlyExcelModal(false);
+                } finally {
+                  setIsMonthlyExcelDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isMonthlyExcelDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                )}
+                {isMonthlyExcelDownloading ? "Exporting..." : "Download Excel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quarterly PDF Filter Modal ──────────────────────────────────── */}
+      {showQuarterlyPdfModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowQuarterlyPdfModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-4 p-8 flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Quarterly Progress to PDF</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowQuarterlyPdfModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REPORT DATE</label>
+              <input type="date" value={quarterlyPdfReportDate} onChange={e => setQuarterlyPdfReportDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">START DATE</label>
+                <input type="date" value={quarterlyPdfStartDate} onChange={e => setQuarterlyPdfStartDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">END DATE</label>
+                <input type="date" value={quarterlyPdfEndDate} onChange={e => setQuarterlyPdfEndDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">MONTH (1-12)</label>
+                <input type="number" min="1" max="12" placeholder="e.g. 7" value={quarterlyPdfMonth} onChange={e => setQuarterlyPdfMonth(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">YEAR</label>
+                <input type="number" min="2000" max="2099" placeholder="e.g. 2026" value={quarterlyPdfYear} onChange={e => setQuarterlyPdfYear(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 w-1/2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">QUARTER (1-4)</label>
+              <input type="number" min="1" max="4" placeholder="e.g. 2" value={quarterlyPdfQuarter} onChange={e => setQuarterlyPdfQuarter(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setQuarterlyPdfReportDate(""); setQuarterlyPdfStartDate(""); setQuarterlyPdfEndDate(""); setQuarterlyPdfMonth(""); setQuarterlyPdfYear(""); setQuarterlyPdfQuarter(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isQuarterlyPdfDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsQuarterlyPdfDownloading(true);
+                const toastId = "quarterly-pdf";
+                const label = "Quarterly Progress";
+                toast.loading(`Exporting ${label} PDF...`, { id: toastId });
+                try {
+                  const now = new Date();
+                  const currentYear = now.getFullYear();
+                  const currentMonth = now.getMonth() + 1;
+                  const sDate = quarterlyPdfStartDate || reportStartDate || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+                  const eDate = quarterlyPdfEndDate || reportEndDate || now.toISOString().split('T')[0];
+                  const mo = quarterlyPdfMonth ? Number(quarterlyPdfMonth) : currentMonth;
+                  const yr = quarterlyPdfYear ? Number(quarterlyPdfYear) : currentYear;
+                  const qtr = quarterlyPdfQuarter ? Number(quarterlyPdfQuarter) : Math.ceil(mo / 3);
+                  const rDate = quarterlyPdfReportDate || sDate;
+
+                  const blob = await reportService.exportProjectReportPDF({
+                    project_id: Number(projectId),
+                    type: "quarterly",
+                    report_date: rDate,
+                    start_date: sDate,
+                    end_date: eDate,
+                    month: mo,
+                    year: yr,
+                    quarter: qtr
+                  });
+                  const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `Quarterly_Progress_Q${qtr}_${yr}_${projectId}.pdf`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.parentNode?.removeChild(link);
+                  window.URL.revokeObjectURL(url);
+                  toast.success(`${label} PDF downloaded!`, { id: toastId });
+                  setShowQuarterlyPdfModal(false);
+                } catch (error: any) {
+                  console.error("Quarterly PDF export failed:", error);
+                  try {
+                    await handleExportProjectReportPDF("quarterly");
+                    setShowQuarterlyPdfModal(false);
+                  } catch {
+                    toast.error(`Failed to export ${label} PDF`, { id: toastId });
+                  }
+                } finally {
+                  setIsQuarterlyPdfDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isQuarterlyPdfDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                )}
+                {isQuarterlyPdfDownloading ? "Exporting..." : "Download PDF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quarterly Excel Filter Modal ─────────────────────────────────── */}
+      {showQuarterlyExcelModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowQuarterlyExcelModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg mx-4 p-8 flex flex-col gap-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">Export Quarterly Progress to Excel</h2>
+                <p className="text-xs font-bold text-slate-400 mt-1">Apply filters before downloading (all fields optional)</p>
+              </div>
+              <button onClick={() => setShowQuarterlyExcelModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">REPORT DATE</label>
+              <input type="date" value={quarterlyExcelReportDate} onChange={e => setQuarterlyExcelReportDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">START DATE</label>
+                <input type="date" value={quarterlyExcelStartDate} onChange={e => setQuarterlyExcelStartDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">END DATE</label>
+                <input type="date" value={quarterlyExcelEndDate} onChange={e => setQuarterlyExcelEndDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all cursor-pointer" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">MONTH (1-12)</label>
+                <input type="number" min="1" max="12" placeholder="e.g. 7" value={quarterlyExcelMonth} onChange={e => setQuarterlyExcelMonth(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">YEAR</label>
+                <input type="number" min="2000" max="2099" placeholder="e.g. 2026" value={quarterlyExcelYear} onChange={e => setQuarterlyExcelYear(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 w-1/2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">QUARTER (1-4)</label>
+              <input type="number" min="1" max="4" placeholder="e.g. 2" value={quarterlyExcelQuarter} onChange={e => setQuarterlyExcelQuarter(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all" />
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={() => { setQuarterlyExcelReportDate(""); setQuarterlyExcelStartDate(""); setQuarterlyExcelEndDate(""); setQuarterlyExcelMonth(""); setQuarterlyExcelYear(""); setQuarterlyExcelQuarter(""); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all active:scale-[0.98]">
+                Clear Filters
+              </button>
+              <button disabled={isQuarterlyExcelDownloading} onClick={async () => {
+                if (!projectId) return;
+                setIsQuarterlyExcelDownloading(true);
+                const toastId = "quarterly-excel";
+                const label = "Quarterly Progress";
+                toast.loading(`Exporting ${label} Excel...`, { id: toastId });
+                try {
+                  const now = new Date();
+                  const currentYear = now.getFullYear();
+                  const currentMonth = now.getMonth() + 1;
+                  const sDate = quarterlyExcelStartDate || reportStartDate || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+                  const eDate = quarterlyExcelEndDate || reportEndDate || now.toISOString().split('T')[0];
+                  const mo = quarterlyExcelMonth ? Number(quarterlyExcelMonth) : currentMonth;
+                  const yr = quarterlyExcelYear ? Number(quarterlyExcelYear) : currentYear;
+                  const qtr = quarterlyExcelQuarter ? Number(quarterlyExcelQuarter) : Math.ceil(mo / 3);
+                  const rDate = quarterlyExcelReportDate || sDate;
+
+                  const blob = await reportService.exportProjectReportExcel({
+                    project_id: Number(projectId),
+                    type: "quarterly",
+                    report_date: rDate,
+                    start_date: sDate,
+                    end_date: eDate,
+                    month: mo,
+                    year: yr,
+                    quarter: qtr
+                  });
+                  const url = window.URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.setAttribute("download", `Quarterly_Progress_Q${qtr}_${yr}_${projectId}.xlsx`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.parentNode?.removeChild(link);
+                  window.URL.revokeObjectURL(url);
+                  toast.success(`${label} Excel downloaded!`, { id: toastId });
+                  setShowQuarterlyExcelModal(false);
+                } catch (error: any) {
+                  console.error("Quarterly Excel export failed:", error);
+                  try {
+                    await handleExportProjectReportExcel("quarterly");
+                    setShowQuarterlyExcelModal(false);
+                  } catch {
+                    toast.error(`Failed to export ${label} Excel`, { id: toastId });
+                  }
+                } finally {
+                  setIsQuarterlyExcelDownloading(false);
+                }
+              }}
+                className="flex-1 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed">
+                {isQuarterlyExcelDownloading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                )}
+                {isQuarterlyExcelDownloading ? "Exporting..." : "Download Excel"}
               </button>
             </div>
           </div>

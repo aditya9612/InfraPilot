@@ -197,8 +197,10 @@ export const dashboardService = {
    * Labour Dashboard
    * GET /api/v1/dashboard/labour
    */
-  async getLabourDashboard(): Promise<LabourDashboardResponse> {
-    const response = await api.get<any>('dashboard/labour');
+  async getLabourDashboard(project_id?: number): Promise<LabourDashboardResponse> {
+    const params: any = {};
+    if (project_id) params.project_id = project_id;
+    const response = await api.get<any>('dashboard/labour', { params });
     const raw = response.data;
     console.log('GET /api/v1/dashboard/labour RAW Response:', JSON.stringify(raw, null, 2));
     // Handle possible data wrapper from backend

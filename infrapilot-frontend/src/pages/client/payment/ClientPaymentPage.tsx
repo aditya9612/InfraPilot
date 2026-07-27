@@ -52,7 +52,7 @@ const mapApiPayment = (p: any): ClientPayment => {
   };
 
   return {
-    paymentId: p.paymentId || p.payment_id || `PAY-${p.id || Math.random().toString(36).substring(2, 9)}`,
+    paymentId: p.payment_id != null ? String(p.payment_id) : p.paymentId != null ? String(p.paymentId) : (p.id != null ? String(p.id) : "1"),
     invoiceNo: p.invoiceNo || p.invoice_no || p.invoice_id || `INV-${p.id || ""}`,
     clientName: p.clientName || p.client_name || p.client || "Client",
     clientEmail: p.clientEmail || p.client_email || p.email || "client@example.com",
@@ -656,7 +656,7 @@ const ClientPaymentPage = () => {
     } catch {
       // Fallback: add to local state if API fails
       const newEntry: ClientPayment = {
-        paymentId: `PAY-2026-${String(clientPayments.length + 1).padStart(4, "0")}`,
+        paymentId: String(clientPayments.length + 1),
         invoiceNo: newInvoiceNo,
         clientName: "Rohit",
         clientEmail: "rohit@example.com",
@@ -770,7 +770,7 @@ const ClientPaymentPage = () => {
                 <FileText className="w-4 h-4 text-rose-500" /> PDF
               </button>
               <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-200 active:scale-95 cursor-pointer">
-                <Plus className="w-4 h-4" /> Create Client Payment
+                <Plus className="w-4 h-4" /> Pay Payment
               </button>
             </div>
           </div>
@@ -900,7 +900,7 @@ const ClientPaymentPage = () => {
                       <tbody className="divide-y divide-slate-50">
                         {pendingInvoices.map((inv: any, i: number) => (
                           <tr key={i} className="hover:bg-slate-50/60 transition-all">
-                            <td className="px-5 py-4"><p className="text-[11px] font-black text-slate-800 whitespace-nowrap">{inv.invoice_id ?? inv.invoiceId ?? inv.id ?? "—"}</p></td>
+                            <td className="px-5 py-4"><p className="text-[11px] font-black text-slate-800 whitespace-nowrap">{inv.invoice_no ?? inv.invoiceNo ?? inv.invoice_number ?? inv.invoice_id ?? inv.invoiceId ?? inv.id ?? "—"}</p></td>
                             <td className="px-5 py-4 max-w-[150px] truncate"><p className="text-[11px] font-medium text-slate-600 truncate">{inv.project_name ?? inv.projectName ?? inv.project ?? "—"}</p></td>
                             <td className="px-5 py-4"><p className="text-[13px] font-black text-slate-900 whitespace-nowrap">₹{Number(inv.amount ?? inv.total_amount ?? 0).toLocaleString()}</p></td>
                             <td className="px-5 py-4"><p className={`text-[11px] font-bold whitespace-nowrap ${inv.is_overdue || inv.status === 'OVERDUE' ? 'text-rose-600' : 'text-slate-500'}`}>{inv.due_date ?? inv.dueDate ?? "—"}</p></td>
@@ -1079,7 +1079,7 @@ const ClientPaymentPage = () => {
                   {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
                 <span className="text-[11px] font-bold text-slate-400">
-                  {filteredClientPayments.length === 0 ? "0 of 0" : `${(currentPage - 1) * itemsPerPage + 1}&#8211;${Math.min(currentPage * itemsPerPage, filteredClientPayments.length)} of ${filteredClientPayments.length}`}
+                  {filteredClientPayments.length === 0 ? "0 of 0" : `${currentPage} of ${totalPages}`}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -1339,11 +1339,11 @@ const ClientPaymentPage = () => {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">Invoice <span className="text-rose-500">*</span></label>
-                      <select value={newInvoiceNo} onChange={e => { setNewInvoiceNo(e.target.value); const sel = pendingInvoices.find((p: any) => p.invoice_number === e.target.value || p.id === e.target.value); if (sel) { setNewAmount(String(sel.amount || sel.total_amount || "")); if (sel.project_name) setNewProjectName(sel.project_name); if (sel.project_id) setNewProjectId(String(sel.project_id)); } }} className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                      <select value={newInvoiceNo} onChange={e => { setNewInvoiceNo(e.target.value); const sel = pendingInvoices.find((p: any) => p.invoice_no === e.target.value || p.invoice_number === e.target.value || String(p.invoice_id) === e.target.value || p.id === e.target.value); if (sel) { setNewAmount(String(sel.amount || sel.total_amount || "")); if (sel.project_name) setNewProjectName(sel.project_name); if (sel.project_id) setNewProjectId(String(sel.project_id)); } }} className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer">
                         <option value="">Select Invoice</option>
                         {pendingInvoices.length > 0 ? pendingInvoices.map((inv: any, idx: number) => (
-                          <option key={idx} value={inv.invoice_number || inv.id}>{inv.invoice_number || `INV-${inv.id}`} — ₹{(inv.amount || inv.total_amount || 0).toLocaleString()}</option>
-                        )) : (<><option value="INV-2026-0001">INV-2026-0001 — ₹5,000</option><option value="INV-2026-0002">INV-2026-0002 — ₹4,000</option></>)}
+                          <option key={idx} value={inv.invoice_no || inv.invoice_number || inv.id}>{inv.invoice_no || inv.invoice_number || `INV-${inv.id}`}</option>
+                        )) : (<><option value="INV-2026-0001">INV-2026-0001</option><option value="INV-2026-0002">INV-2026-0002</option></>)}
                       </select>
                     </div>
                   </div>
@@ -1369,7 +1369,20 @@ const ClientPaymentPage = () => {
                   {/* Row 3: Payment Method */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">Payment Method <span className="text-rose-500">*</span></label>
-                    <select value={newPaymentMethodForm} onChange={e => setNewPaymentMethodForm(e.target.value)} className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer">
+                    <select 
+                      value={newPaymentMethodForm} 
+                      onChange={e => { 
+                        const val = e.target.value; 
+                        setNewPaymentMethodForm(val); 
+                        if (val === "CASH") { 
+                          setNewBankName(""); 
+                          setNewChequeNo(""); 
+                          setNewReferenceNo(""); 
+                          setNewRemarks(""); 
+                        } 
+                      }} 
+                      className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                    >
                       <option value="CASH">CASH</option>
                       <option value="BANK TRANSFER">BANK TRANSFER / NEFT / RTGS</option>
                       <option value="CHEQUE">CHEQUE</option>
@@ -1377,32 +1390,65 @@ const ClientPaymentPage = () => {
                     </select>
                     <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-2 text-xs text-blue-700 font-medium">
                       <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      Additional fields will change based on payment method.
+                      {newPaymentMethodForm === "CASH" ? "No additional details required for CASH payment method." : "Additional fields will change based on payment method."}
                     </div>
                   </div>
 
                   {/* Additional Details */}
                   <div className="pt-2 border-t border-slate-100">
-                    <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2.5">Additional Details</h4>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Additional Details</h4>
+                      {newPaymentMethodForm === "CASH" && (
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded-md">Locked for Cash</span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">Bank Name</label>
-                        <input type="text" value={newBankName} onChange={e => setNewBankName(e.target.value)} placeholder="Enter bank name" className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all" />
+                        <input 
+                          type="text" 
+                          value={newBankName} 
+                          onChange={e => setNewBankName(e.target.value)} 
+                          placeholder={newPaymentMethodForm === "CASH" ? "Not required for Cash" : "Enter bank name"} 
+                          disabled={newPaymentMethodForm === "CASH"} 
+                          className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200" 
+                        />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">Cheque No</label>
-                        <input type="text" value={newChequeNo} onChange={e => setNewChequeNo(e.target.value)} placeholder="Enter cheque number" className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all" />
+                        <input 
+                          type="text" 
+                          value={newChequeNo} 
+                          onChange={e => setNewChequeNo(e.target.value)} 
+                          placeholder={newPaymentMethodForm === "CASH" ? "Not required for Cash" : "Enter cheque number"} 
+                          disabled={newPaymentMethodForm === "CASH"} 
+                          className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200" 
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3.5">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">Reference No</label>
-                        <input type="text" value={newReferenceNo} onChange={e => setNewReferenceNo(e.target.value)} placeholder="Enter reference number" className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all" />
+                        <input 
+                          type="text" 
+                          value={newReferenceNo} 
+                          onChange={e => setNewReferenceNo(e.target.value)} 
+                          placeholder={newPaymentMethodForm === "CASH" ? "Not required for Cash" : "Enter reference number"} 
+                          disabled={newPaymentMethodForm === "CASH"} 
+                          className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200" 
+                        />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">Remarks</label>
                         <div className="relative">
-                          <textarea value={newRemarks} onChange={e => setNewRemarks(e.target.value.slice(0,500))} placeholder="Enter any remarks (optional)" rows={2} className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all resize-none" />
+                          <textarea 
+                            value={newRemarks} 
+                            onChange={e => setNewRemarks(e.target.value.slice(0,500))} 
+                            placeholder={newPaymentMethodForm === "CASH" ? "Not required for Cash" : "Enter any remarks (optional)"} 
+                            rows={2} 
+                            disabled={newPaymentMethodForm === "CASH"} 
+                            className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all resize-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200" 
+                          />
                           <span className="absolute right-3 bottom-2 text-[10px] text-slate-400">{newRemarks.length}/500</span>
                         </div>
                       </div>
