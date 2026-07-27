@@ -19,7 +19,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const { assignedProjects } = useProject();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [priority, setPriority] = useState('Medium');
+    const [priority, setPriority] = useState('');
     const [startDate, setStartDate] = useState('');
     const [deadline, setDeadline] = useState('');
     const [project, setProject] = useState('None');
@@ -29,6 +29,7 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
     const [milestoneId, setMilestoneId] = useState('None');
     const [boqId, setBoqId] = useState('None');
     const [instructionImage, setInstructionImage] = useState<File | null>(null);
+    const [audioFile, setAudioFile] = useState<File | null>(null);
 
     const [milestones, setMilestones] = useState<any[]>([]);
     const [boqs, setBoqs] = useState<any[]>([]);
@@ -261,13 +262,19 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
             if (startDate) formData.append('start_date', startDate);
             if (deadline) formData.append('end_date', deadline);
 
+            if (!priority) {
+                toast.error("Priority is required");
+                return;
+            }
             if (activityTypeId && activityTypeId !== 'None') formData.append('activity_type_id', String(activityTypeId));
             if (milestoneId && milestoneId !== 'None') formData.append('milestone_id', String(milestoneId));
             if (boqId && boqId !== 'None') formData.append('boq_id', String(boqId));
 
-            if (audioBlob) {
-                const audioFile = new File([audioBlob], 'audio_instruction.webm', { type: 'audio/webm' });
+            if (audioFile) {
                 formData.append('audio_file', audioFile);
+            } else if (audioBlob) {
+                const audioBlobFile = new File([audioBlob], 'audio_instruction.webm', { type: 'audio/webm' });
+                formData.append('audio_file', audioBlobFile);
             }
             if (instructionImage && instructionImage.size > 0) {
                 formData.append('instruction_image', instructionImage);
@@ -419,19 +426,33 @@ const CreateTaskDrawer = ({ isOpen, onClose, projectId, onSuccess }: CreateTaskM
                                 className={inputClasses + " p-2 h-[66px]"}
                             />
                         </div>
+
+                        <div>
+                            <label className={labelClasses}>
+                                Audio File
+                            </label>
+                            <input
+                                type="file"
+                                accept="audio/*"
+                                onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                                className={inputClasses + " p-2 h-[66px]"}
+                            />
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className={labelClasses}>
                                 <Briefcase className="w-3 h-3 text-primary" />
-                                Priority
+                                Priority <span className="text-rose-500">*</span>
                             </label>
                             <select
                                 className={inputClasses}
                                 value={priority}
                                 onChange={(e) => setPriority(e.target.value)}
+                                required
                             >
+                                <option value="">Select Priority</option>
                                 <option value="Low">Low</option>
                                 <option value="Medium">Medium</option>
                                 <option value="High">High</option>

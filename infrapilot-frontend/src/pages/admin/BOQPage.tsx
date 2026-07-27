@@ -155,7 +155,8 @@ const BOQPage = () => {
     setIsLoading(true);
     try {
       if (isSetup && selectedBoq) {
-        const items = await boqService.getGroupItems(selectedBoq.id);
+        const groupId = selectedBoq.boq_group_id ?? selectedBoq.id;
+        const items = await boqService.getGroupItems(groupId);
         const activeItems = items.filter((item: any) =>
           item.status?.toLowerCase() !== 'deleted' &&
           item.status?.toLowerCase() !== 'inactive'
@@ -247,7 +248,8 @@ const BOQPage = () => {
         } else {
           // Inject project_id from the parent BOQ since backend requires it
           const itemData = { ...data, project_id: selectedBoq.project_id };
-          await boqService.addBoqItem(selectedBoq.id, itemData);
+          const groupId = selectedBoq.boq_group_id ?? selectedBoq.id;
+          await boqService.addBoqItem(groupId, itemData);
           toast.success("Item added successfully!");
         }
       } else {

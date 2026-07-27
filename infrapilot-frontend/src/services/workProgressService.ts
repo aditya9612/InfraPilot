@@ -331,9 +331,10 @@ export const workProgressService = {
   /**
    * Get global work progress logs
    */
-  async getGlobalLogs(activityId?: number): Promise<{ data: any[] }> {
+  async getGlobalLogs(projectId?: number, activityId?: number): Promise<{ data: any[] }> {
     try {
       const params: Record<string, any> = {};
+      if (projectId) params.project_id = projectId;
       if (activityId) params.activity_id = activityId;
       const response = await api.get("/work-progress/logs", { params });
       return response.data;

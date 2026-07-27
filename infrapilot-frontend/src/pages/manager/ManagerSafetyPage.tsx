@@ -52,6 +52,7 @@ const ManagerSafetyPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<SafetyItem | null>(null);
+  const [selectedIncidentTask, setSelectedIncidentTask] = useState<any | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [tasks, setTasks] = useState<{ id: number; title: string }[]>([]);
@@ -97,6 +98,41 @@ const ManagerSafetyPage = () => {
     const project = projects.find(p => Number(p.id || p.project_id) === Number(projId));
     return project ? (project.name || project.project_name) : `Project #${projId}`;
   };
+
+  // Ensure project name is available when viewing a record — fetch if missing
+  useEffect(() => {
+    if (!isViewModalOpen || !selectedIncident) return;
+    const pid = Number(selectedIncident.project_id);
+    const found = projects.find(p => Number(p.id || p.project_id) === pid);
+    if (!found) {
+      (async () => {
+        try {
+          const proj = await projectService.getProjectById(pid);
+          setProjects(prev => {
+            const exists = prev.find(p => Number(p.id || p.project_id) === pid);
+            if (exists) return prev;
+            return [...prev, proj];
+          });
+        } catch (e) {
+          // ignore
+        }
+      })();
+    }
+
+    const taskId = Number(selectedIncident.task_id);
+    if (taskId) {
+      (async () => {
+        try {
+          const task = await projectService.getTask(pid, taskId);
+          setSelectedIncidentTask(task || null);
+        } catch (e) {
+          setSelectedIncidentTask(null);
+        }
+      })();
+    } else {
+      setSelectedIncidentTask(null);
+    }
+  }, [isViewModalOpen, selectedIncident, projects]);
 
   const defaultForm = (): CreateIncidentRequest => ({
     project_id: selectedProjectId || projects[0]?.id || 0,
@@ -248,6 +284,7 @@ const ManagerSafetyPage = () => {
     try {
       const item = await safetyService.getIncident(id);
       setSelectedIncident(item);
+      setSelectedIncidentTask(null);
       setIsViewModalOpen(true);
     } catch { toast.error("Failed to fetch details"); }
   };
@@ -650,12 +687,13 @@ const ManagerSafetyPage = () => {
             {[
               ["Date", selectedIncident.date],
               ["Project", getProjectName(selectedIncident.project_id)],
+              ["Task", selectedIncidentTask ? (selectedIncidentTask.title || `Task #${selectedIncident.task_id}`) : (selectedIncident.task_id ? `Task #${selectedIncident.task_id}` : "-")],
               ["Violation Type", selectedIncident.violation_type],
               ["Description", selectedIncident.description],
               ["Action Taken", selectedIncident.action_taken],
               ["Responsible Person", selectedIncident.responsible_person],
               ["Injury Details", selectedIncident.injury_details || "No injuries reported"],
-              ["PPE Compliance", selectedIncident.ppe_compliance ? "✓ Compliant" : "✗ Missing"],
+              ["PPE Compliance", selectedIncident.ppe_compliance ? "Compliant" : "Missing"],
               ["Checklist Status", selectedIncident.safety_checklist_status || "pending"],
             ].map(([label, value]) => (
               <div key={label} className="flex justify-between items-start">

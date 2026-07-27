@@ -138,6 +138,10 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             </select>
                         </div>
                         <div>
+                            <label className={labelClasses}>Status</label>
+                            <input type="text" value={formData.status || ''} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className={inputClasses} />
+                        </div>
+                        <div>
                             <label className={labelClasses}>Rental Cost (₹) *</label>
                             <input type="number" min="0" required value={formData.rental_cost || ''} onChange={(e) => setFormData({ ...formData, rental_cost: Number(e.target.value) })} className={inputClasses} />
                         </div>

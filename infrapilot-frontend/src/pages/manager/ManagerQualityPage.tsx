@@ -16,6 +16,7 @@ import ProjectSelector from "../../components/common/ProjectSelector";
 import { qcService } from "../../services/qcService";
 import type { QcItem } from "../../services/qcService";
 import { projectService } from "../../services/projectService";
+import { boqService } from "../../services/boqService";
 import { dsrService } from "../../services/dsrService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
@@ -75,6 +76,9 @@ const ManagerQualityPage = () => {
         result: "", standard_value: "",
         status: "Pass", engineer_name: "", remarks: ""
     });
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedTaskDetail, setSelectedTaskDetail] = useState<any | null>(null);
+    const [selectedBoq, setSelectedBoq] = useState<any | null>(null);
 
     // ── DATA FETCH ────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
@@ -127,17 +131,36 @@ const ManagerQualityPage = () => {
                 const members = await projectService.getProjectMembers(Number(formData.project_id));
                 const list = Array.isArray(members) ? members : (members?.items || members?.data || []);
 
-                const mapped = list.map((m: any) => {
+                let mapped = list.map((m: any) => {
                     const u = m.user || {};
                     const id = u.id || m.user_id || m.userId;
-                    const name = u.full_name || u.username || `User #${id}`;
+                    const name = u.full_name || u.username || (u.name) || `User #${id}`;
                     return { id, label: name };
                 }).filter((e: any) => e.id);
 
-                // Deduplicate by id if needed
-                const unique = Array.from(new Map(mapped.map((item: any) => [item.id, item])).values());
+                // Deduplicate by id
+                mapped = Array.from(new Map(mapped.map((item: any) => [item.id, item])).values());
 
-                setEngineers(unique as { id: number; label: string }[]);
+                // For any entries with generic labels like "User #<id>", attempt to fetch full user info
+                const needFetch = mapped.filter(m => /^User #\d+$/.test(String(m.label)) || !m.label);
+                if (needFetch.length > 0) {
+                    // lazy-load actual names
+                    const { userService } = await import("../../services/userService");
+                    await Promise.all(needFetch.map(async nf => {
+                        try {
+                            const u = await userService.getUserById(Number(nf.id));
+                            if (u) {
+                                const realName = u.full_name || u.username || u.name || `User #${nf.id}`;
+                                const idx = mapped.findIndex(mm => Number(mm.id) === Number(nf.id));
+                                if (idx > -1) mapped[idx].label = realName;
+                            }
+                        } catch (e) {
+                            // ignore individual failures
+                        }
+                    }));
+                }
+
+                setEngineers(mapped as { id: number; label: string }[]);
             } catch (err) {
                 console.error("Failed to fetch engineers:", err);
                 setEngineers([]);
@@ -153,10 +176,15 @@ const ManagerQualityPage = () => {
         if (!formData.inspection_type) { toast.error("Inspection type is required"); return; }
         if (!formData.test_type) { toast.error("Test type is required"); return; }
         if (formData.result === "") { toast.error("Result is required"); return; }
+        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") { toast.error("Standard value is required"); return; }
+        if (!formData.status) { toast.error("Status is required"); return; }
+        if (!formData.engineer_name || !formData.engineer_name.trim()) { toast.error("Engineer is required"); return; }
 
         setIsSubmitting(true);
         try {
-            await qcService.createQc({ ...formData, project_id: selectedProjectId || formData.project_id } as any);
+            const payload: any = { ...formData, project_id: selectedProjectId || formData.project_id };
+            if (selectedFile) payload.report_file = selectedFile;
+            await qcService.createQc(payload as any);
             toast.success("QC entry created!");
             setIsNewModalOpen(false);
             resetForm();
@@ -171,9 +199,18 @@ const ManagerQualityPage = () => {
     const handleUpdateSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!selectedQc) return;
+        if (!formData.project_id) { toast.error("Project is required"); return; }
+        if (!formData.inspection_type) { toast.error("Inspection type is required"); return; }
+        if (!formData.test_type) { toast.error("Test type is required"); return; }
+        if (formData.result === "") { toast.error("Result is required"); return; }
+        if (formData.standard_value === null || formData.standard_value === undefined || formData.standard_value === "") { toast.error("Standard value is required"); return; }
+        if (!formData.status) { toast.error("Status is required"); return; }
+        if (!formData.engineer_name || !formData.engineer_name.trim()) { toast.error("Engineer is required"); return; }
         setIsSubmitting(true);
         try {
-            await qcService.updateQc(selectedQc.id, formData as any);
+            const payload: any = { ...formData };
+            if (selectedFile) payload.report_file = selectedFile;
+            await qcService.updateQc(selectedQc.id, payload as any);
             toast.success("QC entry updated!");
             setIsEditModalOpen(false);
             fetchData();
@@ -202,6 +239,11 @@ const ManagerQualityPage = () => {
         result: "", standard_value: "", status: "Pass", engineer_name: "", remarks: ""
     });
 
+    // ensure selected file resets with form
+    useEffect(() => {
+        if (!isNewModalOpen && !isEditModalOpen) setSelectedFile(null);
+    }, [isNewModalOpen, isEditModalOpen]);
+
     const handleViewDetails = async (qc: QcItem) => {
         setViewLoadingId(qc.id);
         try {
@@ -213,6 +255,37 @@ const ManagerQualityPage = () => {
             setIsViewModalOpen(true);
         } finally { setViewLoadingId(null); }
     };
+
+    // Fetch task and BOQ details when viewing a QC entry
+    useEffect(() => {
+        if (!isViewModalOpen || !selectedQc) {
+            setSelectedTaskDetail(null);
+            setSelectedBoq(null);
+            return;
+        }
+
+        (async () => {
+            setSelectedTaskDetail(null);
+            setSelectedBoq(null);
+            try {
+                if (selectedQc.task_id && selectedQc.project_id) {
+                    const task = await projectService.getTask(Number(selectedQc.project_id), Number(selectedQc.task_id));
+                    setSelectedTaskDetail(task || null);
+                    const boqId = task?.boq_id || task?.boqId || task?.boq_id || null;
+                    if (boqId) {
+                        try {
+                            const b = await boqService.getBoqById(Number(boqId));
+                            setSelectedBoq(b || null);
+                        } catch (e) {
+                            // ignore
+                        }
+                    }
+                }
+            } catch (e) {
+                // ignore fetch errors
+            }
+        })();
+    }, [isViewModalOpen, selectedQc]);
 
     const openEdit = (qc: QcItem) => {
         setSelectedQc(qc);
@@ -599,8 +672,8 @@ const ManagerQualityPage = () => {
                             <input type="number" value={formData.result} onChange={e => setFormData(p => ({ ...p, result: e.target.value as any }))} placeholder="e.g. 28" className={inputCls} />
                         </div>
                         <div>
-                            <label className={labelCls}>Standard Threshold</label>
-                            <input type="number" value={formData.standard_value} onChange={e => setFormData(p => ({ ...p, standard_value: e.target.value as any }))} placeholder="e.g. 25" className={inputCls} />
+                            <label className={labelCls}>Standard Threshold <span className="text-rose-500">*</span></label>
+                                <input type="number" value={formData.standard_value} onChange={e => setFormData(p => ({ ...p, standard_value: e.target.value as any }))} placeholder="e.g. 25" className={inputCls} required />
                         </div>
                         <div>
                             <label className={labelCls}>Task Name</label>
@@ -623,14 +696,14 @@ const ManagerQualityPage = () => {
                             />
                         </div>
                         <div>
-                            <label className={labelCls}>Status</label>
-                            <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} className={inputCls}>
+                            <label className={labelCls}>Status <span className="text-rose-500">*</span></label>
+                                <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} className={inputCls} required>
                                 <option value="Pass">Pass</option>
                                 <option value="Fail">Fail</option>
                             </select>
                         </div>
                         <div>
-                            <label className={labelCls}>Engineer In-Charge</label>
+                            <label className={labelCls}>Engineer In-Charge <span className="text-rose-500">*</span></label>
                             <CustomDropdown
                                 value={engineers.find(e => e.label === formData.engineer_name)?.id || null}
                                 onChange={val => {
@@ -641,10 +714,41 @@ const ManagerQualityPage = () => {
                                 placeholder="Select Engineer"
                                 inputCls={inputCls}
                             />
+                                <input type="hidden" value={formData.engineer_name || ""} required aria-hidden="false" />
                         </div>
                         <div className="md:col-span-2">
                             <label className={labelCls}>Remarks</label>
                             <textarea value={formData.remarks} onChange={e => setFormData(p => ({ ...p, remarks: e.target.value }))} placeholder="Additional observations..." rows={3} className={inputCls + " resize-none"} />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={labelCls}>Report File</label>
+                            <div className="flex items-center gap-4">
+                                <input
+                                    type="file"
+                                    id="manager_report_file"
+                                    accept="image/*,application/pdf"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            toast.success(`Selected: ${file.name}`);
+                                            setSelectedFile(file);
+                                            setFormData(p => ({ ...p, report_file: file.name } as any));
+                                        }
+                                    }}
+                                />
+                                <label htmlFor="manager_report_file" className="px-4 py-2.5 bg-white text-slate-700 text-sm font-bold rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-200 font-inter shadow-sm flex items-center justify-center">
+                                    Choose File
+                                </label>
+                                <span className="text-sm text-slate-500 font-medium truncate max-w-[200px]">
+                                    {formData.report_file || (selectedFile ? selectedFile.name : "No file chosen")}
+                                </span>
+                                {(selectedFile || formData.report_file) && (
+                                    <button type="button" onClick={() => { setSelectedFile(null); setFormData(p => ({ ...p, report_file: "" } as any)); }} className="p-1.5 hover:bg-rose-100 rounded-lg transition-colors text-rose-600 ml-2">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -654,21 +758,23 @@ const ManagerQualityPage = () => {
             <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="QC Inspection Details" maxWidth="max-w-lg">
                 {selectedQc && (
                     <div className="p-6 space-y-4">
-                        {[
-                            ["Project", assignedProjects.find(p => p.id === selectedQc.project_id)?.project_name || `Project #${selectedQc.project_id}`],
-                            ["Inspection Type", selectedQc.inspection_type],
-                            ["Test Type", selectedQc.test_type],
-                            ["Status", selectedQc.status],
-                            ["Result", String(selectedQc.result)],
-                            ["Standard Value", String(selectedQc.standard_value)],
-                            ["Engineer", selectedQc.engineer_name],
-                            ["Remarks", selectedQc.remarks || "—"],
-                        ].map(([label, value]) => (
-                            <div key={label} className="flex justify-between items-start">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
-                                <span className="text-sm font-bold text-slate-800 text-right max-w-[60%]">{value}</span>
-                            </div>
-                        ))}
+                                {[
+                                    ["Project", assignedProjects.find(p => p.id === selectedQc.project_id)?.project_name || `Project #${selectedQc.project_id}`],
+                                    ["Inspection Type", selectedQc.inspection_type],
+                                    ["Test Type", selectedQc.test_type],
+                                    ["Status", selectedQc.status],
+                                    ["Result", String(selectedQc.result)],
+                                    ["Standard Value", String(selectedQc.standard_value)],
+                                    ["Task", selectedTaskDetail ? (selectedTaskDetail.title || `Task #${selectedQc.task_id}`) : (selectedQc.task_id ? `Task #${selectedQc.task_id}` : "-")],
+                                    ["BOQ", selectedBoq ? (selectedBoq.item_name || selectedBoq.item_name || `BOQ #${selectedBoq.id}`) : (selectedTaskDetail?.boq_id ? `BOQ #${selectedTaskDetail.boq_id}` : "-")],
+                                    ["Engineer", selectedQc.engineer_name],
+                                    ["Remarks", selectedQc.remarks || "—"],
+                                ].map(([label, value]) => (
+                                    <div key={label} className="flex justify-between items-start">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
+                                        <span className="text-sm font-bold text-slate-800 text-right max-w-[60%]">{value}</span>
+                                    </div>
+                                ))}
                     </div>
                 )}
             </Modal>

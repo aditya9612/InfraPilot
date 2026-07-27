@@ -792,7 +792,7 @@ const ReportsPage = () => {
             const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
             const link = document.createElement("a");
             link.href = url;
-            link.setAttribute("download", `Issue_Report_${new Date().toISOString().split("T")[0]}.${ext}`);
+            link.setAttribute("download", `executive_site_issue_report.${ext}`);
             document.body.appendChild(link);
             link.click();
             link.remove();
