@@ -53,6 +53,33 @@ const colorMap: Record<string, string> = {
 
 const DOC_TYPES = ["Drawing", "Contract", "Report", "Specification", "Schedule", "Invoice", "Other"];
 
+const normalizeDrawingToDocument = (drawing: any, projectName?: string): Document => {
+    const approvalStatus = String(drawing.approval_status || drawing.status || "").toLowerCase();
+    const status: Document["status"] = approvalStatus === "approved"
+        ? "APPROVED"
+        : approvalStatus === "rejected"
+            ? "REJECTED"
+            : "PENDING";
+
+    return {
+        id: Number(drawing.id),
+        project_id: Number(drawing.project_id || 0),
+        project_name: drawing.project_name || projectName,
+        title: drawing.drawing_name || drawing.title || "Untitled Drawing",
+        document_type: "Drawing",
+        file_url: drawing.file_url || null,
+        file_size: 0,
+        version: drawing.version || "",
+        status,
+        is_folder: false,
+        parent_id: null,
+        uploaded_by_user_id: Number(drawing.uploaded_by_user_id || 0),
+        uploaded_at: drawing.created_at || drawing.date || "",
+        remarks: drawing.remarks || null,
+        uploaded_by_name: drawing.uploaded_by_name || null,
+    };
+};
+
 // ─── Page ────────────────────────────────────────────────────────────
 const ManagerDocumentsPage = () => {
     const { selectedProjectId, selectedProject, assignedProjects, setSelectedProjectId } = useProject();
@@ -141,15 +168,26 @@ const ManagerDocumentsPage = () => {
         if (!selectedProjectId) return;
         setIsLoading(true);
         try {
-            const listRes = await documentService.listDocuments({
-                project_id: selectedProjectId,
-                parent_id: currentParentId,
-                limit: 100,
-            });
+            let items: Document[] = [];
 
-            const items = Array.isArray(listRes)
-                ? listRes
-                : (listRes as any).items || (listRes as any).data || [];
+            if (mainTab === "Drawings") {
+                const drawingsRes = await drawingService.getDrawings(selectedProjectId);
+                const rawItems = Array.isArray(drawingsRes)
+                    ? drawingsRes
+                    : (drawingsRes as any).items || (drawingsRes as any).data || [];
+
+                items = rawItems.map((drawing: any) => normalizeDrawingToDocument(drawing, selectedProject?.project_name));
+            } else {
+                const listRes = await documentService.listDocuments({
+                    project_id: selectedProjectId,
+                    parent_id: currentParentId,
+                    limit: 100,
+                });
+
+                items = Array.isArray(listRes)
+                    ? listRes
+                    : (listRes as any).items || (listRes as any).data || [];
+            }
 
             // Sort folders first, then by date
             items.sort((a: Document, b: Document) => {
@@ -163,7 +201,7 @@ const ManagerDocumentsPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [selectedProjectId, currentParentId]);
+    }, [selectedProjectId, currentParentId, mainTab, selectedProject?.project_name]);
 
     useEffect(() => { fetchDocs(); }, [fetchDocs]);
     useEffect(() => { setCurrentPage(1); }, [searchTerm, typeFilter, categoryFilter]);
@@ -188,17 +226,30 @@ const ManagerDocumentsPage = () => {
         if (!targetProjectId) { toast.error("Please select a project."); return; }
         setIsSubmitting(true);
         try {
-            await documentService.uploadDocument({
-                project_id: targetProjectId,
-                title: uploadForm.title || undefined,
-                document_type: uploadForm.document_type || undefined,
-                remarks: uploadForm.remarks || undefined,
-                version: uploadForm.version || undefined,
-                date: uploadForm.date || undefined,
-                parent_id: uploadForm.parent_id ?? currentParentId ?? undefined,
-                file: uploadFile,
-            });
-            toast.success("Document uploaded successfully!");
+            if (mainTab === "Drawings") {
+                await drawingService.uploadDrawing({
+                    project_id: targetProjectId,
+                    drawing_name: uploadForm.title,
+                    version: uploadForm.version,
+                    date: uploadForm.date || new Date().toISOString().split("T")[0],
+                    remarks: uploadForm.remarks || "",
+                    approved_by: "Manager",
+                    file: uploadFile,
+                });
+                toast.success("Drawing uploaded successfully!");
+            } else {
+                await documentService.uploadDocument({
+                    project_id: targetProjectId,
+                    title: uploadForm.title || undefined,
+                    document_type: uploadForm.document_type || undefined,
+                    remarks: uploadForm.remarks || undefined,
+                    version: uploadForm.version || undefined,
+                    date: uploadForm.date || undefined,
+                    parent_id: uploadForm.parent_id ?? currentParentId ?? undefined,
+                    file: uploadFile,
+                });
+                toast.success("Document uploaded successfully!");
+            }
             setIsUploadModalOpen(false);
             setUploadForm({ title: "", document_type: "Drawing", remarks: "", version: "", date: "", parent_id: null });
             setUploadFile(null);
@@ -222,12 +273,21 @@ const ManagerDocumentsPage = () => {
         try {
             const resolvedParentId = folderParentId.trim() !== ""
                 ? Number(folderParentId)
-                : currentParentId || undefined;
-            await documentService.createFolder({
-                project_id: selectedProjectId,
-                title: folderName,
-                parent_id: resolvedParentId,
-            });
+                : currentParentId ?? undefined;
+
+            if (mainTab === "Drawings") {
+                await drawingService.createFolder(selectedProjectId, {
+                    drawing_name: folderName,
+                    parent_id: resolvedParentId || 0,
+                });
+            } else {
+                await documentService.createFolder({
+                    project_id: selectedProjectId,
+                    title: folderName,
+                    parent_id: resolvedParentId,
+                });
+            }
+
             toast.success("Folder created!");
             setIsFolderModalOpen(false);
             setFolderName("");
@@ -1088,7 +1148,7 @@ const ManagerDocumentsPage = () => {
             <Modal
                 isOpen={isHistoryModalOpen}
                 onClose={() => setIsHistoryModalOpen(false)}
-                title="Document Approval History"
+                title="Drawing Approval History"
                 maxWidth="max-w-xl"
             >
                 <div className="p-6">

@@ -414,14 +414,13 @@ const ApprovalsPage = () => {
                                     <th className="px-6 py-4">Requested By</th>
                                     <th className="px-6 py-4">Summary Detail</th>
                                     <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Approved By</th>
                                     <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-20 text-center">
+                                        <td colSpan={6} className="px-6 py-20 text-center">
                                             <div className="inline-block w-6 h-6 border-2 border-t-transparent border-primary rounded-full animate-spin mb-2"></div>
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Synchronizing Registry...</p>
                                         </td>
@@ -453,11 +452,6 @@ const ApprovalsPage = () => {
                                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${item.status === "Approved" ? "bg-emerald-100 text-emerald-600" : item.status === "Pending" ? "bg-amber-100 text-amber-600" : "bg-rose-100 text-rose-600"}`}>
                                                     {item.status}
                                                 </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                                                {item.approved_by
-                                                    ? (usersMap[String(item.approved_by)] || item.reviewer_name || (String(item.approved_by).match(/^\d+$/) ? `User #${item.approved_by}` : String(item.approved_by)))
-                                                    : "—"}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1 items-center">

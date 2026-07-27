@@ -49,7 +49,7 @@ const ClientIssueReportPage = () => {
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Issue_Report_Project_${projectId}.xlsx`);
+      link.setAttribute('download', `executive_site_issue_report.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();

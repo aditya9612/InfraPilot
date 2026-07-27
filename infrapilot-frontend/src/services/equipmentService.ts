@@ -392,9 +392,10 @@ export const equipmentService = {
         return response.data;
     },
 
-    async getTransferHistory(equipment_id: number): Promise<any> {
-        const response = await api.get(`/equipment/${equipment_id}/transfer-history`);
-        return response.data;
+    async getTransferHistory(equipment_id: number): Promise<any[]> {
+        const response = await api.get<any>(`/equipment/${equipment_id}/transfer-history`);
+        const data = response.data;
+        return Array.isArray(data) ? data : (data.items || data.data || []);
     },
 
     // ==========================================

@@ -130,22 +130,47 @@ const DailyProgressEntryPage = () => {
   }, [projectId, engineer_id]);
 
   const loadTodayProgress = useCallback(async () => {
-    if (!projectId || !engineer_id) return;
+    if (!projectId) return;
     try {
       if (!hasLoadedToday) {
         setLoading(true);
       }
-      const res = await workProgressService.getTodayProgress(engineer_id, projectId);
-      const entries = res?.data || res || [];
+      const res = await workProgressService.getGlobalLogs(projectId);
+      const entries = res?.data || [];
       setTodayActivities(entries as DailyEntry[]);
       setAllEntries(entries as DailyEntry[]);
       setHasLoadedToday(true);
+
+      const uniqueUserIds = [...new Set(
+        entries
+          .map((e: any) => {
+            if (e.created_by && typeof e.created_by === 'object') {
+              return e.created_by.user_id || e.created_by.id;
+            }
+            return e.created_by || e.created_by_user_id || e.changed_by;
+          })
+          .filter((id: any) => id && typeof id === 'number')
+      )] as number[];
+      if (uniqueUserIds.length > 0) {
+        const newMap: Record<number, string> = {};
+        await Promise.all(
+          uniqueUserIds.map(async (uid) => {
+            try {
+              const u = await userService.getUserById(uid);
+              if (u) newMap[uid] = u.full_name || u.username || `User #${uid}`;
+            } catch {
+              // ignore missing user entries
+            }
+          })
+        );
+        setUsersMap(prev => ({ ...prev, ...newMap }));
+      }
     } catch (err) {
       toast.error("Failed to load today's tasks");
     } finally {
       setLoading(false);
     }
-  }, [projectId, hasLoadedToday, engineer_id]);
+  }, [hasLoadedToday, projectId]);
 
   const loadAllEntries = useCallback(async () => {
     if (!projectId) return;
@@ -160,7 +185,14 @@ const DailyProgressEntryPage = () => {
 
       // Resolve created_by IDs to names using per-user fetch (works with PM role)
       const uniqueUserIds = [...new Set(
-        entries.map((e: any) => e.created_by).filter((id: any) => id && typeof id === 'number')
+        entries
+          .map((e: any) => {
+            if (e.created_by && typeof e.created_by === 'object') {
+              return e.created_by.user_id || e.created_by.id;
+            }
+            return e.created_by || e.created_by_user_id;
+          })
+          .filter((id: any) => id && typeof id === 'number')
       )] as number[];
       if (uniqueUserIds.length > 0) {
         const newMap: Record<number, string> = {};
@@ -696,14 +728,22 @@ const DailyProgressEntryPage = () => {
                           </tr>
                         ) : (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).length > 0 ? (activeTab === 'today' ? paginatedTodayEntries : paginatedAllEntries).map((e) => {
                           const currentActivity = activitiesList.find(a => a.id === e.activity_id);
-                          const creatorName = e.created_by ? (usersMap[e.created_by] || `User #${e.created_by}`) : "-";
+                          const creatorId = (e as any).created_by && typeof (e as any).created_by === 'object'
+                            ? ((e as any).created_by.user_id || (e as any).created_by.id)
+                            : (e as any).created_by || (e as any).created_by_user_id || (e as any).changed_by;
+                          const creatorName = (e as any).created_by_name
+                            || ((e as any).created_by && typeof (e as any).created_by === 'object'
+                              ? ((e as any).created_by.full_name || (e as any).created_by.name)
+                              : undefined)
+                            || (creatorId ? (usersMap[creatorId] || `User #${creatorId}`) : "-");
+                          const displayDate = e.entry_date || e.created_at ? new Date(e.entry_date || e.created_at).toLocaleDateString() : "-";
                           return (
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-slate-700 whitespace-nowrap">
                                 {currentActivity?.activity_name || "-"}
                                 {currentActivity?.boq_code && <span className="block text-[11px] font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
                               </td>
-                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600">{e.entry_date}</td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600">{displayDate}</td>
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-blue-600">
                                 {e.today_progress} {currentActivity?.unit || ""}
                               </td>

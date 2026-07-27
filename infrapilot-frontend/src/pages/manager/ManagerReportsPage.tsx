@@ -49,7 +49,7 @@ const REPORT_TYPES: ReportType[] = [
     { id: "issues", name: "Issue Analysis", category: "Operations", description: "Analysis of open site issues, delay causes, and resolution trends.", icon: <AlertCircle size={20} className="text-rose-500" />, exportType: "Both" },
 
     // Resources
-    { id: "labour", name: "Workforce Analytics", category: "Resources", description: "Labour deployment trends, skill-mix distribution, and attendance.", icon: <Users size={20} className="text-amber-500" />, exportType: "Both" },
+    { id: "labour", name: "Labour Analytics", category: "Resources", description: "Labour deployment trends, skill-mix distribution, and attendance.", icon: <Users size={20} className="text-amber-500" />, exportType: "Both" },
     { id: "material", name: "Material Lifecycle", category: "Resources", description: "Tracking material inflows, consumption rates, and wastage analysis.", icon: <Building2 size={20} className="text-cyan-500" />, exportType: "Both" },
     { id: "equipment", name: "Equipment Reports", category: "Resources", description: "Full equipment utilization, maintenance status, and deployment analytics.", icon: <Building2 size={20} className="text-orange-500" />, exportType: "Both" },
     { id: "assets", name: "Asset Reports", category: "Resources", description: "Fixed assets tracking, depreciation analysis, and asset utilization overview.", icon: <FileText size={20} className="text-violet-500" />, exportType: "Both" },
@@ -97,6 +97,47 @@ const ManagerReportsPage = () => {
         completion: 0,
         activeIssues: 0
     });
+
+    const MONTH_NAMES = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+
+    const getReportFileName = (reportId: string, format: "PDF" | "Excel", options: {
+        reportDate?: string;
+        startDate?: string;
+        endDate?: string;
+        month?: number | null;
+        year?: number | null;
+        quarter?: number | null;
+        periodType?: string;
+    } = {}) => {
+        const extension = format === "PDF" ? "pdf" : "xlsx";
+        const date = options.reportDate || new Date().toISOString().split('T')[0];
+
+        switch (reportId) {
+            case "daily":
+                return `daily_project_report_${date}.${extension}`;
+            case "weekly":
+                if (options.startDate && options.endDate) {
+                    return `weekly_project_report_${options.startDate}_to_${options.endDate}.${extension}`;
+                }
+                return `weekly_project_report_${date}.${extension}`;
+            case "project-report":
+                if (options.periodType === "monthly" && options.month && options.year) {
+                    return `monthly_project_report_${MONTH_NAMES[options.month - 1] ?? options.month}_${options.year}.${extension}`;
+                }
+                if (options.periodType === "quarterly" && options.quarter && options.year) {
+                    return `quarterly_project_report_Q${options.quarter}_${options.year}.${extension}`;
+                }
+                if (options.periodType === "weekly" && options.startDate && options.endDate) {
+                    return `weekly_project_report_${options.startDate}_to_${options.endDate}.${extension}`;
+                }
+                return `project_report_${date}.${extension}`;
+            default:
+                return `${reportId}_report_${date}.${extension}`;
+        }
+    };
 
     useEffect(() => {
         const fetchGlobalStats = async () => {
@@ -216,8 +257,27 @@ const ManagerReportsPage = () => {
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                const extension = format.toLowerCase() === 'pdf' ? 'pdf' : 'xlsx';
-                link.setAttribute('download', `${reportId}_${effectiveEnd}.${extension}`);
+                let fileName = getReportFileName(reportId, format, {
+                    reportDate: effectiveEnd,
+                    periodType: reportId === "weekly" ? "weekly" : reportId === "daily" ? "daily" : undefined
+                });
+
+                if (reportId === "daily") {
+                    fileName = getReportFileName(reportId, format, { reportDate: effectiveEnd });
+                }
+                if (reportId === "issues") {
+                    fileName = `executive_site_issue_report.${format === "PDF" ? "pdf" : "xlsx"}`;
+                } else if (reportId === "labour") {
+                    fileName = `labour_distribution_summary.${format === "PDF" ? "pdf" : "xlsx"}`;
+                } else if (reportId === "assets") {
+                    fileName = `fixed_asset_depreciation_report.${format === "PDF" ? "pdf" : "xlsx"}`;
+                } else if (reportId === "cost-comparison") {
+                    fileName = `executive_financial_summary.${format === "PDF" ? "pdf" : "xlsx"}`;
+                } else if (reportId !== "daily" && reportId !== "weekly") {
+                    fileName = `${reportId}_report_${effectiveEnd}.${format === "PDF" ? "pdf" : "xlsx"}`;
+                }
+
+                link.setAttribute('download', fileName);
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
@@ -322,7 +382,19 @@ const ManagerReportsPage = () => {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.setAttribute("download", `weekly_report_${selection.type}_${selection.year}.${format === "PDF" ? "pdf" : "xlsx"}`);
+                let fileName = "project_report";
+
+                if (selection.type === "weekly" && selection.start_date && selection.end_date) {
+                    fileName = `weekly_project_report_${selection.start_date}_to_${selection.end_date}`;
+                }
+                if (selection.type === "monthly" && selection.month && selection.year) {
+                    fileName = `monthly_project_report_${MONTH_NAMES[selection.month - 1] ?? selection.month}_${selection.year}`;
+                }
+                if (selection.type === "quarterly" && selection.quarter && selection.year) {
+                    fileName = `quarterly_project_report_Q${selection.quarter}_${selection.year}`;
+                }
+
+                a.setAttribute("download", `${fileName}.${format === "PDF" ? "pdf" : "xlsx"}`);
                 document.body.appendChild(a);
                 a.click();
                 a.remove();

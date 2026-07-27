@@ -95,9 +95,12 @@ const ResourceOrchestratorPage = () => {
                 const projId = selectedProjectId === "all" ? undefined : selectedProjectId;
 
                 if (activeTab === "workforce") {
+                    const labourProjectId = workforceSubTab === "labour" ? undefined : projId;
+                    const attendanceProjectId = workforceSubTab === "labour" ? null : (projId ? Number(projId) : null);
+
                     const [labRes, attRes] = await Promise.all([
-                        labourService.getLabours(projId),
-                        labourService.getAttendanceList(projId ? Number(projId) : null)
+                        labourService.getLabours(labourProjectId),
+                        labourService.getAttendanceList(attendanceProjectId)
                     ]);
 
                     const labourItems = Array.isArray(labRes) ? labRes : labRes.items || [];
@@ -152,7 +155,7 @@ const ResourceOrchestratorPage = () => {
             }
         };
         fetchData();
-    }, [activeTab, selectedProjectId]);
+    }, [activeTab, selectedProjectId, workforceSubTab]);
 
     const tabs = [
         { id: "workforce", label: "Workforce", icon: <Users className="w-4 h-4" /> },
