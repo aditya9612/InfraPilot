@@ -195,6 +195,9 @@ const ClientReportsPage = () => {
     try {
       setLoading(true);
       const pid = projectId;
+      const dateParts = (reportDate || reportStartDate || "").split("-");
+      const yr = Number(dateParts[0]) || new Date().getFullYear();
+      const mo = Number(dateParts[1]) || (new Date().getMonth() + 1);
       const [daily, weekly, material, issues, labour, projReport] = await Promise.all([
         // 1) Daily Report — GET /api/v1/reports/daily
         reportService.getDailyReport(pid, reportDate).catch(err => {
@@ -222,7 +225,7 @@ const ClientReportsPage = () => {
           return null;
         }),
         // 6) Project Report — GET /api/v1/reports/project
-        reportService.getProjectReport(pid).catch(err => {
+        reportService.getProjectReport(pid, "monthly", mo, yr).catch(err => {
           console.error("Project report fetch failed:", err);
           return null;
         })
@@ -599,14 +602,19 @@ const ClientReportsPage = () => {
       ),
       desc: "Comprehensive 30-day overview covering budget variance, schedule adherence, and major milestones achieved.",
       stats: [
-        { label: "OVERALL PROGRESS", value: `${weeklyProgress?.overall_completion ?? 5.75}%` },
-        { label: "COMPLETED TASKS", value: weeklyProgress?.completed_activities ?? 1 },
-        { label: "TOTAL INVOICE", value: "₹2,903,160" },
-        { label: "OPEN ISSUES", value: issueSummary?.open ?? 0 }
+        { label: "OVERALL PROGRESS", value: `${projectReport?.summary?.overall_progress ?? projectReport?.overall_progress ?? weeklyProgress?.overall_completion ?? 6.75}%` },
+        { label: "COMPLETED TASKS", value: (projectReport?.summary?.completed_tasks ?? projectReport?.completed_tasks ?? weeklyProgress?.completed_activities ?? 0).toString() },
+        { label: "TOTAL INVOICE", value: projectReport?.financials?.total_invoice !== undefined ? `₹${Number(projectReport.financials.total_invoice).toLocaleString('en-IN')}` : (projectReport?.total_invoice !== undefined ? `₹${Number(projectReport.total_invoice).toLocaleString('en-IN')}` : "₹2,903,160") },
+        { label: "OPEN ISSUES", value: projectReport?.summary?.open_issues ?? issueSummary?.open ?? 0 }
       ],
       onPDF: () => { setMonthlyPdfStartDate(reportStartDate || ""); setMonthlyPdfEndDate(reportEndDate || ""); setShowMonthlyPdfModal(true); },
       onExcel: () => { setMonthlyExcelStartDate(reportStartDate || ""); setMonthlyExcelEndDate(reportEndDate || ""); setShowMonthlyExcelModal(true); },
       onView: () => {
+        const overallProg = projectReport?.summary?.overall_progress ?? projectReport?.overall_progress ?? weeklyProgress?.overall_completion ?? 6.75;
+        const completedTasks = projectReport?.summary?.completed_tasks ?? projectReport?.completed_tasks ?? weeklyProgress?.completed_activities ?? 0;
+        const totalInvoice = projectReport?.financials?.total_invoice !== undefined ? `₹${Number(projectReport.financials.total_invoice).toLocaleString('en-IN')}` : "₹2,903,160";
+        const openIssues = projectReport?.summary?.open_issues ?? issueSummary?.open ?? 0;
+
         setSelectedInsight({
           title: "Monthly Executive Summary",
           level: "MONTHLY",
@@ -615,10 +623,10 @@ const ClientReportsPage = () => {
           time: "Today, 08:42 AM",
           status: "APPROVED / EXECUTIVE",
           metrics: [
-            { label: "OVERALL PROGRESS", value: `${weeklyProgress?.overall_completion ?? 5.75}%`, color: "text-blue-600" },
-            { label: "COMPLETED TASKS", value: weeklyProgress?.completed_activities ?? 1 },
-            { label: "TOTAL INVOICE", value: "₹2,903,160", color: "text-green-600" },
-            { label: "OPEN ISSUES", value: issueSummary?.open ?? 0, color: "text-amber-600" }
+            { label: "OVERALL PROGRESS", value: `${overallProg}%`, color: "text-blue-600" },
+            { label: "COMPLETED TASKS", value: completedTasks },
+            { label: "TOTAL INVOICE", value: totalInvoice, color: "text-green-600" },
+            { label: "OPEN ISSUES", value: openIssues, color: "text-amber-600" }
           ]
         });
         setShowInsight(true);
@@ -643,10 +651,10 @@ const ClientReportsPage = () => {
       ),
       desc: "High-level 90-day strategic review detailing contractor performance, total financial expenditure, and structural compliance.",
       stats: [
-        { label: "TOTAL EXPENSE", value: "₹10,000" },
-        { label: "TOTAL INVOICE", value: "₹2,903,160" },
-        { label: "COMPLETED TASKS", value: weeklyProgress?.completed_activities ?? 1 },
-        { label: "DELAYED TASKS", value: weeklyProgress?.delayed_activities ?? 3 }
+        { label: "TOTAL TASKS", value: projectReport?.summary?.total_tasks ?? projectReport?.total_tasks ?? weeklyProgress?.total_activities ?? 8 },
+        { label: "TOTAL INVOICE", value: projectReport?.financials?.total_invoice !== undefined ? `₹${Number(projectReport.financials.total_invoice).toLocaleString('en-IN')}` : "₹2,903,160" },
+        { label: "COMPLETED TASKS", value: projectReport?.summary?.completed_tasks ?? projectReport?.completed_tasks ?? weeklyProgress?.completed_activities ?? 0 },
+        { label: "DELAYED TASKS", value: weeklyProgress?.delayed_activities ?? 2 }
       ],
       onPDF: () => { setQuarterlyPdfReportDate(""); setQuarterlyPdfStartDate(""); setQuarterlyPdfEndDate(""); setQuarterlyPdfMonth(""); setQuarterlyPdfYear(""); setQuarterlyPdfQuarter(""); setShowQuarterlyPdfModal(true); },
       onExcel: () => { setQuarterlyExcelReportDate(""); setQuarterlyExcelStartDate(""); setQuarterlyExcelEndDate(""); setQuarterlyExcelMonth(""); setQuarterlyExcelYear(""); setQuarterlyExcelQuarter(""); setShowQuarterlyExcelModal(true); },
@@ -659,10 +667,10 @@ const ClientReportsPage = () => {
           time: "Q3 2026",
           status: "REVIEWED / STRATEGIC",
           metrics: [
-            { label: "TOTAL EXPENSE", value: "₹10,000", color: "text-blue-600" },
-            { label: "TOTAL INVOICE", value: "₹2,903,160", color: "text-green-600" },
-            { label: "COMPLETED TASKS", value: weeklyProgress?.completed_activities ?? 1 },
-            { label: "DELAYED TASKS", value: weeklyProgress?.delayed_activities ?? 3, color: "text-rose-500" }
+            { label: "TOTAL TASKS", value: projectReport?.summary?.total_tasks ?? projectReport?.total_tasks ?? weeklyProgress?.total_activities ?? 8, color: "text-blue-600" },
+            { label: "TOTAL INVOICE", value: projectReport?.financials?.total_invoice !== undefined ? `₹${Number(projectReport.financials.total_invoice).toLocaleString('en-IN')}` : "₹2,903,160", color: "text-green-600" },
+            { label: "COMPLETED TASKS", value: projectReport?.summary?.completed_tasks ?? projectReport?.completed_tasks ?? weeklyProgress?.completed_activities ?? 0 },
+            { label: "DELAYED TASKS", value: weeklyProgress?.delayed_activities ?? 2, color: "text-rose-500" }
           ]
         });
         setShowInsight(true);
@@ -841,8 +849,17 @@ const ClientReportsPage = () => {
     const toastId = "daily-pdf";
     toast.loading("Exporting Daily Report PDF...", { id: toastId });
     try {
-      // Primary: GET /api/v1/reports/daily/export/pdf
-      const blob = await reportService.exportDailyPDF(Number(projectId), reportDate);
+      // GET /api/v1/reports/project/export/pdf
+      const now = new Date();
+      const blob = await reportService.exportProjectReportPDF({
+        project_id: Number(projectId),
+        type: 'daily',
+        report_date: reportDate,
+        start_date: reportDate,
+        end_date: reportDate,
+        month: now.getMonth() + 1,
+        year: now.getFullYear()
+      });
       const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
       const link = document.createElement("a");
       link.href = url;
@@ -1138,6 +1155,7 @@ const ClientReportsPage = () => {
       const dateParts = sDate.split("-");
       const yr = Number(dateParts[0]) || currentYear;
       const mo = Number(dateParts[1]) || currentMonth;
+      const qtr = Math.ceil(mo / 3);
 
       const blob = await reportService.exportProjectReportPDF({
         project_id: Number(projectId),
@@ -1146,7 +1164,8 @@ const ClientReportsPage = () => {
         start_date: sDate,
         end_date: eDate,
         month: mo,
-        year: yr
+        year: yr,
+        ...(type === "quarterly" ? { quarter: qtr } : {})
       });
       const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
       const link = document.createElement("a");
@@ -1164,17 +1183,17 @@ const ClientReportsPage = () => {
           title: label,
           subtitle: `Project ID: ${projectId} | ${type.toUpperCase()} Summary`,
           summaryStats: [
-            { label: "Overall Progress", value: `${weeklyProgress?.overall_completion ?? 5.75}%` },
-            { label: "Completed Tasks", value: (weeklyProgress?.completed_activities ?? 1).toString() },
-            { label: "Total Invoice", value: "Rs. 2,903,160" },
-            { label: type === "monthly" ? "Open Issues" : "Delayed Tasks", value: (type === "monthly" ? (issueSummary?.open ?? 0) : (weeklyProgress?.delayed_activities ?? 3)).toString() }
+            { label: "Overall Progress", value: `${projectReport?.summary?.overall_progress ?? projectReport?.overall_progress ?? weeklyProgress?.overall_completion ?? 6.75}%` },
+            { label: "Completed Tasks", value: (projectReport?.summary?.completed_tasks ?? projectReport?.completed_tasks ?? weeklyProgress?.completed_activities ?? 0).toString() },
+            { label: "Total Invoice", value: projectReport?.financials?.total_invoice !== undefined ? `Rs. ${Number(projectReport.financials.total_invoice).toLocaleString('en-IN')}` : "Rs. 2,903,160" },
+            { label: type === "monthly" ? "Open Issues" : "Delayed Tasks", value: (type === "monthly" ? (projectReport?.summary?.open_issues ?? issueSummary?.open ?? 0) : (weeklyProgress?.delayed_activities ?? 3)).toString() }
           ],
           tableHeaders: [["Metric", "Value", "Status", "Remarks"]],
           tableBody: [
-            ["Progress Status", `${weeklyProgress?.overall_completion ?? 5.75}%`, "On Track", "Milestones progressing as scheduled"],
-            ["Completed Tasks", `${weeklyProgress?.completed_activities ?? 1}`, "Verified", "Task execution complete"],
-            ["Billing / Invoices", "Rs. 2,903,160", "Billed", "Current period invoice aggregate"],
-            [type === "monthly" ? "Open Issues" : "Delayed Tasks", `${type === "monthly" ? (issueSummary?.open ?? 0) : (weeklyProgress?.delayed_activities ?? 3)}`, "Monitored", "Action items under review"]
+            ["Progress Status", `${projectReport?.summary?.overall_progress ?? projectReport?.overall_progress ?? weeklyProgress?.overall_completion ?? 6.75}%`, "On Track", "Milestones progressing as scheduled"],
+            ["Completed Tasks", `${projectReport?.summary?.completed_tasks ?? projectReport?.completed_tasks ?? weeklyProgress?.completed_activities ?? 0}`, "Verified", "Task execution complete"],
+            ["Billing / Invoices", projectReport?.financials?.total_invoice !== undefined ? `Rs. ${Number(projectReport.financials.total_invoice).toLocaleString('en-IN')}` : "Rs. 2,903,160", "Billed", "Current period invoice aggregate"],
+            [type === "monthly" ? "Open Issues" : "Delayed Tasks", `${type === "monthly" ? (projectReport?.summary?.open_issues ?? issueSummary?.open ?? 0) : (weeklyProgress?.delayed_activities ?? 3)}`, "Monitored", "Action items under review"]
           ],
           fileName: `${label.replace(/\s+/g, '_')}_${projectId}.pdf`
         });
@@ -1199,6 +1218,7 @@ const ClientReportsPage = () => {
       const dateParts = sDate.split("-");
       const yr = Number(dateParts[0]) || currentYear;
       const mo = Number(dateParts[1]) || currentMonth;
+      const qtr = Math.ceil(mo / 3);
 
       const blob = await reportService.exportProjectReportExcel({
         project_id: Number(projectId),
@@ -1207,7 +1227,8 @@ const ClientReportsPage = () => {
         start_date: sDate,
         end_date: eDate,
         month: mo,
-        year: yr
+        year: yr,
+        ...(type === "quarterly" ? { quarter: qtr } : {})
       });
       const url = window.URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
       const link = document.createElement("a");
@@ -1222,10 +1243,10 @@ const ClientReportsPage = () => {
       console.error(`${label} Excel export failed:`, error);
       try {
         const fallbackData = [
-          { Metric: "Overall Progress", Value: `${weeklyProgress?.overall_completion ?? 5.75}%`, Status: "On Track" },
-          { Metric: "Completed Tasks", Value: `${weeklyProgress?.completed_activities ?? 1}`, Status: "Verified" },
-          { Metric: "Total Invoice", Value: "2903160", Status: "Billed" },
-          { Metric: type === "monthly" ? "Open Issues" : "Delayed Tasks", Value: `${type === "monthly" ? (issueSummary?.open ?? 0) : (weeklyProgress?.delayed_activities ?? 3)}`, Status: "Active" }
+          { Metric: "Overall Progress", Value: `${projectReport?.summary?.overall_progress ?? projectReport?.overall_progress ?? weeklyProgress?.overall_completion ?? 6.75}%`, Status: "On Track" },
+          { Metric: "Completed Tasks", Value: `${projectReport?.summary?.completed_tasks ?? projectReport?.completed_tasks ?? weeklyProgress?.completed_activities ?? 0}`, Status: "Verified" },
+          { Metric: "Total Invoice", Value: `${projectReport?.financials?.total_invoice ?? 2903160}`, Status: "Billed" },
+          { Metric: type === "monthly" ? "Open Issues" : "Delayed Tasks", Value: `${type === "monthly" ? (projectReport?.summary?.open_issues ?? issueSummary?.open ?? 0) : (weeklyProgress?.delayed_activities ?? 3)}`, Status: "Active" }
         ];
         generateCSV(fallbackData, `${label.replace(/\s+/g, '_')}_${projectId}.csv`);
         toast.success(`${label} Excel downloaded!`, { id: toastId });
@@ -1756,15 +1777,29 @@ const ClientReportsPage = () => {
                   const toastId = "daily-excel";
                   toast.loading("Exporting Daily Report Excel...", { id: toastId });
                   try {
-                    await dsrService.exportDsrExcel(Number(projectId), {
-                      ...(excelStartDate ? { start_date: excelStartDate } : {}),
-                      ...(excelEndDate ? { end_date: excelEndDate } : {}),
-                      ...(excelContractorName.trim() ? { contractor_name: excelContractorName.trim() } : {}),
+                    // GET /api/v1/reports/project/export/excel
+                    const now = new Date();
+                    const blob = await reportService.exportProjectReportExcel({
+                      project_id: Number(projectId),
+                      type: 'daily',
+                      report_date: excelStartDate || reportDate,
+                      start_date: excelStartDate || reportDate,
+                      end_date: excelEndDate || reportDate,
+                      month: now.getMonth() + 1,
+                      year: now.getFullYear()
                     });
+                    const url = window.URL.createObjectURL(new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.setAttribute("download", `Daily_Report_${excelStartDate || reportDate}.xlsx`);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.parentNode?.removeChild(link);
+                    window.URL.revokeObjectURL(url);
                     toast.success("Daily Report Excel downloaded!", { id: toastId });
                     setShowExcelModal(false);
                   } catch (error: any) {
-                    console.error("DSR Excel export failed:", error);
+                    console.error("Project Report Excel export failed:", error);
                     toast.error("No data available for the selected filters", { id: toastId });
                   } finally {
                     setIsExcelDownloading(false);

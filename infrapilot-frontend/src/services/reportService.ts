@@ -51,19 +51,25 @@ export const reportService = {
     },
 
     getProjectReport: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
+        const now = new Date();
+        const m = month ?? (now.getMonth() + 1);
+        const y = year ?? now.getFullYear();
         const response = await api.get(`/reports/project`, {
             params: {
                 project_id: projectId,
                 type,
-                month,
-                year
+                month: m,
+                year: y
             }
         });
         return response.data;
     },
 
-    getProjectReportData: async (projectId: number, type: string, month: string, year: string) => {
-        const response = await api.get(`/reports/project`, { params: { project_id: projectId, type, month, year, _t: Date.now() } });
+    getProjectReportData: async (projectId: number, type: string, month?: string | number, year?: string | number) => {
+        const now = new Date();
+        const m = month || String(now.getMonth() + 1);
+        const y = year || String(now.getFullYear());
+        const response = await api.get(`/reports/project`, { params: { project_id: projectId, type, month: m, year: y, _t: Date.now() } });
         return response.data;
     },
 
@@ -282,7 +288,8 @@ export const reportService = {
                 start_date: param1.start_date || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
                 end_date: param1.end_date || defaultDate,
                 month: param1.month ?? currentMonth,
-                year: param1.year ?? currentYear
+                year: param1.year ?? currentYear,
+                ...(param1.quarter !== undefined && param1.quarter !== null ? { quarter: param1.quarter } : {})
             };
         } else {
             queryParams = {
@@ -320,7 +327,8 @@ export const reportService = {
                 start_date: param1.start_date || `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
                 end_date: param1.end_date || defaultDate,
                 month: param1.month ?? currentMonth,
-                year: param1.year ?? currentYear
+                year: param1.year ?? currentYear,
+                ...(param1.quarter !== undefined && param1.quarter !== null ? { quarter: param1.quarter } : {})
             };
         } else {
             queryParams = {

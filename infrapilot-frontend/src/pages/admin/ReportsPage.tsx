@@ -487,7 +487,11 @@ const ReportsPage = () => {
         case "work-summary": data = await reportService.getWorkSummary(pid); break;
         case "contractor-performance": data = await reportService.getContractorPerformance(pid); break;
         case "profit-loss": data = await reportService.getProfitLoss(); break;
-        case "project-report": data = await reportService.getProjectReport(pid); break;
+        case "project-report": {
+          const d = new Date(today);
+          data = await reportService.getProjectReport(pid, "monthly", d.getMonth() + 1, d.getFullYear());
+          break;
+        }
         case "cashflow": data = await reportService.getCashflow(); break;
         case "assets": data = await reportService.getAssetReport(pid); break;
         case "financial-summary": data = await reportService.getFinancialSummary(pid); break;
