@@ -331,9 +331,10 @@ export const workProgressService = {
   /**
    * Get global work progress logs
    */
-  async getGlobalLogs(activityId?: number): Promise<{ data: any[] }> {
+  async getGlobalLogs(projectId?: number, activityId?: number): Promise<{ data: any[] }> {
     try {
       const params: Record<string, any> = {};
+      if (projectId) params.project_id = projectId;
       if (activityId) params.activity_id = activityId;
       const response = await api.get("/work-progress/logs", { params });
       return response.data;
@@ -344,7 +345,7 @@ export const workProgressService = {
   },
 
   /**
-   * Download PDF Report
+   * Download PDF Report - GET /api/v1/work-progress/reports/pdf
    */
   async getPdfReport(projectId: number): Promise<void> {
     const response = await api.get("/work-progress/reports/pdf", {
@@ -357,10 +358,16 @@ export const workProgressService = {
     link.setAttribute('download', `Progress_Report_${projectId}.pdf`);
     document.body.appendChild(link);
     link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  async getPDFReport(projectId: number): Promise<void> {
+    return this.getPdfReport(projectId);
   },
 
   /**
-   * Download Excel Report
+   * Download Excel Report - GET /api/v1/work-progress/reports/excel
    */
   async getExcelReport(projectId: number): Promise<void> {
     const response = await api.get("/work-progress/reports/excel", {
@@ -373,6 +380,8 @@ export const workProgressService = {
     link.setAttribute('download', `Progress_Report_${projectId}.xlsx`);
     document.body.appendChild(link);
     link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 };
 

@@ -82,6 +82,26 @@ const SafetyManagementPage = () => {
         return project ? (project.name || project.project_name) : `Project #${projId}`;
     };
 
+    // Fetch and cache project when opening view modal (to avoid showing numeric id)
+    useEffect(() => {
+        if (!isViewModalOpen || !selectedIncident) return;
+        const pid = Number(selectedIncident.project_id);
+        const found = projects.find(p => Number(p.id || p.project_id) === pid);
+        if (found) return;
+        (async () => {
+            try {
+                const proj = await projectService.getProjectById(pid);
+                setProjects(prev => {
+                    const exists = prev.find(p => Number(p.id || p.project_id) === pid);
+                    if (exists) return prev;
+                    return [...prev, proj];
+                });
+            } catch (e) {
+                // ignore
+            }
+        })();
+    }, [isViewModalOpen, selectedIncident, projects]);
+
     const getTaskName = (taskId: number) => {
         if (!taskId) return "-";
         const task = pageTasks.find(t => Number(t.id) === Number(taskId));

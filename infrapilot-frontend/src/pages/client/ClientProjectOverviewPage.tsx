@@ -175,7 +175,7 @@ const ClientProjectOverviewPage = () => {
                           {m.description && (
                             <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 max-w-md">{m.description}</p>
                           )}
-                          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{m.date || `${m.start_date} - ${m.end_date}`}</p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{m.date || `${m.start_date} to ${m.end_date}`}</p>
                         </div>
                         <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${m.status === "done" ? "bg-emerald-50 text-emerald-600" :
                           m.status === "active" ? "bg-blue-50 text-blue-600" :

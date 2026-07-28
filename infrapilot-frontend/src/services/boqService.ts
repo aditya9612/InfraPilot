@@ -251,12 +251,12 @@ export const boqService = {
   },
 
   /**
-   * Add a single item to a BOQ document
-   * POST /api/v1/boq/{boq_id}/items
+   * Add a single item to a BOQ group
+   * POST /api/v1/boq/groups/{group_id}/items
    */
-  async addBoqItem(boqId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
+  async addBoqItem(groupId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
     try {
-      const response = await api.post(`/boq/groups/${boqId}/items`, itemData);
+      const response = await api.post(`/boq/groups/${groupId}/items`, itemData);
       return response.data;
     } catch (error: any) {
       console.error(

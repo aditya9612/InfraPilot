@@ -468,14 +468,17 @@ const TaskRequestsPage: React.FC = () => {
                                                         </span>
                                                     </td>
                                                     <td className="px-8 py-6">
-                                                        <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${req.priority === 'High' ? 'text-rose-500' :
-                                                            req.priority === 'Medium' ? 'text-amber-500' : 'text-emerald-500'
-                                                            }`}>
-                                                            <div className={`w-1.5 h-1.5 rounded-full ${req.priority === 'High' ? 'bg-rose-500' :
-                                                                req.priority === 'Medium' ? 'bg-amber-500' : 'bg-emerald-500'
-                                                                }`} />
-                                                            {req.priority}
-                                                        </div>
+                                                        {(() => {
+                                                            const p = (req.priority || '').toString().toUpperCase();
+                                                            const isHigh = p === 'HIGH';
+                                                            const isMedium = p === 'MEDIUM';
+                                                            return (
+                                                                <div className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${isHigh ? 'text-rose-500' : isMedium ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                                                    <div className={`w-1.5 h-1.5 rounded-full ${isHigh ? 'bg-rose-500' : isMedium ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                                                    {req.priority}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </td>
                                                     <td className="px-8 py-6">
                                                         {req.attachment_url ? (
@@ -579,16 +582,21 @@ const TaskRequestsPage: React.FC = () => {
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
                                         Priority
                                     </span>
-                                    <span className={`inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest ${
-                                        viewingRequest.priority === 'High' ? 'text-rose-500' :
-                                        viewingRequest.priority === 'Medium' ? 'text-amber-500' : 'text-emerald-500'
-                                    }`}>
-                                        <span className={`w-2 h-2 rounded-full ${
-                                            viewingRequest.priority === 'High' ? 'bg-rose-500' :
-                                            viewingRequest.priority === 'Medium' ? 'bg-amber-500' : 'bg-emerald-500'
-                                        }`} />
-                                        {viewingRequest.priority}
-                                    </span>
+                                    {(() => {
+                                        const p = (viewingRequest.priority || '').toString().toUpperCase();
+                                        const isHigh = p === 'HIGH';
+                                        const isMedium = p === 'MEDIUM';
+                                        return (
+                                            <span className={`inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest ${
+                                                isHigh ? 'text-rose-500' : isMedium ? 'text-amber-500' : 'text-emerald-500'
+                                            }`}>
+                                                <span className={`w-2 h-2 rounded-full ${
+                                                    isHigh ? 'bg-rose-500' : isMedium ? 'bg-amber-500' : 'bg-emerald-500'
+                                                }`} />
+                                                {viewingRequest.priority}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 

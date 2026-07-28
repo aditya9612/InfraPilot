@@ -148,7 +148,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
         audioRef.current.currentTime = pct * duration;
     };
 
-    const projectId = task?.project_id ? Number(task.project_id) : 92;
+    const projectId = task?.project_id ? Number(task.project_id) : 4;
     const taskId = task?.id ? Number(task.id) : 0;
 
     useEffect(() => {
@@ -156,7 +156,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task: initialTask, is
             const fetchTaskDetail = async () => {
                 setIsLoadingTask(true);
                 try {
-                    const rawProjId = initialTask.project_id ? Number(initialTask.project_id) : 92;
+                    const rawProjId = initialTask.project_id ? Number(initialTask.project_id) : 4;
                     const rawTaskId = Number(initialTask.id);
                     if (!isNaN(rawTaskId)) {
                         const data = await projectService.getTask(rawProjId, rawTaskId);

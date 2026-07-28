@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import Navbar from "../../../components/common/Navbar";
 import { dsrService } from "../../../services/dsrService";
+import { reportService } from "../../../services/reportService";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
-import { Search, MapPin, ChevronDown, ImageIcon, Trash2, X, Maximize2, RefreshCw, FileDown, Eye, ChevronLeft, ChevronRight, Calendar, FileText, Package, AlertCircle } from "lucide-react";
+import { Search, MapPin, ChevronDown, ImageIcon, Trash2, X, Maximize2, RefreshCw, FileDown, Eye, ChevronLeft, ChevronRight, Calendar, FileText, FileSpreadsheet, Package, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 const ClientDSRSummaryPage = () => {
@@ -17,6 +18,8 @@ const ClientDSRSummaryPage = () => {
   const [dateFilter, setDateFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   const { projectId } = useClientProjectId();
 
@@ -127,14 +130,133 @@ const ClientDSRSummaryPage = () => {
     }
   };
 
-  const handleExport = async () => {
+  const handleExportPdf = async () => {
+    if (!projectId) {
+      toast.error("Project ID is required");
+      return;
+    }
+    setExportingPdf(true);
+    const toastId = toast.loading("Exporting Daily PDF Report...");
     try {
-        if (projectId) {
-            await dsrService.exportDsrExcel(projectId);
-            toast.success("Excel ledger exported successfully.");
-        }
+      const todayStr = dateFilter || new Date().toISOString().split("T")[0];
+      try {
+        const blob = await reportService.exportDailyPDF(projectId, todayStr);
+        const url = window.URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `Daily_Report_${projectId}_${todayStr}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Daily PDF report downloaded!", { id: toastId });
+        setExportingPdf(false);
+        return;
+      } catch (apiErr) {
+        console.warn("Backend PDF export error, attempting fallback DSR PDF / local generation:", apiErr);
+      }
+
+      // If backend export endpoint errored, attempt local jsPDF generation using reports list
+      if (filteredReports.length === 0) {
+        toast.error("No reports data available to export", { id: toastId });
+        setExportingPdf(false);
+        return;
+      }
+
+      const { jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+      const doc = new jsPDF({ orientation: "landscape" }) as any;
+
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 297, 24, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("PROJECT DAILY LEDGER REPORT", 14, 16);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${new Date().toLocaleDateString("en-IN")}`, 280, 16, { align: "right" });
+
+      const tableRows = filteredReports.map((r) => [
+        r.formattedDate || r.report_date || "—",
+        r.work_done || "—",
+        (r.status || "DRAFT").toUpperCase(),
+        `${r.gallery?.length || 0} Photos`
+      ]);
+
+      autoTable(doc, {
+        startY: 30,
+        head: [["Date", "Work Summary", "Status", "Site Media"]],
+        body: tableRows,
+        theme: "striped",
+        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 9 },
+        styles: { fontSize: 8, cellPadding: 4 },
+      });
+
+      doc.save(`Daily_Ledger_${projectId}_${new Date().toISOString().split("T")[0]}.pdf`);
+      toast.success("Daily PDF exported!", { id: toastId });
     } catch (err) {
-        toast.error("Failed to export ledger.");
+      console.error("Failed to export Daily PDF:", err);
+      toast.error("Failed to export Daily PDF", { id: toastId });
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!projectId) {
+      toast.error("Project ID is required");
+      return;
+    }
+    setExportingExcel(true);
+    const toastId = toast.loading("Exporting Daily Excel Report...");
+    try {
+      try {
+        await dsrService.exportDsrExcel(projectId);
+        toast.success("Excel report downloaded!", { id: toastId });
+        setExportingExcel(false);
+        return;
+      } catch (apiErr) {
+        console.warn("DSR export API failed, trying reportService / local export:", apiErr);
+      }
+
+      const todayStr = dateFilter || new Date().toISOString().split("T")[0];
+      try {
+        const blob = await reportService.exportDailyExcel(projectId, todayStr);
+        const url = window.URL.createObjectURL(new Blob([blob]));
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `Daily_Report_${projectId}_${todayStr}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success("Excel report downloaded!", { id: toastId });
+        setExportingExcel(false);
+        return;
+      } catch (apiErr2) {
+        console.warn("Daily excel endpoint failed, using local generation:", apiErr2);
+      }
+
+      const XLSX = await import("xlsx");
+      const rows = filteredReports.map(r => ({
+        "Date": r.formattedDate || r.report_date || "—",
+        "Work Summary": r.work_done || "—",
+        "Status": (r.status || "DRAFT").toUpperCase(),
+        "Media Count": r.gallery?.length || 0
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Daily Ledger");
+      XLSX.writeFile(wb, `Daily_Ledger_${projectId}_${new Date().toISOString().split("T")[0]}.xlsx`);
+      toast.success("Excel report exported!", { id: toastId });
+    } catch (err) {
+      console.error("Failed to export Excel report:", err);
+      toast.error("Failed to export Excel report", { id: toastId });
+    } finally {
+      setExportingExcel(false);
     }
   };
 
@@ -153,18 +275,36 @@ const ClientDSRSummaryPage = () => {
           <div className="flex items-center gap-3">
              <button 
                onClick={fetchDsrData}
-               className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-100 transition-all shadow-sm active:scale-95"
+               className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-100 transition-all shadow-sm active:scale-95 cursor-pointer"
                title="Refresh Data"
              >
                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-600' : ''}`} />
              </button>
              
-             <button 
-               onClick={handleExport}
-               className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+             <button
+               onClick={handleExportPdf}
+               disabled={exportingPdf}
+               className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
              >
-               <FileDown className="w-4 h-4" />
-               Export
+               {exportingPdf ? (
+                 <div className="w-4 h-4 border-2 border-red-600/30 border-t-red-600 rounded-full animate-spin" />
+               ) : (
+                 <FileText className="w-4 h-4 text-red-500" />
+               )}
+               {exportingPdf ? "Exporting..." : "Download PDF"}
+             </button>
+
+             <button
+               onClick={handleExportExcel}
+               disabled={exportingExcel}
+               className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+             >
+               {exportingExcel ? (
+                 <div className="w-4 h-4 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
+               ) : (
+                 <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+               )}
+               {exportingExcel ? "Exporting..." : "Download Excel"}
              </button>
           </div>
         </div>

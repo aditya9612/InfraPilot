@@ -10,9 +10,10 @@ interface ModalProps {
   footer?: React.ReactNode;
   maxWidth?: string;
   hideHeader?: boolean;
+  bodyPadding?: string;
 }
 
-const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl", hideHeader = false }: ModalProps) => {
+const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl", hideHeader = false, bodyPadding = "p-6" }: ModalProps) => {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -74,7 +75,7 @@ const Modal = ({ isOpen, onClose, title, children, footer, maxWidth = "max-w-3xl
             )}
 
             {/* Body */}
-            <div className="p-6 overflow-y-auto bg-slate-50/30 flex-1 custom-scrollbar">
+            <div className={`${bodyPadding} overflow-y-auto bg-slate-50/30 flex-1 custom-scrollbar`}>
               {children}
             </div>
 

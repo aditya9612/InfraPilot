@@ -1,157 +1,295 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTextToAudio } from '../../utils/useTextToAudio';
-import AttendanceCard from '../../components/labour/AttendanceCard';
-import TaskList from '../../components/labour/TaskList';
 import TaskDetailModal from '../../components/labour/TaskDetailModal';
 import PageTransition from '../../components/common/PageTransition';
 import Navbar from '../../components/common/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { dashboardService } from '../../services/dashboardService';
 import { attendanceService } from '../../services/attendanceService';
+import { projectService } from '../../services/projectService';
 import type { Task } from '../../types/task';
 import {
     Clipboard,
     CheckCircle,
     AlertCircle,
-    Calendar,
     Volume2,
     Briefcase,
     User,
-    TrendingUp,
     ArrowRight,
-    Camera,
-    Play,
     Loader2,
-    Activity,
     Clock,
+    Info,
+    Calendar,
+    DollarSign,
     Zap,
+    MapPin,
+    Wallet,
+    Timer,
+    Award,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-interface RecentActivity {
-    title: string;
-    description: string;
-    time: string;
-}
-
-const formatDateTimeDisplay = (rawTime?: string) => {
-    if (!rawTime) {
-        return { time: '--:--', date: '--/--/----' };
-    }
-
-    const trimmed = rawTime.trim();
-
-    // 1. Check if ISO string or parseable Date string
-    const d = new Date(trimmed);
-    if (!isNaN(d.getTime()) && (trimmed.includes('-') || trimmed.includes('T') || (trimmed.includes('/') && trimmed.length > 8))) {
-        const hours = d.getHours();
-        const minutes = d.getMinutes();
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        const formattedHours = hours % 12 || 12;
-        const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes;
-        const timeFormatted = `${formattedHours}:${formattedMinutes} ${ampm}`;
-
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        const dateFormatted = `${day}/${month}/${year}`;
-
-        return { time: timeFormatted, date: dateFormatted };
-    }
-
-    // 2. Check if it's already a time string like "07:51 AM"
-    if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(trimmed)) {
-        const today = new Date();
-        const day = String(today.getDate()).padStart(2, '0');
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const year = today.getFullYear();
-        return { time: trimmed, date: `${day}/${month}/${year}` };
-    }
-
-    // 3. Check if it's a date string like "16 JUL 2026"
-    const monthMap: Record<string, string> = {
-        JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06',
-        JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12'
-    };
-    const parts = trimmed.split(/\s+/);
-    if (parts.length === 3 && monthMap[parts[1].toUpperCase()]) {
-        const day = parts[0].padStart(2, '0');
-        const month = monthMap[parts[1].toUpperCase()];
-        const year = parts[2];
-        return { time: '12:00 PM', date: `${day}/${month}/${year}` };
-    }
-
-    return { time: trimmed, date: '' };
+/* ─── helpers ─── */
+const fmtDate = (d?: string) => {
+    if (!d) return '-';
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const fmtCurrency = (n: number | string | undefined | null): string => {
+    const num = typeof n === 'number' ? n : parseFloat(String(n ?? '0'));
+    if (isNaN(num)) return '0';
+    return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+/* ─── Donut chart (pure SVG) ─── */
+const AttendanceDonut: React.FC<{ present: number; absent: number; halfDays: number; total: number }> = ({
+    present, absent, halfDays, total
+}) => {
+    const pct = total > 0 ? Math.round((present / total) * 100) : 0;
+    const radius = 54;
+    const circumference = 2 * Math.PI * radius;
+    const presentArc = total > 0 ? (present / total) * circumference : 0;
+    const absentArc = total > 0 ? (absent / total) * circumference : 0;
+    const halfArc = total > 0 ? (halfDays / total) * circumference : 0;
+
+    return (
+        <div className="flex flex-col items-center">
+            <div className="relative w-[140px] h-[140px]">
+                <svg viewBox="0 0 128 128" className="w-full h-full -rotate-90">
+                    {/* Background circle */}
+                    <circle cx="64" cy="64" r={radius} fill="none" stroke="#f1f5f9" strokeWidth="14" />
+                    {/* Present (green) */}
+                    <circle cx="64" cy="64" r={radius} fill="none" stroke="#10b981" strokeWidth="14"
+                        strokeDasharray={`${presentArc} ${circumference - presentArc}`}
+                        strokeDashoffset="0" strokeLinecap="round" />
+                    {/* Absent (red) */}
+                    {absent > 0 && (
+                        <circle cx="64" cy="64" r={radius} fill="none" stroke="#ef4444" strokeWidth="14"
+                            strokeDasharray={`${absentArc} ${circumference - absentArc}`}
+                            strokeDashoffset={`${-presentArc}`} strokeLinecap="round" />
+                    )}
+                    {/* Half days (orange) */}
+                    {halfDays > 0 && (
+                        <circle cx="64" cy="64" r={radius} fill="none" stroke="#f59e0b" strokeWidth="14"
+                            strokeDasharray={`${halfArc} ${circumference - halfArc}`}
+                            strokeDashoffset={`${-(presentArc + absentArc)}`} strokeLinecap="round" />
+                    )}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-black text-slate-800">{pct}%</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Attendance</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/* ─── main component ─── */
 const LabourDashboard: React.FC = () => {
     const { user } = useAuth();
     const { speak } = useTextToAudio();
     const navigate = useNavigate();
+
+    // ── state ──
     const [isCheckedIn, setIsCheckedIn] = useState(false);
     const [_isCheckedOut, setIsCheckedOut] = useState(false);
     const [selectedTask, _setSelectedTask] = useState<Task | null>(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+
     const [tasks, setTasks] = useState<Task[]>([]);
-    const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
-    const [statsData, setStatsData] = useState({
-        total: 0,
-        completed: 0,
-        pending: 0,
-        earnings: '₹0'
-    });
-    const [projectName, setProjectName] = useState<string>('Urban Heights');
-    const [contractorName, setContractorName] = useState<string>('M/S Sharma Contractors');
+    const [recentActivities, setRecentActivities] = useState<any[]>([]);
+
+    // Stats
+    const [totalTasks, setTotalTasks] = useState(0);
+    const [completedTasks, setCompletedTasks] = useState(0);
+    const [pendingTasks, setPendingTasks] = useState(0);
+    const [hoursToday, setHoursToday] = useState(0);
+    const [overtimeHours, setOvertimeHours] = useState(0);
+    const [weeklyEarnings, setWeeklyEarnings] = useState(0);
+    const [monthEarnings, setMonthEarnings] = useState(0);
+
+    // Project & labour info
+    const [projectName, setProjectName] = useState('');
+    const [contractorName, setContractorName] = useState('');
+    const [siteName, setSiteName] = useState('');
+    const [siteAddress, setSiteAddress] = useState('');
+    const [dailyWage, setDailyWage] = useState(0);
+    const [overtimeRate, setOvertimeRate] = useState(0);
+    const [skillType, setSkillType] = useState('');
+    const [labourCategory, setLabourCategory] = useState('');
+
+    // Attendance summary
+    const [presentDays, setPresentDays] = useState(0);
+    const [absentDays, setAbsentDays] = useState(0);
+    const [halfDays, setHalfDays] = useState(0);
+    const [totalDays, setTotalDays] = useState(0);
+    const [attendanceStreak, setAttendanceStreak] = useState(0);
+
+    // Payment summary
+    const [totalAmount, setTotalAmount] = useState(0);
+    const [paidAmount, setPaidAmount] = useState(0);
+    const [pendingAmount, setPendingAmount] = useState(0);
+    const [paymentStatus, setPaymentStatus] = useState('');
+    const [isOverdue, setIsOverdue] = useState(false);
+    const [nextPaymentDate, setNextPaymentDate] = useState('');
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
+        const savedIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
+        const selectedPid = savedIdStr ? Number(savedIdStr) : 4;
+
+        const fetchAll = async () => {
             setIsLoading(true);
             try {
-                const data = await dashboardService.getLabourDashboard();
-                console.log('LabourDashboard: Received data:', data);
-                if (data) {
-                    const rawEarnings = data.this_month_earnings ?? data.earnings_current_month ?? data.earnings ?? data.total_earnings ?? 0;
-                    const numEarnings = typeof rawEarnings === 'number' ? rawEarnings : parseFloat(rawEarnings);
-                    const formattedEarnings = !isNaN(numEarnings) 
-                        ? Number(numEarnings.toFixed(2)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-                        : '0';
+                const [dashData, tasksResponse, todayStatus, attendanceList, paymentData] = await Promise.all([
+                    dashboardService.getLabourDashboard(selectedPid).catch(() => null),
+                    projectService.getTasks(selectedPid).catch(() => null),
+                    attendanceService.getTodayStatus().catch(() => null),
+                    attendanceService.getListAttendance({ project_id: selectedPid, page: 1, page_size: 100 }).catch(() => null),
+                    dashboardService.getLabourPayments().catch(() => null),
+                ]);
 
-                    setStatsData({
-                        total: data.total_tasks ?? data.total ?? data.tasks_total ?? 0,
-                        completed: data.completed_tasks ?? data.completed ?? data.tasks_completed ?? 0,
-                        pending: data.pending_tasks ?? data.pending ?? data.tasks_pending ?? 0,
-                        earnings: `₹${formattedEarnings}`
-                    });
-                    if (data.project_name) setProjectName(data.project_name);
-                    if (data.contractor_name) setContractorName(data.contractor_name);
+                // ── Today status ──
+                if (todayStatus) {
+                    const hasIn = !!(todayStatus.checked_in || todayStatus.attendance?.in_time || todayStatus.attendance?.check_in_time);
+                    const hasOut = !!(todayStatus.checked_out || todayStatus.attendance?.out_time || todayStatus.attendance?.check_out_time);
+                    setIsCheckedIn(hasIn);
+                    setIsCheckedOut(hasOut);
+                    setHoursToday(todayStatus.running_hours || todayStatus.attendance?.working_hours || todayStatus.attendance?.work_hours || 0);
+                    setOvertimeHours(todayStatus.attendance?.overtime_hours || 0);
+                }
 
-                    // Map API tasks to UI Task interface
-                    const rawTasks = data.tasks || data.recent_tasks || data.assigned_tasks || [];
-                    const mappedTasks: Task[] = rawTasks.map((t: any) => ({
-                        id: t.id || t.task_id || `T-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
-                        name: t.name || t.title || t.task_name || 'UNNAMED TASK',
-                        project: t.project_name || t.project || 'General',
-                        assignedTo: t.assigned_to_name || user?.name || 'Self',
-                        assignedFrom: t.assigned_from === 'self' ? 'Self' : 'Site Engineer',
-                        description: t.description || 'No description provided.',
-                        status: (t.status === 'in_progress' ? 'In Progress' : (t.status?.charAt(0).toUpperCase() + t.status?.slice(1))) || 'Pending',
-                        priority: t.priority || 'Medium',
-                        startDate: t.start_date || new Date().toISOString().split('T')[0],
-                        endDate: t.end_date || new Date().toISOString().split('T')[0],
-                        progress: t.progress_percent || (t.status === 'completed' ? 100 : 0)
-                    }));
-                    setTasks(mappedTasks);
+                // ── Dashboard data ──
+                if (dashData) {
+                    const d: any = dashData;
+                    if (d.project_name) setProjectName(d.project_name);
+                    if (d.contractor_name) setContractorName(d.contractor_name);
+                    if (d.site_name) setSiteName(d.site_name);
+                    if (d.site_address) setSiteAddress(d.site_address);
+                    setDailyWage(d.daily_wage || d.daily_wage_rate || 0);
+                    setOvertimeRate(d.overtime_rate || d.ot_rate || 0);
+                    setSkillType(d.skill_type || d.skill || '');
+                    setLabourCategory(d.labour_category || d.category || '');
 
-                    // Map recent_activity from API
-                    const rawActivities = data.recent_activity || data.recent_activities || [];
+                    setWeeklyEarnings(d.weekly_earnings || 0);
+                    const rawMonth = d.this_month_earnings ?? d.earnings_current_month ?? d.earnings ?? d.total_earnings ?? 0;
+                    setMonthEarnings(typeof rawMonth === 'number' ? rawMonth : parseFloat(rawMonth) || 0);
+
+                    // Attendance from dashboard response
+                    setPresentDays(d.present_days ?? d.attendance_summary?.present_days ?? 0);
+                    setAbsentDays(d.absent_days ?? d.attendance_summary?.absent_days ?? 0);
+                    setHalfDays(d.half_days ?? d.attendance_summary?.half_days ?? 0);
+                    setTotalDays(d.total_days ?? d.attendance_summary?.total_days ?? 0);
+                    setAttendanceStreak(d.attendance_streak ?? d.streak ?? 0);
+
+                    // Payment summary from dashboard
+                    setTotalAmount(d.total_amount ?? d.payment_summary?.total_amount ?? 0);
+                    setPaidAmount(d.paid_amount ?? d.payment_summary?.paid_amount ?? 0);
+                    setPendingAmount(d.pending_amount ?? d.payment_summary?.pending_amount ?? 0);
+                    setPaymentStatus(d.payment_status ?? d.payment_summary?.status ?? '');
+                    setIsOverdue(d.is_overdue ?? d.payment_summary?.is_overdue ?? false);
+                    setNextPaymentDate(d.next_payment_date ?? d.payment_summary?.next_payment_date ?? '');
+
+                    // Recent activity
+                    const rawActivities = d.recent_activity || d.recent_activities || [];
                     setRecentActivities(rawActivities.map((a: any) => ({
                         title: a.title || a.type || a.activity_type || 'Activity',
                         description: a.description || a.message || a.details || '',
                         time: a.time || a.created_at || a.timestamp || '',
                     })));
                 }
+
+                // ── Payment overlay from dedicated endpoint ──
+                if (paymentData) {
+                    const p: any = paymentData;
+                    if (p.total_amount !== undefined) setTotalAmount(p.total_amount);
+                    if (p.paid_amount !== undefined) setPaidAmount(p.paid_amount);
+                    if (p.pending_amount !== undefined) setPendingAmount(p.pending_amount);
+                    if (p.payment_status) setPaymentStatus(p.payment_status);
+                    if (p.is_overdue !== undefined) setIsOverdue(p.is_overdue);
+                    if (p.next_payment_date) setNextPaymentDate(p.next_payment_date);
+                }
+
+                // ── Attendance list for month summary ──
+                if (attendanceList) {
+                    const records = attendanceList.data || [];
+                    const now = new Date();
+                    const thisMonth = now.getMonth();
+                    const thisYear = now.getFullYear();
+                    const monthRecords = records.filter((r: any) => {
+                        const rd = new Date(r.attendance_date);
+                        return rd.getMonth() === thisMonth && rd.getFullYear() === thisYear;
+                    });
+                    if (monthRecords.length > 0) {
+                        const pres = monthRecords.filter((r: any) => r.working_hours > 4 || r.work_hours > 4 || (!r.is_half_day && (r.check_in_time || r.in_time))).length;
+                        const half = monthRecords.filter((r: any) => r.is_half_day).length;
+                        const abs = monthRecords.length - pres - half;
+                        // Use the current day-of-month as total work days
+                        const dayOfMonth = now.getDate();
+                        setPresentDays(prev => prev || pres);
+                        setHalfDays(prev => prev || half);
+                        setAbsentDays(prev => prev || (abs > 0 ? abs : 0));
+                        setTotalDays(prev => prev || dayOfMonth);
+
+                        // Streak: consecutive present days from today backwards
+                        const sorted = [...monthRecords].sort((a: any, b: any) => new Date(b.attendance_date).getTime() - new Date(a.attendance_date).getTime());
+                        let streak = 0;
+                        for (const rec of sorted) {
+                            if (rec.check_in_time || rec.in_time) streak++;
+                            else break;
+                        }
+                        setAttendanceStreak(prev => prev || streak);
+                    }
+                }
+
+                // ── Tasks ──
+                const rawProjectTasks = Array.isArray(tasksResponse) ? tasksResponse : (tasksResponse?.items || tasksResponse?.data || []);
+                const rawDashboardTasks = dashData?.tasks || dashData?.recent_tasks || dashData?.assigned_tasks || [];
+                const rawTasks = rawProjectTasks.length > 0 ? rawProjectTasks : rawDashboardTasks;
+
+                setTotalTasks(rawProjectTasks.length > 0 ? rawProjectTasks.length : (dashData?.total_tasks ?? dashData?.total ?? 0));
+                setCompletedTasks(rawProjectTasks.length > 0
+                    ? rawProjectTasks.filter((t: any) => (t.status || '').toLowerCase() === 'completed').length
+                    : (dashData?.completed_tasks ?? dashData?.completed ?? 0));
+                setPendingTasks(rawProjectTasks.length > 0
+                    ? rawProjectTasks.filter((t: any) => (t.status || '').toLowerCase() !== 'completed').length
+                    : (dashData?.pending_tasks ?? dashData?.pending ?? 0));
+
+                const mappedTasks: Task[] = rawTasks.map((t: any) => ({
+                    id: t.id || t.task_id || `T-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+                    name: t.name || t.title || t.task_name || 'Unnamed Task',
+                    project: t.project_name || t.project || projectName || 'General',
+                    project_id: t.project_id || selectedPid,
+                    assignedTo: t.assigned_to_name || user?.name || 'Self',
+                    assignedFrom: t.assigned_from === 'self' ? 'Self' : 'Site Engineer',
+                    description: t.description || 'No description provided.',
+                    status: (t.status === 'in_progress' ? 'In Progress' : (t.status?.charAt(0).toUpperCase() + t.status?.slice(1))) || 'Pending',
+                    priority: t.priority || 'Medium',
+                    startDate: t.start_date || '',
+                    endDate: t.end_date || '',
+                    progress: t.progress_percent || (t.status === 'completed' ? 100 : 0)
+                }));
+                setTasks(mappedTasks);
+
+                // ── Project name fallback ──
+                if (!projectName) {
+                    const savedName = localStorage.getItem("client_selected_project_name") || localStorage.getItem("infrapilot_selected_project_name");
+                    if (savedName) setProjectName(savedName);
+                    else {
+                        try {
+                            const proj = await projectService.getProjectById(selectedPid);
+                            if (proj) {
+                                setProjectName((proj as any).project_name || (proj as any).name || '');
+                                setSiteName(prev => prev || (proj as any).site_name || (proj as any).project_name || '');
+                                setSiteAddress(prev => prev || (proj as any).site_address || (proj as any).address || '');
+                            }
+                        } catch { /* ignore */ }
+                    }
+                }
+
             } catch (err) {
                 console.error("Failed to fetch labour dashboard data", err);
                 toast.error("Could not load dashboard data");
@@ -160,23 +298,22 @@ const LabourDashboard: React.FC = () => {
             }
         };
 
-        fetchDashboardData();
+        fetchAll();
 
-        // Fetch today's attendance status so the card reflects reality on load
-        const fetchTodayStatus = async () => {
-            try {
-                const status = await attendanceService.getTodayStatus();
-                const hasCheckedIn = !!(status.checked_in || status.attendance?.in_time || status.attendance?.check_in_time);
-                const hasCheckedOut = !!(status.checked_out || status.attendance?.out_time || status.attendance?.check_out_time);
-                setIsCheckedIn(hasCheckedIn);
-                setIsCheckedOut(hasCheckedOut);
-            } catch (err) {
-                console.warn('Could not fetch today attendance status:', err);
-            }
+        const handleProjectChange = () => {
+            const updatedName = localStorage.getItem("client_selected_project_name") || localStorage.getItem("infrapilot_selected_project_name");
+            if (updatedName) setProjectName(updatedName);
+            fetchAll();
         };
-        fetchTodayStatus();
+        window.addEventListener('storage', handleProjectChange);
+        window.addEventListener('project_changed', handleProjectChange);
+        return () => {
+            window.removeEventListener('storage', handleProjectChange);
+            window.removeEventListener('project_changed', handleProjectChange);
+        };
     }, [user?.name]);
 
+    /* ── handlers ── */
     const handleUpdateTask = (id: string, status: string) => {
         setTasks(prev => prev.map(t => t.id === id ? { ...t, status: status as any } : t));
         localStorage.setItem(`task_status_${id}`, status);
@@ -186,225 +323,388 @@ const LabourDashboard: React.FC = () => {
 
     const handleTaskClick = (task: Task) => {
         if (task.status === 'Completed') return;
-        navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
+        navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || 4}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
     };
 
-    const stats = [
-        { label: 'Total Tasks', value: statsData.total, icon: Clipboard, color: 'text-blue-500', bg: 'bg-blue-50' },
-        { label: 'Completed', value: statsData.completed, icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { label: 'Pending', value: statsData.pending, icon: AlertCircle, color: 'text-rose-500', bg: 'bg-rose-50' },
-        { label: 'This Month Earnings', value: statsData.earnings, icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-    ];
+    /* ── stats row config ── */
+    const stats = useMemo(() => [
+        { label: 'Total Tasks', value: totalTasks, icon: Clipboard, color: 'text-blue-600', bg: 'bg-blue-50' },
+        { label: 'Completed', value: completedTasks, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        { label: 'Pending', value: pendingTasks, icon: AlertCircle, color: 'text-orange-500', bg: 'bg-orange-50' },
+        { label: 'Hours Today', value: `${hoursToday} hrs`, icon: Clock, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+        { label: 'Overtime Hours', value: `${overtimeHours} hrs`, icon: Timer, color: 'text-purple-500', bg: 'bg-purple-50' },
+        { label: 'Weekly Earnings', value: `₹${fmtCurrency(weeklyEarnings)}`, icon: Wallet, color: 'text-teal-600', bg: 'bg-teal-50' },
+        { label: 'This Month Earnings', value: `₹${fmtCurrency(monthEarnings)}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
+    ], [totalTasks, completedTasks, pendingTasks, hoursToday, overtimeHours, weeklyEarnings, monthEarnings]);
 
-    const quickActions = [
-        { label: 'Check In', icon: Camera, color: 'bg-emerald-500', onClick: () => navigate('/labour/attendance') },
-        { label: 'Check Out', icon: Calendar, color: 'bg-rose-500', onClick: () => navigate('/labour/attendance') },
-        { label: 'View Tasks', icon: Clipboard, color: 'bg-blue-500', onClick: () => navigate('/labour/tasks') },
-        { label: 'Work Updates', icon: Play, color: 'bg-indigo-500', onClick: () => navigate('/labour/work-updates') },
-    ];
+    const statusBadge = (status: string) => {
+        const s = status?.toLowerCase();
+        if (s === 'in_progress' || s === 'in progress') return { label: 'In Progress', bg: 'bg-blue-500', text: 'text-white' };
+        if (s === 'completed') return { label: 'Completed', bg: 'bg-emerald-500', text: 'text-white' };
+        if (s === 'planned') return { label: 'Planned', bg: 'bg-slate-100', text: 'text-slate-600' };
+        return { label: status || 'Pending', bg: 'bg-slate-100', text: 'text-slate-600' };
+    };
 
-    // Icon colour cycling for activities
-    const activityAccents = [
-        { dot: 'bg-indigo-500', icon: 'text-indigo-500', bg: 'bg-indigo-50' },
-        { dot: 'bg-emerald-500', icon: 'text-emerald-500', bg: 'bg-emerald-50' },
-        { dot: 'bg-amber-500', icon: 'text-amber-500', bg: 'bg-amber-50' },
-        { dot: 'bg-rose-500', icon: 'text-rose-500', bg: 'bg-rose-50' },
-        { dot: 'bg-blue-500', icon: 'text-blue-500', bg: 'bg-blue-50' },
-    ];
+    const priorityBadge = (priority: string) => {
+        const p = priority?.toLowerCase();
+        if (p === 'high') return { label: 'High', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' };
+        if (p === 'medium') return { label: 'Medium', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' };
+        return { label: 'Low', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' };
+    };
 
     return (
         <>
-            <Navbar
-                title="Labour Portal"
-                breadcrumb={['InfraPilot', 'Dashboard']}
-            />
-            <PageTransition className="p-4 md:p-8 bg-slate-50 min-h-screen font-inter pb-20">
+            <Navbar title="Labour Portal" breadcrumb={['InfraPilot', 'Dashboard']} />
+            <PageTransition className="p-4 md:p-6 lg:p-8 bg-[#F1F5F9] min-h-screen font-inter pb-20">
 
-                {/* ── Welcome & Top Section ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-                    <div className="lg:col-span-3">
-                        <div className="flex items-center gap-4 mb-2">
-                            <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-2xl shadow-sm">
-                                👋
+                {/* ═══════ WELCOME HEADER ═══════ */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <h1 className="text-2xl font-black text-slate-800 tracking-tight">
+                                    Welcome, {user?.name || 'Worker'}
+                                </h1>
+                                <button
+                                    onClick={() => speak(`Welcome, ${user?.name || 'Worker'}`)}
+                                    className="text-slate-300 hover:text-blue-600 transition-colors"
+                                >
+                                    <Volume2 className="w-5 h-5" />
+                                </button>
                             </div>
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-                                        Welcome, {user?.name || 'Gopal Yadav'}
-                                    </h1>
-                                    <button onClick={() => speak(`Welcome, ${user?.name || 'Gopal Yadav'}`)} className="text-slate-300 hover:text-indigo-500">
-                                        <Volume2 className="w-5 h-5" />
-                                    </button>
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                                <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                                    <Briefcase className="w-4 h-4 text-slate-400" />
+                                    <span className="font-medium">Project</span>
+                                    <span className="text-slate-300 mx-1">|</span>
+                                    <span className="font-bold text-slate-800">{projectName || '-'}</span>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-1">
-                                    <div className="flex items-center gap-1.5 text-sm font-bold text-slate-700 uppercase tracking-widest">
-                                        <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
-                                        {projectName}
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-sm font-bold text-slate-700 uppercase tracking-widest">
-                                        <User className="w-3.5 h-3.5 text-emerald-500" />
-                                        {contractorName}
-                                    </div>
+                                <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                                    <User className="w-4 h-4 text-slate-400" />
+                                    <span className="font-medium">Contractor</span>
+                                    <span className="text-slate-300 mx-1">|</span>
+                                    <span className="font-bold text-slate-800">{contractorName || '-'}</span>
                                 </div>
                             </div>
+                            {/* Skill tags */}
+                            {(skillType || labourCategory) && (
+                                <div className="flex items-center gap-2 mt-3">
+                                    {skillType && (
+                                        <span className="px-3 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white">{skillType}</span>
+                                    )}
+                                    {labourCategory && (
+                                        <span className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-500 text-white border border-emerald-400">{labourCategory}</span>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    </div>
-                    <div className="flex items-center lg:justify-end">
-                        <AttendanceCard
-                            isCheckedIn={isCheckedIn}
-                            onCheckIn={() => setIsCheckedIn(true)}
-                            onCheckOut={() => setIsCheckedIn(false)}
-                        />
+                        {/* Status / Check In */}
+                        <div className="flex items-center gap-4">
+                            <div className="text-right">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
+                                <span className={`text-xs font-black uppercase tracking-wider ${isCheckedIn ? 'text-emerald-600' : 'text-red-500'}`}>
+                                    {isCheckedIn ? 'CHECKED IN' : 'NOT CHECKED IN'}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => navigate('/labour/attendance')}
+                                className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-xl active:scale-95 ${
+                                    isCheckedIn
+                                        ? 'bg-red-500 hover:bg-red-600 text-white shadow-red-200'
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200'
+                                }`}
+                            >
+                                {isCheckedIn ? 'CHECK OUT' : 'CHECK IN'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                {/* ── Statistics Cards ── */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+                {/* ═══════ STATS ROW (7 cards) ═══════ */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
                     {stats.map((stat, i) => (
-                        <div key={i} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm transition-all hover:shadow-md group">
-                            <div className={`w-10 h-10 rounded-2xl ${stat.bg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                        <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className={`w-9 h-9 rounded-xl ${stat.bg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                                </div>
                             </div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{stat.label}</p>
-                            <p className="text-xl md:text-2xl font-black text-slate-800">{isLoading ? '...' : stat.value}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{stat.label}</p>
+                            <p className="text-xl font-black text-slate-800">{isLoading ? '...' : stat.value}</p>
                         </div>
                     ))}
                 </div>
 
-                {/* ── Main Dashboard Layout ── */}
-                <div className="space-y-8">
+                {/* ═══════ THREE‑COLUMN: Attendance | Labour Details | Payment ═══════ */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
-                    {/* Quick Action Grid */}
-                    <div>
-                        <div className="flex items-center gap-3 mb-6 px-1">
-                            <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Quick Actions</h2>
-                            <div className="h-px flex-1 bg-slate-100" />
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {quickActions.map((action, i) => (
-                                <button
-                                    key={i}
-                                    onClick={action.onClick}
-                                    className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center gap-3 hover:bg-slate-50 transition-all hover:-translate-y-1 active:translate-y-0"
-                                >
-                                    <div className={`w-12 h-12 rounded-2xl ${action.color} text-white flex items-center justify-center shadow-lg shadow-current/20`}>
-                                        <action.icon className="w-6 h-6" />
-                                    </div>
-                                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{action.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Recent Tasks */}
-                    <div>
-                        <div className="flex justify-between items-center mb-6 px-1">
-                            <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Recent Tasks</h2>
-                            <button onClick={() => navigate('/labour/tasks')} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1 group">
-                                View All <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                            </button>
-                        </div>
+                    {/* ── Attendance Summary ── */}
+                    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-black text-slate-800 mb-5 flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-blue-500" />
+                            Attendance Summary (This Month)
+                        </h3>
                         {isLoading ? (
-                            <div className="flex items-center justify-center py-20 bg-white rounded-[32px] border border-slate-100 italic text-slate-400">
-                                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                Synchronizing tasks...
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
                             </div>
                         ) : (
-                            <TaskList
-                                tasks={tasks.slice(0, 3)}
-                                onSelectTask={handleTaskClick}
-                                onSelfAssign={(id) => handleUpdateTask(id, 'In Progress')}
-                            />
+                            <>
+                                <div className="flex items-start gap-6">
+                                    <AttendanceDonut present={presentDays} absent={absentDays} halfDays={halfDays} total={totalDays || 1} />
+                                    <div className="space-y-3 flex-1 pt-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                                                <span className="text-xs font-medium text-slate-600">Present Days</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-slate-800">{presentDays}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                                                <span className="text-xs font-medium text-slate-600">Absent Days</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-slate-800">{absentDays}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                                <span className="text-xs font-medium text-slate-600">Half Days</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-slate-800">{halfDays}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                                            <span className="text-xs font-bold text-slate-500">Total Days</span>
+                                            <span className="text-sm font-black text-slate-800">{totalDays}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* Streak bar */}
+                                <div className="mt-5 bg-emerald-50 rounded-xl px-4 py-2.5 flex items-center gap-2 border border-emerald-100">
+                                    <Award className="w-4 h-4 text-emerald-500" />
+                                    <span className="text-xs font-bold text-emerald-700">Attendance Streak: {attendanceStreak} Days</span>
+                                </div>
+                            </>
                         )}
                     </div>
 
-                    {/* Recent Activity — full width below Recent Tasks */}
-                    <div>
-                        {/* Section heading — outside the card, same as Recent Tasks */}
-                        <div className="flex items-center gap-3 mb-6 px-1">
-                            <h2 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Recent Activity</h2>
-                            <div className="h-px flex-1 bg-slate-100" />
-                        </div>
-
-                        {/* Card — matches TaskList card exactly */}
-                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                            {isLoading ? (
-                                /* Skeleton rows matching TaskList height */
-                                <div className="divide-y divide-slate-50">
-                                    {Array.from({ length: 3 }).map((_, i) => (
-                                        <div key={i} className="flex items-center gap-6 px-8 py-6 animate-pulse">
-                                            <div className="w-8 h-8 rounded-xl bg-slate-100 flex-shrink-0" />
-                                            <div className="flex-1 space-y-2">
-                                                <div className="h-3 bg-slate-100 rounded-full w-1/3" />
-                                                <div className="h-2.5 bg-slate-50 rounded-full w-1/2" />
-                                            </div>
-                                            <div className="h-2.5 bg-slate-100 rounded-full w-24" />
+                    {/* ── Labour Details ── */}
+                    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-black text-slate-800 mb-5 flex items-center gap-2">
+                            <User className="w-4 h-4 text-blue-500" />
+                            Labour Details
+                        </h3>
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
+                            </div>
+                        ) : (
+                            <div className="space-y-5">
+                                <div>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Site Name</p>
+                                    <p className="text-sm font-bold text-slate-800">{siteName || projectName || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Site Address</p>
+                                    <p className="text-sm font-bold text-slate-800">{siteAddress || '-'}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+                                    <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Daily Wage</p>
+                                        <div className="flex items-center justify-center gap-1.5">
+                                            <DollarSign className="w-4 h-4 text-blue-500" />
+                                            <span className="text-xl font-black text-slate-800">₹{fmtCurrency(dailyWage)}</span>
                                         </div>
-                                    ))}
-                                </div>
-                            ) : recentActivities.length === 0 ? (
-                                /* Empty state */
-                                <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                                    <div className="w-14 h-14 rounded-full bg-slate-50 flex items-center justify-center mb-4">
-                                        <Zap className="w-6 h-6 text-slate-200" />
                                     </div>
-                                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No Activity Yet</p>
-                                    <p className="text-[11px] text-slate-300 mt-1 font-medium">Your activity will appear here</p>
+                                    <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Overtime Rate</p>
+                                        <div className="flex items-center justify-center gap-1.5">
+                                            <Clock className="w-4 h-4 text-orange-500" />
+                                            <span className="text-xl font-black text-slate-800">₹{fmtCurrency(overtimeRate)}</span>
+                                            <span className="text-xs text-slate-400 font-bold">/hr</span>
+                                        </div>
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left">
-                                        {/* Header row — identical to TaskList thead */}
-                                        <thead>
-                                            <tr className="bg-slate-50/50">
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Activity</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Description</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">DATE AND TIME</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-50">
-                                            {recentActivities.map((activity, i) => {
-                                                const accent = activityAccents[i % activityAccents.length];
-                                                const { time, date } = formatDateTimeDisplay(activity.time);
-                                                return (
-                                                    <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                                                        {/* Activity title with icon */}
-                                                        <td className="px-8 py-6">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-8 h-8 rounded-xl ${accent.bg} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                                                                    <Activity className={`w-3.5 h-3.5 ${accent.icon}`} />
-                                                                </div>
-                                                                <h3 className="text-sm font-bold text-slate-800 tracking-tight uppercase">
-                                                                    {activity.title}
-                                                                </h3>
-                                                            </div>
-                                                        </td>
-                                                        {/* Description */}
-                                                        <td className="px-8 py-6 max-w-xs">
-                                                            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest truncate">
-                                                                {activity.description || '—'}
-                                                             </p>
-                                                        </td>
-                                                        {/* Date & Time */}
-                                                        <td className="px-8 py-6">
-                                                            <div className="flex items-start gap-2">
-                                                                <Clock className="w-3.5 h-3.5 text-slate-300 mt-0.5 shrink-0" />
-                                                                <div className="flex flex-col text-xs font-bold text-slate-700 leading-snug">
-                                                                    <span>{time}</span>
-                                                                    {date && <span className="text-[11px] font-medium text-slate-500">{date}</span>}
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
 
+                    {/* ── Payment Summary ── */}
+                    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-black text-slate-800 mb-5 flex items-center gap-2">
+                            <Wallet className="w-4 h-4 text-blue-500" />
+                            Payment Summary
+                        </h3>
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
+                                        <p className="text-lg font-black text-slate-800">₹{fmtCurrency(totalAmount)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Paid Amount</p>
+                                        <p className="text-lg font-black text-emerald-600">₹{fmtCurrency(paidAmount)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Pending Amount</p>
+                                        <p className="text-lg font-black text-red-500">₹{fmtCurrency(pendingAmount)}</p>
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-slate-100 pt-4 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Payment Status</p>
+                                        <span className={`inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                                            paymentStatus?.toLowerCase() === 'paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                                            paymentStatus?.toLowerCase() === 'partial' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                            'bg-slate-50 text-slate-500 border-slate-200'
+                                        }`}>
+                                            {paymentStatus || '-'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Is Overdue</p>
+                                        <span className={`inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                                            isOverdue ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                        }`}>
+                                            {isOverdue ? 'Yes' : 'No'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* ═══════ BOTTOM: Recent Tasks + Recent Activity ═══════ */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+                    {/* ── Recent Tasks ── */}
+                    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-sm font-black text-slate-800">Recent Tasks</h3>
+                            <button
+                                onClick={() => navigate('/labour/tasks')}
+                                className="text-[11px] font-bold text-blue-600 flex items-center gap-1 hover:underline"
+                            >
+                                View All <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-16">
+                                <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
+                            </div>
+                        ) : tasks.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <Clipboard className="w-10 h-10 text-slate-200 mb-3" />
+                                <p className="text-xs font-bold text-slate-400">No tasks assigned yet</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {tasks.slice(0, 3).map((task, i) => {
+                                    const stBadge = statusBadge(task.status);
+                                    const prBadge = priorityBadge(task.priority);
+                                    return (
+                                        <div
+                                            key={task.id || i}
+                                            onClick={() => handleTaskClick(task)}
+                                            className="border border-slate-100 rounded-xl p-4 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
+                                        >
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
+                                                        <Clipboard className="w-4 h-4 text-blue-500" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-slate-800">{task.name}</p>
+                                                        <p className="text-[11px] text-slate-400 font-medium">{task.project || projectName}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${stBadge.bg} ${stBadge.text}`}>
+                                                        {stBadge.label}
+                                                    </span>
+                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${prBadge.bg} ${prBadge.color} ${prBadge.border}`}>
+                                                        {prBadge.label}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-6 text-[11px] text-slate-400 font-medium mb-2 pl-12">
+                                                <span className="flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3" /> Start Date &nbsp;{task.startDate ? fmtDate(task.startDate) : '-'}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3" /> End Date &nbsp;{task.endDate ? fmtDate(task.endDate) : '-'}
+                                                </span>
+                                            </div>
+                                            {/* Progress bar */}
+                                            <div className="pl-12">
+                                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                                    <div
+                                                        className="bg-blue-500 h-full rounded-full transition-all"
+                                                        style={{ width: `${task.progress || 0}%` }}
+                                                    />
+                                                </div>
+                                                <p className="text-[10px] font-bold text-slate-400 mt-1 text-right">{task.progress || 0}%</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── Recent Activity ── */}
+                    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col">
+                        <div className="mb-5">
+                            <h3 className="text-sm font-black text-slate-800">Recent Activity</h3>
+                        </div>
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-16">
+                                <Loader2 className="w-6 h-6 animate-spin text-slate-300" />
+                            </div>
+                        ) : recentActivities.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <Zap className="w-10 h-10 text-slate-200 mb-3" />
+                                <p className="text-xs font-bold text-slate-400">No activity yet</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+                                {recentActivities.map((activity, i) => (
+                                    <div key={i} className="flex items-start gap-3">
+                                        <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
+                                            <Clipboard className="w-4 h-4 text-emerald-500" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-slate-800">{activity.title}</p>
+                                            <p className="text-[11px] text-slate-400 font-medium truncate">{activity.description}</p>
+                                        </div>
+                                        <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap shrink-0">
+                                            {activity.time ? fmtDate(activity.time) : '-'}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* ═══════ INFO BANNER ═══════ */}
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-4 flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center shrink-0 mt-0.5">
+                        <Info className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-slate-800">Keep your attendance updated and complete your tasks on time.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Your daily work and attendance help us build better projects together.</p>
+                    </div>
                 </div>
 
                 <TaskDetailModal
@@ -419,4 +719,3 @@ const LabourDashboard: React.FC = () => {
 };
 
 export default LabourDashboard;
-

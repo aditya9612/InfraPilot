@@ -146,18 +146,22 @@ const MyTasksPage: React.FC = () => {
                 params.assigned_user_id = user?.id ? Number(user.id) : 181;
             }
 
-            const projectId = 92; // Using the project ID 92 from the user's reference
+            // Fetch list of projects (GET /api/v1/projects)
+            let projectId = 4; // Active Sara City project ID
+            let currentProjectName = 'Sara City';
             
-            let currentProjectName = 'New sara city';
-            
-            // Fetch project details to get the correct name (e.g., New sara city)
             try {
-                const projectDetails = await projectService.getProjectById(projectId);
-                if (projectDetails?.name) {
-                    currentProjectName = projectDetails.name;
+                const projectsData = await projectService.getProjects(100, 0);
+                const projectItems = Array.isArray(projectsData) ? projectsData : (projectsData?.items || projectsData?.data || []);
+                if (projectItems.length > 0) {
+                    const foundProj = projectItems.find((p: any) => Number(p.id || p.project_id) === 4) || projectItems[0];
+                    if (foundProj) {
+                        projectId = Number(foundProj.id || foundProj.project_id) || 4;
+                        currentProjectName = foundProj.name || foundProj.project_name || 'Sara City';
+                    }
                 }
             } catch (err) {
-                console.warn('Could not fetch project details, using fallback.');
+                console.warn('Could not fetch project details, using default project ID 4.');
             }
 
             const response = await projectService.getTasks(projectId, params);
@@ -221,7 +225,7 @@ const filteredTasks = useMemo(() => {
 
 const handleTaskClick = (task: Task) => {
     if (task.status === 'Completed') return;
-    navigate(`/labour/work-updates?taskId=${task.id}&projectId=92&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
+    navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || 4}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
 };
 
 const handleUpdateStatus = async (taskId: string, newStatus: string) => {

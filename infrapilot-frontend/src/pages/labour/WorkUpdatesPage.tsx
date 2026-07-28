@@ -35,7 +35,7 @@ const WorkUpdatesPage: React.FC = () => {
 
     const query = new URLSearchParams(useLocation().search);
     const taskId = query.get('taskId');
-    const projectId = query.get('projectId') || '92';
+    const projectId = query.get('projectId') || '4';
     const taskName = query.get('taskName');
     const taskCategory = query.get('taskCategory');
 

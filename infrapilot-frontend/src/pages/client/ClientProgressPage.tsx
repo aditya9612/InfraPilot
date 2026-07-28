@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
+import { workProgressService } from "../../services/workProgressService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Eye } from "lucide-react";
+import { Eye, FileText, FileSpreadsheet } from "lucide-react";
 import ActivityDetailModal from "../../components/WorkProgress/ActivityDetailModal";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import toast from "react-hot-toast";
 
 const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
@@ -12,6 +17,8 @@ const ClientProgressPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const { projectId } = useClientProjectId();
 
   useEffect(() => {
@@ -31,6 +38,111 @@ const ClientProgressPage = () => {
     };
     fetchProgressData();
   }, [projectId]);
+
+  const handleExportPdf = async () => {
+    if (!activities || activities.length === 0) {
+      toast.error("No activity data to export");
+      return;
+    }
+    setExportingPdf(true);
+    const toastId = toast.loading("Generating PDF report...");
+    try {
+      if (projectId) {
+        try {
+          await workProgressService.getPdfReport(projectId);
+          toast.success("PDF report downloaded!", { id: toastId });
+          setExportingPdf(false);
+          return;
+        } catch (apiErr) {
+          console.warn("Backend PDF export failed, falling back to local generation:", apiErr);
+        }
+      }
+      
+      const doc = new jsPDF({ orientation: "landscape" }) as any;
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 297, 24, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("WORK PROGRESS REPORT", 14, 16);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${new Date().toLocaleDateString("en-IN")}`, 280, 16, { align: "right" });
+
+      const tableRows = activities.map((act) => [
+        act.activity_name || "—",
+        `${act.total_completed ?? 0} / ${act.planned_quantity ?? 0}`,
+        act.remaining_quantity ?? 0,
+        `${act.completion_percentage ?? 0}%`,
+        act.unit || "—",
+        `${act.start_date || "—"} to ${act.end_date || "—"}`,
+        (act.status || "—").replace(/_/g, " ").toUpperCase()
+      ]);
+
+      autoTable(doc, {
+        startY: 30,
+        head: [["Activity Name", "Completed / Planned", "Remaining", "% Completion", "Unit", "Timeline", "Status"]],
+        body: tableRows,
+        theme: "striped",
+        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold", fontSize: 9 },
+        styles: { fontSize: 8, cellPadding: 3 },
+      });
+
+      doc.save(`Work_Progress_Report_${projectId || "client"}_${new Date().toISOString().split("T")[0]}.pdf`);
+      toast.success("PDF report exported!", { id: toastId });
+    } catch (err) {
+      console.error("PDF export error:", err);
+      toast.error("Failed to generate PDF report", { id: toastId });
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!activities || activities.length === 0) {
+      toast.error("No activity data to export");
+      return;
+    }
+    setExportingExcel(true);
+    const toastId = toast.loading("Generating Excel report...");
+    try {
+      if (projectId) {
+        try {
+          await workProgressService.getExcelReport(projectId);
+          toast.success("Excel report downloaded!", { id: toastId });
+          setExportingExcel(false);
+          return;
+        } catch (apiErr) {
+          console.warn("Backend Excel export failed, falling back to local generation:", apiErr);
+        }
+      }
+
+      const rows = activities.map((act) => ({
+        "Activity Name": act.activity_name || "—",
+        "Discipline": act.discipline || "—",
+        "Planned Quantity": act.planned_quantity ?? 0,
+        "Total Completed": act.total_completed ?? 0,
+        "Remaining Quantity": act.remaining_quantity ?? 0,
+        "% Completion": `${act.completion_percentage ?? 0}%`,
+        "Unit": act.unit || "—",
+        "Start Date": act.start_date || "—",
+        "End Date": act.end_date || "—",
+        "Status": (act.status || "—").replace(/_/g, " ").toUpperCase()
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Work Progress");
+      XLSX.writeFile(wb, `Work_Progress_Report_${projectId || "client"}_${new Date().toISOString().split("T")[0]}.xlsx`);
+      toast.success("Excel report exported!", { id: toastId });
+    } catch (err) {
+      console.error("Excel export error:", err);
+      toast.error("Failed to generate Excel report", { id: toastId });
+    } finally {
+      setExportingExcel(false);
+    }
+  };
 
   // Filtering Logic
   const filteredActivities = activities.filter(act => {
@@ -83,9 +195,37 @@ const ClientProgressPage = () => {
     <>
       <Navbar title="Work Progress" breadcrumb={["InfraPilot", "Client", "Work Progress"]} />
       <div className="p-6 bg-slate-50 min-h-screen font-inter pb-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Work Progress</h1>
-          <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time construction progress tracking</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight">Work Progress</h1>
+            <p className="text-slate-400 font-medium mt-1 uppercase tracking-widest text-[10px]">Real-time construction progress tracking</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+            >
+              {exportingPdf ? (
+                <div className="w-4 h-4 border-2 border-red-600/30 border-t-red-600 rounded-full animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4 text-red-500" />
+              )}
+              {exportingPdf ? "Exporting..." : "Download PDF"}
+            </button>
+            <button
+              onClick={handleExportExcel}
+              disabled={exportingExcel}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+            >
+              {exportingExcel ? (
+                <div className="w-4 h-4 border-2 border-emerald-600/30 border-t-emerald-600 rounded-full animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+              )}
+              {exportingExcel ? "Exporting..." : "Download Excel"}
+            </button>
+          </div>
         </div>
 
         {/* Status Filter Cards */}

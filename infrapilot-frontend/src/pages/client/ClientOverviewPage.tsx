@@ -253,7 +253,7 @@ const ClientOverviewPage = () => {
                           <p className="text-[11px] text-slate-500 font-medium leading-relaxed mt-0.5 max-w-sm">{milestone.description}</p>
                         )}
                         <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">
-                          {milestone.start_date} – {milestone.end_date}
+                          {milestone.start_date} to {milestone.end_date}
                         </p>
                       </div>
                     </div>

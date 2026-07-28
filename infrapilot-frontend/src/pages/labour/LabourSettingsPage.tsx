@@ -188,6 +188,18 @@ const LabourSettingsPage: React.FC = () => {
                 settingsService.updateSettings(settingsUpdate)
             ]);
 
+            if (settings.default_project_id) {
+                const projIdStr = String(settings.default_project_id);
+                localStorage.setItem("client_selected_project_id", projIdStr);
+                localStorage.setItem("infrapilot_selected_project_id", projIdStr);
+                if (selectedProjectName) {
+                    localStorage.setItem("client_selected_project_name", selectedProjectName);
+                    localStorage.setItem("infrapilot_selected_project_name", selectedProjectName);
+                }
+                window.dispatchEvent(new Event("storage"));
+                window.dispatchEvent(new CustomEvent("project_changed", { detail: { id: settings.default_project_id, name: selectedProjectName } }));
+            }
+
             toast.success("Settings saved successfully!", { id: saveToast });
             setIsEditingProfile(false);
             if (refreshUser && profile) {
@@ -578,21 +590,26 @@ const LabourSettingsPage: React.FC = () => {
                                                                 <div 
                                                                     key={p.id}
                                                                     onClick={() => {
+                                                                        const projIdStr = String(p.id);
+                                                                        const projNameStr = p.name || p.project_name || '';
                                                                         if (settings) {
                                                                             setSettings({ ...settings, default_project_id: p.id });
-                                                                            setSelectedProjectName(p.name || p.project_name);
+                                                                            setSelectedProjectName(projNameStr);
                                                                         }
+                                                                        localStorage.setItem("client_selected_project_id", projIdStr);
+                                                                        localStorage.setItem("client_selected_project_name", projNameStr);
+                                                                        localStorage.setItem("infrapilot_selected_project_id", projIdStr);
+                                                                        localStorage.setItem("infrapilot_selected_project_name", projNameStr);
+                                                                        window.dispatchEvent(new Event("storage"));
+                                                                        window.dispatchEvent(new CustomEvent("project_changed", { detail: { id: p.id, name: projNameStr } }));
                                                                         setIsProjectsDropdownOpen(false);
                                                                         setProjectsSearchTerm('');
-                                                                        toast.success(`Selected active project: ${p.name || p.project_name}`);
+                                                                        toast.success(`Selected active project: ${projNameStr}`);
                                                                     }}
-                                                                    className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-700'}`}
+                                                                    className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all ${isSelected ? 'bg-blue-50 text-slate-700' : 'hover:bg-slate-50 text-slate-700'}`}
                                                                 >
                                                                     <div className="flex flex-col">
                                                                         <span className="text-xs font-black tracking-tight">{p.name || p.project_name}</span>
-                                                                        <span className={`text-[9px] uppercase tracking-wider font-bold ${isSelected ? 'text-slate-400' : 'text-slate-400'}`}>
-                                                                            Code: {p.business_id || p.id} • Status: {p.status || 'Planned'}
-                                                                        </span>
                                                                     </div>
                                                                     {isSelected && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
                                                                 </div>

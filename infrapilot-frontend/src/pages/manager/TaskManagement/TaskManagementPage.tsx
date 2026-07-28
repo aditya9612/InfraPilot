@@ -2757,25 +2757,35 @@ const TaskManagementPage = () => {
             >
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">BOQ ID <span className="text-rose-500">*</span></label>
-                        <input
-                            type="number"
+                        <label className="block text-sm font-bold text-slate-800 mb-2">BOQ <span className="text-rose-500">*</span></label>
+                        <select
                             value={generateBoqId}
                             onChange={(e) => setGenerateBoqId(e.target.value ? Number(e.target.value) : "")}
-                            placeholder="Enter BOQ ID"
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
                             required
-                        />
+                        >
+                            <option value="">Select BOQ</option>
+                            {projectBoqs.map((b: any) => (
+                                <option key={b.id || b.boq_id} value={b.id || b.boq_id}>
+                                    {b.item_name || b.name || b.title || b.boq_name || `BOQ #${b.id || b.boq_id}`}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Milestone ID <span className="text-slate-400 font-normal">(Optional)</span></label>
-                        <input
-                            type="number"
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Milestone <span className="text-slate-400 font-normal">(Optional)</span></label>
+                        <select
                             value={generateMilestoneId}
                             onChange={(e) => setGenerateMilestoneId(e.target.value ? Number(e.target.value) : "")}
-                            placeholder="Enter Milestone ID"
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                        />
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300 appearance-none cursor-pointer"
+                        >
+                            <option value="">Select Milestone</option>
+                            {projectMilestones.map((m: any) => (
+                                <option key={m.id || m.milestone_id} value={m.id || m.milestone_id}>
+                                    {m.name || m.title || m.milestone_name || `Milestone #${m.id || m.milestone_id}`}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
             </Modal>
