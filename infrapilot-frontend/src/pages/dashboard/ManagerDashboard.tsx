@@ -30,6 +30,7 @@ import {
 } from "recharts";
 import { dashboardService } from "../../services/dashboardService";
 import type { PMCommandCenterData, PMSummaryData } from "../../services/dashboardService";
+import { formatDateBySettings } from "../../utils/dateUtils";
 
 // ─── Helper Utilities ───────────────────────────────────────────────
 const fmt = (n: number) =>
@@ -310,8 +311,8 @@ const ManagerDashboard = () => {
                             </div>
                           </td>
                           <td className="py-3 text-right">
-                            <p className="text-[10px] text-slate-400">{p.start_date}</p>
-                            <p className="text-[10px] text-slate-500 font-medium">→ {p.end_date}</p>
+                            <p className="text-[10px] text-slate-400">{formatDateBySettings(p.start_date)}</p>
+                            <p className="text-[10px] text-slate-500 font-medium">→ {formatDateBySettings(p.end_date)}</p>
                           </td>
                         </tr>
                       );

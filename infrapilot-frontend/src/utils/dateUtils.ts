@@ -62,3 +62,91 @@ export const formatDateToIST = (dateStr: string | null | undefined): string => {
         return "-";
     }
 };
+
+const parseDateComponents = (dateStr: any): { d: string; m: string; y: string } | null => {
+    if (!dateStr || (typeof dateStr !== 'string' && !(dateStr instanceof Date))) return null;
+
+    if (dateStr instanceof Date) {
+        if (isNaN(dateStr.getTime())) return null;
+        return {
+            d: dateStr.getDate().toString().padStart(2, '0'),
+            m: (dateStr.getMonth() + 1).toString().padStart(2, '0'),
+            y: dateStr.getFullYear().toString()
+        };
+    }
+
+    const str = String(dateStr).trim().split('T')[0];
+
+    // 1. Check YYYY-MM-DD or YYYY/MM/DD
+    const ymd = /^(\d{4})[\/\.\-](\d{1,2})[\/\.\-](\d{1,2})/.exec(str);
+    if (ymd) {
+        return {
+            y: ymd[1],
+            m: ymd[2].padStart(2, '0'),
+            d: ymd[3].padStart(2, '0')
+        };
+    }
+
+    // 2. Check DD-MM-YYYY or MM-DD-YYYY or DD/MM/YYYY or MM/DD/YYYY
+    const dmy = /^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/.exec(str);
+    if (dmy) {
+        let first = parseInt(dmy[1], 10);
+        let second = parseInt(dmy[2], 10);
+        let year = dmy[3];
+
+        if (first > 12) {
+            return { d: dmy[1].padStart(2, '0'), m: dmy[2].padStart(2, '0'), y: year };
+        }
+        if (second > 12) {
+            return { m: dmy[1].padStart(2, '0'), d: dmy[2].padStart(2, '0'), y: year };
+        }
+        return { d: dmy[1].padStart(2, '0'), m: dmy[2].padStart(2, '0'), y: year };
+    }
+
+    // 3. Fallback to JS new Date
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+        return {
+            d: parsed.getDate().toString().padStart(2, '0'),
+            m: (parsed.getMonth() + 1).toString().padStart(2, '0'),
+            y: parsed.getFullYear().toString()
+        };
+    }
+
+    return null;
+};
+
+export const formatDateBySettings = (dateStr: any): string => {
+    if (!dateStr || dateStr === "-" || dateStr === "N/A" || dateStr === "NA" || dateStr === "null") return "-";
+
+    const comp = parseDateComponents(dateStr);
+    if (!comp) return typeof dateStr === 'string' ? dateStr : "-";
+
+    let format = "DD/MM/YYYY";
+    try {
+        const direct = localStorage.getItem("user_date_format");
+        if (direct) {
+            format = direct;
+        } else {
+            const localSettings = localStorage.getItem("mock_settings");
+            if (localSettings) {
+                const parsed = JSON.parse(localSettings);
+                if (parsed?.preferences?.date_format) {
+                    format = parsed.preferences.date_format;
+                }
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    switch (format) {
+        case "MM/DD/YYYY":
+            return `${comp.m}/${comp.d}/${comp.y}`;
+        case "YYYY-MM-DD":
+            return `${comp.y}-${comp.m}-${comp.d}`;
+        case "DD/MM/YYYY":
+        default:
+            return `${comp.d}/${comp.m}/${comp.y}`;
+    }
+};

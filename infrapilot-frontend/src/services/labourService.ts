@@ -232,13 +232,12 @@ export const labourService = {
 
     /**
      * Assign labour to a project
-     * POST /api/v1/labour/assign-project
+     * PUT /api/v1/labour/{labour_id}
      */
     async assignLabourToProject(labourId: number | string, projectId: number | string) {
         try {
-            console.log(`Assigning Labour ${labourId} to Project ${projectId} via POST /labour/assign-project`);
-            const response = await api.post("labour/assign-project", {
-                labour_id: Number(labourId),
+            console.log(`Assigning Labour ${labourId} to Project ${projectId} via PUT /labour/${labourId}`);
+            const response = await api.put(`labour/${labourId}`, {
                 project_id: Number(projectId),
             });
             console.log("labourService.assignLabourToProject Success (200 OK):", response.data);

@@ -39,12 +39,39 @@ const BulkCheckInModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initial
 
     useEffect(() => {
         if (isOpen && projectId) {
-            // Fetch users (labourers) - for the dropdown based on selected project
-            // Using limit 100 to prevent 422 Unprocessable Entity from backend
-            labourService.getLabours(projectId, { limit: 100 }).then((res: any) => {
-                const fetchedUsers = res.items || (res as any).data || [];
-                setUsers(fetchedUsers);
-            }).catch(() => { });
+            // Fetch labourers AND project members — merge both so all assigned users show up
+            const fetchLabours = labourService.getLabours(projectId, { limit: 500 }).then((res: any) => {
+                if (Array.isArray(res)) return res;
+                if (res && Array.isArray(res.items)) return res.items;
+                if (res && Array.isArray(res.data)) return res.data;
+                return [];
+            }).catch(() => []);
+
+            const fetchMembers = projectService.getProjectMembers(projectId).then((res: any) => {
+                const list = Array.isArray(res) ? res : (res?.items || res?.data || res?.members || []);
+                // Normalize members to match labour shape
+                return list.map((m: any) => ({
+                    id: m.id || m.user_id,
+                    labour_id: m.id || m.user_id,
+                    labour_name: m.labour_name || m.name || m.full_name || m.username || `User #${m.id || m.user_id}`,
+                    skill_type: m.skill_type || m.role || m.designation || "Member",
+                    status: m.status || "Active",
+                }));
+            }).catch(() => []);
+
+            Promise.all([fetchLabours, fetchMembers]).then(([labours, members]) => {
+                // Merge & de-duplicate by id
+                const seen = new Set<number>();
+                const merged: any[] = [];
+                [...labours, ...members].forEach(u => {
+                    const uid = Number(u.id || u.labour_id);
+                    if (uid && !seen.has(uid)) {
+                        seen.add(uid);
+                        merged.push(u);
+                    }
+                });
+                setUsers(merged);
+            });
         } else {
             setUsers([]);
         }

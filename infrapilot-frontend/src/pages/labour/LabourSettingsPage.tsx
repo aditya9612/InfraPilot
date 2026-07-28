@@ -10,11 +10,11 @@ import type { UserProfile, UserSettings, UpdateProfileRequest, UpdateSettingsReq
 
 const LabourSettingsPage: React.FC = () => {
     const { refreshUser } = useAuth();
-    
+
     // Loading States
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    
+
     // Edit Modes
     const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [isEditingBank, setIsEditingBank] = useState(false);
@@ -27,7 +27,7 @@ const LabourSettingsPage: React.FC = () => {
     // Settings State
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [projects, setProjects] = useState<any[]>([]);
-    
+
     // Projects Pagination & Search States
     const [projectsSearchTerm, setProjectsSearchTerm] = useState('');
     const [projectsOffset, setProjectsOffset] = useState(0);
@@ -86,10 +86,10 @@ const LabourSettingsPage: React.FC = () => {
                 settingsService.getSettings(),
                 projectService.getProjects(20, 0, "", "", 0)
             ]);
-            
+
             setProfile(profileData);
             setSettings(settingsData);
-            
+
             const itemList = Array.isArray(projectsData) ? projectsData : (projectsData.items || []);
             setProjects(itemList);
             if (projectsData.meta) {
@@ -113,7 +113,7 @@ const LabourSettingsPage: React.FC = () => {
                     }
                 }
             }
-            
+
             if (profileData.profile_image) {
                 setProfilePicPreview(settingsService.resolveUrl(profileData.profile_image));
             }
@@ -148,10 +148,10 @@ const LabourSettingsPage: React.FC = () => {
 
     const handleSave = async () => {
         if (!profile || !settings) return;
-        
+
         setIsSaving(true);
         const saveToast = toast.loading("Saving settings...");
-        
+
         try {
             // 1. Prepare and Update Profile
             const profileUpdate: UpdateProfileRequest = {
@@ -180,7 +180,7 @@ const LabourSettingsPage: React.FC = () => {
                 currency: settings.currency,
                 invoice_format: settings.invoice_format,
                 payment_terms: settings.payment_terms,
-                tax_settings: settings.tax_settings || {} 
+                tax_settings: settings.tax_settings || {}
             };
 
             await Promise.all([
@@ -213,10 +213,10 @@ const LabourSettingsPage: React.FC = () => {
         } catch (error: any) {
             console.error("Save failed:", error);
             const errorData = error.response?.data;
-            const errorMessage = typeof errorData === 'string' 
-                ? errorData 
+            const errorMessage = typeof errorData === 'string'
+                ? errorData
                 : (errorData?.message || errorData?.detail || error.message);
-            
+
             toast.error(`Failed to save: ${errorMessage}`, { id: saveToast, duration: 5000 });
         } finally {
             setIsSaving(false);
@@ -234,13 +234,13 @@ const LabourSettingsPage: React.FC = () => {
 
     return (
         <>
-            <Navbar 
-                title="Labour Settings" 
-                breadcrumb={['Labour', 'Settings']} 
+            <Navbar
+                title="Labour Settings"
+                breadcrumb={['Labour', 'Settings']}
             />
             <PageTransition className="bg-[#f8fafc] min-h-screen font-inter">
                 <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-12 pb-24">
-                    
+
                     {/* Header Section */}
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
                         <div className="space-y-1">
@@ -248,7 +248,7 @@ const LabourSettingsPage: React.FC = () => {
                             <h1 className="text-4xl font-black text-slate-900 tracking-tight">Settings</h1>
                             <p className="text-sm font-bold text-slate-400">Configure your project, units, notifications, and personal preferences.</p>
                         </div>
-                        <button 
+                        <button
                             onClick={handleSave}
                             disabled={isSaving || isLoading}
                             className={`${isSaving ? 'opacity-70 cursor-not-allowed' : 'bg-[#0062ff] hover:bg-blue-700 shadow-blue-100 active:scale-95'} text-white px-8 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-3 shadow-xl transition-all`}
@@ -263,29 +263,29 @@ const LabourSettingsPage: React.FC = () => {
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">CURRENT CONFIGURATION</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {[
-                                { 
-                                    label: 'ACTIVE PROJECT', 
-                                    value: projects.find(p => p.id === settings?.default_project_id)?.name || selectedProjectName || 'Default Project', 
-                                    sub: 'PRIMARY PROJECT WORKSPACE', 
-                                    color: 'text-[#0062ff]' 
+                                {
+                                    label: 'ACTIVE PROJECT',
+                                    value: projects.find(p => p.id === settings?.default_project_id)?.name || selectedProjectName || 'Default Project',
+                                    sub: 'PRIMARY PROJECT WORKSPACE',
+                                    color: 'text-[#0062ff]'
                                 },
-                                { 
-                                    label: 'UNIT SYSTEM', 
-                                    value: settings?.unit || 'Metric', 
-                                    sub: 'MEASUREMENT STANDARD', 
-                                    color: 'text-emerald-500' 
+                                {
+                                    label: 'UNIT SYSTEM',
+                                    value: settings?.unit || 'Metric',
+                                    sub: 'MEASUREMENT STANDARD',
+                                    color: 'text-emerald-500'
                                 },
-                                { 
-                                    label: 'NOTIFICATIONS', 
-                                    value: settings?.notifications_enabled ? 'ENABLED' : 'DISABLED', 
-                                    sub: 'SYSTEM CHANNELS', 
-                                    color: 'text-orange-400' 
+                                {
+                                    label: 'NOTIFICATIONS',
+                                    value: settings?.notifications_enabled ? 'ENABLED' : 'DISABLED',
+                                    sub: 'SYSTEM CHANNELS',
+                                    color: 'text-orange-400'
                                 },
-                                { 
-                                    label: 'FINANCIAL YEAR', 
-                                    value: settings?.financial_year || '2025-26', 
-                                    sub: `CURRENCY: ${settings?.currency || 'INR'}`, 
-                                    color: 'text-slate-800' 
+                                {
+                                    label: 'FINANCIAL YEAR',
+                                    value: settings?.financial_year || '2025-26',
+                                    sub: `CURRENCY: ${settings?.currency || 'INR'}`,
+                                    color: 'text-slate-800'
                                 },
                             ].map((config, i) => (
                                 <div key={i} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
@@ -299,7 +299,7 @@ const LabourSettingsPage: React.FC = () => {
 
                     {/* Sections Container */}
                     <div className="space-y-8">
-                        
+
                         {/* Profile & Account Section */}
                         <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-10">
                             <div className="flex items-center justify-between gap-3 text-slate-400 border-b border-slate-50 pb-8 mb-8">
@@ -308,7 +308,7 @@ const LabourSettingsPage: React.FC = () => {
                                     <h2 className="text-[12px] font-black uppercase tracking-[0.2em]">PROFILE & ACCOUNT</h2>
                                 </div>
                                 {!isEditingProfile && (
-                                    <button 
+                                    <button
                                         onClick={() => setIsEditingProfile(true)}
                                         className="text-[10px] font-black text-[#0062ff] uppercase tracking-widest flex items-center gap-2 hover:bg-blue-50 px-4 py-2 rounded-xl transition-all border border-transparent hover:border-blue-100"
                                     >
@@ -331,7 +331,7 @@ const LabourSettingsPage: React.FC = () => {
                                             )}
                                             <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={() => fileInputRef.current?.click()}
                                             className="absolute bottom-2 right-2 w-11 h-11 bg-[#0062ff] text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all z-10"
                                         >
@@ -339,7 +339,7 @@ const LabourSettingsPage: React.FC = () => {
                                         </button>
                                         <input ref={fileInputRef} type="file" className="hidden" onChange={handlePhotoUpload} accept="image/*" />
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={handleRemovePhoto}
                                         className="text-[10px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-2 hover:bg-rose-50 px-4 py-2 rounded-lg transition-all"
                                     >
@@ -362,9 +362,9 @@ const LabourSettingsPage: React.FC = () => {
                                         <div key={i} className="space-y-1.5">
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{field.label}</label>
                                             <div className="relative">
-                                                <input 
-                                                    type={field.isDate ? "date" : "text"} 
-                                                    value={field.value} 
+                                                <input
+                                                    type={field.isDate ? "date" : "text"}
+                                                    value={field.value}
                                                     disabled={field.disabled || !isEditingProfile}
                                                     onChange={e => profile && setProfile({ ...profile, [field.key]: e.target.value })}
                                                     className={`w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black text-black outline-none focus:bg-white focus:ring-2 focus:ring-blue-100/50 transition-all ${field.disabled || !isEditingProfile ? 'opacity-70 cursor-not-allowed bg-slate-50/50' : 'hover:border-slate-200'}`}
@@ -375,15 +375,15 @@ const LabourSettingsPage: React.FC = () => {
                                     ))}
                                     <div className="md:col-span-2 space-y-1.5">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">ADDRESS</label>
-                                        <input 
-                                            type="text" 
-                                            value={profile?.address || ''} 
+                                        <input
+                                            type="text"
+                                            value={profile?.address || ''}
                                             disabled={!isEditingProfile}
                                             onChange={e => profile && setProfile({ ...profile, address: e.target.value })}
                                             className={`w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-sm font-black text-black outline-none focus:bg-white focus:ring-2 focus:ring-blue-100/50 transition-all ${!isEditingProfile ? 'opacity-70 cursor-not-allowed bg-slate-50/50' : 'hover:border-slate-200'}`}
                                         />
                                     </div>
-                                    
+
                                     {/* Account Status Card */}
                                     <div className="md:col-span-2 mt-8 p-6 bg-slate-50/30 rounded-[24px] border border-slate-100/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                         <div className="space-y-1">
@@ -394,7 +394,7 @@ const LabourSettingsPage: React.FC = () => {
                                             <span className={`text-[11px] font-black uppercase tracking-widest ${profile?.is_active ? 'text-emerald-500' : 'text-slate-300'}`}>
                                                 {profile?.is_active ? 'ACTIVE' : 'INACTIVE'}
                                             </span>
-                                            <button 
+                                            <button
                                                 onClick={() => profile && setProfile({ ...profile, is_active: !profile.is_active })}
                                                 disabled={!isEditingProfile}
                                                 className={`w-14 h-7 rounded-full relative transition-all duration-300 ${profile?.is_active ? 'bg-[#0062ff] shadow-lg shadow-blue-100' : 'bg-slate-300'} ${!isEditingProfile ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -407,7 +407,7 @@ const LabourSettingsPage: React.FC = () => {
                                     <div className="md:col-span-2 flex justify-end gap-5 pt-8">
                                         {isEditingProfile && (
                                             <>
-                                                <button 
+                                                <button
                                                     onClick={() => {
                                                         setIsEditingProfile(false);
                                                         fetchData();
@@ -416,7 +416,7 @@ const LabourSettingsPage: React.FC = () => {
                                                 >
                                                     Cancel
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={handleSave}
                                                     disabled={isSaving}
                                                     className="bg-[#111827] text-white px-12 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest flex items-center gap-3 shadow-2xl transition-all active:scale-95 disabled:opacity-70"
@@ -433,7 +433,7 @@ const LabourSettingsPage: React.FC = () => {
 
                         {/* Lower Cards Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            
+
                             {/* Bank Details Card */}
                             <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-10">
                                 <div className="flex items-center justify-between border-b border-slate-50 pb-6">
@@ -446,45 +446,45 @@ const LabourSettingsPage: React.FC = () => {
                                         <span className="text-[8px] font-black uppercase tracking-widest">Verified</span>
                                     </div>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-2">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">ACCOUNT NUMBER</label>
-                                        <input 
-                                            type="text" 
-                                            value={bankDetails.accountNumber} 
+                                        <input
+                                            type="text"
+                                            value={bankDetails.accountNumber}
                                             disabled={!isEditingBank}
-                                            onChange={e => setBankDetails({...bankDetails, accountNumber: e.target.value})}
+                                            onChange={e => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
                                             className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all font-mono ${!isEditingBank ? 'opacity-60 cursor-not-allowed' : ''}`}
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">BANK NAME</label>
-                                        <input 
-                                            type="text" 
-                                            value={bankDetails.bankName} 
+                                        <input
+                                            type="text"
+                                            value={bankDetails.bankName}
                                             disabled={!isEditingBank}
-                                            onChange={e => setBankDetails({...bankDetails, bankName: e.target.value})}
+                                            onChange={e => setBankDetails({ ...bankDetails, bankName: e.target.value })}
                                             className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all ${!isEditingBank ? 'opacity-60 cursor-not-allowed' : ''}`}
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">IFSC CODE</label>
-                                        <input 
-                                            type="text" 
-                                            value={bankDetails.ifscCode} 
+                                        <input
+                                            type="text"
+                                            value={bankDetails.ifscCode}
                                             disabled={!isEditingBank}
-                                            onChange={e => setBankDetails({...bankDetails, ifscCode: e.target.value})}
+                                            onChange={e => setBankDetails({ ...bankDetails, ifscCode: e.target.value })}
                                             className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all uppercase ${!isEditingBank ? 'opacity-60 cursor-not-allowed' : ''}`}
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">UPI ID</label>
-                                        <input 
-                                            type="text" 
-                                            value={bankDetails.upiId} 
+                                        <input
+                                            type="text"
+                                            value={bankDetails.upiId}
                                             disabled={!isEditingBank}
-                                            onChange={e => setBankDetails({...bankDetails, upiId: e.target.value})}
+                                            onChange={e => setBankDetails({ ...bankDetails, upiId: e.target.value })}
                                             className={`w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-3.5 text-sm font-black text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all ${!isEditingBank ? 'opacity-60 cursor-not-allowed' : ''}`}
                                         />
                                     </div>
@@ -504,7 +504,7 @@ const LabourSettingsPage: React.FC = () => {
 
                                 <div className="flex justify-end gap-4">
                                     {!isEditingBank ? (
-                                        <button 
+                                        <button
                                             onClick={() => setIsEditingBank(true)}
                                             className="px-8 py-3.5 bg-slate-50 border border-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-100 transition-all shadow-sm"
                                         >
@@ -512,13 +512,13 @@ const LabourSettingsPage: React.FC = () => {
                                         </button>
                                     ) : (
                                         <>
-                                            <button 
+                                            <button
                                                 onClick={() => setIsEditingBank(false)}
                                                 className="px-8 py-3.5 text-slate-400 font-black text-[10px] uppercase tracking-widest"
                                             >
                                                 Cancel
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={handleSaveBank}
                                                 disabled={isSaving}
                                                 className="px-8 py-3.5 bg-[#0062ff] text-white rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-blue-100"
@@ -539,11 +539,11 @@ const LabourSettingsPage: React.FC = () => {
                                 </div>
                                 <div className="space-y-4 relative">
                                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">ACTIVE PROJECT</label>
-                                    
+
                                     {/* Selected Project Input / Search Filter */}
                                     <div className="relative">
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             placeholder="Search and select project..."
                                             value={isProjectsDropdownOpen ? projectsSearchTerm : (projects.find(p => p.id === settings?.default_project_id)?.name || selectedProjectName || 'Select a default project')}
                                             onChange={e => {
@@ -569,7 +569,7 @@ const LabourSettingsPage: React.FC = () => {
                                             <div className="absolute top-[85px] left-0 right-0 bg-white border border-slate-150 rounded-2xl shadow-xl z-50 p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
                                                 <div className="flex items-center justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2">
                                                     <span>Search Projects: "{projectsSearchTerm}"</span>
-                                                    <button 
+                                                    <button
                                                         onClick={() => setIsProjectsDropdownOpen(false)}
                                                         className="text-rose-500 hover:text-rose-600 font-bold"
                                                     >
@@ -587,7 +587,7 @@ const LabourSettingsPage: React.FC = () => {
                                                         projects.map((p) => {
                                                             const isSelected = p.id === settings?.default_project_id;
                                                             return (
-                                                                <div 
+                                                                <div
                                                                     key={p.id}
                                                                     onClick={() => {
                                                                         const projIdStr = String(p.id);
@@ -622,7 +622,7 @@ const LabourSettingsPage: React.FC = () => {
                                                 <div className="flex items-center justify-between pt-3 border-t border-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                                     <span>Showing {projects.length} of {projectsTotal} projects</span>
                                                     <div className="flex items-center gap-2">
-                                                        <button 
+                                                        <button
                                                             disabled={projectsOffset === 0}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -632,7 +632,7 @@ const LabourSettingsPage: React.FC = () => {
                                                         >
                                                             Prev
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             disabled={projectsOffset + 20 >= projectsTotal}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -661,14 +661,14 @@ const LabourSettingsPage: React.FC = () => {
                                     <Sliders className="w-4 h-4" />
                                     <h2 className="text-[11px] font-black uppercase tracking-[0.2em]">UNITS</h2>
                                 </div>
-                                
+
                                 <div className="space-y-8">
                                     {/* Unit System */}
                                     <div className="space-y-4">
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">UNIT SYSTEM</label>
                                         <div className="flex bg-slate-50 p-1.5 rounded-2xl w-full border border-slate-100 shadow-sm">
                                             {['Meter', 'Feet'].map(sys => (
-                                                <button 
+                                                <button
                                                     key={sys}
                                                     onClick={() => settings && setSettings({ ...settings, unit: sys })}
                                                     className={`flex-1 py-3.5 px-6 rounded-xl text-xs font-black transition-all ${settings?.unit === sys ? 'bg-[#111827] text-white shadow-xl scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}
@@ -684,13 +684,13 @@ const LabourSettingsPage: React.FC = () => {
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">MASS / WEIGHT</label>
                                         <div className="grid grid-cols-3 gap-3">
                                             {['Kg', 'Feet', 'Meter'].map(u => (
-                                                <button 
+                                                <button
                                                     key={u}
                                                     onClick={() => {
                                                         if (!settings) return;
-                                                        setSettings({ 
-                                                            ...settings, 
-                                                            preferences: { ...settings.preferences, mass_unit: u } 
+                                                        setSettings({
+                                                            ...settings,
+                                                            preferences: { ...settings.preferences, mass_unit: u }
                                                         });
                                                     }}
                                                     className={`py-4 rounded-2xl text-[11px] font-black tracking-widest transition-all border ${settings?.preferences?.mass_unit === u ? 'bg-[#1e61ff] text-white border-[#1e61ff] shadow-lg shadow-blue-100' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}
@@ -706,13 +706,13 @@ const LabourSettingsPage: React.FC = () => {
                                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">LENGTH / DISTANCE</label>
                                         <div className="grid grid-cols-4 gap-3">
                                             {['Meter', 'Feet', 'Inch', 'Cm'].map(u => (
-                                                <button 
+                                                <button
                                                     key={u}
                                                     onClick={() => {
                                                         if (!settings) return;
-                                                        setSettings({ 
-                                                            ...settings, 
-                                                            preferences: { ...settings.preferences, length_unit: u } 
+                                                        setSettings({
+                                                            ...settings,
+                                                            preferences: { ...settings.preferences, length_unit: u }
                                                         });
                                                     }}
                                                     className={`py-4 rounded-xl text-[11px] font-black tracking-widest transition-all border ${settings?.preferences?.length_unit === u ? 'bg-[#1e61ff] text-white border-[#1e61ff] shadow-lg shadow-blue-100' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}
@@ -751,7 +751,7 @@ const LabourSettingsPage: React.FC = () => {
                                         { id: 'push_notifications', label: 'App Notifications', sub: 'REAL-TIME APPLICATION ALERTS', icon: Smartphone },
                                     ].map((item, i) => {
                                         const isEnabled = !!settings?.preferences?.[item.id];
-                                            
+
                                         return (
                                             <div key={i} className="flex items-center justify-between group transition-all duration-300">
                                                 <div className="flex items-center gap-6">
@@ -767,13 +767,13 @@ const LabourSettingsPage: React.FC = () => {
                                                     <span className={`text-[10px] font-black uppercase tracking-widest w-8 text-right transition-colors ${isEnabled ? 'text-emerald-500' : 'text-slate-300'}`}>
                                                         {isEnabled ? 'ON' : 'OFF'}
                                                     </span>
-                                                    <button 
+                                                    <button
                                                         onClick={() => {
                                                             if (!settings) return;
                                                             const prefs = settings.preferences || {};
-                                                            setSettings({ 
-                                                                ...settings, 
-                                                                preferences: { ...prefs, [item.id]: !isEnabled } 
+                                                            setSettings({
+                                                                ...settings,
+                                                                preferences: { ...prefs, [item.id]: !isEnabled }
                                                             });
                                                         }}
                                                         className={`w-12 h-6 rounded-full relative transition-all duration-300 ${isEnabled ? 'bg-[#0062ff]' : 'bg-slate-200'}`}
@@ -799,7 +799,7 @@ const LabourSettingsPage: React.FC = () => {
                                     <div className="space-y-8">
                                         <div className="space-y-2">
                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">LANGUAGE</label>
-                                            <select 
+                                            <select
                                                 value={settings?.preferences?.language || 'English'}
                                                 onChange={e => {
                                                     if (!settings) return;
@@ -813,11 +813,11 @@ const LabourSettingsPage: React.FC = () => {
                                                 <option>Marathi</option>
                                             </select>
                                         </div>
-                                        
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="space-y-2">
                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">TIMEZONE</label>
-                                                <select 
+                                                <select
                                                     value={settings?.preferences?.timezone || 'IST (UTC+5:30)'}
                                                     onChange={e => {
                                                         if (!settings) return;
@@ -833,7 +833,7 @@ const LabourSettingsPage: React.FC = () => {
                                             </div>
                                             <div className="space-y-2">
                                                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">DATE FORMAT</label>
-                                                <select 
+                                                <select
                                                     value={settings?.preferences?.date_format || 'DD/MM/YYYY'}
                                                     onChange={e => {
                                                         if (!settings) return;
@@ -869,12 +869,12 @@ const LabourSettingsPage: React.FC = () => {
                                                         <span className={`text-[10px] font-black uppercase tracking-widest w-8 text-right ${isEnabled ? 'text-emerald-500' : 'text-slate-300'}`}>
                                                             {isEnabled ? 'ON' : 'OFF'}
                                                         </span>
-                                                        <button 
+                                                        <button
                                                             onClick={() => {
                                                                 if (!settings) return;
-                                                                setSettings({ 
-                                                                    ...settings, 
-                                                                    preferences: { ...settings.preferences, [item.id]: !isEnabled } 
+                                                                setSettings({
+                                                                    ...settings,
+                                                                    preferences: { ...settings.preferences, [item.id]: !isEnabled }
                                                                 });
                                                             }}
                                                             className={`w-12 h-6 rounded-full relative transition-all duration-300 ${isEnabled ? 'bg-[#0062ff] shadow-lg shadow-blue-100' : 'bg-slate-200'}`}
@@ -908,7 +908,7 @@ const LabourSettingsPage: React.FC = () => {
                         <div className="px-6 py-2 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black text-slate-300 uppercase tracking-widest">
                             LAST AUDIT LOGGED: YESTERDAY 4:32 PM
                         </div>
-                        <button 
+                        <button
                             onClick={handleSave}
                             disabled={isSaving || isLoading}
                             className={`${isSaving ? 'opacity-70 cursor-not-allowed' : 'bg-[#111827] hover:bg-slate-800 active:scale-95'} text-white px-12 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center gap-3 shadow-2xl transition-all`}

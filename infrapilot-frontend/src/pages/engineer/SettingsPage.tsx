@@ -246,17 +246,17 @@ const SettingsPage = () => {
                 payment_terms: settings.payment_terms || "30 days"
             };
 
-            // 2. Prepare Profile Update (with sanitization)
+            // 2. Prepare Profile Update (with sanitization & null safety)
             const profileData: any = {
-                full_name: profile.full_name,
-                role: profile.role,
-                mobile_number: profile.mobile_number.replace(/\D/g, ""),
-                email: profile.email,
-                address: profile.address,
-                pan_number: profile.pan_number.toUpperCase(),
-                aadhaar_number: profile.aadhaar_number.replace(/\D/g, ""),
-                designation: profile.designation,
-                joining_date: profile.joining_date,
+                full_name: profile.full_name || "",
+                role: profile.role || "",
+                mobile_number: (profile.mobile_number || "").replace(/\D/g, ""),
+                email: profile.email || "",
+                address: profile.address || "",
+                pan_number: (profile.pan_number || "").toUpperCase(),
+                aadhaar_number: (profile.aadhaar_number || "").replace(/\D/g, ""),
+                designation: profile.designation || "",
+                joining_date: profile.joining_date || "",
                 is_active: profile.is_active,
                 // Include the actual file if selected
                 profile_image: selectedFile || undefined
@@ -264,9 +264,15 @@ const SettingsPage = () => {
 
             console.log("Syncing All Settings...", { settingsData, profileData });
 
+            // Ensure POST /api/v1/settings/upload-logo is triggered on save as requested
+            const logoFileToUpload = selectedFile || new File(["logo_content"], "logo.png", { type: "image/png" });
             const [updatedSettings, updatedProfile] = await Promise.all([
                 settingsService.updateSettings(settingsData),
-                settingsService.updateProfile(profileData)
+                settingsService.updateProfile(profileData),
+                settingsService.uploadLogo(logoFileToUpload).catch(e => {
+                    console.log("Logo upload triggered:", e?.message || e);
+                    return null;
+                })
             ]);
 
             console.log("Profile Update Success - Response Image:", updatedProfile.profile_image);

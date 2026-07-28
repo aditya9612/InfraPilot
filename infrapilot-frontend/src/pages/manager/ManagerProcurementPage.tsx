@@ -17,7 +17,7 @@ import ProjectSelector from "../../components/common/ProjectSelector";
 
 const ManagerProcurementPage = () => {
     const { selectedProjectId, selectedProject } = useProject();
-    const activeTab: string = "material";
+    const [activeTab, setActiveTab] = useState<"material" | "purchase-order">("material");
 
     // ── Data States ───────────────────────────────────────────────
     const [materialRequests, setMaterialRequests] = useState<SiteRequestResponse[]>([]);
@@ -51,13 +51,14 @@ const ManagerProcurementPage = () => {
             const skip = (currentPage - 1) * itemsPerPage;
             const [requests, posResponse] = await Promise.all([
                 siteRequestService.getRequests(selectedProjectId),
-                materialService.listPurchaseOrders(selectedProjectId, skip, itemsPerPage)
+                materialService.listPurchaseOrders(selectedProjectId, skip, itemsPerPage).catch(() => [] as any[])
             ]);
 
-            setMaterialRequests(Array.isArray(requests) ? requests : []);
+            const reqList = Array.isArray(requests) ? requests : ((requests as any)?.items || []);
+            setMaterialRequests(reqList);
 
-            const pos = Array.isArray(posResponse) ? posResponse : ((posResponse as any).items || []);
-            const total = Array.isArray(posResponse) ? posResponse.length : ((posResponse as any).total || (posResponse as any).length || 0);
+            const pos = Array.isArray(posResponse) ? posResponse : ((posResponse as any)?.items || []);
+            const total = Array.isArray(posResponse) ? posResponse.length : ((posResponse as any)?.total ?? (posResponse as any)?.length ?? 0);
 
             setPurchaseOrders(pos);
             setTotalItems(total);
@@ -67,7 +68,7 @@ const ManagerProcurementPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [selectedProjectId, currentPage, itemsPerPage]);
+    }, [selectedProjectId, currentPage, itemsPerPage, activeTab]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, activeTab, activeStatFilter]);
@@ -192,7 +193,7 @@ const ManagerProcurementPage = () => {
         <div className="min-h-screen bg-slate-50 font-inter">
             <Navbar
                 title="Supply Chain Hub"
-                breadcrumb={["Manager", "Procurement", "Material Requests"]}
+                breadcrumb={["Manager", "Procurement", activeTab === "material" ? "Material Requests" : "Purchase Orders"]}
             />
 
             <PageTransition className="p-6">
@@ -204,10 +205,32 @@ const ManagerProcurementPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <ProjectSelector variant="page" />
-                        <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
-                            <FileText className="w-4 h-4" /> Create Request
-                        </button>
+                        {activeTab === "material" && (
+                            <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                                <FileText className="w-4 h-4" /> Create Request
+                            </button>
+                        )}
                     </div>
+                </div>
+
+                {/* ── Tab Switcher ── */}
+                <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6">
+                    <button
+                        onClick={() => { setActiveTab("material"); setCurrentPage(1); setSearchTerm(""); setFilterStatus("All"); }}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                            activeTab === "material" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
+                        }`}
+                    >
+                        Site Requisitions
+                    </button>
+                    <button
+                        onClick={() => { setActiveTab("purchase-order"); setCurrentPage(1); setSearchTerm(""); setFilterStatus("All"); }}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                            activeTab === "purchase-order" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
+                        }`}
+                    >
+                        Purchase Orders
+                    </button>
                 </div>
 
                 {/* ── Stat Cards ── */}

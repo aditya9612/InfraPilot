@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import type { ActivityItem } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
+import api from "../../services/api";
 
 interface ActivityDetailModalProps {
   isOpen: boolean;
@@ -20,40 +21,84 @@ const statusBadge: Record<string, string> = {
 const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDetailModalProps) => {
   const [engineerName, setEngineerName] = useState<string>("Unassigned");
   const [isLoadingEngineer, setIsLoadingEngineer] = useState(false);
+  const [boqName, setBoqName] = useState<string>("-");
+  const [workOrderName, setWorkOrderName] = useState<string>("-");
 
   useEffect(() => {
     if (activity && isOpen) {
+      // ── Engineer Name ──────────────────────────────────────────────
       if ((activity as any).engineer_name) {
         setEngineerName((activity as any).engineer_name);
-        return;
+      } else {
+        const engineerId = activity.engineer_id || (activity as any).assigned_to;
+        if (engineerId && activity.project_id) {
+          setIsLoadingEngineer(true);
+          projectService.getProjectMembers(activity.project_id)
+            .then((response: any) => {
+              const rawMembers = Array.isArray(response) ? response : response.items || response.data || [];
+              const member = rawMembers.find((m: any) =>
+                m.user_id == engineerId ||
+                m.id == engineerId ||
+                m.user?.id == engineerId
+              );
+              if (member) {
+                setEngineerName(member.full_name || member.user?.full_name || member.user?.name || `Engineer ${engineerId}`);
+              } else {
+                setEngineerName(`Engineer ${engineerId} (External)`);
+              }
+            })
+            .catch(() => {
+              setEngineerName(`Engineer ${engineerId}`);
+            })
+            .finally(() => {
+              setIsLoadingEngineer(false);
+            });
+        } else {
+          setEngineerName("Unassigned");
+        }
       }
 
-      const engineerId = activity.engineer_id || (activity as any).assigned_to;
-      if (engineerId && activity.project_id) {
-        setIsLoadingEngineer(true);
-        projectService.getProjectMembers(activity.project_id)
-          .then((response: any) => {
-            const rawMembers = Array.isArray(response) ? response : response.items || response.data || [];
-            const member = rawMembers.find((m: any) =>
-              m.user_id == engineerId ||
-              m.id == engineerId ||
-              m.user?.id == engineerId
-            );
+      // ── BOQ Name ───────────────────────────────────────────────────
+      // If already enriched with a name, use it
+      const existingBoqName = (activity as any).boq_name || (activity as any).boq_item_name || (activity as any).boq_title;
+      if (existingBoqName) {
+        setBoqName(existingBoqName);
+      } else if (activity.boq_code) {
+        // boq_code is the BOQ ID – fetch its name
+        api.get(`/boq/${activity.boq_code}`)
+          .then((res: any) => {
+            const data = res.data;
+            const name = data.title || data.name || data.boq_name || data.description || `BOQ #${activity.boq_code}`;
+            setBoqName(name);
+          })
+          .catch(() => {
+            setBoqName(`BOQ #${activity.boq_code}`);
+          });
+      } else {
+        setBoqName("-");
+      }
 
-            if (member) {
-              setEngineerName(member.full_name || member.user?.full_name || member.user?.name || `Engineer ${engineerId}`);
+      // ── Work Order Name ────────────────────────────────────────────
+      const existingWoName = (activity as any).work_order_name || (activity as any).work_order_title || (activity as any).work_order_no;
+      if (existingWoName) {
+        setWorkOrderName(existingWoName);
+      } else if (activity.work_order_id) {
+        api.get("/work-orders", { params: { limit: 200 } })
+          .then((res: any) => {
+            const list = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+            const wo = list.find((w: any) => w.id == activity.work_order_id);
+            if (wo) {
+              const name = wo.title || wo.name || wo.work_order_no || wo.order_no || wo.work_order_number || `Work Order #${activity.work_order_id}`;
+              setWorkOrderName(name);
             } else {
-              setEngineerName(`Engineer ${engineerId} (External)`);
+              setWorkOrderName(`Work Order #${activity.work_order_id}`);
             }
           })
           .catch(() => {
-            setEngineerName(`Engineer ${engineerId}`);
-          })
-          .finally(() => {
-            setIsLoadingEngineer(false);
+            setWorkOrderName(`Work Order #${activity.work_order_id}`);
           });
       } else {
-        setEngineerName("Unassigned");
+        setWorkOrderName("-");
       }
     }
   }, [activity, isOpen]);
@@ -67,7 +112,7 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
         <div className="bg-blue-600 p-8 text-white">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-2xl font-black">{activity.activity_name}</h3>
-            <span className="px-3 py-1 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest">{activity.boq_code || "No BOQ"}</span>
+            <span className="px-3 py-1 bg-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest">BOQ: {boqName}</span>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -110,6 +155,11 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
             </div>
 
             <div>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">BOQ Name / Code</p>
+              <p className="text-sm font-bold text-slate-700">{boqName}</p>
+            </div>
+
+            <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Completion Percentage</p>
               <p className="text-sm font-bold text-slate-700">{(activity.completion_percentage || 0).toFixed(1)}%</p>
             </div>
@@ -139,8 +189,8 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
             </div>
 
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Work Order ID</p>
-              <p className="text-sm font-bold text-slate-700">{activity.work_order_id || "-"}</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Work Order</p>
+              <p className="text-sm font-bold text-slate-700">{workOrderName}</p>
             </div>
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Engineer Name</p>

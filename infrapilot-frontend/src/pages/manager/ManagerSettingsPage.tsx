@@ -66,8 +66,9 @@ const ManagerSettingsPage: React.FC = () => {
             }
 
             setLanguage(settingsData.preferences?.language || "English");
-            setTimezone(settingsData.preferences?.timezone || "IST (UTC+5:30)");
-            setDateFormat(settingsData.preferences?.date_format || "DD/MM/YYYY");
+            const df = settingsData.preferences?.date_format || "DD/MM/YYYY";
+            setDateFormat(df);
+            localStorage.setItem("user_date_format", df);
 
             const savedPrefs = settingsData.preferences || {};
             setUnitSystem(savedPrefs.unitSystem || "Metric");
@@ -142,6 +143,7 @@ const ManagerSettingsPage: React.FC = () => {
                 settingsService.updateSettings(settingsData),
                 settingsService.updateProfile(profileData)
             ]);
+            localStorage.setItem("user_date_format", dateFormat);
 
             if (profileData.full_name) {
                 refreshUser({

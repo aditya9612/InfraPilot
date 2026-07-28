@@ -212,10 +212,17 @@ const DocumentsPage = () => {
   const handleNewFolder = async (folderData: { title: string; project_id: number; remarks?: string }) => {
     const toastId = toast.loading("Creating folder...");
     try {
-      await documentService.createFolder({
-        ...folderData,
-        parent_id: currentFolderId
-      });
+      if (mainTab === "Drawings") {
+        await drawingService.createFolder(folderData.project_id, {
+          drawing_name: folderData.title,
+          parent_id: currentFolderId || 0
+        });
+      } else {
+        await documentService.createFolder({
+          ...folderData,
+          parent_id: currentFolderId
+        });
+      }
       toast.success("Folder created successfully", { id: toastId });
       fetchDocs();
       setIsFolderModalOpen(false);

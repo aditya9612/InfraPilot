@@ -147,14 +147,18 @@ const TaskManagementPage = () => {
     useEffect(() => {
         if (isGenerateBoqModalOpen && projectId) {
             setIsFetchingBoqs(true);
-            boqService.getBoqsByProject(projectId).then((boqs: any[]) => {
+            Promise.all([
+                boqService.getBoqsByProject(projectId).catch(() => []),
+                projectService.getMilestones(projectId).catch(() => [])
+            ]).then(([boqs, milestones]) => {
                 setAvailableBoqs(boqs);
                 if (boqs.length > 0) {
-                    setGenerateBoqId(boqs[0].id || boqs[0].boq_id || "");
+                    setGenerateBoqId(Number(boqs[0].id));
                 }
+                const milestonesList = Array.isArray(milestones) ? milestones : ((milestones as any).items || []);
+                setProjectMilestones(milestonesList);
             }).catch(err => {
-                console.error("Failed to fetch BOQs", err);
-                setAvailableBoqs([]);
+                console.error("Failed to fetch BOQs/milestones", err);
             }).finally(() => {
                 setIsFetchingBoqs(false);
             });
@@ -2689,14 +2693,19 @@ const TaskManagementPage = () => {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-slate-800 mb-2">Milestone ID <span className="text-slate-400 font-normal">(Optional)</span></label>
-                        <input
-                            type="number"
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Milestone <span className="text-slate-400 font-normal">(Optional)</span></label>
+                        <select
                             value={generateMilestoneId}
                             onChange={(e) => setGenerateMilestoneId(e.target.value ? Number(e.target.value) : "")}
-                            placeholder="Enter Milestone ID"
-                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all placeholder:text-slate-300"
-                        />
+                            className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500 rounded-xl text-sm outline-none transition-all"
+                        >
+                            <option value="">-- No Milestone --</option>
+                            {projectMilestones.map((m: any) => (
+                                <option key={m.id} value={m.id}>
+                                    {m.title || m.name || m.milestone_name || `Milestone #${m.id}`}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
             </Modal>

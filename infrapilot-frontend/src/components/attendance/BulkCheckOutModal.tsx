@@ -40,27 +40,63 @@ const BulkCheckOutModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initia
 
     useEffect(() => {
         if (isOpen && projectId) {
-            // Fetch attendances for today
+            // Fetch today's attendance + project members — merge so all assigned users appear
             const today = new Date().toISOString().split('T')[0];
-            labourService.getAttendanceList(projectId, today, today).then((res: any) => {
-                const fetchedAttendances = res.items || (res as any).data || [];
-                
+
+            const fetchAttendance = labourService.getAttendanceList(projectId, today, today).then((res: any) => {
+                if (Array.isArray(res)) return res;
+                if (res && Array.isArray(res.items)) return res.items;
+                if (res && Array.isArray(res.data)) return res.data;
+                return [];
+            }).catch(() => []);
+
+            const fetchMembers = projectService.getProjectMembers(projectId).then((res: any) => {
+                const list = Array.isArray(res) ? res : (res?.items || res?.data || res?.members || []);
+                return list.map((m: any) => ({
+                    id: undefined, // no attendance_id yet
+                    labour_id: m.id || m.user_id,
+                    user_id: m.id || m.user_id,
+                    labour_name: m.labour_name || m.name || m.full_name || m.username || `User #${m.id || m.user_id}`,
+                    skill_type: m.skill_type || m.role || m.designation || "Member",
+                    status: "not_checked_in",
+                    in_time: "--:--",
+                    out_time: null,
+                }));
+            }).catch(() => []);
+
+            Promise.all([fetchAttendance, fetchMembers]).then(([attendances, members]) => {
+                // Merge: attendance records take priority; fill gaps with members
+                const seen = new Set<number>();
+                const merged: any[] = [];
+                attendances.forEach((a: any) => {
+                    const uid = Number(a.user_id || a.labour_id);
+                    if (uid) seen.add(uid);
+                    merged.push(a);
+                });
+                members.forEach((m: any) => {
+                    const uid = Number(m.labour_id || m.user_id);
+                    if (uid && !seen.has(uid)) {
+                        seen.add(uid);
+                        merged.push(m);
+                    }
+                });
+
                 // Only show users that were initially selected (if any selection was made)
-                const usersToShow = initialSelectedUserIds.length > 0 
-                    ? fetchedAttendances.filter((att: any) => initialSelectedUserIds.map(Number).includes(Number(att.user_id || att.labour_id)))
-                    : fetchedAttendances;
-                
+                const usersToShow = initialSelectedUserIds.length > 0
+                    ? merged.filter((att: any) => initialSelectedUserIds.map(Number).includes(Number(att.user_id || att.labour_id)))
+                    : merged;
+
                 setUsers(usersToShow);
 
-                // Map initialSelectedUserIds to attendance_ids
-                const validSelection = fetchedAttendances
+                // Map initialSelectedUserIds to attendance_ids (only those with a real attendance id)
+                const validSelection = attendances
                     .filter((att: any) => {
                         const targetId = Number(att.user_id || att.labour_id);
                         return initialSelectedUserIds.map(Number).includes(targetId) && eligibleForCheckOutIds.map(Number).includes(targetId);
                     })
                     .map((att: any) => Number(att.id));
                 setAttendanceIds(validSelection);
-            }).catch(() => { });
+            });
         } else {
             setUsers([]);
         }
@@ -190,6 +226,38 @@ const BulkCheckOutModal: React.FC<Props> = ({ isOpen, onClose, onSuccess, initia
                         )}
                     </div>
                 </div>
+
+                {/* ── Selected Users Summary ── */}
+                {attendanceIds.length > 0 && (
+                    <div>
+                        <label className={labelCls}>
+                            Selected Users
+                            <span className="ml-2 px-2 py-0.5 bg-rose-100 text-rose-600 rounded-full text-[10px] font-black">
+                                {attendanceIds.length}
+                            </span>
+                        </label>
+                        <div className="flex flex-wrap gap-2 p-3 bg-rose-50 border border-rose-100 rounded-xl min-h-[44px]">
+                            {attendanceIds.map(attId => {
+                                const u = users.find(u => Number(u.id) === attId);
+                                const labourId = u?.user_id || u?.labour_id;
+                                const ctx = selectedLaboursContext.find(l => Number(l.labour_id) === Number(labourId) || Number(l.id) === Number(labourId));
+                                const name = ctx?.labour_name || ctx?.name || u?.labour_name || u?.name || `User #${labourId}`;
+                                return (
+                                    <span key={attId} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-rose-200 text-rose-700 rounded-lg text-xs font-bold shadow-sm">
+                                        {name}
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttendanceIds(prev => prev.filter(id => id !== attId))}
+                                            className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-rose-100 text-rose-400 hover:text-rose-600 transition-colors"
+                                        >
+                                            ×
+                                        </button>
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div>
                     <label className={labelCls}>Remarks</label>

@@ -7,11 +7,7 @@ import Modal from "../../components/common/Modal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { useProject } from "../../context/ProjectContext";
-import {
-    Plus, Search, Eye, Edit2, Trash2, Activity, User,
-    ShieldCheck, RotateCcw,
-    ChevronLeft, ChevronRight, ChevronDown
-} from "lucide-react";
+import { Plus, Search, Eye, Edit2, Trash2, ChevronLeft, ChevronRight, RotateCcw, ChevronDown, Mail, ShieldCheck, Activity, User } from "lucide-react";
 import ProjectSelector from "../../components/common/ProjectSelector";
 import { qcService } from "../../services/qcService";
 import type { QcItem } from "../../services/qcService";
@@ -67,6 +63,7 @@ const ManagerQualityPage = () => {
         status: string;
         engineer_name: string;
         remarks: string;
+        report_file?: string;
     }
 
     const [formData, setFormData] = useState<QcFormData>({
@@ -142,16 +139,16 @@ const ManagerQualityPage = () => {
                 mapped = Array.from(new Map(mapped.map((item: any) => [item.id, item])).values());
 
                 // For any entries with generic labels like "User #<id>", attempt to fetch full user info
-                const needFetch = mapped.filter(m => /^User #\d+$/.test(String(m.label)) || !m.label);
+                const needFetch = mapped.filter((m: any) => /^User #\d+$/.test(String(m.label)) || !m.label);
                 if (needFetch.length > 0) {
                     // lazy-load actual names
                     const { userService } = await import("../../services/userService");
-                    await Promise.all(needFetch.map(async nf => {
+                    await Promise.all(needFetch.map(async (nf: any) => {
                         try {
                             const u = await userService.getUserById(Number(nf.id));
                             if (u) {
                                 const realName = u.full_name || u.username || u.name || `User #${nf.id}`;
-                                const idx = mapped.findIndex(mm => Number(mm.id) === Number(nf.id));
+                                const idx = mapped.findIndex((mm: any) => Number(mm.id) === Number(nf.id));
                                 if (idx > -1) mapped[idx].label = realName;
                             }
                         } catch (e) {
@@ -755,33 +752,101 @@ const ManagerQualityPage = () => {
             </Modal>
 
             {/* ── View Modal ── */}
-            <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="QC Inspection Details" maxWidth="max-w-lg">
+            <Modal
+                isOpen={isViewModalOpen}
+                onClose={() => setIsViewModalOpen(false)}
+                title="QC Intelligence Insight"
+                maxWidth="max-w-xl"
+            >
                 {selectedQc && (
-                    <div className="p-6 space-y-4">
-                                {[
-                                    ["Project", assignedProjects.find(p => p.id === selectedQc.project_id)?.project_name || `Project #${selectedQc.project_id}`],
-                                    ["Inspection Type", selectedQc.inspection_type],
-                                    ["Test Type", selectedQc.test_type],
-                                    ["Status", selectedQc.status],
-                                    ["Result", String(selectedQc.result)],
-                                    ["Standard Value", String(selectedQc.standard_value)],
-                                    ["Task", selectedTaskDetail ? (selectedTaskDetail.title || `Task #${selectedQc.task_id}`) : (selectedQc.task_id ? `Task #${selectedQc.task_id}` : "-")],
-                                    ["BOQ", selectedBoq ? (selectedBoq.item_name || selectedBoq.item_name || `BOQ #${selectedBoq.id}`) : (selectedTaskDetail?.boq_id ? `BOQ #${selectedTaskDetail.boq_id}` : "-")],
-                                    ["Engineer", selectedQc.engineer_name],
-                                    ["Remarks", selectedQc.remarks || "—"],
-                                ].map(([label, value]) => (
-                                    <div key={label} className="flex justify-between items-start">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
-                                        <span className="text-sm font-bold text-slate-800 text-right max-w-[60%]">{value}</span>
+                    <div className="p-6 font-inter">
+                        <div className="bg-primary rounded-xl p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
+                            <div className="relative z-10 flex items-center gap-8 font-inter">
+                                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
+                                    <span className="text-4xl font-bold font-inter">{selectedQc.test_type ? selectedQc.test_type.charAt(0) : "Q"}</span>
+                                    <div className={`absolute -bottom-1 -right-1 w-6 h-6 border-4 border-slate-800 rounded-full animate-pulse ${selectedQc.status === 'Pass' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                </div>
+                                <div className="font-inter">
+                                    <div className="flex items-center gap-3 mb-2 font-inter">
+                                        <h3 className="text-2xl font-bold tracking-tight font-inter truncate max-w-[200px]">{selectedQc.test_type}</h3>
+                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest ${selectedQc.status === 'Pass' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-rose-500/20 text-rose-100'}`}>
+                                            {selectedQc.status}
+                                        </span>
                                     </div>
-                                ))}
+                                    <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                                        <Mail className="w-3 h-3" />
+                                        <span className="text-[10px] font-bold font-inter uppercase tracking-widest">qc.ref-#{selectedQc.id}</span>
+                                    </div>
+                                    <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
+                                        <span className="text-[9px] font-bold uppercase tracking-widest font-inter">INSPECTION: {selectedQc.inspection_type}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-8 px-2 mb-10 font-inter">
+                            <div className="font-inter">
+                                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Project</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate">{assignedProjects.find(p => p.id === selectedQc.project_id)?.project_name || `Project #${selectedQc.project_id}`}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedTaskDetail?.title || `Task #${selectedQc.task_id}`}>{selectedTaskDetail ? (selectedTaskDetail.title || `Task #${selectedQc.task_id}`) : (selectedQc.task_id ? `Task #${selectedQc.task_id}` : "-")}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">BOQ</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedBoq?.item_name || `BOQ #${selectedBoq?.id}`}>{selectedBoq ? (selectedBoq.item_name || `BOQ #${selectedBoq.id}`) : (selectedTaskDetail?.boq_id ? `BOQ #${selectedTaskDetail.boq_id}` : "-")}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Inspection Type</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.inspection_type}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Test Type</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{selectedQc.test_type}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Result</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{String(selectedQc.result)}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Standard Value</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter">{String(selectedQc.standard_value)}</p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Status</p>
+                                        <p className={`text-sm font-bold font-inter ${selectedQc.status === 'Pass' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            {selectedQc.status}
+                                        </p>
+                                    </div>
+                                    <div className="font-inter">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Engineer Name</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.engineer_name}>{selectedQc.engineer_name || 'N/A'}</p>
+                                    </div>
+                                    <div className="font-inter col-span-2">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Remarks</p>
+                                        <p className="text-sm font-medium text-slate-600 font-inter whitespace-pre-wrap">{selectedQc.remarks || '—'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => setIsViewModalOpen(false)}
+                            className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
+                        >
+                            Dismiss Audit Insight
+                        </button>
                     </div>
                 )}
             </Modal>
 
             {/* ── Delete Confirm ── */}
             <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeleteConfirm}
-                title="Delete QC Entry" message="This action cannot be undone." confirmText="Delete" type="danger" />
+                title="Delete QC Entry" message="Are you sure you want to delete this QC entry? This action cannot be undone." confirmText="Delete" type="danger" />
         </>
     );
 };

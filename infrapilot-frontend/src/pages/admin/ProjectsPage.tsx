@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { exportToCSV } from "../../utils/csvExport";
+import { formatDateBySettings } from "../../utils/dateUtils";
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -227,9 +228,9 @@ const ProjectsPage = () => {
     const searchTerm = search.trim().toLowerCase();
     const searchFiltered = searchTerm
       ? list.filter((p) =>
-          (p.project_name || "").toLowerCase().includes(searchTerm) ||
-          (p.description || "").toLowerCase().includes(searchTerm)
-        )
+        (p.project_name || "").toLowerCase().includes(searchTerm) ||
+        (p.description || "").toLowerCase().includes(searchTerm)
+      )
       : list;
 
     return [...searchFiltered].sort((a, b) => {
@@ -324,6 +325,13 @@ const ProjectsPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleDownloadCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              <span>Export CSV</span>
+            </button>
             {user?.role !== "ProjectManager" && (
               <button
                 onClick={() => setShowConvertModal(true)}
@@ -516,7 +524,7 @@ const ProjectsPage = () => {
                               </span>
                             </div>
                             <span className="text-[9px] font-bold text-slate-500">
-                              {p.start_date}
+                              {formatDateBySettings(p.start_date)}
                             </span>
                           </div>
                         </div>
@@ -649,7 +657,7 @@ const ProjectsPage = () => {
                     .map((p) => (
                       <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-4 font-bold text-slate-700 group-hover:text-primary transition-colors">{p.project_name}</td>
-                        <td className="px-6 py-4 text-slate-500 text-xs">{p.start_date} to {p.end_date}</td>
+                        <td className="px-6 py-4 text-slate-500 text-xs">{formatDateBySettings(p.start_date)} to {formatDateBySettings(p.end_date)}</td>
                         <td className="px-6 py-4 min-w-[200px]">
                           <div className="flex items-center gap-3">
                             <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">

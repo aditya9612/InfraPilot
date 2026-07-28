@@ -16,7 +16,6 @@ import {
 import { useAuth } from "../../../context/AuthContext";
 import { useProject } from "../../../context/ProjectContext";
 import { workProgressService } from "../../../services/workProgressService";
-import { reportService } from "../../../services/reportService";
 import { userService } from "../../../services/userService";
 import type { ActivityItem, DailyEntry } from "../../../types/workProgress";
 
@@ -62,6 +61,7 @@ const DailyProgressEntryPage = () => {
   const [filterDate, setFilterDate] = useState("");
   const [selectedActivityId, setSelectedActivityId] = useState<string>("all");
   const [activeStatFilter, setActiveStatFilter] = useState("All Logs");
+  const [delayStatusFilter, setDelayStatusFilter] = useState("all");
 
   useEffect(() => {
     if (activeTab === 'all' || activeTab === 'today') setActiveStatFilter("All Logs");
@@ -135,8 +135,8 @@ const DailyProgressEntryPage = () => {
       if (!hasLoadedToday) {
         setLoading(true);
       }
-      const res = await workProgressService.getGlobalLogs(projectId);
-      const entries = res?.data || [];
+      const res = await workProgressService.listDailyEntries(undefined, undefined, projectId);
+      const entries = res || [];
       setTodayActivities(entries as DailyEntry[]);
       setAllEntries(entries as DailyEntry[]);
       setHasLoadedToday(true);
@@ -402,7 +402,10 @@ const DailyProgressEntryPage = () => {
         e.activity_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (e.boq_code && String(e.boq_code).toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesActivity = selectedActivityId === "all" || String(e.id) === String(selectedActivityId);
-      return matchesSearch && matchesActivity;
+      
+      const matchesStatus = delayStatusFilter === "all" || (e.status || "DELAY").toUpperCase() === delayStatusFilter.toUpperCase();
+      
+      return matchesSearch && matchesActivity && matchesStatus;
     });
     if (activeStatFilter === "All Delayed") return list;
     return list.filter(e => {
@@ -412,7 +415,7 @@ const DailyProgressEntryPage = () => {
       if (activeStatFilter === "Almost Done (> 75%)") return p > 75;
       return true;
     });
-  }, [delayActivities, activeStatFilter, searchTerm, selectedActivityId]);
+  }, [delayActivities, activeStatFilter, searchTerm, selectedActivityId, delayStatusFilter]);
 
   const stats = useMemo(() => {
     if (activeTab === 'delay') {
@@ -555,39 +558,43 @@ const DailyProgressEntryPage = () => {
           <div className="flex flex-wrap items-center gap-2">
             <ProjectSelector variant="page" />
             {/* PDF Export */}
-            <button
-              onClick={async () => {
-                if (!projectId) { toast.error("Select a project first"); return; }
-                const toastId = toast.loading("Generating PDF...");
-                try {
-                  await reportService.exportWeeklyPDF(projectId);
-                  toast.success("PDF downloaded!", { id: toastId });
-                } catch {
-                  toast.error("PDF export failed", { id: toastId });
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all active:scale-95"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-              PDF
-            </button>
+            {activeTab === 'delay' && (
+              <button
+                onClick={async () => {
+                  if (!projectId) { toast.error("Select a project first"); return; }
+                  const toastId = toast.loading("Generating PDF...");
+                  try {
+                    await workProgressService.getPdfReport(projectId);
+                    toast.success("PDF downloaded!", { id: toastId });
+                  } catch {
+                    toast.error("PDF export failed", { id: toastId });
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all active:scale-95"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                PDF
+              </button>
+            )}
             {/* Excel Export */}
-            <button
-              onClick={async () => {
-                if (!projectId) { toast.error("Select a project first"); return; }
-                const toastId = toast.loading("Generating Excel...");
-                try {
-                  await reportService.exportWeeklyExcel(projectId);
-                  toast.success("Excel downloaded!", { id: toastId });
-                } catch {
-                  toast.error("Excel export failed", { id: toastId });
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all active:scale-95"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              Excel
-            </button>
+            {activeTab === 'delay' && (
+              <button
+                onClick={async () => {
+                  if (!projectId) { toast.error("Select a project first"); return; }
+                  const toastId = toast.loading("Generating Excel...");
+                  try {
+                    await workProgressService.getExcelReport(projectId);
+                    toast.success("Excel downloaded!", { id: toastId });
+                  } catch {
+                    toast.error("Excel export failed", { id: toastId });
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all active:scale-95"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Excel
+              </button>
+            )}
             {activeTab === 'all' && (
               <button
                 onClick={() => setIsLogModalOpen(true)}
@@ -640,6 +647,7 @@ const DailyProgressEntryPage = () => {
           {/* ─── Registry Container ────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
             {/* Integrated Filter Bar */}
+            {activeTab !== 'summary' && (
             <div className="p-4 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center gap-4 bg-white font-inter">
               <div className="relative flex-1 max-w-md font-inter">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
@@ -655,6 +663,19 @@ const DailyProgressEntryPage = () => {
               </div>
 
               <div className="flex items-center gap-3 font-inter">
+                {activeTab === 'delay' && (
+                  <select
+                    value={delayStatusFilter}
+                    onChange={(e) => setDelayStatusFilter(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="DELAY">Delay</option>
+                    <option value="ON TRACK">On Track</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="NOT STARTED">Not Started</option>
+                  </select>
+                )}
                 {(activeTab === 'all' || activeTab === 'history') && (
                   <div className="flex items-center gap-3 font-inter">
                     {activeTab === 'all' && (
@@ -682,6 +703,7 @@ const DailyProgressEntryPage = () => {
                 )}
               </div>
             </div>
+            )}
 
             <div className="flex-1 overflow-auto p-10 font-inter scrollbar-thin scrollbar-thumb-slate-200">
               {activeTab === 'summary' && (
@@ -741,13 +763,12 @@ const DailyProgressEntryPage = () => {
                             <tr key={e.id} className="hover:bg-slate-50/50 transition-colors group font-inter">
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-slate-700 whitespace-nowrap">
                                 {currentActivity?.activity_name || "-"}
-                                {currentActivity?.boq_code && <span className="block text-[11px] font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
                               </td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600">{displayDate}</td>
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-blue-600">
                                 {e.today_progress} {currentActivity?.unit || ""}
                               </td>
-                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600 max-w-[250px] truncate" title={e.remarks}>{e.remarks || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600 max-w-[250px] truncate" title={e.remarks || (e as any).remark || (e as any).notes}>{e.remarks || (e as any).remark || (e as any).notes || "-"}</td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-700 whitespace-nowrap">{creatorName}</td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-500">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
                               {activeTab === 'all' && (
@@ -891,7 +912,6 @@ const DailyProgressEntryPage = () => {
                               </td>
                               <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700 whitespace-nowrap">
                                 {currentActivity?.activity_name || "-"}
-                                {currentActivity?.boq_code && <span className="block text-xs font-medium text-slate-400 mt-1">{currentActivity.boq_code}</span>}
                               </td>
                               <td className="px-6 py-6 font-inter">
                                 <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[e.new_value?.status || ""] || "bg-rose-50 text-rose-600"} font-inter`}>
@@ -1149,7 +1169,7 @@ const DailyProgressEntryPage = () => {
         onSubmit={handleLogModalSubmit}
         activity={null}
         activitiesList={activitiesList}
-        engineerId={engineer_id}
+        engineerId={engineer_id || 0}
       />
 
       <EditDailyEntryModal

@@ -276,9 +276,41 @@ export const equipmentService = {
         return response.data;
     },
 
-    async listMaintenance(equipment_id: number): Promise<MaintenanceItem[]> {
-        const response = await api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: { equipment_id } });
+    async listMaintenance(equipment_id?: number, params?: { project_id?: number }): Promise<MaintenanceItem[]> {
+        const queryParams: any = { ...params };
+        if (equipment_id) queryParams.equipment_id = equipment_id;
+        const response = await api.get<MaintenanceItem[]>(`/equipment/maintenance`, { params: queryParams });
         return response.data;
+    },
+
+    async getAllMaintenance(params?: { project_id?: number }): Promise<MaintenanceItem[]> {
+        try {
+            try {
+                const directRes = await api.get<MaintenanceItem[]>('/equipment/maintenance', { params });
+                if (Array.isArray(directRes.data) && directRes.data.length > 0) {
+                    return directRes.data.sort((a, b) => new Date(b.created_at || b.maintenance_date).getTime() - new Date(a.created_at || a.maintenance_date).getTime());
+                }
+            } catch (e) {
+                // ignore and fallback
+            }
+
+            const eqRes = await api.get<any>('/equipment', { params: { project_id: params?.project_id, limit: 100 } });
+            const data = eqRes.data;
+            const eqList = Array.isArray(data) ? data : (data.items || data.data || []);
+
+            const maintPromises = eqList.map((eq: any) => this.listMaintenance(eq.id));
+            const results = await Promise.allSettled(maintPromises);
+
+            const allMaint = results
+                .filter((r): r is PromiseFulfilledResult<MaintenanceItem[]> => r.status === 'fulfilled')
+                .map(r => r.value)
+                .flat();
+
+            return allMaint.sort((a, b) => new Date(b.created_at || b.maintenance_date).getTime() - new Date(a.created_at || a.maintenance_date).getTime());
+        } catch (error) {
+            console.error("Failed to fetch all maintenance:", error);
+            return [];
+        }
     },
 
     // ==========================================
@@ -298,15 +330,24 @@ export const equipmentService = {
         return response.data;
     },
 
-    async listRental(equipment_id: number): Promise<RentalItem[]> {
-        const response = await api.get<RentalItem[]>(`/equipment/rental`, { params: { equipment_id } });
+    async listRental(equipment_id?: number, params?: { project_id?: number }): Promise<RentalItem[]> {
+        const queryParams: any = { ...params };
+        if (equipment_id) queryParams.equipment_id = equipment_id;
+        const response = await api.get<RentalItem[]>(`/equipment/rental`, { params: queryParams });
         return response.data;
     },
 
     async getAllRentals(params?: { project_id?: number }): Promise<RentalItem[]> {
         try {
-            // Because the backend lacks a single '/equipment/rentals' endpoint (as shown in Swagger),
-            // we must fetch equipment first and then fetch their rentals individually.
+            try {
+                const directRes = await api.get<RentalItem[]>('/equipment/rental', { params });
+                if (Array.isArray(directRes.data)) {
+                    return directRes.data.sort((a, b) => new Date(b.created_at || b.start_date).getTime() - new Date(a.created_at || a.start_date).getTime());
+                }
+            } catch (e) {
+                // ignore and fallback
+            }
+
             const eqRes = await api.get<any>('/equipment', { params: { project_id: params?.project_id, limit: 100 } });
             const data = eqRes.data;
             const eqList = Array.isArray(data) ? data : (data.items || data.data || []);

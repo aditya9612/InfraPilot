@@ -1045,9 +1045,11 @@ const DrawingsDocumentsPage = () => {
                                                             ? "bg-emerald-50 text-emerald-600 border-emerald-200"
                                                             : drawing.approval_status === "Pending"
                                                                 ? "bg-amber-50 text-amber-600 border-amber-200"
-                                                                : "bg-slate-50 text-slate-500 border-slate-200"
+                                                                : drawing.approval_status === "UNDER_REVIEW"
+                                                                    ? "bg-blue-50 text-blue-600 border-blue-200"
+                                                                    : "bg-slate-50 text-slate-500 border-slate-200"
                                                             }`}>
-                                                            {drawing.approval_status || "Pending"}
+                                                            {drawing.approval_status ? drawing.approval_status.replace("_", " ") : "Pending"}
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 font-inter">

@@ -203,6 +203,15 @@ const ApprovalsPage = () => {
         );
     }, [approvals, searchTerm, entityFilter, sortOrder, activeTab, usersMap]);
 
+    const uniqueEntityTypes = useMemo(() => {
+        const types = new Set(approvals.map(a => a.entity_type).filter(Boolean));
+        return Array.from(types).sort();
+    }, [approvals]);
+
+    const pendingFilteredApprovals = useMemo(() => {
+        return filteredApprovals.filter(a => a.status === "Pending");
+    }, [filteredApprovals]);
+
     const handleApprove = async (id: number, remarks: string = "Approved by Project Manager") => {
         try {
             await approvalService.approve(id, remarks);
@@ -224,10 +233,11 @@ const ApprovalsPage = () => {
     };
 
     const handleSelectAll = () => {
-        if (selectedIds.length === filteredApprovals.length) {
+        if (pendingFilteredApprovals.length === 0) return;
+        if (selectedIds.length === pendingFilteredApprovals.length) {
             setSelectedIds([]);
         } else {
-            setSelectedIds(filteredApprovals.map(a => a.id));
+            setSelectedIds(pendingFilteredApprovals.map(a => a.id));
         }
     };
 
@@ -329,7 +339,7 @@ const ApprovalsPage = () => {
 
                 {/* Approval Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <StatCard title="Active Requests" value={approvals.filter(a => a.status === "Pending").length.toString()} sub="Requiring attention" accent="text-amber-500" />
+                    <StatCard title="Total Approvals" value={approvals.length.toString()} sub="All requests" accent="text-blue-500" />
                     <StatCard title="Approved" value={approvals.filter(a => a.status === "Approved").length.toString()} sub="Total historical" accent="text-emerald-500" />
                     <StatCard title="Rejected" value={approvals.filter(a => a.status === "Rejected").length.toString()} sub="Total denied" accent="text-rose-500" />
                     <StatCard title="Oversight Score" value="98.4%" sub="Site efficiency" accent="text-primary" />
@@ -357,11 +367,10 @@ const ApprovalsPage = () => {
                                     <button
                                         key={tab}
                                         onClick={() => { setActiveTab(tab); setSelectedIds([]); }}
-                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${
-                                            activeTab === tab
+                                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap ${activeTab === tab
                                                 ? "bg-white text-primary shadow-sm"
                                                 : "text-slate-500 hover:text-slate-700"
-                                        }`}
+                                            }`}
                                     >
                                         {tab}
                                     </button>
@@ -370,19 +379,15 @@ const ApprovalsPage = () => {
                             <select
                                 value={entityFilter}
                                 onChange={e => setEntityFilter(e.target.value)}
-                                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${
-                                    entityFilter !== "all"
+                                className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${entityFilter !== "all"
                                         ? "bg-primary/10 border-primary/30 text-primary"
                                         : "bg-slate-50 border-slate-200 text-slate-600"
-                                }`}
+                                    }`}
                             >
                                 <option value="all">All Types</option>
-                                <option value="drawing">Drawing</option>
-                                <option value="document">Document</option>
-                                <option value="equipment">Equipment</option>
-                                <option value="boq">BOQ</option>
-                                <option value="bill">Bill</option>
-                                <option value="measurement">Measurement</option>
+                                {uniqueEntityTypes.map(type => (
+                                    <option key={type} value={type.toLowerCase()}>{type}</option>
+                                ))}
                             </select>
                             <select
                                 value={sortOrder}
@@ -405,9 +410,10 @@ const ApprovalsPage = () => {
                                     <th className="px-6 py-4 w-12">
                                         <input
                                             type="checkbox"
-                                            className="rounded border-slate-300 text-primary focus:ring-primary"
-                                            checked={filteredApprovals.length > 0 && selectedIds.length === filteredApprovals.length}
+                                            className="rounded border-slate-300 text-primary focus:ring-primary disabled:opacity-50"
+                                            checked={pendingFilteredApprovals.length > 0 && selectedIds.length === pendingFilteredApprovals.length}
                                             onChange={handleSelectAll}
+                                            disabled={pendingFilteredApprovals.length === 0}
                                         />
                                     </th>
                                     <th className="px-6 py-4">Entity Type & ID</th>
@@ -429,17 +435,18 @@ const ApprovalsPage = () => {
                                     filteredApprovals.map((item) => (
                                         <tr key={item.id} className={`hover:bg-slate-50/50 transition-colors group ${selectedIds.includes(item.id) ? "bg-primary/[0.02]" : ""}`}>
                                             <td className="px-6 py-4">
-                                                <input
-                                                    type="checkbox"
-                                                    className="rounded border-slate-300 text-primary focus:ring-primary"
-                                                    checked={selectedIds.includes(item.id)}
-                                                    onChange={() => toggleSelect(item.id)}
-                                                />
+                                                {item.status === "Pending" && (
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded border-slate-300 text-primary focus:ring-primary"
+                                                        checked={selectedIds.includes(item.id)}
+                                                        onChange={() => toggleSelect(item.id)}
+                                                    />
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-xs font-bold text-slate-700 uppercase tracking-tighter">{item.entity_type}</span>
-                                                    <span className="text-[10px] text-slate-400 font-medium tracking-widest">ID: {item.entity_id}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-xs font-semibold text-slate-600">
