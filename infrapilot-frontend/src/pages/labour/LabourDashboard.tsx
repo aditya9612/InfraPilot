@@ -21,7 +21,7 @@ import {
     Clock,
     Info,
     Calendar,
-    DollarSign,
+    IndianRupee,
     Zap,
     MapPin,
     Wallet,
@@ -179,10 +179,14 @@ const LabourDashboard: React.FC = () => {
                     setMonthEarnings(typeof rawMonth === 'number' ? rawMonth : parseFloat(rawMonth) || 0);
 
                     // Attendance from dashboard response
-                    setPresentDays(d.present_days ?? d.attendance_summary?.present_days ?? 0);
-                    setAbsentDays(d.absent_days ?? d.attendance_summary?.absent_days ?? 0);
-                    setHalfDays(d.half_days ?? d.attendance_summary?.half_days ?? 0);
-                    setTotalDays(d.total_days ?? d.attendance_summary?.total_days ?? 0);
+                    const pDays = d.present_days ?? d.attendance_summary?.present_days ?? 0;
+                    const aDays = d.absent_days ?? d.attendance_summary?.absent_days ?? 0;
+                    const hDays = d.half_days ?? d.attendance_summary?.half_days ?? 0;
+                    setPresentDays(pDays);
+                    setAbsentDays(aDays);
+                    setHalfDays(hDays);
+                    const calculatedTot = pDays + aDays + hDays;
+                    setTotalDays(calculatedTot > 0 ? calculatedTot : (d.total_days ?? d.attendance_summary?.total_days ?? 0));
                     setAttendanceStreak(d.attendance_streak ?? d.streak ?? 0);
 
                     // Payment summary from dashboard
@@ -227,12 +231,11 @@ const LabourDashboard: React.FC = () => {
                         const pres = monthRecords.filter((r: any) => r.working_hours > 4 || r.work_hours > 4 || (!r.is_half_day && (r.check_in_time || r.in_time))).length;
                         const half = monthRecords.filter((r: any) => r.is_half_day).length;
                         const abs = monthRecords.length - pres - half;
-                        // Use the current day-of-month as total work days
-                        const dayOfMonth = now.getDate();
+                        const calculatedWorkDays = pres + (abs > 0 ? abs : 0) + half;
                         setPresentDays(prev => prev || pres);
                         setHalfDays(prev => prev || half);
                         setAbsentDays(prev => prev || (abs > 0 ? abs : 0));
-                        setTotalDays(prev => prev || dayOfMonth);
+                        setTotalDays(prev => prev || calculatedWorkDays || pres);
 
                         // Streak: consecutive present days from today backwards
                         const sorted = [...monthRecords].sort((a: any, b: any) => new Date(b.attendance_date).getTime() - new Date(a.attendance_date).getTime());
@@ -250,13 +253,19 @@ const LabourDashboard: React.FC = () => {
                 const rawDashboardTasks = dashData?.tasks || dashData?.recent_tasks || dashData?.assigned_tasks || [];
                 const rawTasks = rawProjectTasks.length > 0 ? rawProjectTasks : rawDashboardTasks;
 
-                setTotalTasks(rawProjectTasks.length > 0 ? rawProjectTasks.length : (dashData?.total_tasks ?? dashData?.total ?? 0));
-                setCompletedTasks(rawProjectTasks.length > 0
-                    ? rawProjectTasks.filter((t: any) => (t.status || '').toLowerCase() === 'completed').length
-                    : (dashData?.completed_tasks ?? dashData?.completed ?? 0));
-                setPendingTasks(rawProjectTasks.length > 0
-                    ? rawProjectTasks.filter((t: any) => (t.status || '').toLowerCase() !== 'completed').length
-                    : (dashData?.pending_tasks ?? dashData?.pending ?? 0));
+                if (dashData && dashData.total_tasks !== undefined && dashData.total_tasks !== null) {
+                    setTotalTasks(dashData.total_tasks);
+                    setCompletedTasks(dashData.completed_tasks ?? 0);
+                    setPendingTasks(dashData.pending_tasks ?? 0);
+                } else {
+                    setTotalTasks(rawProjectTasks.length > 0 ? rawProjectTasks.length : (dashData?.total ?? 0));
+                    setCompletedTasks(rawProjectTasks.length > 0
+                        ? rawProjectTasks.filter((t: any) => (t.status || '').toLowerCase() === 'completed').length
+                        : (dashData?.completed ?? 0));
+                    setPendingTasks(rawProjectTasks.length > 0
+                        ? rawProjectTasks.filter((t: any) => (t.status || '').toLowerCase() !== 'completed').length
+                        : (dashData?.pending ?? 0));
+                }
 
                 const mappedTasks: Task[] = rawTasks.map((t: any) => ({
                     id: t.id || t.task_id || `T-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
@@ -334,7 +343,7 @@ const LabourDashboard: React.FC = () => {
         { label: 'Hours Today', value: `${hoursToday} hrs`, icon: Clock, color: 'text-indigo-500', bg: 'bg-indigo-50' },
         { label: 'Overtime Hours', value: `${overtimeHours} hrs`, icon: Timer, color: 'text-purple-500', bg: 'bg-purple-50' },
         { label: 'Weekly Earnings', value: `₹${fmtCurrency(weeklyEarnings)}`, icon: Wallet, color: 'text-teal-600', bg: 'bg-teal-50' },
-        { label: 'This Month Earnings', value: `₹${fmtCurrency(monthEarnings)}`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
+        { label: 'This Month Earnings', value: `₹${fmtCurrency(monthEarnings)}`, icon: IndianRupee, color: 'text-green-600', bg: 'bg-green-50' },
     ], [totalTasks, completedTasks, pendingTasks, hoursToday, overtimeHours, weeklyEarnings, monthEarnings]);
 
     const statusBadge = (status: string) => {
@@ -513,7 +522,7 @@ const LabourDashboard: React.FC = () => {
                                     <div className="bg-slate-50 rounded-xl p-4 text-center border border-slate-100">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Daily Wage</p>
                                         <div className="flex items-center justify-center gap-1.5">
-                                            <DollarSign className="w-4 h-4 text-blue-500" />
+                                            <IndianRupee className="w-4 h-4 text-blue-500" />
                                             <span className="text-xl font-black text-slate-800">₹{fmtCurrency(dailyWage)}</span>
                                         </div>
                                     </div>

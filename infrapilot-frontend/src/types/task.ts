@@ -2,6 +2,7 @@ export interface Task {
     id: string;
     name: string;
     project: string;
+    project_id?: number;
     contractorId?: string;
     assignedFrom?: string;
     assignedTo: string;
@@ -9,7 +10,7 @@ export interface Task {
     priority: 'Low' | 'Medium' | 'High';
     startDate: string;
     endDate: string;
-    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold' | 'Planned';
+    status: 'Pending' | 'In Progress' | 'Completed' | 'Hold' | 'Planned' | 'Cancelled';
     progress: number;
     audioUrl?: string;
     imageUrl?: string;

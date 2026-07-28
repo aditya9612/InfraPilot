@@ -146,22 +146,23 @@ const MyTasksPage: React.FC = () => {
                 params.assigned_user_id = user?.id ? Number(user.id) : 181;
             }
 
-            // Fetch list of projects (GET /api/v1/projects)
-            let projectId = 4; // Active Sara City project ID
-            let currentProjectName = 'Sara City';
+            // Resolve active project from localStorage (set by LabourSettingsPage)
+            const savedIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
+            let projectId = savedIdStr ? Number(savedIdStr) : 4;
+            let currentProjectName = localStorage.getItem("client_selected_project_name") || localStorage.getItem("infrapilot_selected_project_name") || 'Project';
             
             try {
                 const projectsData = await projectService.getProjects(100, 0);
                 const projectItems = Array.isArray(projectsData) ? projectsData : (projectsData?.items || projectsData?.data || []);
                 if (projectItems.length > 0) {
-                    const foundProj = projectItems.find((p: any) => Number(p.id || p.project_id) === 4) || projectItems[0];
+                    const foundProj = projectItems.find((p: any) => Number(p.id || p.project_id) === projectId) || projectItems[0];
                     if (foundProj) {
-                        projectId = Number(foundProj.id || foundProj.project_id) || 4;
-                        currentProjectName = foundProj.name || foundProj.project_name || 'Sara City';
+                        projectId = Number(foundProj.id || foundProj.project_id) || projectId;
+                        currentProjectName = foundProj.name || foundProj.project_name || currentProjectName;
                     }
                 }
             } catch (err) {
-                console.warn('Could not fetch project details, using default project ID 4.');
+                console.warn('Could not fetch project details, using saved project ID:', projectId);
             }
 
             const response = await projectService.getTasks(projectId, params);
@@ -187,13 +188,14 @@ const MyTasksPage: React.FC = () => {
                     id: t.id,
                     name: t.title || 'Untitled Task',
                     project: t.project_name || t.project?.name || t.project?.title || currentProjectName,
+                    project_id: t.project_id || projectId,
                     assignedFrom: (t.assigned_by_name || 'Site Engineer') as any,
                     assignedTo: assignee,
                     description: t.description === 'ffghj' ? 'NA' : (t.description || 'NA'),
                     priority: (t.priority === 'Low' || t.priority === 'Medium' || t.priority === 'High') ? t.priority : 'Medium',
                     startDate: t.start_date || '2026-06-25',
                     endDate: t.end_date || '2026-06-30',
-                    status: (localStatus === 'Completed' ? 'Completed' : (localStatus === 'In Progress' ? 'In Progress' : (t.status === 'Hold' ? 'Hold' : (t.status === 'In Progress' ? 'In Progress' : 'Pending')))) as any,
+                    status: (localStatus === 'Completed' ? 'Completed' : (localStatus === 'In Progress' ? 'In Progress' : (t.status === 'Hold' || t.status === 'Cancelled' ? 'Cancelled' : (t.status === 'In Progress' ? 'In Progress' : 'Pending')))) as any,
                     progress: (localStatus === 'Completed' ? 100 : (t.completion_percentage || 0)),
                     audioUrl,
                     imageUrl
@@ -211,6 +213,17 @@ const MyTasksPage: React.FC = () => {
 
     useEffect(() => {
         fetchTasks();
+
+        // Re-fetch tasks when the active project changes (via Settings or another tab)
+        const handleProjectChange = () => {
+            fetchTasks();
+        };
+        window.addEventListener('storage', handleProjectChange);
+        window.addEventListener('project_changed', handleProjectChange);
+        return () => {
+            window.removeEventListener('storage', handleProjectChange);
+            window.removeEventListener('project_changed', handleProjectChange);
+        };
     }, [activeTab, filterType, currentPage]);
 
 const filteredTasks = useMemo(() => {
@@ -228,13 +241,28 @@ const handleTaskClick = (task: Task) => {
     navigate(`/labour/work-updates?taskId=${task.id}&projectId=${task.project_id || 4}&taskName=${encodeURIComponent(task.name)}&taskCategory=${encodeURIComponent(task.priority)}`);
 };
 
-const handleUpdateStatus = async (taskId: string, newStatus: string) => {
+const handleUpdateStatus = async (taskId: string, newStatus: string, taskProjectId?: number) => {
     try {
+        // Map frontend display status to backend API status
+        const apiStatusMap: Record<string, string> = {
+            'Planned': 'Planned',
+            'Pending': 'Planned',
+            'In Progress': 'In Progress',
+            'Completed': 'Completed',
+            'Cancelled': 'Cancelled',
+        };
+        const apiStatus = apiStatusMap[newStatus] || newStatus;
+
+        // Resolve project ID for the API call
+        const pId = taskProjectId || Number(localStorage.getItem('client_selected_project_id') || localStorage.getItem('infrapilot_selected_project_id') || '4');
+
+        await projectService.updateTaskStatus(pId, Number(taskId), apiStatus);
         localStorage.setItem(`task_status_${taskId}`, newStatus);
-        toast.success(`Task marked as ${newStatus}`);
+        toast.success(`Task status updated to ${newStatus}`);
         fetchTasks();
-    } catch (e) {
-        toast.error('Failed to update status');
+    } catch (e: any) {
+        console.error('Failed to update task status:', e);
+        toast.error(e?.response?.data?.detail || 'Failed to update status');
     }
 };
 
@@ -268,21 +296,7 @@ return (
                 <p className="text-slate-500 text-sm font-medium mt-1">Efficiently organize, track, and manage <span className="text-blue-500 font-semibold">all</span> your tasks in one place.</p>
             </div>
 
-            {/* Tabs */}
-            <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm w-fit mb-10">
-                {['All Tasks', 'Project Tasks'].map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => {
-                            setActiveTab(tab);
-                            setCurrentPage(1);
-                        }}
-                        className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === tab ? 'bg-slate-100 text-slate-800 shadow-inner' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
-                    >
-                        {tab}
-                    </button>
-                ))}
-            </div>
+
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
@@ -291,7 +305,7 @@ return (
                     { label: 'PLANNED', count: tasks.filter(t => t.status === 'Pending').length, icon: Calendar, filterStatus: 'Pending' },
                     { label: 'IN PROGRESS', count: tasks.filter(t => t.status === 'In Progress').length, icon: Clock, filterStatus: 'In Progress' },
                     { label: 'COMPLETED', count: tasks.filter(t => t.status === 'Completed').length, icon: CheckCircle, filterStatus: 'Completed' },
-                    { label: 'CANCELLED', count: tasks.filter(t => t.status === 'Hold').length, icon: XCircle, filterStatus: 'Hold' },
+                    { label: 'CANCELLED', count: tasks.filter(t => t.status === 'Cancelled').length, icon: XCircle, filterStatus: 'Cancelled' },
                 ].map(stat => (
                     <div
                         key={stat.label}
@@ -356,7 +370,7 @@ return (
                                 <option>Pending</option>
                                 <option>In Progress</option>
                                 <option>Completed</option>
-                                <option>Hold</option>
+                                <option>Cancelled</option>
                             </select>
                         </div>
 
@@ -438,12 +452,36 @@ return (
                                             </td>
 
                                             {/* STATUS */}
-                                            <td className="px-6 py-5 whitespace-nowrap">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${task.status === 'Completed' ? 'bg-emerald-500' : task.status === 'In Progress' ? 'bg-blue-500' : task.status === 'Hold' ? 'bg-amber-500' : 'bg-slate-400'}`} />
-                                                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
-                                                        {task.status === 'Pending' ? 'Planned' : task.status}
-                                                    </span>
+                                            <td className="px-6 py-5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                                <div className="relative">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                                            task.status === 'Completed' ? 'bg-emerald-500' :
+                                                            task.status === 'In Progress' ? 'bg-blue-500' :
+                                                            task.status === 'Cancelled' ? 'bg-rose-500' :
+                                                            'bg-slate-400'
+                                                        }`} />
+                                                        <select
+                                                            value={task.status === 'Pending' ? 'Planned' : task.status}
+                                                            onChange={(e) => {
+                                                                const selected = e.target.value;
+                                                                const mappedStatus = selected === 'Planned' ? 'Pending' : selected;
+                                                                handleUpdateStatus(task.id, mappedStatus, task.project_id);
+                                                            }}
+                                                            className={`text-[10px] font-black uppercase tracking-wider bg-transparent border border-slate-200 rounded-lg px-2 py-1.5 pr-6 outline-none cursor-pointer hover:border-blue-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all appearance-none ${
+                                                                task.status === 'Completed' ? 'text-emerald-600' :
+                                                                task.status === 'In Progress' ? 'text-blue-600' :
+                                                                task.status === 'Cancelled' ? 'text-rose-600' :
+                                                                'text-slate-600'
+                                                            }`}
+                                                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+                                                        >
+                                                            <option value="Planned">Planned</option>
+                                                            <option value="In Progress">In Progress</option>
+                                                            <option value="Completed">Completed</option>
+                                                            <option value="Cancelled">Cancelled</option>
+                                                        </select>
+                                                    </div>
                                                 </div>
                                             </td>
 

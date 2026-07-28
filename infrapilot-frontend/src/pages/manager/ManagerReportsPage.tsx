@@ -337,7 +337,11 @@ const ManagerReportsPage = () => {
                 case "daily": data = await reportService.getDailyReport(pid, today); break;
                 case "cost-comparison": data = await boqService.getBoqComparison(pid); break;
                 case "financial-summary": data = await reportService.getFinancialSummary(pid); break;
-                case "project-report": data = await reportService.getProjectReport(pid); break;
+                case "project-report": {
+                    const d = new Date(today);
+                    data = await reportService.getProjectReport(pid, "monthly", d.getMonth() + 1, d.getFullYear());
+                    break;
+                }
                 case "labour": data = await reportService.getLabourReport(pid); break;
                 case "material": data = await reportService.getMaterialReport(pid); break;
                 case "profit-loss": data = await reportService.getProfitLoss(); break;
