@@ -7,6 +7,7 @@ import { useProject } from "../../context/ProjectContext";
 import { boqService } from "../../services/boqService";
 import { approvalService } from "../../services/approvalService";
 import { masterService } from "../../services/masterService";
+import { projectService } from "../../services/projectService";
 import toast from "react-hot-toast";
 import {
     List,
@@ -24,13 +25,14 @@ import {
     Trash2,
     Pencil,
     FileCheck,
+    ClipboardList,
+    X,
 } from "lucide-react";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
 import type { BoqItem, BoqSummary } from "../../types/boq";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { exportToCSV } from "../../utils/csvExport";
-import StatCard from "../../components/common/StatCard";
 import Pagination from "../../components/common/Pagination";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import BOQDetailsModal from "../../components/dashboard/BOQDetailsModal";
@@ -96,6 +98,23 @@ const ManagerBOQPage = () => {
     const [isOptimizationModalOpen, setIsOptimizationModalOpen] = useState(false);
     const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
 
+    // BOQ Groups for the Add Item selector
+    const [boqGroups, setBoqGroups] = useState<BoqItem[]>([]);
+    const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+
+    // Create Task modal state
+    const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
+    const [taskBoqItem, setTaskBoqItem] = useState<BoqItem | null>(null);
+    const [taskForm, setTaskForm] = useState({
+        title: "",
+        description: "",
+        start_date: "",
+        end_date: "",
+        priority: "Medium",
+        status: "Pending",
+    });
+    const [isCreatingTask, setIsCreatingTask] = useState(false);
+
     // Map URL param to tab ID
     const tabMap: Record<string, string> = useMemo(() => ({
         list: "boq-list",
@@ -148,6 +167,17 @@ const ManagerBOQPage = () => {
 
         loadInitialData();
     }, [assignedProjects]);
+
+    // Fetch BOQ groups whenever project changes
+    useEffect(() => {
+        if (!selectedProjectId) { setBoqGroups([]); return; }
+        boqService.getBoqsByProject(Number(selectedProjectId))
+            .then((items) => {
+                setBoqGroups(items);
+                if (items.length > 0) setSelectedGroupId(items[0].boq_group_id ?? items[0].id);
+            })
+            .catch(() => setBoqGroups([]));
+    }, [selectedProjectId]);
 
     const refreshBoqs = useCallback(async () => {
         setIsLoading(true);
@@ -234,13 +264,11 @@ const ManagerBOQPage = () => {
                 await boqService.updateBoqItem(editingItem.id, data);
                 toast.success("BOQ item updated successfully!");
             } else {
-                // Use the group endpoint for adding items
-                // Find the first BOQ item's group_id for this project, or use the project_id as the group
-                const firstItem = boqData[0];
-                const groupId = firstItem?.boq_group_id || data.project_id;
-                
+                // Use the user-selected group id
+                const groupId = selectedGroupId;
+
                 if (!groupId) {
-                    toast.error("Unable to determine BOQ group. Please ensure project is selected.");
+                    toast.error("No BOQ group found. Please create a BOQ group first or select a project.");
                     return;
                 }
 
@@ -479,6 +507,47 @@ const ManagerBOQPage = () => {
     const openHistoryModal = (item: BoqItem) => {
         setActiveItemForModal(item);
         setIsHistoryModalOpen(true);
+    };
+
+    const openCreateTaskModal = (item: BoqItem) => {
+        setTaskBoqItem(item);
+        setTaskForm({
+            title: item.item_name,
+            description: item.description || `Task for BOQ item: ${item.item_name}`,
+            start_date: new Date().toISOString().split("T")[0],
+            end_date: "",
+            priority: "Medium",
+            status: "Pending",
+        });
+        setIsCreateTaskModalOpen(true);
+    };
+
+    const handleCreateTask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!taskBoqItem || !selectedProjectId) {
+            toast.error("Project or BOQ item not selected");
+            return;
+        }
+        setIsCreatingTask(true);
+        try {
+            const formData = new FormData();
+            formData.append("title", taskForm.title);
+            formData.append("description", taskForm.description);
+            formData.append("start_date", taskForm.start_date);
+            formData.append("end_date", taskForm.end_date);
+            formData.append("priority", taskForm.priority);
+            formData.append("status", taskForm.status);
+            formData.append("boq_item_id", String(taskBoqItem.id));
+            await projectService.createTask(Number(selectedProjectId), formData);
+            toast.success(`Task "${taskForm.title}" created under BOQ item!`);
+            setIsCreateTaskModalOpen(false);
+            setTaskBoqItem(null);
+        } catch (error: any) {
+            const msg = error.response?.data?.detail?.[0]?.msg || error.response?.data?.message || "Failed to create task";
+            toast.error(msg);
+        } finally {
+            setIsCreatingTask(false);
+        }
     };
 
     const filteredBoqData = useMemo(() => {
@@ -786,6 +855,7 @@ const ManagerBOQPage = () => {
                                                                     <button onClick={() => openActualsModal(item)} className="p-1.5 text-slate-500 hover:text-emerald-600 transition-colors" title="Update Actuals"><TrendingUp className="w-4 h-4" /></button>
                                                                     <button onClick={() => item.approval_status !== 'Approved' && handleRequestApproval(item)} disabled={item.approval_status === 'Approved'} className={`p-1.5 transition-colors ${item.approval_status === 'Approved' ? 'text-emerald-500 cursor-not-allowed opacity-50' : 'text-slate-500 hover:text-blue-600'}`} title={item.approval_status === 'Approved' ? 'Already Approved' : 'Request Approval'}><FileCheck className="w-4 h-4" /></button>
                                                                     <button onClick={() => openHistoryModal(item)} className="p-1.5 text-slate-500 hover:text-violet-600 transition-colors" title="View History"><History className="w-4 h-4" /></button>
+                                                                    <button onClick={() => openCreateTaskModal(item)} className="p-1.5 text-slate-500 hover:text-teal-600 transition-colors" title="Create Task from BOQ"><ClipboardList className="w-4 h-4" /></button>
                                                                     <button onClick={() => handleEditClick(item)} className="p-1.5 text-slate-500 hover:text-amber-600 transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
                                                                     <button onClick={() => handleDeleteClick(item.id)} disabled={item.approval_status === "Approved"} className={`p-1.5 transition-colors ${item.approval_status === "Approved" ? "text-slate-300 cursor-not-allowed" : "text-slate-500 hover:text-rose-600"}`} title={item.approval_status === "Approved" ? "Cannot delete an approved item" : "Delete"}><Trash2 className="w-4 h-4" /></button>
                                                                 </div>
@@ -817,6 +887,24 @@ const ManagerBOQPage = () => {
                 onSubmit={handleCreateOrUpdateBOQ}
                 initialData={editingItem}
             />
+
+            {/* BOQ Group selector shown above CreateBOQModal when adding new item */}
+            {isModalOpen && !editingItem && boqGroups.length > 0 && (
+                <div className="fixed inset-0 z-[55] pointer-events-none flex items-start justify-center pt-[72px]">
+                    <div className="pointer-events-auto bg-white rounded-2xl shadow-xl border border-primary/20 px-5 py-3 flex items-center gap-3 text-sm">
+                        <span className="font-bold text-slate-600 whitespace-nowrap">Add to BOQ Group:</span>
+                        <select
+                            value={selectedGroupId || ""}
+                            onChange={e => setSelectedGroupId(Number(e.target.value))}
+                            className="px-3 py-1.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-slate-50"
+                        >
+                            {boqGroups.map(g => (
+                                <option key={g.boq_group_id ?? g.id} value={g.boq_group_id ?? g.id}>{g.item_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            )}
 
             {viewingItem && (
                 <BOQDetailsModal
@@ -872,74 +960,67 @@ const ManagerBOQPage = () => {
                 projectId={selectedProjectId || 0}
                 onSuccess={refreshBoqs}
             />
-        </div>
-    );
-};
 
-/* ═══════════════════════════════════════════════════════════════
-   2. BUDGET VIEW
-   ════════════════════════════════════════════════════════════ */
-const BudgetView = ({ summary, items }: { summary: any; items: BoqItem[]; isLoading: boolean }) => {
-    return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6">Expense Distribution</h3>
-                    <div className="space-y-4">
-                        {/* Logic to group by category could go here */}
-                        {["Material", "Labour", "Equipment", "General"].map((cat) => {
-                            const catItems = items.filter(i => i.category === cat);
-                            const est = catItems.reduce((acc, curr) => acc + Number(curr.total_cost || 0), 0);
-                            const percent = summary?.estimated ? (est / Number(summary.estimated)) * 100 : 0;
-
-                            return (
-                                <div key={cat} className="space-y-2">
-                                    <div className="flex justify-between items-center text-xs font-bold">
-                                        <span className="text-slate-600">{cat}</span>
-                                        <span className="text-slate-400">{formatCompactCurrency(est)}</span>
-                                    </div>
-                                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-primary rounded-full" style={{ width: `${percent}%` }} />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6">Budget Health Index</h3>
-                    <div className="flex flex-col items-center justify-center py-4">
-                        <div className="relative w-32 h-32 flex items-center justify-center">
-                            <svg className="w-full h-full transform -rotate-90">
-                                <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
-                                <circle
-                                    cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="12" fill="transparent"
-                                    strokeDasharray={364.4}
-                                    strokeDashoffset={364.4 * (1 - (summary?.actual ? Math.min(summary.estimated / summary.actual, 1) : 1))}
-                                    className={summary?.actual > summary?.estimated ? "text-rose-500" : "text-emerald-500"}
-                                />
-                            </svg>
-                            <div className="absolute flex flex-col items-center">
-                                <span className="text-xl font-black text-slate-900">
-                                    {summary?.actual ? ((Number(summary.estimated) / Number(summary.actual)) * 100).toFixed(0) : 100}%
-                                </span>
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Health</span>
+            {/* Create Task from BOQ Item Modal */}
+            {isCreateTaskModalOpen && taskBoqItem && (
+                <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-100">
+                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800">Create Task from BOQ</h3>
+                                <p className="text-xs text-slate-500 font-medium mt-0.5">BOQ Item: <span className="font-bold text-primary">{taskBoqItem.item_name}</span></p>
                             </div>
+                            <button onClick={() => setIsCreateTaskModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"><X className="w-5 h-5" /></button>
                         </div>
-                        <p className="text-xs text-slate-500 mt-6 text-center max-w-[200px] font-medium leading-relaxed">
-                            {summary?.actual > summary?.estimated
-                                ? "Your project is currently over budget. Consider optimizing upcoming activities."
-                                : "Budget health is optimal. Project is running within estimated costs."}
-                        </p>
+                        <form onSubmit={handleCreateTask} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Task Title *</label>
+                                <input required type="text" value={taskForm.title} onChange={e => setTaskForm({ ...taskForm, title: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
+                                <textarea rows={2} value={taskForm.description} onChange={e => setTaskForm({ ...taskForm, description: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Date *</label>
+                                    <input required type="date" value={taskForm.start_date} onChange={e => setTaskForm({ ...taskForm, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">End Date *</label>
+                                    <input required type="date" value={taskForm.end_date} onChange={e => setTaskForm({ ...taskForm, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Priority</label>
+                                    <select value={taskForm.priority} onChange={e => setTaskForm({ ...taskForm, priority: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none">
+                                        <option>Low</option><option>Medium</option><option>High</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
+                                    <select value={taskForm.status} onChange={e => setTaskForm({ ...taskForm, status: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none">
+                                        <option>Pending</option><option>In Progress</option><option>Planned</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button type="button" onClick={() => setIsCreateTaskModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                                <button type="submit" disabled={isCreatingTask} className="px-6 py-2.5 bg-teal-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-teal-500/20 hover:bg-teal-600 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-60">
+                                    {isCreatingTask ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Creating...</> : <><ClipboardList className="w-4 h-4" />Create Task</>}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
 
 /* ═══════════════════════════════════════════════════════════════
-   3. COST TRACKING VIEW
+   COST TRACKING VIEW
    ════════════════════════════════════════════════════════════ */
 const CostTrackingView = ({ projectId, selectedVersion }: { projectId: string | null; selectedVersion: number | "latest" }) => {
     const [comparisonData, setComparisonData] = useState<any[]>([]);

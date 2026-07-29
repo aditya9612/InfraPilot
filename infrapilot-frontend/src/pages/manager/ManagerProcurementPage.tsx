@@ -45,23 +45,41 @@ const ManagerProcurementPage = () => {
 
     // ── DATA FETCH ────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
-        if (!selectedProjectId) return;
+        if (!selectedProjectId) { setIsLoading(false); return; }
         setIsLoading(true);
         try {
             const skip = (currentPage - 1) * itemsPerPage;
-            const [requests, posResponse] = await Promise.all([
+            const [reqResult, posResult] = await Promise.allSettled([
                 siteRequestService.getRequests(selectedProjectId),
-                materialService.listPurchaseOrders(selectedProjectId, skip, itemsPerPage).catch(() => [] as any[])
+                materialService.listPurchaseOrders(selectedProjectId, skip, itemsPerPage)
             ]);
 
-            const reqList = Array.isArray(requests) ? requests : ((requests as any)?.items || []);
-            setMaterialRequests(reqList);
+            // Handle site requests result
+            if (reqResult.status === "fulfilled") {
+                const raw = reqResult.value;
+                const reqList = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
+                setMaterialRequests(reqList);
+            } else {
+                console.error("Site requests fetch failed:", reqResult.reason);
+                setMaterialRequests([]);
+            }
 
-            const pos = Array.isArray(posResponse) ? posResponse : ((posResponse as any)?.items || []);
-            const total = Array.isArray(posResponse) ? posResponse.length : ((posResponse as any)?.total ?? (posResponse as any)?.length ?? 0);
-
-            setPurchaseOrders(pos);
-            setTotalItems(total);
+            // Handle purchase orders result
+            if (posResult.status === "fulfilled") {
+                const raw = posResult.value;
+                const pos: PurchaseOrder[] = Array.isArray(raw)
+                    ? raw
+                    : ((raw as any)?.items || (raw as any)?.data || []);
+                const total = Array.isArray(raw)
+                    ? raw.length
+                    : ((raw as any)?.total ?? (raw as any)?.count ?? pos.length);
+                setPurchaseOrders(pos);
+                setTotalItems(total);
+            } else {
+                console.error("Purchase orders fetch failed:", posResult.reason);
+                setPurchaseOrders([]);
+                setTotalItems(0);
+            }
         } catch (err) {
             console.error("Failed to fetch procurement data", err);
             toast.error("Failed to sync supply chain data");
@@ -205,6 +223,14 @@ const ManagerProcurementPage = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <ProjectSelector variant="page" />
+                        <button
+                            onClick={fetchData}
+                            disabled={isLoading}
+                            className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-primary hover:border-primary/30 transition-all shadow-sm disabled:opacity-40"
+                            title="Refresh data"
+                        >
+                            <RotateCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
                         {activeTab === "material" && (
                             <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
                                 <FileText className="w-4 h-4" /> Create Request

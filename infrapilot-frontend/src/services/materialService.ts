@@ -336,8 +336,10 @@ export const materialService = {
   async listPurchaseOrders(project_id?: number, skip: number = 0, limit: number = 500): Promise<PurchaseOrder[]> {
     const params: any = { skip, limit };
     if (project_id) params.project_id = project_id;
-    const response = await api.get<PurchaseOrder[]>("/materials/purchase-orders", { params });
-    return response.data;
+    const response = await api.get<any>("/materials/purchase-orders", { params });
+    const data = response.data;
+    const items: PurchaseOrder[] = Array.isArray(data) ? data : (data?.items || data?.data || []);
+    return items;
   },
 
   async getPurchaseOrder(id: number): Promise<PurchaseOrder> {

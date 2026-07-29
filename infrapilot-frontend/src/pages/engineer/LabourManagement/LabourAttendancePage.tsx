@@ -435,7 +435,7 @@ const LabourAttendancePage: React.FC = () => {
         return true;
     });
 
-    const selectedLabours = filteredLabourAttendances.filter(lab => selectedLabourIds.includes(lab.id || lab.labour_id));
+    const selectedLabours = filteredLabourAttendances.filter(lab => selectedLabourIds.includes(lab.labour_id || lab.id));
     const allCheckedOut = selectedLabours.length > 0 && selectedLabours.every(lab => lab.in_time && lab.in_time !== "--:--" && lab.out_time && lab.out_time !== "--:--");
     const hasUncheckedIn = selectedLabours.length > 0 && selectedLabours.some(lab => !lab.in_time || lab.in_time === "--:--");
     const isCheckInEnabled = selectedLabourIds.length > 0 && (hasUncheckedIn || allCheckedOut);
@@ -617,7 +617,7 @@ const LabourAttendancePage: React.FC = () => {
                                             onChange={e => {
                                                 if (e.target.checked) {
                                                     const available = filteredLabourAttendances.filter((lab: any) => !(lab.in_time && lab.in_time !== "--:--" && lab.out_time && lab.out_time !== "--:--"));
-                                                    setSelectedLabourIds(available.map((lab: any) => lab.id || lab.labour_id));
+                                                    setSelectedLabourIds(available.map((lab: any) => lab.labour_id || lab.id));
                                                 } else {
                                                     setSelectedLabourIds([]);
                                                 }
@@ -652,9 +652,9 @@ const LabourAttendancePage: React.FC = () => {
                                                     <input
                                                         type="checkbox"
                                                         className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer"
-                                                        checked={selectedLabourIds.includes(lab.id || lab.labour_id)}
+                                                        checked={selectedLabourIds.includes(lab.labour_id || lab.id)}
                                                         onChange={() => {
-                                                            const id = lab.id || lab.labour_id;
+                                                            const id = lab.labour_id || lab.id;
                                                             setSelectedLabourIds(prev =>
                                                                 prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
                                                             );
@@ -821,7 +821,7 @@ const LabourAttendancePage: React.FC = () => {
                 }}
                 initialSelectedUserIds={checkInUserIds}
                 initialProjectId={getActiveProjectId()}
-                alreadyCheckedInIds={labourAttendances.filter(l => l.in_time && l.in_time !== "--:--").map(l => l.id || l.labour_id)}
+                alreadyCheckedInIds={labourAttendances.filter(l => l.in_time && l.in_time !== "--:--").map(l => l.labour_id || l.id)}
             />
 
             <BulkCheckOutModal
@@ -833,7 +833,7 @@ const LabourAttendancePage: React.FC = () => {
                 }}
                 initialSelectedUserIds={selectedLabourIds}
                 initialProjectId={getActiveProjectId()}
-                eligibleForCheckOutIds={labourAttendances.filter(l => l.in_time && l.in_time !== "--:--" && (!l.out_time || l.out_time === "--:--")).map(l => l.id || l.labour_id)}
+                eligibleForCheckOutIds={labourAttendances.filter(l => l.in_time && l.in_time !== "--:--" && (!l.out_time || l.out_time === "--:--")).map(l => l.labour_id || l.id)}
                 selectedLaboursContext={filteredLabourAttendances}
             />
 
