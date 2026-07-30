@@ -41,7 +41,7 @@ const DailyProgressEntryPage = () => {
   const engineer_id = user?.id ? Number(user.id) : undefined;
   const { selectedProjectId: projectId } = useProject();
 
-  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay' | 'logs'>('all');
   const [delayActivities, setDelayActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasLoadedToday, setHasLoadedToday] = useState(false);
@@ -50,6 +50,8 @@ const DailyProgressEntryPage = () => {
   const [todayActivities, setTodayActivities] = useState<DailyEntry[]>([]);
   const [allEntries, setAllEntries] = useState<DailyEntry[]>([]);
   const [activityHistory, setActivityHistory] = useState<any[]>([]);
+  const [globalLogs, setGlobalLogs] = useState<any[]>([]);
+  const [hasLoadedLogs, setHasLoadedLogs] = useState(false);
   const [activitiesList, setActivitiesList] = useState<ActivityItem[]>([]); // for dropdown
   const [usersMap, setUsersMap] = useState<Record<number, string>>({});
   const [projectSummary, setProjectSummary] = useState<any>(null);
@@ -79,6 +81,7 @@ const DailyProgressEntryPage = () => {
     setAllEntries([]);
     setActivityHistory([]);
     setDelayActivities([]);
+    setGlobalLogs([]);
     setProjectSummary(null);
   }, [projectId]);
 
@@ -135,8 +138,18 @@ const DailyProgressEntryPage = () => {
       if (!hasLoadedToday) {
         setLoading(true);
       }
-      const res = await workProgressService.listDailyEntries(undefined, undefined, projectId);
-      const entries = res || [];
+      let allEntriesList: any[] = [];
+      let offset = 0;
+      const limit = 100;
+      while (true) {
+        const res = await workProgressService.listDailyEntries(undefined, undefined, projectId, limit, offset);
+        if (!res || res.length === 0) break;
+        allEntriesList = allEntriesList.concat(res);
+        if (res.length < limit) break;
+        offset += limit;
+      }
+      
+      const entries = allEntriesList;
       setTodayActivities(entries as DailyEntry[]);
       setAllEntries(entries as DailyEntry[]);
       setHasLoadedToday(true);
@@ -178,8 +191,18 @@ const DailyProgressEntryPage = () => {
       if (!hasLoadedAll) {
         setLoading(true);
       }
-      const res = await workProgressService.listDailyEntries(undefined, undefined, projectId);
-      const entries = res || [];
+      let allEntriesList: any[] = [];
+      let offset = 0;
+      const limit = 100;
+      while (true) {
+        const res = await workProgressService.listDailyEntries(undefined, undefined, projectId, limit, offset);
+        if (!res || res.length === 0) break;
+        allEntriesList = allEntriesList.concat(res);
+        if (res.length < limit) break;
+        offset += limit;
+      }
+      
+      const entries = allEntriesList;
       setAllEntries(entries);
       setHasLoadedAll(true);
 
@@ -245,6 +268,21 @@ const DailyProgressEntryPage = () => {
     }
   }, [projectId]);
 
+  const loadGlobalLogs = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      if (!hasLoadedLogs) setLoading(true);
+      const res = await workProgressService.getGlobalLogs(projectId);
+      setGlobalLogs(res?.data || []);
+      setHasLoadedLogs(true);
+    } catch (err) {
+      console.error("Load Global Logs Error:", err);
+      toast.error("Failed to load logs");
+    } finally {
+      setLoading(false);
+    }
+  }, [hasLoadedLogs, projectId]);
+
   const loadProjectSummary = useCallback(async () => {
     if (!projectId) return;
     try {
@@ -270,6 +308,8 @@ const DailyProgressEntryPage = () => {
       loadDelayReport();
     } else if (activeTab === 'history') {
       loadActivityHistory();
+    } else if (activeTab === 'logs') {
+      loadGlobalLogs();
     } else if (activeTab === 'summary') {
       loadProjectSummary();
     }
@@ -421,6 +461,9 @@ const DailyProgressEntryPage = () => {
     if (activeTab === 'delay') {
       return { total: delayActivities.length, yieldRate: '0%', completed: 0, delayed: delayActivities.length, momentum: '0' };
     }
+    if (activeTab === 'logs') {
+      return { total: globalLogs.length, yieldRate: '0%', completed: 0, delayed: 0, momentum: '0' };
+    }
 
     if (activeTab === 'today') {
       const list = baseTodayActivities;
@@ -464,7 +507,7 @@ const DailyProgressEntryPage = () => {
         momentum: `${totalProgress}`
       };
     }
-  }, [activeTab, baseTodayActivities, baseHistoryEntries, delayActivities, activitiesList]);
+  }, [activeTab, baseTodayActivities, baseHistoryEntries, delayActivities, activitiesList, globalLogs]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -483,6 +526,7 @@ const DailyProgressEntryPage = () => {
       case 'all': return filteredAllEntries.length;
       case 'history': return filteredHistoryEntries.length;
       case 'delay': return filteredDelayActivities.length;
+      case 'logs': return globalLogs.length;
       default: return 0;
     }
   };
@@ -557,44 +601,6 @@ const DailyProgressEntryPage = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ProjectSelector variant="page" />
-            {/* PDF Export */}
-            {activeTab === 'delay' && (
-              <button
-                onClick={async () => {
-                  if (!projectId) { toast.error("Select a project first"); return; }
-                  const toastId = toast.loading("Generating PDF...");
-                  try {
-                    await workProgressService.getPdfReport(projectId);
-                    toast.success("PDF downloaded!", { id: toastId });
-                  } catch {
-                    toast.error("PDF export failed", { id: toastId });
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all active:scale-95"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                PDF
-              </button>
-            )}
-            {/* Excel Export */}
-            {activeTab === 'delay' && (
-              <button
-                onClick={async () => {
-                  if (!projectId) { toast.error("Select a project first"); return; }
-                  const toastId = toast.loading("Generating Excel...");
-                  try {
-                    await workProgressService.getExcelReport(projectId);
-                    toast.success("Excel downloaded!", { id: toastId });
-                  } catch {
-                    toast.error("Excel export failed", { id: toastId });
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all active:scale-95"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                Excel
-              </button>
-            )}
             {activeTab === 'all' && (
               <button
                 onClick={() => setIsLogModalOpen(true)}
@@ -640,6 +646,12 @@ const DailyProgressEntryPage = () => {
             className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'delay' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
           >
             DELAY REPORT
+          </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`pb-4 text-[11px] font-bold uppercase tracking-widest transition-all relative ${activeTab === 'logs' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            WORK PROGRESS LOGS
           </button>
         </div>
 
@@ -887,6 +899,73 @@ const DailyProgressEntryPage = () => {
                     </div>
                   )}
                 </>
+              )}
+              {activeTab === 'logs' && (
+                <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200 font-inter">
+                  <table className="w-full text-left font-inter min-w-[1200px]">
+                    <thead>
+                      <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-50 font-inter">
+                        <th className="px-6 py-4 font-inter whitespace-nowrap">Date & Time</th>
+                        <th className="px-6 py-4 font-inter whitespace-nowrap">Activity</th>
+                        <th className="px-6 py-4 font-inter whitespace-nowrap">Action</th>
+                        <th className="px-6 py-4 font-inter whitespace-nowrap">Status</th>
+                        <th className="px-6 py-4 font-inter whitespace-nowrap">Progress Added</th>
+                        <th className="px-6 py-4 font-inter whitespace-nowrap">Total Completed</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50 font-inter bg-white">
+                      {loading ? (
+                        <tr>
+                          <td colSpan={6} className="py-20 text-center font-inter">
+                            <div className="inline-block w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
+                            <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Loading Data...</p>
+                          </td>
+                        </tr>
+                      ) : globalLogs.length > 0 ? (
+                        globalLogs.map((log: any, idx) => {
+                          const currentActivity = activitiesList.find(a => a.id === log.activity_id);
+                          return (
+                            <tr key={log.id || idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
+                              <td className="px-6 py-6 font-inter text-sm font-medium text-slate-600">
+                                {log.created_at ? new Date(log.created_at).toLocaleString() : log.entry_date || "-"}
+                              </td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-bold text-slate-700 whitespace-nowrap">
+                                {currentActivity?.activity_name || `Activity #${log.activity_id || 'N/A'}`}
+                              </td>
+                              <td className="px-6 py-6 font-inter text-xs font-bold text-slate-500 uppercase tracking-tight">
+                                {log.action || "-"}
+                              </td>
+                              <td className="px-6 py-6 font-inter">
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${statusBadge[log.new_value?.status || ""] || "bg-slate-100 text-slate-500"} font-inter`}>
+                                  {log.new_value?.status || "-"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-6 font-inter">
+                                <div className="flex items-center gap-2 font-inter">
+                                  <TrendingUp className="w-3.5 h-3.5 text-primary font-inter" />
+                                  <span className="text-sm font-bold text-primary font-inter">
+                                    {log.new_value?.today_progress || 0} {currentActivity?.unit || ""}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-6 font-inter text-sm font-bold text-slate-700">
+                                {log.new_value?.total_completed || 0} {currentActivity?.unit || ""}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-20 text-center font-inter bg-slate-50 border-dashed border border-slate-200 rounded-2xl">
+                            <AlertCircle className="w-12 h-12 text-slate-200 mx-auto mb-4 font-inter" />
+                            <h3 className="text-xl font-bold text-slate-400 tracking-tight font-inter uppercase">No Logs Found</h3>
+                            <p className="text-sm font-medium text-slate-400 font-inter max-w-sm mx-auto">There are no global work progress logs available.</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
               {activeTab === 'history' && (
                 <>

@@ -130,7 +130,7 @@ export interface AuditLogResponse {
 export interface CreateEquipmentRequest {
     project_id?: number | null;
     equipment_name: string;
-    equipment_code: string;
+    equipment_code?: string;
     operator_name: string;
     condition: string;
     rental_cost: number;

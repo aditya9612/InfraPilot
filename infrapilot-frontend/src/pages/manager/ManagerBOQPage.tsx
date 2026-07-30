@@ -5,9 +5,9 @@ import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import { useProject } from "../../context/ProjectContext";
 import { boqService } from "../../services/boqService";
-import { approvalService } from "../../services/approvalService";
-import { masterService } from "../../services/masterService";
 import { projectService } from "../../services/projectService";
+import { masterService } from "../../services/masterService";
+
 import toast from "react-hot-toast";
 import {
     List,
@@ -24,9 +24,11 @@ import {
     Eye,
     Trash2,
     Pencil,
-    FileCheck,
+
+    Bell,
+    Plus,
     ClipboardList,
-    X,
+    Sparkles,
 } from "lucide-react";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
 import type { BoqItem, BoqSummary } from "../../types/boq";
@@ -43,6 +45,8 @@ import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
 import ProjectSelector from "../../components/common/ProjectSelector";
 import { BOQ_CATEGORIES } from "../../config/constants";
+import AddBoqItemModal from "../../components/forms/AddBoqItemModal";
+import EditBoqItemModal from "../../components/forms/EditBoqItemModal";
 
 
 /* ─── page ───────────────────────────────────────────────────── */
@@ -54,12 +58,16 @@ const ManagerBOQPage = () => {
     const [boqData, setBoqData] = useState<BoqItem[]>([]);
     const [projectMap, setProjectMap] = useState<Record<number, string>>({});
     const [activityTypeMap, setActivityTypeMap] = useState<Record<number, string>>({});
+    const [boqGroups, setBoqGroups] = useState<any[]>([]);
+
     const [summary, setSummary] = useState<BoqSummary | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [itemRefreshCounter, setItemRefreshCounter] = useState(0);
 
     // Filter States
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [approvalStatusFilter, setApprovalStatusFilter] = useState("all");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
@@ -75,6 +83,8 @@ const ManagerBOQPage = () => {
     const [editingItem, setEditingItem] = useState<BoqItem | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+    const [isAddBoqItemModalOpen, setIsAddBoqItemModalOpen] = useState(false);
+    const [selectedBoqGroupId, setSelectedBoqGroupId] = useState<number | null>(null);
 
     // Advanced Feature States
     const [versionsList, setVersionsList] = useState<number[]>([]);
@@ -96,28 +106,22 @@ const ManagerBOQPage = () => {
     }, [isExportMenuOpen]);
     const [isExporting, setIsExporting] = useState(false);
     const [isOptimizationModalOpen, setIsOptimizationModalOpen] = useState(false);
+    const [optimizationBoqId, setOptimizationBoqId] = useState<number | null>(null);
     const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
+    const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
+    const [generatedTasksList, setGeneratedTasksList] = useState<any[]>([]);
+    
+    // Select Milestone for Generate Tasks
+    const [isSelectMilestoneModalOpen, setIsSelectMilestoneModalOpen] = useState(false);
+    const [milestonesList, setMilestonesList] = useState<any[]>([]);
+    const [pendingGenerateTaskBoqId, setPendingGenerateTaskBoqId] = useState<number | null>(null);
+    const [pendingGenerateTaskBoqName, setPendingGenerateTaskBoqName] = useState<string>("");
 
-    // BOQ Groups for the Add Item selector
-    const [boqGroups, setBoqGroups] = useState<BoqItem[]>([]);
-    const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-
-    // Create Task modal state
-    const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
-    const [taskBoqItem, setTaskBoqItem] = useState<BoqItem | null>(null);
-    const [taskForm, setTaskForm] = useState({
-        title: "",
-        description: "",
-        start_date: "",
-        end_date: "",
-        priority: "Medium",
-        status: "Pending",
-    });
-    const [isCreatingTask, setIsCreatingTask] = useState(false);
 
     // Map URL param to tab ID
     const tabMap: Record<string, string> = useMemo(() => ({
         list: "boq-list",
+        items: "item-list",
         cost: "cost-tracking"
     }), []);
 
@@ -144,17 +148,13 @@ const ManagerBOQPage = () => {
                 });
                 setProjectMap(map);
 
-                // Fetch activity types for mapping
-                try {
-                    const activityRes = await masterService.getEntities('activity-types');
-                    const aMap: Record<number, string> = {};
-                    activityRes.forEach((a: any) => {
-                        aMap[a.id] = a.name;
-                    });
-                    setActivityTypeMap(aMap);
-                } catch (err) {
-                    console.error("Failed to fetch activity types", err);
-                }
+                // Fetch activity types
+                const activityTypes = await masterService.getEntities("activity-types");
+                const activityMap: Record<number, string> = {};
+                activityTypes.forEach((a: any) => {
+                    activityMap[a.id] = a.name;
+                });
+                setActivityTypeMap(activityMap);
 
                 // Initial fetch
                 await refreshBoqs();
@@ -172,12 +172,24 @@ const ManagerBOQPage = () => {
     useEffect(() => {
         if (!selectedProjectId) { setBoqGroups([]); return; }
         boqService.getBoqsByProject(Number(selectedProjectId))
-            .then((items) => {
-                setBoqGroups(items);
-                if (items.length > 0) setSelectedGroupId(items[0].boq_group_id ?? items[0].id);
+            .then(async (items: any[]) => {
+                // Filter out draft items as per user requirement to not show added items in BOQ list
+                const masters = items.filter((i: any) => i.approval_status !== 'Draft');
+                
+                // Fetch details for each master to get the correct internal boq_group_id to avoid 404s
+                const enrichedMasters = await Promise.all(masters.map(async (m: any) => {
+                    try {
+                        const detail = await boqService.getBoqById(m.id);
+                        return { ...m, true_group_id: detail.boq_group_id || m.boq_group_id || m.id };
+                    } catch {
+                        return { ...m, true_group_id: m.boq_group_id || m.id };
+                    }
+                }));
+                
+                setBoqGroups(enrichedMasters);
             })
-            .catch(() => setBoqGroups([]));
-    }, [selectedProjectId]);
+            .catch(() => { setBoqGroups([]); });
+    }, [selectedProjectId, itemRefreshCounter]);
 
     const refreshBoqs = useCallback(async () => {
         setIsLoading(true);
@@ -185,6 +197,7 @@ const ManagerBOQPage = () => {
             const filters: any = {
                 search: searchTerm || null,
                 status: statusFilter === "all" ? null : statusFilter,
+                approval_status: approvalStatusFilter === "all" ? null : approvalStatusFilter,
                 category: categoryFilter === "all" ? null : categoryFilter,
                 project_id: selectedProjectId || null,
                 version_no: selectedVersion === "latest" ? null : Number(selectedVersion),
@@ -194,14 +207,10 @@ const ManagerBOQPage = () => {
 
             const res = await boqService.getBoqs(filters);
 
-            // Filter out deleted and inactive items from the local state
-            const activeItems = res.items.filter((item: any) =>
-                item.status?.toLowerCase() !== 'deleted' &&
-                item.status?.toLowerCase() !== 'inactive'
-            );
-
-            setBoqData(activeItems);
-            setTotalItems(res.total || activeItems.length);
+            // Filter out draft items from BOQ list
+            const masterItems = res.items.filter((item: any) => item.approval_status !== 'Draft');
+            setBoqData(masterItems);
+            setTotalItems(masterItems.length);
 
             // Also refresh summary if project is selected
             if (selectedProjectId) {
@@ -218,6 +227,7 @@ const ManagerBOQPage = () => {
     }, [
         searchTerm,
         statusFilter,
+        approvalStatusFilter,
         categoryFilter,
         selectedProjectId,
         selectedVersion,
@@ -233,7 +243,7 @@ const ManagerBOQPage = () => {
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, statusFilter, categoryFilter, selectedProjectId, selectedVersion]);
+    }, [searchTerm, statusFilter, approvalStatusFilter, categoryFilter, selectedProjectId, selectedVersion]);
 
     // Fetch versions when boqData changes
     useEffect(() => {
@@ -264,50 +274,21 @@ const ManagerBOQPage = () => {
                 await boqService.updateBoqItem(editingItem.id, data);
                 toast.success("BOQ item updated successfully!");
             } else {
-                // Use the user-selected group id
-                const groupId = selectedGroupId;
-
-                if (!groupId) {
-                    toast.error("No BOQ group found. Please create a BOQ group first or select a project.");
+                if (!selectedProjectId) {
+                    toast.error("Please select a project first.");
                     return;
                 }
-
-                const newItem = await boqService.addBoqItem(groupId, data);
-                toast.success("BOQ item added to group successfully!");
-
-                // Automatically request approval for new items
-                try {
-                    await approvalService.createApproval({
-                        entity_type: "boq",
-                        entity_id: newItem.id,
-                        remarks: `Initial approval request for ${newItem.item_name}`,
-                    });
-                    toast.success("Approval request initiated!");
-                } catch (approveErr) {
-                    console.error("Auto-approval error:", approveErr);
-                    toast.error("Failed to auto-initiate approval. Use manual action.");
-                }
+                await boqService.createBoq({
+                    ...data,
+                    project_id: selectedProjectId
+                });
+                toast.success("BOQ item created successfully!");
             }
             await refreshBoqs();
             setIsModalOpen(false);
             setEditingItem(null);
         } catch (error) {
-            toast.error(editingItem ? "Failed to update BOQ" : "Failed to add BOQ item");
-        }
-    };
-
-    const handleRequestApproval = async (item: BoqItem) => {
-        try {
-            await approvalService.createApproval({
-                entity_type: "boq",
-                entity_id: item.id,
-                remarks: `Requesting approval for BOQ item: ${item.item_name}`,
-            });
-            toast.success("Approval request sent successfully!");
-            refreshBoqs();
-        } catch (error) {
-            toast.error("Failed to send approval request");
-            console.error("Approval Request Error:", error);
+            toast.error(editingItem ? "Failed to update BOQ" : "Failed to create BOQ item");
         }
     };
 
@@ -504,51 +485,101 @@ const ManagerBOQPage = () => {
         setIsActualsModalOpen(true);
     };
 
+    const handleAddBoqItemSubmit = async (data: any) => {
+        if (!selectedBoqGroupId) {
+            toast.error("No BOQ Group selected.");
+            return;
+        }
+        try {
+            await boqService.addBoqItem(selectedBoqGroupId, data);
+            toast.success("BOQ Item added successfully!");
+            await refreshBoqs();
+            setItemRefreshCounter(prev => prev + 1);
+            setIsAddBoqItemModalOpen(false);
+            setSelectedBoqGroupId(null);
+            handleTabChange("item-list");
+        } catch (error) {
+            toast.error("Failed to add BOQ item");
+        }
+    };
+
+    const handleDownloadReport = async (item: BoqItem) => {
+        try {
+            toast.loading("Generating report...", { id: "report" });
+            const data = await boqService.getBoqReport(item.id, "pdf");
+            const blob = new Blob([data], { type: "application/pdf" });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `BOQ_Report_${item.item_name}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            toast.success("Report downloaded!", { id: "report" });
+        } catch (error) {
+            toast.error("Failed to download report", { id: "report" });
+        }
+    };
+
+    const handleViewAlerts = async (item: BoqItem) => {
+        try {
+            const alerts = await boqService.getBoqAlerts(item.id);
+            if (alerts.length === 0) {
+                toast.success(`No alerts for ${item.item_name}!`);
+            } else {
+                toast.error(`Found ${alerts.length} alerts for ${item.item_name}.`);
+            }
+        } catch (error) {
+            toast.error("Failed to fetch alerts");
+        }
+    };
+
     const openHistoryModal = (item: BoqItem) => {
         setActiveItemForModal(item);
         setIsHistoryModalOpen(true);
     };
 
-    const openCreateTaskModal = (item: BoqItem) => {
-        setTaskBoqItem(item);
-        setTaskForm({
-            title: item.item_name,
-            description: item.description || `Task for BOQ item: ${item.item_name}`,
-            start_date: new Date().toISOString().split("T")[0],
-            end_date: "",
-            priority: "Medium",
-            status: "Pending",
-        });
-        setIsCreateTaskModalOpen(true);
+    const openSelectMilestoneModal = async (item: BoqItem) => {
+        setPendingGenerateTaskBoqId(item.id);
+        setPendingGenerateTaskBoqName(item.item_name);
+        
+        if (selectedProjectId) {
+            try {
+                const ms = await projectService.getMilestones(Number(selectedProjectId));
+                setMilestonesList(ms);
+            } catch (error) {
+                console.error("Failed to fetch milestones", error);
+            }
+        }
+        setIsSelectMilestoneModalOpen(true);
     };
 
-    const handleCreateTask = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!taskBoqItem || !selectedProjectId) {
-            toast.error("Project or BOQ item not selected");
-            return;
-        }
-        setIsCreatingTask(true);
+    const handleGenerateTasks = async (milestoneId: number) => {
+        if (!pendingGenerateTaskBoqId) return;
+        const loadingToast = toast.loading("Generating tasks for " + pendingGenerateTaskBoqName + "...");
         try {
-            const formData = new FormData();
-            formData.append("title", taskForm.title);
-            formData.append("description", taskForm.description);
-            formData.append("start_date", taskForm.start_date);
-            formData.append("end_date", taskForm.end_date);
-            formData.append("priority", taskForm.priority);
-            formData.append("status", taskForm.status);
-            formData.append("boq_item_id", String(taskBoqItem.id));
-            await projectService.createTask(Number(selectedProjectId), formData);
-            toast.success(`Task "${taskForm.title}" created under BOQ item!`);
-            setIsCreateTaskModalOpen(false);
-            setTaskBoqItem(null);
-        } catch (error: any) {
-            const msg = error.response?.data?.detail?.[0]?.msg || error.response?.data?.message || "Failed to create task";
-            toast.error(msg);
-        } finally {
-            setIsCreatingTask(false);
+            const result = await boqService.generateTasksFromBoq(pendingGenerateTaskBoqId, milestoneId);
+            toast.dismiss(loadingToast);
+            toast.success("Tasks generated successfully!");
+            setIsSelectMilestoneModalOpen(false);
+            
+            // Expected result to have a list of tasks. Handle array or object wrapping an array.
+            const tasks = Array.isArray(result) ? result : (result.tasks || result.data || []);
+            setGeneratedTasksList(tasks);
+            setIsTasksModalOpen(true);
+        } catch (error) {
+            toast.dismiss(loadingToast);
+            toast.error("Failed to generate tasks");
         }
     };
+
+    const openOptimizationModal = (item: BoqItem) => {
+        setOptimizationBoqId(item.id);
+        setIsOptimizationModalOpen(true);
+    };
+
+
 
     const filteredBoqData = useMemo(() => {
         return [...boqData].sort((a, b) => {
@@ -561,9 +592,20 @@ const ManagerBOQPage = () => {
         });
     }, [boqData, sortOrder]);
 
+    const handleViewDetails = async (item: BoqItem) => {
+        try {
+            const details = await boqService.getBoqById(item.id);
+            setViewingItem(details);
+            setIsViewModalOpen(true);
+        } catch (error) {
+            toast.error("Failed to fetch BOQ details.");
+            console.error(error);
+        }
+    };
 
     const tabs = [
         { id: "boq-list", label: `BOQ List (${totalItems})`, icon: <List className="w-4 h-4" /> },
+        { id: "item-list", label: "BOQ Item List", icon: <Layers className="w-4 h-4" /> },
         { id: "cost-tracking", label: "Cost Tracking", icon: <TrendingUp className="w-4 h-4" /> },
     ];
 
@@ -605,7 +647,7 @@ const ManagerBOQPage = () => {
                             }}
                             className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            + Add BOQ Item
+                            Create BOQ
                         </button>
                     </div>
                 </div>
@@ -709,6 +751,18 @@ const ManagerBOQPage = () => {
                                             <option value="completed">Completed</option>
                                             <option value="under review">Under Review</option>
                                             <option value="pending">Pending</option>
+                                        </select>
+
+                                        <select
+                                            value={approvalStatusFilter}
+                                            onChange={(e) => setApprovalStatusFilter(e.target.value)}
+                                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                                        >
+                                            <option value="all">All Approvals</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="under_review">Under Review</option>
+                                            <option value="approved">Approved</option>
+                                            <option value="rejected">Rejected</option>
                                         </select>
 
                                         <select
@@ -851,11 +905,14 @@ const ManagerBOQPage = () => {
                                                             </td>
                                                             <td className="px-6 py-5 text-right">
                                                                 <div className="flex items-center justify-end gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
-                                                                    <button onClick={() => { setViewingItem(item); setIsViewModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-slate-900 transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
+                                                                    <button onClick={() => { setSelectedBoqGroupId(item.true_group_id || item.boq_group_id || item.id); setIsAddBoqItemModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-primary transition-colors" title="Add Item to Group"><Plus className="w-4 h-4" /></button>
+                                                                    <button onClick={() => handleViewDetails(item)} className="p-1.5 text-slate-500 hover:text-slate-900 transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
                                                                     <button onClick={() => openActualsModal(item)} className="p-1.5 text-slate-500 hover:text-emerald-600 transition-colors" title="Update Actuals"><TrendingUp className="w-4 h-4" /></button>
-                                                                    <button onClick={() => item.approval_status !== 'Approved' && handleRequestApproval(item)} disabled={item.approval_status === 'Approved'} className={`p-1.5 transition-colors ${item.approval_status === 'Approved' ? 'text-emerald-500 cursor-not-allowed opacity-50' : 'text-slate-500 hover:text-blue-600'}`} title={item.approval_status === 'Approved' ? 'Already Approved' : 'Request Approval'}><FileCheck className="w-4 h-4" /></button>
+                                                                    <button onClick={() => handleDownloadReport(item)} className="p-1.5 text-slate-500 hover:text-indigo-500 transition-colors" title="Download Report"><FileText className="w-4 h-4" /></button>
+                                                                    <button onClick={() => handleViewAlerts(item)} className="p-1.5 text-slate-500 hover:text-amber-500 transition-colors" title="View Alerts"><Bell className="w-4 h-4" /></button>
+                                                                    <button onClick={() => openOptimizationModal(item)} className="p-1.5 text-slate-500 hover:text-amber-500 transition-colors" title="Optimize BOQ"><Sparkles className="w-4 h-4" /></button>
                                                                     <button onClick={() => openHistoryModal(item)} className="p-1.5 text-slate-500 hover:text-violet-600 transition-colors" title="View History"><History className="w-4 h-4" /></button>
-                                                                    <button onClick={() => openCreateTaskModal(item)} className="p-1.5 text-slate-500 hover:text-teal-600 transition-colors" title="Create Task from BOQ"><ClipboardList className="w-4 h-4" /></button>
+                                                                    <button onClick={() => openSelectMilestoneModal(item)} className="p-1.5 text-slate-500 hover:text-fuchsia-600 transition-colors" title="Generate Tasks"><ClipboardList className="w-4 h-4" /></button>
                                                                     <button onClick={() => handleEditClick(item)} className="p-1.5 text-slate-500 hover:text-amber-600 transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
                                                                     <button onClick={() => handleDeleteClick(item.id)} disabled={item.approval_status === "Approved"} className={`p-1.5 transition-colors ${item.approval_status === "Approved" ? "text-slate-300 cursor-not-allowed" : "text-slate-500 hover:text-rose-600"}`} title={item.approval_status === "Approved" ? "Cannot delete an approved item" : "Delete"}><Trash2 className="w-4 h-4" /></button>
                                                                 </div>
@@ -875,6 +932,12 @@ const ManagerBOQPage = () => {
                                 />
                             </div>
                         )}
+                        {activeTab === "item-list" && (
+                            <ItemListView
+                                projectId={selectedProjectId !== null ? String(selectedProjectId) : null}
+                                boqGroups={boqGroups}
+                            />
+                        )}
                         {activeTab === "cost-tracking" && <CostTrackingView projectId={selectedProjectId !== null ? String(selectedProjectId) : null} selectedVersion={selectedVersion} />}
                     </motion.div>
                 </AnimatePresence>
@@ -888,23 +951,13 @@ const ManagerBOQPage = () => {
                 initialData={editingItem}
             />
 
-            {/* BOQ Group selector shown above CreateBOQModal when adding new item */}
-            {isModalOpen && !editingItem && boqGroups.length > 0 && (
-                <div className="fixed inset-0 z-[55] pointer-events-none flex items-start justify-center pt-[72px]">
-                    <div className="pointer-events-auto bg-white rounded-2xl shadow-xl border border-primary/20 px-5 py-3 flex items-center gap-3 text-sm">
-                        <span className="font-bold text-slate-600 whitespace-nowrap">Add to BOQ Group:</span>
-                        <select
-                            value={selectedGroupId || ""}
-                            onChange={e => setSelectedGroupId(Number(e.target.value))}
-                            className="px-3 py-1.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 bg-slate-50"
-                        >
-                            {boqGroups.map(g => (
-                                <option key={g.boq_group_id ?? g.id} value={g.boq_group_id ?? g.id}>{g.item_name}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            )}
+            <AddBoqItemModal
+                isOpen={isAddBoqItemModalOpen}
+                onClose={() => { setIsAddBoqItemModalOpen(false); setSelectedBoqGroupId(null); }}
+                onSubmit={handleAddBoqItemSubmit}
+                projects={assignedProjects}
+                groupId={selectedBoqGroupId}
+            />
 
             {viewingItem && (
                 <BOQDetailsModal
@@ -948,10 +1001,131 @@ const ManagerBOQPage = () => {
                 />
             )}
 
+            {/* Generated Tasks Modal */}
+            {isTasksModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl h-[70vh] flex flex-col overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-white sticky top-0 z-10">
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800 tracking-tight">Generated Tasks</h3>
+                                <p className="text-xs text-slate-500 font-medium">Tasks created from: <span className="text-primary font-bold">{activeItemForModal?.item_name}</span></p>
+                            </div>
+                            <button
+                                onClick={() => setIsTasksModalOpen(false)}
+                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+                            {generatedTasksList.length === 0 ? (
+                                <div className="text-center py-10 text-slate-500 font-medium">
+                                    No tasks were returned. The generation process might be incomplete or the BOQ has no detailed sub-items to generate tasks for.
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {generatedTasksList.map((task, idx) => (
+                                        <div key={idx} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-bold text-slate-800">{task.task_name || task.name || `Task #${idx + 1}`}</h4>
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600">
+                                                    {task.status || "Pending"}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-slate-500 mb-3">{task.description || "No description provided."}</p>
+                                            {task.milestone_id && (
+                                                <div className="text-xs text-slate-400 font-medium">Milestone ID: {task.milestone_id}</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-4 border-t border-slate-50 text-center bg-white">
+                            <button
+                                onClick={() => setIsTasksModalOpen(false)}
+                                className="px-6 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 transition-all uppercase tracking-widest"
+                            >
+                                Close View
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Select Milestone Modal */}
+            {isSelectMilestoneModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                        <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-white">
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800 tracking-tight">Generate Tasks</h3>
+                                <p className="text-xs text-slate-500 font-medium">Select parameters to generate tasks</p>
+                            </div>
+                            <button
+                                onClick={() => setIsSelectMilestoneModalOpen(false)}
+                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <div className="p-6 bg-slate-50/30 max-h-[60vh] overflow-y-auto space-y-6">
+                            
+                            {/* BOQ Selection (Read-only since it's selected from row) */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Target BOQ</label>
+                                <div className="w-full p-4 rounded-xl border border-primary/20 bg-primary/5 flex items-center justify-between">
+                                    <span className="font-bold text-primary">{pendingGenerateTaskBoqName}</span>
+                                </div>
+                            </div>
+
+                            {/* Milestone Selection (List) */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Select Milestone</label>
+                                {milestonesList.length === 0 ? (
+                                    <div className="text-center py-6 bg-white border border-slate-100 rounded-xl">
+                                        <p className="text-slate-500 font-medium text-sm">No milestones found for this project.</p>
+                                        <button onClick={() => handleGenerateTasks(0)} className="mt-4 px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-xl shadow-lg shadow-slate-200">
+                                            Generate Without Milestone
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {milestonesList.map((ms) => (
+                                            <button
+                                                key={ms.id}
+                                                onClick={() => handleGenerateTasks(ms.id)}
+                                                className="w-full text-left p-4 rounded-xl border border-slate-200 bg-white hover:border-primary hover:shadow-md hover:bg-primary/5 transition-all group flex items-center justify-between"
+                                            >
+                                                <div>
+                                                    <span className="font-bold text-slate-700 group-hover:text-primary transition-colors block">{ms.name}</span>
+                                                    <div className="text-xs text-slate-400 mt-1">{ms.date || "No date set"}</div>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${ms.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                        {ms.status || "Upcoming"}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                        
+                                        <div className="pt-4 mt-4 border-t border-slate-100">
+                                            <button onClick={() => handleGenerateTasks(0)} className="w-full p-4 rounded-xl border border-dashed border-slate-300 text-slate-500 font-bold text-sm hover:border-slate-400 hover:text-slate-700 transition-colors bg-white">
+                                                Skip & Generate Without Milestone
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <OptimizationModal
                 isOpen={isOptimizationModalOpen}
-                onClose={() => setIsOptimizationModalOpen(false)}
-                projectId={selectedProjectId || undefined}
+                onClose={() => { setIsOptimizationModalOpen(false); setOptimizationBoqId(null); }}
+                projectId={optimizationBoqId || undefined}
             />
 
             <BulkImportBOQModal
@@ -961,60 +1135,7 @@ const ManagerBOQPage = () => {
                 onSuccess={refreshBoqs}
             />
 
-            {/* Create Task from BOQ Item Modal */}
-            {isCreateTaskModalOpen && taskBoqItem && (
-                <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-100">
-                        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                            <div>
-                                <h3 className="text-lg font-bold text-slate-800">Create Task from BOQ</h3>
-                                <p className="text-xs text-slate-500 font-medium mt-0.5">BOQ Item: <span className="font-bold text-primary">{taskBoqItem.item_name}</span></p>
-                            </div>
-                            <button onClick={() => setIsCreateTaskModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"><X className="w-5 h-5" /></button>
-                        </div>
-                        <form onSubmit={handleCreateTask} className="p-6 space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Task Title *</label>
-                                <input required type="text" value={taskForm.title} onChange={e => setTaskForm({ ...taskForm, title: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
-                                <textarea rows={2} value={taskForm.description} onChange={e => setTaskForm({ ...taskForm, description: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Date *</label>
-                                    <input required type="date" value={taskForm.start_date} onChange={e => setTaskForm({ ...taskForm, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">End Date *</label>
-                                    <input required type="date" value={taskForm.end_date} onChange={e => setTaskForm({ ...taskForm, end_date: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Priority</label>
-                                    <select value={taskForm.priority} onChange={e => setTaskForm({ ...taskForm, priority: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none">
-                                        <option>Low</option><option>Medium</option><option>High</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
-                                    <select value={taskForm.status} onChange={e => setTaskForm({ ...taskForm, status: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none">
-                                        <option>Pending</option><option>In Progress</option><option>Planned</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-2">
-                                <button type="button" onClick={() => setIsCreateTaskModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-                                <button type="submit" disabled={isCreatingTask} className="px-6 py-2.5 bg-teal-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-teal-500/20 hover:bg-teal-600 transition-all flex items-center gap-2 active:scale-95 disabled:opacity-60">
-                                    {isCreatingTask ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Creating...</> : <><ClipboardList className="w-4 h-4" />Create Task</>}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+
         </div>
     );
 };
@@ -1140,3 +1261,198 @@ const CostTrackingView = ({ projectId, selectedVersion }: { projectId: string | 
 };
 
 export default ManagerBOQPage;
+
+/* ═══════════════════════════════════════════════════════════════
+   ITEM LIST VIEW
+   ════════════════════════════════════════════════════════════ */
+const ItemListView = ({
+    projectId,
+    boqGroups
+}: {
+    projectId: string | null;
+    boqGroups: any[];
+}) => {
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+    const itemsPerPage = 10;
+    
+    // Modals
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [itemToEdit, setItemToEdit] = useState<any | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    const refreshItems = () => setRefreshTrigger(prev => prev + 1);
+
+    useEffect(() => {
+        if (boqGroups && boqGroups.length > 0 && !selectedGroupId) {
+            setSelectedGroupId(boqGroups[0].true_group_id || boqGroups[0].boq_group_id || boqGroups[0].id);
+        }
+    }, [boqGroups, selectedGroupId]);
+
+    // Fetch items for the specifically selected group
+    useEffect(() => {
+        if (!selectedGroupId) {
+            setItems([]);
+            return;
+        }
+        
+        const fetchItems = async () => {
+            setLoading(true);
+            try {
+                const groupItems = await boqService.getGroupItems(selectedGroupId);
+                setItems(groupItems);
+            } catch (error) {
+                console.error("Failed to fetch group items", error);
+                setItems([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchItems();
+    }, [selectedGroupId, refreshTrigger]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [boqGroups, refreshTrigger]);
+
+    if (!projectId) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-100">
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Select a project to view item list.</p>
+            </div>
+        );
+    }
+
+    const paginatedItems = items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row gap-4 justify-between items-center bg-white">
+                    <div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">All Items</h3>
+                        <p className="text-xs text-slate-500 font-medium">List of all items across BOQ groups.</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filter by BOQ:</label>
+                        <select
+                            value={selectedGroupId || ""}
+                            onChange={(e) => {
+                                setSelectedGroupId(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer min-w-[200px]"
+                        >
+                            <option value="" disabled>Select BOQ Group</option>
+                            {boqGroups?.map(group => (
+                                <option key={group.id} value={group.true_group_id || group.boq_group_id || group.id}>{group.item_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                                <th className="px-6 py-4">Item Name</th>
+                                <th className="px-6 py-4">Description</th>
+                                <th className="px-6 py-4">Quantity</th>
+                                <th className="px-6 py-4 text-right">Unit Rate</th>
+                                <th className="px-6 py-4 text-center">Status</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {loading ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">Loading items...</td></tr>
+                            ) : paginatedItems.length === 0 ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">No items available.</td></tr>
+                            ) : (
+                                paginatedItems.map((item, idx) => (
+                                    <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-bold text-slate-800">{item.item_name}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-medium text-slate-500 line-clamp-1">{item.description}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-bold text-slate-700">{item.quantity} {item.unit}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className="text-xs font-bold text-slate-700">{formatCompactCurrency(item.unit_cost)}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase ${item.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                                                {item.status || "Active"}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
+                                                {/* View button removed as per request */}
+                                                <button onClick={() => { setItemToEdit(item); setIsEditModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-blue-600 transition-colors" title="Edit Item"><Pencil className="w-4 h-4" /></button>
+                                                <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-red-500 transition-colors" title="Delete Item"><Trash2 className="w-4 h-4" /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                {items.length > itemsPerPage && (
+                    <div className="p-4 border-t border-slate-50 flex justify-center bg-slate-50/30">
+                        <Pagination
+                            currentPage={currentPage}
+                            totalItems={items.length}
+                            pageSize={itemsPerPage}
+                            onPageChange={setCurrentPage}
+                        />
+                    </div>
+                )}
+            </div>
+
+            <EditBoqItemModal
+                isOpen={isEditModalOpen}
+                onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }}
+                onSubmit={async (data) => {
+                    if (itemToEdit) {
+                        await boqService.updateGroupItem(itemToEdit.id, data);
+                        toast.success("Item updated successfully");
+                        refreshItems();
+                        setIsEditModalOpen(false);
+                        setItemToEdit(null);
+                    }
+                }}
+                initialData={itemToEdit}
+            />
+
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }}
+                onConfirm={async () => {
+                    if (itemToDelete) {
+                        try {
+                            await boqService.deleteGroupItem(itemToDelete);
+                            toast.success("Item deleted successfully");
+                            refreshItems();
+                        } catch (e) {
+                            toast.error("Failed to delete item");
+                        } finally {
+                            setIsDeleteModalOpen(false);
+                            setItemToDelete(null);
+                        }
+                    }
+                }}
+                title="Delete Item"
+                message="Are you sure you want to delete this item? This action cannot be undone."
+                confirmText="Delete"
+            />
+        </div>
+    );
+};

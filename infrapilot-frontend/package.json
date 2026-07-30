@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.5.7",
+    "@tanstack/react-query": "^5.101.4",
+    "@tanstack/react-table": "^8.21.3",
     "axios": "^1.13.6",
     "dxf": "^5.3.1",
     "dxf-parser": "^1.1.2",
@@ -20,12 +23,14 @@
     "lucide-react": "^1.8.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.4",
+    "react-hook-form": "^7.83.0",
     "react-hot-toast": "^2.6.0",
     "react-is": "^19.2.4",
     "react-router-dom": "^7.13.2",
     "recharts": "^3.8.0",
     "uuid": "^14.0.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

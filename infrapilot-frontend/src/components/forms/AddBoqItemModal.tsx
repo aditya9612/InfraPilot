@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '../common/Modal';
 
-import type { Project } from '../../types/project';
 import type { BoqItem, BoqGroupItem } from '../../types/boq';
 
 import { masterService, type MasterEntity } from '../../services/masterService';
 
-interface CreateBOQModalProps {
+interface AddBoqItemModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (boqData: any) => Promise<void>;
-  projects: Project[];
+  onSubmit: (data: any) => Promise<void>;
+  projects: any[];
+  groupId: number | null;
   initialData?: BoqItem | BoqGroupItem | null;
   /**
    * "master" = creating a top-level BOQ (name + project + description + status)
@@ -20,12 +20,11 @@ interface CreateBOQModalProps {
   mode?: 'master' | 'item';
 }
 
-const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
+const AddBoqItemModal: React.FC<AddBoqItemModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
   projects,
-  initialData,
 }) => {
   const [formData, setFormData] = React.useState({
     project_id: '',
@@ -56,19 +55,6 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
   }, [isOpen]);
 
   React.useEffect(() => {
-    if (initialData) {
-      setFormData({
-        project_id: (initialData as BoqItem).project_id?.toString() || '',
-        item_name: initialData.item_name || '',
-        category: initialData.category || '',
-        description: initialData.description || '',
-        quantity: initialData.quantity?.toString() || '',
-        unit: initialData.unit || '',
-        unit_cost: initialData.unit_cost?.toString() || '',
-        status: initialData.status || 'Active',
-        activity_type_id: (initialData as any).activity_type_id?.toString() || '',
-      });
-    } else {
       setFormData({
         project_id: '',
         item_name: '',
@@ -80,8 +66,7 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
         status: 'Active',
         activity_type_id: '',
       });
-    }
-  }, [initialData, isOpen]);
+  }, [isOpen]);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -192,9 +177,9 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
   };
 
 
-  const modalTitle = initialData ? "Edit BOQ" : "Add BOQ";
+  const modalTitle = "Add BOQ Item";
 
-  const submitLabel = initialData ? 'Update BOQ' : 'Create BOQ';
+  const submitLabel = 'Add Item';
 
   const modalFooter = (
     <>
@@ -363,4 +348,4 @@ const CreateBOQModal: React.FC<CreateBOQModalProps> = ({
   );
 };
 
-export default CreateBOQModal;
+export default AddBoqItemModal;

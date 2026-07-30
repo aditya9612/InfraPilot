@@ -251,13 +251,32 @@ export const boqService = {
   },
 
   /**
+   * Export BOQ logs to CSV
+   * GET /api/v1/boq/{boq_id}/logs/export/csv
+   */
+  async exportBoqLogsCsv(boqId: number): Promise<Blob> {
+    try {
+      const response = await api.get(`/boq/${boqId}/logs/export/csv`, {
+        responseType: "blob",
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Export Logs CSV for Boq ${boqId} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
    * Add a single item to a BOQ group
-   * POST /api/v1/boq/groups/{group_id}/items
+   * POST /api/v1/boq/groups/{group_id}/items/bulk
    */
   async addBoqItem(groupId: number, itemData: CreateBoqRequest): Promise<BoqItem> {
     try {
-      const response = await api.post(`/boq/groups/${groupId}/items`, itemData);
-      return response.data;
+      const response = await api.post(`/boq/groups/${groupId}/items/bulk`, { items: [itemData] });
+      return response.data?.items?.[0] || response.data?.[0] || {};
     } catch (error: any) {
       console.error(
         "Add Item Error:",
@@ -275,10 +294,60 @@ export const boqService = {
     try {
       const response = await api.get(`/boq/groups/${groupId}/items`);
       const data = response.data;
-      return Array.isArray(data) ? data : data.items || data.data || [];
+      const items = Array.isArray(data) ? data : data.items || data.data || [];
+      return items;
     } catch (error: any) {
+      if (error.response && error.response.status === 404) {
+        // Try fallback: maybe groupId is actually the BOQ item ID, and we need its boq_group_id
+        try {
+          const itemRes = await api.get(`/boq/${groupId}`);
+          const boqGroupId = itemRes.data?.boq_group_id;
+          if (boqGroupId && boqGroupId !== groupId) {
+             const fallbackRes = await api.get(`/boq/groups/${boqGroupId}/items`);
+             const fallbackData = fallbackRes.data;
+             return Array.isArray(fallbackData) ? fallbackData : fallbackData.items || fallbackData.data || [];
+          }
+        } catch (e) {}
+        
+        // Final Fallback for empty groups or missing endpoint
+        return [];
+      }
       console.error(
         `Get Group Items for ${groupId} Error:`,
+        error.response?.data || error.message,
+      );
+      // Fail silently to prevent Promise.all from crashing the whole list
+      return [];
+    }
+  },
+
+  /**
+   * Update a single item within a BOQ group
+   * PUT /api/v1/boq/items/{item_id}
+   */
+  async updateGroupItem(itemId: number, itemData: any): Promise<any> {
+    try {
+      const response = await api.put(`/boq/items/${itemId}`, itemData);
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        `Update Item ${itemId} Error:`,
+        error.response?.data || error.message,
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a single item within a BOQ group
+   * DELETE /api/v1/boq/items/{item_id}
+   */
+  async deleteGroupItem(itemId: number): Promise<void> {
+    try {
+      await api.delete(`/boq/items/${itemId}`);
+    } catch (error: any) {
+      console.error(
+        `Delete Item ${itemId} Error:`,
         error.response?.data || error.message,
       );
       throw error;
@@ -473,8 +542,11 @@ export const boqService = {
    */
   async generateTasksFromBoq(boqId: number, milestoneId?: number): Promise<any> {
     try {
-      const payload = milestoneId ? { milestone_id: milestoneId } : {};
-      const response = await api.post(`/boq/${boqId}/generate-tasks`, payload);
+      const url = milestoneId 
+        ? `/boq/${boqId}/generate-tasks?milestone_id=${milestoneId}`
+        : `/boq/${boqId}/generate-tasks`;
+      // Send POST request with empty body, since parameters are in path and query
+      const response = await api.post(url);
       return response.data;
     } catch (error: any) {
       console.error(

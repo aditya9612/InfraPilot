@@ -136,13 +136,15 @@ export const workProgressService = {
   /**
    * List daily progress entries
    */
-  async listDailyEntries(activityId?: number, entryDate?: string, project_id?: number): Promise<DailyEntry[]> {
+  async listDailyEntries(activityId?: number, entryDate?: string, project_id?: number, limit?: number, offset?: number): Promise<DailyEntry[] | any> {
     try {
       const params: Record<string, any> = {};
       if (activityId !== undefined) params.activity_id = activityId;
       if (entryDate !== undefined) params.entry_date = entryDate;
       if (project_id) params.project_id = project_id;
       else if ((window as any).currentProjectId) params.project_id = (window as any).currentProjectId;
+      if (limit !== undefined) params.limit = limit;
+      if (offset !== undefined) params.offset = offset;
 
       const response = await api.get("/work-progress/daily-entry", { params });
       return Array.isArray(response.data) ? response.data : (response.data?.data || []);

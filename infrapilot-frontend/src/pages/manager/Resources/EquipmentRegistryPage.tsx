@@ -4,7 +4,6 @@ import type {
     UtilizationReport, AvailabilityReport, MaintenanceItem
 } from "../../../services/equipmentService";
 import { equipmentService } from "../../../services/equipmentService";
-import { useAuth } from "../../../context/AuthContext";
 import toast from "react-hot-toast";
 import PageTransition from "../../../components/common/PageTransition";
 import Pagination from "../../../components/common/Pagination";
@@ -13,7 +12,7 @@ import ProjectSelector from "../../../components/common/ProjectSelector";
 
 import {
     Search, Plus, Edit2, Eye, Activity, ArrowRightLeft,
-    Trash2, Link2, Wrench, FileText, History, RefreshCcw, Download, ShieldCheck, Building2, Check
+    Trash2, Link2, Wrench, FileText, History, RefreshCcw, Download, ShieldCheck, Check
 } from "lucide-react";
 import Modal from "../../../components/common/Modal";
 import ConfirmModal from "../../../components/common/ConfirmModal";
@@ -33,30 +32,18 @@ interface EquipmentFormModalProps {
     selectedProjectId?: number | null;
     isViewOnly?: boolean;
     hideStatus?: boolean;
+    projects?: any[];
 }
 
-const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose, onSave, initialData, selectedProjectId, isViewOnly, hideStatus }) => {
+const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose, onSave, initialData, selectedProjectId, isViewOnly, hideStatus, projects = [] }) => {
     const [formData, setFormData] = useState<any>({});
     const [isSaving, setIsSaving] = useState(false);
-    const [projects, setProjects] = useState<any[]>([]);
-
     useEffect(() => {
         if (isOpen) {
             const defaultData = initialData && Object.keys(initialData).length > 0
                 ? initialData
                 : { project_id: selectedProjectId || undefined };
             setFormData(defaultData);
-
-            const fetchProjects = async () => {
-                try {
-                    const res = await projectService.getProjects(100, 0);
-                    const projectsList = Array.isArray(res) ? res : (res.items || (res as any).data || []);
-                    setProjects(projectsList);
-                } catch (err) {
-                    console.error("Failed to fetch projects", err);
-                }
-            };
-            fetchProjects();
         }
     }, [isOpen, initialData, selectedProjectId]);
 
@@ -101,34 +88,7 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={isViewOnly ? "View Equipment" : formData.id ? "Edit Equipment" : "Add Equipment"} maxWidth="max-w-3xl" footer={modalFooter}>
             <form id="pm-equipment-form" onSubmit={handleSubmit} className="p-2 sm:p-4 font-inter space-y-6">
-                <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-primary" />
-                            <h3 className="text-sm font-bold text-primary">{formData.id ? "Change Assigned Project" : "Assign to project"}</h3>
-                        </div>
-                    </div>
-                    {!formData.id && <p className="text-[11px] text-blue-500 mb-4 ml-6">Equipment create hone ke baad automatically project assign ho jayega</p>}
-                    <div className="ml-6">
-                        <label className={labelClasses}>ASSIGNED PROJECT</label>
-                        {formData.project_id ? (
-                            <div className="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
-                                {projects.find(p => Number(p.id) === Number(formData.project_id))?.project_name || projects.find(p => Number(p.id) === Number(formData.project_id))?.name || `Project ${formData.project_id}`}
-                            </div>
-                        ) : (
-                            <select
-                                value={formData.project_id || ''}
-                                onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : undefined })}
-                                className={inputClasses}
-                            >
-                                <option value="">-- Select your project --</option>
-                                {projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.project_name || p.name}</option>
-                                ))}
-                            </select>
-                        )}
-                    </div>
-                </div>
+
 
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Equipment Details</h3>
@@ -138,8 +98,17 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             <input type="text" required value={formData.equipment_name || ''} onChange={(e) => setFormData({ ...formData, equipment_name: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
-                            <label className={labelClasses}>Equipment Code *</label>
-                            <input type="text" required value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
+                            <label className={labelClasses}>Assigned Project (Optional)</label>
+                            <select value={formData.project_id || ''} onChange={(e) => setFormData({ ...formData, project_id: e.target.value ? Number(e.target.value) : null })} className={inputClasses}>
+                                <option value="">No Project (Unassigned)</option>
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.project_name || p.name || `Project ${p.id}`}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={labelClasses}>Equipment Code</label>
+                            <input type="text" value={formData.equipment_code || ''} onChange={(e) => setFormData({ ...formData, equipment_code: e.target.value })} className={inputClasses} />
                         </div>
                         <div>
                             <label className={labelClasses}>Operator Name *</label>
@@ -188,10 +157,9 @@ const TABS = ["Dashboard", "Machinery & Equipment List", "Usage", "Transfer Equi
 
 const EquipmentRegistryPage = () => {
     const { selectedProjectId: globalProjectId, assignedProjects, isLoading: isProjectLoading } = useProject();
-    const { user } = useAuth();
 
     // Effective project ID for data fetching
-    const effectiveProjectId = globalProjectId || (user as any)?.project_id;
+    const effectiveProjectId = globalProjectId ? Number(globalProjectId) : undefined;
 
     const [activeTab, setActiveTab] = useState(TABS[0]);
     const [isLoading, setIsLoading] = useState(false);
@@ -1697,6 +1665,7 @@ const EquipmentRegistryPage = () => {
                 selectedProjectId={effectiveProjectId}
                 isViewOnly={isViewOnly}
                 hideStatus={!formData.id}
+                projects={assignedProjects}
             />
 
             <Modal isOpen={isAllocateModalOpen} onClose={() => setIsAllocateModalOpen(false)} title="Allocate Equipment" maxWidth="max-w-md">

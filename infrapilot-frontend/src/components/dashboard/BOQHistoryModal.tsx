@@ -18,6 +18,22 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
   const [logs, setLogs] = useState<BoqLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const handleExportCsv = async () => {
+    try {
+      const response = await boqService.exportBoqLogsCsv(boqId);
+      const url = window.URL.createObjectURL(new Blob([response]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${itemName}_Audit_Logs.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export logs CSV", error);
+    }
+  };
+
   useEffect(() => {
     if (isOpen && boqId) {
       const fetchLogs = async () => {
@@ -45,14 +61,25 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
             <h3 className="text-xl font-bold text-slate-800 tracking-tight">Audit Log</h3>
             <p className="text-xs text-slate-500 font-medium">History of changes for: <span className="text-primary font-bold">{itemName}</span></p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportCsv}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-xs font-bold transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export CSV
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
@@ -75,18 +102,16 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
             <div className="space-y-6">
               {logs.map((log, index) => (
                 <div key={index} className="relative pl-8 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-0.5 before:bg-slate-200 last:before:hidden">
-                  <div className={`absolute left-[-4px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${
-                    log.action === 'CREATE' ? 'bg-emerald-500' : 
-                    log.action === 'UPDATE' ? 'bg-amber-500' : 'bg-primary'
-                  }`} />
-                  
+                  <div className={`absolute left-[-4px] top-1.5 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm ${log.action === 'CREATE' ? 'bg-emerald-500' :
+                      log.action === 'UPDATE' ? 'bg-amber-500' : 'bg-primary'
+                    }`} />
+
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          log.action === 'CREATE' ? 'bg-emerald-50 text-emerald-600' : 
-                          log.action === 'UPDATE' ? 'bg-amber-50 text-amber-600' : 'bg-primary/10 text-primary'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${log.action === 'CREATE' ? 'bg-emerald-50 text-emerald-600' :
+                            log.action === 'UPDATE' ? 'bg-amber-50 text-amber-600' : 'bg-primary/10 text-primary'
+                          }`}>
                           {log.action}
                         </span>
                         <h4 className="mt-1 font-bold text-slate-700">{log.message}</h4>
@@ -122,7 +147,7 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
                         </table>
                       </div>
                     )}
-                    
+
                     <div className="mt-3 flex items-center gap-1.5 opacity-60">
                       <div className="w-5 h-5 bg-slate-200 rounded-full flex items-center justify-center">
                         <svg className="w-3 h-3 text-slate-500" fill="currentColor" viewBox="0 0 20 20">
@@ -137,7 +162,7 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
             </div>
           )}
         </div>
-        
+
         <div className="p-4 border-t border-slate-50 text-center bg-white">
           <button
             onClick={onClose}

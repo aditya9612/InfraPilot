@@ -120,6 +120,11 @@ const LabourRegistryPage = () => {
     const [selectedUserId, setSelectedUserId] = useState<string | number>("");
     const [isAssigningEngineer, setIsAssigningEngineer] = useState(false);
 
+    // Delete Engineer
+    const [isDeleteEngineerModalOpen, setIsDeleteEngineerModalOpen] = useState(false);
+    const [engineerToDelete, setEngineerToDelete] = useState<number | null>(null);
+    const [isDeletingEngineer, setIsDeletingEngineer] = useState(false);
+
     // Create/Edit form
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -451,7 +456,12 @@ const LabourRegistryPage = () => {
     const handleExport = async (type: "pdf" | "excel") => {
         try {
             toast.loading(`Preparing ${type.toUpperCase()} report...`);
-            const blob = type === "excel" ? await labourService.exportAttendanceExcel(projectId) : await labourService.exportAttendancePDF(projectId);
+            let blob;
+            if (activeTab === "Registry" || activeTab === "Site Engineers") {
+                blob = await labourService.exportLabourReport({ project_id: projectId, format: type });
+            } else {
+                blob = type === "excel" ? await labourService.exportAttendanceExcel(projectId) : await labourService.exportAttendancePDF(projectId);
+            }
             const url = window.URL.createObjectURL(new Blob([blob]));
             const link = document.createElement("a"); link.href = url;
             link.setAttribute("download", `Personnel_${activeTab}_${new Date().toISOString().split("T")[0]}.${type === "excel" ? "xlsx" : "pdf"}`);
@@ -746,7 +756,7 @@ const LabourRegistryPage = () => {
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div><h1 className="text-2xl font-bold text-slate-800 tracking-tight">Site Engineer & Labour</h1><p className="text-slate-500 text-sm">Deployment oversight, attendance metrics, and payroll compliance auditing.</p></div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <ProjectSelector variant="page" />
                         {activeTab === "Registry" && (
                             <div className="flex items-center gap-2">
@@ -783,10 +793,11 @@ const LabourRegistryPage = () => {
                                 </button>
                             </div>
                         )}
-                        <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
-                            <button onClick={() => handleExport("pdf")} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 border-r border-slate-100 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-rose-500" /> PDF</button>
-                            <button onClick={() => handleExport("excel")} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-emerald-500" /> Excel</button>
-                        </div>
+                        {activeTab !== "Site Engineers" && (
+                            <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
+                                <button onClick={() => handleExport("excel")} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-emerald-500" /> Excel</button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -894,16 +905,11 @@ const LabourRegistryPage = () => {
                                                 <td className="px-6 py-4"><span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600">Active</span></td>
                                                 <td className="px-6 py-4 text-right">
                                                     <button
-                                                        onClick={async () => {
+                                                        onClick={() => {
                                                             const targetId = engineer.id || engineer.user_id;
                                                             if (!targetId || !projectId) return;
-                                                            try {
-                                                                await projectService.removeMember(Number(projectId), Number(targetId));
-                                                                toast.success("Engineer removed from project");
-                                                                fetchSiteEngineers();
-                                                            } catch (err: any) {
-                                                                toast.error(err?.response?.data?.detail || "Failed to remove engineer");
-                                                            }
+                                                            setEngineerToDelete(Number(targetId));
+                                                            setIsDeleteEngineerModalOpen(true);
                                                         }}
                                                         className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
                                                         title="Remove from Project"
@@ -1028,7 +1034,33 @@ const LabourRegistryPage = () => {
             </Modal>
 
             {/* Delete Confirm */}
-            <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setDeletingId(null); }} onConfirm={handleDeleteConfirm} title="Delete Worker" message="This will permanently remove the worker record." confirmText="Delete" type="danger" isLoading={isDeleting} />
+            <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setDeletingId(null); }} onConfirm={handleDeleteConfirm} title="Delete Labour" message="This will permanently remove the labour record." confirmText="Delete" type="danger" isLoading={isDeleting} />
+
+            {/* Delete Site Engineer Confirm */}
+            <ConfirmModal 
+                isOpen={isDeleteEngineerModalOpen} 
+                onClose={() => { setIsDeleteEngineerModalOpen(false); setEngineerToDelete(null); }} 
+                onConfirm={async () => {
+                    if (!engineerToDelete || !projectId) return;
+                    setIsDeletingEngineer(true);
+                    try {
+                        await projectService.removeMember(Number(projectId), engineerToDelete);
+                        toast.success("Engineer removed from project");
+                        setIsDeleteEngineerModalOpen(false);
+                        setEngineerToDelete(null);
+                        fetchSiteEngineers();
+                    } catch (err: any) {
+                        toast.error(err?.response?.data?.detail || "Failed to remove engineer");
+                    } finally {
+                        setIsDeletingEngineer(false);
+                    }
+                }} 
+                title="Remove Site Engineer" 
+                message="Are you sure you want to remove this site engineer from the project?" 
+                confirmText="Remove" 
+                type="danger" 
+                isLoading={isDeletingEngineer} 
+            />
 
             {/* Create / Edit Form Modal — exact Site Engineer fields */}
             <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={formMode === "edit" ? "Edit Personnel" : "Register Labour"} maxWidth="max-w-2xl"

@@ -68,11 +68,11 @@ const ActivityDetailModal = ({ isOpen, onClose, activity, onEdit }: ActivityDeta
         api.get(`/boq/${activity.boq_code}`)
           .then((res: any) => {
             const data = res.data;
-            const name = data.title || data.name || data.boq_name || data.description || `BOQ #${activity.boq_code}`;
+            const name = data.item_name || data.title || data.name || data.boq_name || data.description || `BOQ ${activity.boq_code}`;
             setBoqName(name);
           })
           .catch(() => {
-            setBoqName(`BOQ #${activity.boq_code}`);
+            setBoqName(`BOQ ${activity.boq_code}`);
           });
       } else {
         setBoqName("-");

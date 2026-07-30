@@ -2,6 +2,7 @@ export interface BoqItem {
   id: number;
   project_id: number;
   boq_group_id?: number;
+  true_group_id?: number;
   version_no?: number;
   is_latest?: boolean;
   item_name: string;
@@ -112,6 +113,7 @@ export interface BoqFilters {
   status?: string | null;
   project_id?: number | null;
   category?: string | null;
+  approval_status?: string | null;
   version_no?: number | null;
 }
 
