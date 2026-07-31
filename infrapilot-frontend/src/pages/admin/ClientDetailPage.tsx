@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import {
-    User, Building2, Mail, Phone, Briefcase, FileText, MessageCircle,
+    User, Mail, Phone, Briefcase, FileText, MessageCircle,
     Send, Upload, Trash2, PlusCircle, ArrowLeft,
     ClipboardList, CreditCard, Download
 } from "lucide-react";
@@ -35,20 +35,18 @@ function OverviewTab({ client, onSaveNotes }: any) {
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Contact Information</h3>
                 <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={client.email} />
                 <InfoRow icon={<Phone className="w-4 h-4" />} label="Mobile" value={client.mobile} />
-                <InfoRow icon={<Building2 className="w-4 h-4" />} label="Company" value={client.company} />
                 <InfoRow icon={<User className="w-4 h-4" />} label="Address" value={client.address} />
-                <InfoRow icon={<ClipboardList className="w-4 h-4" />} label="GSTIN" value={client.gst} />
+
                 <InfoRow icon={<CreditCard className="w-4 h-4" />} label="PAN Number" value={client.pan_number || "—"} />
                 <InfoRow icon={<ClipboardList className="w-4 h-4" />} label="Aadhar Number" value={client.aadhar_number || "—"} />
                 <InfoRow
-                  icon={<Briefcase className="w-4 h-4" />}
-                  label="Joining Date"
-                  value={client.joining_date ? new Date(client.joining_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                    icon={<Briefcase className="w-4 h-4" />}
+                    label="Joining Date"
+                    value={client.joining_date ? new Date(client.joining_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                 />
             </div>
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Project & Status</h3>
-                <InfoRow icon={<Briefcase className="w-4 h-4" />} label="Linked Project" value={client.project} />
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Status</h3>
                 <div className="flex items-center gap-3 pt-1">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</span>
                     <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${client.status === "Active" ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
@@ -77,7 +75,7 @@ function OverviewTab({ client, onSaveNotes }: any) {
 function LedgerTab({ client, navigate }: any) {
     const [invoices, setInvoices] = useState(client.invoices ?? []);
     const totalBilled = invoices.reduce((s: number, i: any) => s + i.amount, 0);
-    const totalReceived = invoices.filter((i: any) => i.status === "Paid").reduce((s: number, i: any) => s + i.amount, 0);
+    const totalReceived = invoices.filter((i: any) => i.status === "Paid" || i.status === "Approved").reduce((s: number, i: any) => s + i.amount, 0);
     const outstanding = totalBilled - totalReceived;
 
     const handleMarkPaid = (id: string) => {
@@ -115,13 +113,16 @@ function LedgerTab({ client, navigate }: any) {
                     <tbody className="divide-y divide-slate-50">
                         {invoices.map((inv: any) => (
                             <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-6 py-3 font-bold text-slate-700">{inv.id}</td>
+                                <td className="px-6 py-3 font-bold text-slate-700">
+                                    {inv.id} <span className="ml-1 text-[9px] font-medium text-slate-400 capitalize">({inv.type || "Invoice"})</span>
+                                </td>
                                 <td className="px-6 py-3 text-slate-500 text-xs">{inv.date}</td>
                                 <td className="px-6 py-3 font-bold text-slate-800">₹{inv.amount.toLocaleString()}</td>
                                 <td className="px-6 py-3">
                                     <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${inv.status === "Paid" ? "bg-emerald-100 text-emerald-600" :
-                                        inv.status === "Overdue" ? "bg-rose-100 text-rose-600" :
-                                            "bg-amber-100 text-amber-600"
+                                        inv.status === "Approved" ? "bg-blue-100 text-blue-600" :
+                                            inv.status === "Overdue" ? "bg-rose-100 text-rose-600" :
+                                                "bg-amber-100 text-amber-600"
                                         }`}>{inv.status}</span>
                                 </td>
                                 <td className="px-6 py-3 text-right">
@@ -161,12 +162,12 @@ function DocumentsTab({ client }: { client: any }) {
         try {
             // 1. Get or create a "Clients" root folder
             // Increase limit to 100 to avoid missing folder due to pagination
-            const repoRes = await documentService.listDocuments({ parent_id: null, project_id: 92, limit: 100 });
+            const repoRes = await documentService.listDocuments({ parent_id: null, project_id: client.project_id || 1, limit: 100 });
             let clientsFolder = (repoRes.items || []).find(i => i.is_folder && i.title === "Clients");
 
             if (!clientsFolder) {
                 clientsFolder = await documentService.createFolder({
-                    project_id: 92,
+                    project_id: client.project_id || 1,
                     title: "Clients",
                     parent_id: null
                 });
@@ -174,12 +175,12 @@ function DocumentsTab({ client }: { client: any }) {
 
             // 2. Get or create specific client folder
             const clientFolderName = `Client_${client.name.replace(/\s+/g, '_')}_${clientId}`;
-            const clientsContent = await documentService.listDocuments({ parent_id: clientsFolder.id, project_id: 92, limit: 100 });
+            const clientsContent = await documentService.listDocuments({ parent_id: clientsFolder.id, project_id: client.project_id || 1, limit: 100 });
             let specificFolder = (clientsContent.items || []).find(i => i.is_folder && (i.title === clientFolderName || i.title === `Client_${client.name.replace(/\s+/g, '_')}_${clientId}`));
 
             if (!specificFolder) {
                 specificFolder = await documentService.createFolder({
-                    project_id: 92,
+                    project_id: client.project_id || 1,
                     title: clientFolderName,
                     parent_id: clientsFolder.id
                 });
@@ -188,7 +189,7 @@ function DocumentsTab({ client }: { client: any }) {
             setFolderId(specificFolder.id);
 
             // 3. List docs in that folder
-            const docsRes = await documentService.listDocuments({ parent_id: specificFolder.id, project_id: 92 });
+            const docsRes = await documentService.listDocuments({ parent_id: specificFolder.id, project_id: client.project_id || 1 });
             setDocs(docsRes.items || []);
         } catch (err) {
             console.error("Failed to sync client documents", err);
@@ -217,7 +218,7 @@ function DocumentsTab({ client }: { client: any }) {
         const toastId = toast.loading("Uploading...");
         try {
             await documentService.uploadDocument({
-                project_id: 92,
+                project_id: client.project_id || 1,
                 title: file.name,
                 document_type: category,
                 parent_id: folderId,
@@ -225,7 +226,7 @@ function DocumentsTab({ client }: { client: any }) {
             });
             toast.success("Uploaded successfully", { id: toastId });
             // Refresh list
-            const docsRes = await documentService.listDocuments({ parent_id: folderId, project_id: 92 });
+            const docsRes = await documentService.listDocuments({ parent_id: folderId, project_id: client.project_id || 1 });
             setDocs(docsRes.items);
         } catch (err) {
             toast.error("Upload failed", { id: toastId });
@@ -435,15 +436,15 @@ const ClientDetailPage = () => {
                 const u = await userService.getUserById(clientId);
                 const clientNameLower = (u.full_name || "").toLowerCase().trim();
 
-                // Fetch finance invoices for this client (by owner_id)
-                const allInvoices = await financeService.getInvoices(500, 0, clientId).catch(() => []) as any[];
+                const [allInvoices, allQuotations] = await Promise.all([
+                    financeService.getInvoices(100, 0, clientId).catch(() => [] as any[]),
+                    quotationService.getQuotations(100, 0).catch(() => [] as any[])
+                ]);
 
-                // Also fetch quotations (created via CreateInvoicePage) and filter by client name
-                const allQuotations = await quotationService.getQuotations(500, 0).catch(() => []) as any[];
                 const matchingQuotations = allQuotations.filter((q: any) => {
                     const qName = (q.client_name || "").toLowerCase().trim();
                     return qName && clientNameLower && (
-                        qName.includes(clientNameLower) || clientNameLower.includes(qName)
+                        qName === clientNameLower
                     );
                 });
 
@@ -453,7 +454,7 @@ const ClientDetailPage = () => {
                     const matchesId = invOwnerId && Number(invOwnerId) === clientId;
                     const invClientName = (inv.client_name || inv.owner_name || inv.user_name || inv.full_name || "").toLowerCase().trim();
                     const matchesName = invClientName && clientNameLower && (
-                        invClientName.includes(clientNameLower) || clientNameLower.includes(invClientName)
+                        invClientName === clientNameLower
                     );
                     return matchesId || matchesName;
                 });
@@ -475,23 +476,47 @@ const ClientDetailPage = () => {
                     type: "quotation",
                     date: new Date(q.created_at || Date.now()).toLocaleDateString(),
                     amount: q.grand_total || q.subtotal || 0,
-                    status: q.status === 'approved' ? 'Paid' : q.status === 'sent' ? 'Pending' : 'Pending'
+                    status: q.status === 'approved' ? 'Approved' : q.status === 'sent' ? 'Sent' : 'Pending'
                 }));
 
                 // Deduplicate by actualId+type and merge
                 const allLedgerRows = [...mappedFinanceInvoices, ...mappedQuotations];
                 console.log(`[ClientDetail] Finance invoices: ${mappedFinanceInvoices.length}, Quotations: ${mappedQuotations.length}, Total: ${allLedgerRows.length}`);
 
+                let inferredProjectId = u.project_id;
+                let inferredProjectName = u.project_name;
+
+                if ((!inferredProjectId || !inferredProjectName) && clientInvoices.length > 0) {
+                    const invWithProject = clientInvoices.find((i: any) => i.project_id || i.project_name);
+                    if (invWithProject) {
+                        if (!inferredProjectId && invWithProject.project_id) inferredProjectId = invWithProject.project_id;
+                        if (!inferredProjectName && invWithProject.project_name) inferredProjectName = invWithProject.project_name;
+                    }
+                }
+                if ((!inferredProjectId || !inferredProjectName) && matchingQuotations.length > 0) {
+                    const quoWithProject = matchingQuotations.find((q: any) => q.project_id || q.project_name);
+                    if (quoWithProject) {
+                        if (!inferredProjectId && quoWithProject.project_id) inferredProjectId = quoWithProject.project_id;
+                        if (!inferredProjectName && quoWithProject.project_name) inferredProjectName = quoWithProject.project_name;
+                    }
+                }
+                if (!inferredProjectId) inferredProjectId = 1;
+
                 const mappedClient = {
                     id: u.user_id,
+                    project_id: inferredProjectId,
                     name: u.full_name,
                     company: u.designation || "N/A",
                     email: u.email,
                     mobile: u.mobile_number,
-                    project: u.address || "No Project Linked",
+                    project: (inferredProjectName && inferredProjectName.trim() !== "")
+                        ? inferredProjectName
+                        : (inferredProjectId && inferredProjectId !== 1)
+                            ? `Project #${inferredProjectId}`
+                            : u.address || "No Project Linked",
                     status: u.is_active ? "Active" : "Inactive",
                     address: u.address || "No Address Provided",
-                    gst: u.pan_number || "—",
+
                     profile_image: u.profile_image || null,
                     notes: "VIP client. Prefers WhatsApp updates.",
                     portalEnabled: u.is_active,
@@ -564,12 +589,16 @@ const ClientDetailPage = () => {
                             <div className="text-center sm:text-left">
                                 <div className="flex flex-col sm:flex-row items-center gap-3 mb-1">
                                     <h1 className="text-2xl font-black tracking-tight">{client.name}</h1>
-                                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-white/20 border border-white/20`}>
+                                    <span className={`px-3 py-1 bg-white/20 backdrop-blur-md border border-white/20 rounded-lg text-[10px] font-black uppercase tracking-widest text-white`}>
                                         {client.status}
                                     </span>
                                 </div>
-                                <p className="text-white/80 text-sm">{client.company}</p>
-                                <p className="text-white/60 text-xs mt-1">{client.project}</p>
+                                {client.company && client.company !== "N/A" && (
+                                    <p className="text-white/90 text-sm font-semibold">{client.company}</p>
+                                )}
+                                {client.project && client.project !== "No Project Linked" && (
+                                    <p className="text-white/60 text-xs mt-1">{client.project}</p>
+                                )}
                             </div>
                         </div>
                     </div>
