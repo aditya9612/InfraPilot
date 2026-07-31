@@ -371,7 +371,7 @@ const FinancePage = () => {
   const uniqueCategories = useMemo(() => {
     const cats = expenses.map(e => e.category);
     // Combine with common categories from documentation/data preference
-    const defaults = ["Construction", "Contractor", "Material", "Labor", "Labour", "Labour Advance", "Utilities", "Administrative"];
+    const defaults = ["Administrative", "Construction", "Contractor", "Material", "Utilities"];
     const combined = Array.from(new Set([...cats, ...defaults]));
     return combined.filter(Boolean).sort((a, b) => a.localeCompare(b));
   }, [expenses]);

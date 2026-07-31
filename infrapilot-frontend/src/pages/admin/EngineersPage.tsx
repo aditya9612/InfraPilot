@@ -134,7 +134,7 @@ const EngineersPage = () => {
             email: u.email,
             mobile: u.mobile_number,
             projects: assigned.length > 0 ? assigned.map(p => p.project_name).join(", ") : (u.address || "Unassigned"),
-            status: u.is_active ? "On Site" : "Leave",
+            status: u.is_active ? "Active" : "On Leave",
             specialization: u.designation || "Site Engineer",
             designation: u.designation || "Site Engineer",
             pan_number: u.pan_number || "",
@@ -297,7 +297,7 @@ const EngineersPage = () => {
           email: u.email,
           mobile: u.mobile_number,
           projects: assigned.length > 0 ? assigned.map(p => p.project_name).join(", ") : (u.address || "Unassigned"),
-          status: u.is_active ? "On Site" : "Leave",
+          status: u.is_active ? "Active" : "On Leave",
           specialization: u.designation || "Site Engineer",
           designation: u.designation || "Site Engineer",
           pan_number: u.pan_number || "",
@@ -375,7 +375,7 @@ const EngineersPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
             title="Active Engineers"
-            value={engineers.filter(e => e.status === "On Site").length.toString()}
+            value={engineers.filter(e => e.status === "Active").length.toString()}
             sub={`${engineers.length} Total Staff`}
             accent="text-primary"
           />
@@ -387,7 +387,7 @@ const EngineersPage = () => {
           />
           <StatCard
             title="Pending Reviews"
-            value={engineers.filter(e => e.status === "On Site" && (!e.lastDsr || e.lastDsr.split('T')[0] !== new Date().toISOString().split('T')[0])).length.toString()}
+            value={engineers.filter(e => e.status === "Active" && (!e.lastDsr || e.lastDsr.split('T')[0] !== new Date().toISOString().split('T')[0])).length.toString()}
             sub="Missing reports for today"
             accent="text-violet-500"
           />
@@ -492,7 +492,7 @@ const EngineersPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full ${e.status === "On Site" ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}`} />
+                            <div className={`w-1.5 h-1.5 rounded-full ${e.status === "Active" ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}`} />
                             <p className="text-xs font-bold text-slate-700 truncate max-w-[140px]" title={e.activeTask}>
                               {e.activeTask || "None"}
                             </p>
@@ -514,11 +514,12 @@ const EngineersPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase ${e.status === "On Site"
-                              ? "bg-emerald-100 text-emerald-600"
-                              : "bg-slate-100 text-slate-600"
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase whitespace-nowrap ${e.status === "Active"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
                               }`}
                           >
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${e.status === "Active" ? "bg-emerald-500" : "bg-slate-400"}`} />
                             {e.status}
                           </span>
                         </td>

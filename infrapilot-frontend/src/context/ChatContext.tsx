@@ -118,15 +118,43 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!isBackground) setIsLoading(true);
             const data = await chatService.getEnhancedChatList();
 
+            // Fetch typing and online status ONLY for the active chat (or top 2 if none active) to prevent API spam
+            try {
+                const chatsToPoll = activeChatIdRef.current
+                    ? data.filter(c => c.id === activeChatIdRef.current)
+                    : data.slice(0, 2);
+
+                await Promise.all(chatsToPoll.map(async (conv) => {
+                    try {
+                        const res = await chatService.getTypingUsers(conv.id);
+                        // Do something with typers if needed
+                    } catch { }
+
+                    if (conv.type !== 'group' && conv.other_user_id) {
+                        try {
+                            const statusRes = await chatService.getUserStatus(conv.other_user_id);
+                            // Do something with status if needed
+                        } catch { }
+                    }
+                }));
+            } catch { /* silent fetch err */ }
+
+            // Merge with local overrides (in-memory + localStorage) BEFORE checking unread messages to ensure mute state is accurate
+            const mergedData = mergeWithLocalStatuses(data);
+
             // Check for new messages
             if (!isFirstLoad.current) {
                 const prevCounts = unreadCountsRef.current;
-                data.forEach(conv => {
+                mergedData.forEach(conv => {
                     const prevCount = prevCounts[conv.id] || 0;
                     if (conv.unread_count > prevCount) {
-                        const audio = new Audio(NOTIFICATION_SOUND_URL);
-                        audio.volume = 1.0;
-                        audio.play().catch(err => console.debug("Audio play blocked", err));
+                        const isMuted = !!(conv.is_muted || (conv as any).muted || (conv as any).isMuted || (conv as any).is_mute);
+
+                        if (!isMuted) {
+                            const audio = new Audio(NOTIFICATION_SOUND_URL);
+                            audio.volume = 1.0;
+                            audio.play().catch(err => console.debug("Audio play blocked", err));
+                        }
 
                         if (activeChatIdRef.current !== conv.id) {
                             const chatTitle = conv.type === "group" ? conv.name : (conv.other_user_name || "New Message");
@@ -194,8 +222,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             unreadCountsRef.current = nextCounts;
             isFirstLoad.current = false;
 
-            // Merge with local overrides (in-memory + localStorage)
-            const mergedData = mergeWithLocalStatuses(data);
             setConversations(mergedData);
         } catch (error: any) {
             // Silence 401s for background tasks or for Labour role (mock session) to keep console clean
@@ -204,7 +230,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (is401 && (isBackground || isLabour)) return;
             if (isBackground && (error.response?.status === 502 || error.code === 'ECONNABORTED')) return;
-            
+
             console.error("Failed to refresh chat list", error);
         } finally {
             if (!isBackground) setIsLoading(false);
@@ -216,11 +242,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
 
         const poll = async () => {
-            if (!isAuthenticated || (user?.role === "Labour")) return;
-            await refreshChatList(true);
+            if (isAuthenticated && document.visibilityState === 'visible' && user?.role !== "Labour") {
+                await refreshChatList(true);
+            }
             pollTimerRef.current = setTimeout(poll, 5000);
         };
-
         pollTimerRef.current = setTimeout(poll, 5000);
     }, [isAuthenticated, user, refreshChatList]);
 

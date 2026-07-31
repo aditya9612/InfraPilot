@@ -168,7 +168,7 @@ export const userService = {
    */
   async toggleRoleStatus(role: string, is_active: boolean) {
     try {
-      const response = await api.put(`/users/roles/${role}/status`, { is_active });
+      const response = await api.put(`/users/roles/${role}/status`, undefined, { params: { is_active } });
       return response.data;
     } catch (error: any) {
       console.error(`Toggle Role ${role} Status Error:`, error.response?.data || error.message);

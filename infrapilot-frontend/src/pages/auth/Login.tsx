@@ -262,7 +262,7 @@ const Login = () => {
           />
 
           {/* Feature Pills */}
-          <div className="flex justify-center gap-2 mt-6 w-full max-w-[370px]">
+          <div className="flex justify-center gap-2 mt-6 mb-8 w-full max-w-[370px]">
             <div className="flex items-center gap-2 px-3 py-2 bg-[#082046]/80 border border-[#1E3A8A]/50 rounded-xl flex-1 relative overflow-hidden backdrop-blur-md shadow-lg shadow-black/20">
               <Target className="w-[18px] h-[18px] text-cyan-400 shrink-0" strokeWidth={2} />
               <div className="flex flex-col justify-center">
