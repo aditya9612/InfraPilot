@@ -8,7 +8,6 @@ import toast from "react-hot-toast";
 import PageTransition from "../../../components/common/PageTransition";
 import Pagination from "../../../components/common/Pagination";
 import Navbar from "../../../components/common/Navbar";
-import ProjectSelector from "../../../components/common/ProjectSelector";
 
 import {
     Search, Plus, Edit2, Eye, Activity, ArrowRightLeft,
@@ -156,10 +155,12 @@ import { boqService } from "../../../services/boqService";
 const TABS = ["Dashboard", "Machinery & Equipment List", "Usage", "Transfer Equipment", "Maintenance", "Rental", "Reports & Alerts"];
 
 const EquipmentRegistryPage = () => {
-    const { selectedProjectId: globalProjectId, assignedProjects, isLoading: isProjectLoading } = useProject();
+    const { assignedProjects, isLoading: isProjectLoading } = useProject();
+
+    const [localProjectId, setLocalProjectId] = useState<number | "">("");
 
     // Effective project ID for data fetching
-    const effectiveProjectId = globalProjectId ? Number(globalProjectId) : undefined;
+    const effectiveProjectId = localProjectId === "" ? undefined : Number(localProjectId);
 
     const [activeTab, setActiveTab] = useState(TABS[0]);
     const [isLoading, setIsLoading] = useState(false);
@@ -289,7 +290,7 @@ const EquipmentRegistryPage = () => {
     }, [activeTab, effectiveProjectId, selectedEquipment]);
 
     useEffect(() => {
-        if (isProjectLoading || !effectiveProjectId) return;
+        if (isProjectLoading) return;
         fetchData();
     }, [fetchData, isProjectLoading, effectiveProjectId]);
 
@@ -887,6 +888,7 @@ const EquipmentRegistryPage = () => {
                         <thead className="bg-slate-50 sticky top-0 z-10 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                             <tr>
                                 <th className="px-6 py-4 border-b border-slate-200">Equipment</th>
+                                <th className="px-6 py-4 border-b border-slate-200">Status</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Operator</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Usage</th>
                                 <th className="px-6 py-4 border-b border-slate-200">Condition</th>
@@ -896,15 +898,23 @@ const EquipmentRegistryPage = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-sm">
                             {isLoading ? (
-                                <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading equipment registry...</td></tr>
+                                <tr><td colSpan={7} className="p-10 text-center text-slate-400">Loading equipment registry...</td></tr>
                             ) : pagedData.length > 0 ? pagedData.map((item: any) => (
                                 <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                                     <td className="px-6 py-4">
                                         <p className="font-bold text-slate-800">{item.equipment_name}</p>
                                         <p className="text-xs text-slate-500">{item.equipment_code}</p>
-                                        <p className="text-[10px] font-bold mt-1 text-primary">
-                                            {item.project_id ? (projects.find(p => Number(p.id) === Number(item.project_id))?.project_name || projects.find(p => Number(p.id) === Number(item.project_id))?.name || `Project ${item.project_id}`) : 'Not Allocated'}
-                                        </p>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {item.project_id ? (
+                                            <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-blue-100 text-blue-700">
+                                                Allocated
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-1 text-[10px] font-bold rounded-lg bg-slate-100 text-slate-600">
+                                                Not Allocated
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 text-slate-700">{item.operator_name || '—'}</td>
                                     <td className="px-6 py-4 text-slate-700">
@@ -932,7 +942,7 @@ const EquipmentRegistryPage = () => {
                                     </td>
                                 </tr>
                             )) : (
-                                <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No machinery records found</td></tr>
+                                <tr><td colSpan={7} className="p-10 text-center text-slate-400 font-medium">No machinery records found</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -963,7 +973,7 @@ const EquipmentRegistryPage = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
                         { title: "Total Hours Logged", value: totalHrs.toString(), sub: "Across all equipment", accent: "text-blue-500" },
                         { title: "Total Fuel Consumed", value: `${totalFuel} L`, sub: "Across all equipment", accent: "text-orange-500" },
@@ -1354,7 +1364,7 @@ const EquipmentRegistryPage = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Total Rental Cost</p>
                         <p className="text-2xl font-bold text-violet-600">₹{totalCost.toLocaleString()}</p>
@@ -1606,7 +1616,14 @@ const EquipmentRegistryPage = () => {
                         <p className="text-slate-500 text-sm">Complete lifecycle tracking — allocation, usage, maintenance, cost.</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <ProjectSelector variant="page" />
+                        <select value={localProjectId} onChange={(e) => setLocalProjectId(e.target.value === "" ? "" : Number(e.target.value))} className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 min-w-[220px] shadow-sm">
+                            <option value="">All Projects</option>
+                            {assignedProjects.map((p: any) => (
+                                <option key={p.id || p.project_id} value={p.id || p.project_id}>
+                                    {p.name || p.project_name || `Project #${p.id || p.project_id}`}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
@@ -1717,7 +1734,7 @@ const EquipmentRegistryPage = () => {
                             {activeEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Working Hours *</label>
                             <input type="number" min="0" required value={formData.working_hours || ''} onChange={(e) => setFormData({ ...formData, working_hours: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
@@ -1751,7 +1768,7 @@ const EquipmentRegistryPage = () => {
                             {activeEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Description *</label>
                             <input type="text" required value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
@@ -1761,7 +1778,7 @@ const EquipmentRegistryPage = () => {
                             <input type="date" required value={formData.maintenance_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, maintenance_date: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Cost (₹) *</label>
                             <input type="number" min="0" required value={formData.cost || ''} onChange={(e) => setFormData({ ...formData, cost: Number(e.target.value) })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" />
@@ -1805,7 +1822,7 @@ const EquipmentRegistryPage = () => {
                             {activeEquipmentList.map(eq => <option key={eq.id} value={eq.id}>{eq.equipment_name} ({eq.equipment_code})</option>)}
                         </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">START DATE *</label>
                             <input type="date" required disabled={isRentalViewOnly} value={formData.start_date || new Date().toISOString().split('T')[0]} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="w-full px-4 py-2.5 bg-white border border-slate-200 focus:ring-primary/20 focus:border-primary rounded-xl text-sm outline-none transition-all placeholder:text-slate-300" />
@@ -1943,7 +1960,7 @@ const EquipmentRegistryPage = () => {
                             if (log.action === 'CREATE') {
                                 const vals = nv || {};
                                 return (
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
                                         {vals.equipment_name && <div><span className="text-slate-400 text-xs">Name: </span><span className="font-semibold text-slate-700">{vals.equipment_name}</span></div>}
                                         {vals.equipment_code && <div><span className="text-slate-400 text-xs">Code: </span><span className="font-semibold text-slate-700">{vals.equipment_code}</span></div>}
                                         {vals.operator_name && <div><span className="text-slate-400 text-xs">Operator: </span><span className="font-semibold text-slate-700">{vals.operator_name}</span></div>}
@@ -1957,7 +1974,7 @@ const EquipmentRegistryPage = () => {
                             if (log.action === 'RENTAL_CREATE') {
                                 const vals = nv || {};
                                 return (
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
                                         {vals.client_name && <div><span className="text-slate-400 text-xs">Client: </span><span className="font-semibold text-slate-700">{vals.client_name}</span></div>}
                                         {vals.rental_cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.rental_cost}</span></div>}
                                         {vals.start_date && <div><span className="text-slate-400 text-xs">Start: </span><span className="font-semibold text-slate-700">{vals.start_date}</span></div>}
@@ -1969,7 +1986,7 @@ const EquipmentRegistryPage = () => {
                             if (log.action === 'MAINTENANCE_CREATE') {
                                 const vals = nv || {};
                                 return (
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
                                         {vals.description && <div className="col-span-2"><span className="text-slate-400 text-xs">Description: </span><span className="font-semibold text-slate-700">{vals.description}</span></div>}
                                         {vals.maintenance_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.maintenance_date}</span></div>}
                                         {vals.cost !== undefined && <div><span className="text-slate-400 text-xs">Cost: </span><span className="font-semibold text-slate-700">₹{vals.cost}</span></div>}
@@ -1980,7 +1997,7 @@ const EquipmentRegistryPage = () => {
                             if (log.action === 'USAGE_CREATE') {
                                 const vals = nv || {};
                                 return (
-                                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
                                         {vals.working_hours !== undefined && <div><span className="text-slate-400 text-xs">Working Hours: </span><span className="font-semibold text-slate-700">{vals.working_hours} hrs</span></div>}
                                         {vals.fuel_used !== undefined && <div><span className="text-slate-400 text-xs">Fuel Used: </span><span className="font-semibold text-slate-700">{vals.fuel_used} L</span></div>}
                                         {vals.usage_date && <div><span className="text-slate-400 text-xs">Date: </span><span className="font-semibold text-slate-700">{vals.usage_date}</span></div>}

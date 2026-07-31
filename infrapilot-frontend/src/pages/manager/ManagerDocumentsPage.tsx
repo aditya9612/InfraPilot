@@ -563,9 +563,8 @@ const ManagerDocumentsPage = () => {
         return [...data].sort((a, b) => {
             if (a.is_folder && !b.is_folder) return -1;
             if (!a.is_folder && b.is_folder) return 1;
-            const timeA = new Date(a.uploaded_at || 0).getTime();
-            const timeB = new Date(b.uploaded_at || 0).getTime();
-            return sortOrder === "latest" ? timeB - timeA : timeA - timeB;
+            
+            return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
         });
     }, [docs, mainTab, typeFilter, categoryFilter, searchTerm, sortOrder]);
 
@@ -666,7 +665,7 @@ const ManagerDocumentsPage = () => {
                                 },
                                 {
                                     title: "Pending Approval",
-                                    value: stats ? stats.pending_approvals.toString() : "...",
+                                    value: docs.filter(d => !d.is_folder && ["PENDING", "UNDER_REVIEW"].includes(String(d.status).toUpperCase())).length.toString(),
                                     sub: "Documents awaiting review",
                                     accent: "text-amber-500",
                                     icon: <RefreshCcw className="w-5 h-5 text-amber-500" />,
@@ -674,7 +673,7 @@ const ManagerDocumentsPage = () => {
                                 },
                                 {
                                     title: "Total Documents",
-                                    value: stats ? stats.total_documents.toString() : "...",
+                                    value: docs.filter(d => !d.is_folder).length.toString(),
                                     sub: "Total files in repository",
                                     accent: "text-emerald-500",
                                     icon: <FileText className="w-5 h-5 text-emerald-500" />,
@@ -787,9 +786,9 @@ const ManagerDocumentsPage = () => {
                                                                         {doc.title}
                                                                     </button>
                                                                 ) : (
-                                                                    <div>
-                                                                        <p className="text-sm font-bold text-slate-800">{doc.title}</p>
-                                                                        <p className="text-[10px] text-slate-400 font-medium truncate max-w-[240px]">{doc.remarks || "—"}</p>
+                                                                    <div className="max-w-[250px]">
+                                                                        <p className="text-sm font-bold text-slate-800 break-words whitespace-normal">{doc.title}</p>
+                                                                        <p className="text-[10px] text-slate-400 font-medium break-words whitespace-normal mt-0.5">{doc.remarks || "—"}</p>
                                                                     </div>
                                                                 )}
                                                             </td>

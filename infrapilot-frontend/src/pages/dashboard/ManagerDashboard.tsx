@@ -211,7 +211,6 @@ const ManagerDashboard = () => {
       <Navbar
         title="PM Command Center"
         breadcrumb={["InfraPilot", "Dashboard", "Manager"]}
-        action={{ label: "Intelligence Report" }}
       />
 
       <main className="p-5 bg-slate-50/60 min-h-[calc(100vh-4rem)] overflow-y-auto">

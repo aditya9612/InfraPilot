@@ -56,6 +56,25 @@ const ManagerSafetyPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [tasks, setTasks] = useState<{ id: number; title: string }[]>([]);
+  const [taskCache, setTaskCache] = useState<Record<number, { id: number; title: string }[]>>({});
+
+  useEffect(() => {
+    const pids = Array.from(new Set(incidentList.map(item => Number(item.project_id)).filter(Boolean)));
+    pids.forEach(pid => {
+      if (!taskCache[pid]) {
+        projectService.getTasks(pid).then(res => {
+          const items = Array.isArray(res) ? res : ((res as any).items || (res as any).data || []);
+          setTaskCache(prev => ({ ...prev, [pid]: items.map((t: any) => ({ id: t.id, title: t.title || t.name })) }));
+        }).catch(() => {});
+      }
+    });
+  }, [incidentList, taskCache]);
+
+  const getTaskNameFromCache = (projectId: number, taskId: number) => {
+    const cachedTasks = taskCache[projectId] || [];
+    const task = cachedTasks.find(t => t.id === taskId);
+    return task ? task.title : `Task #${taskId}`;
+  };
 
   const fetchTasks = useCallback(async (projectId: number) => {
     if (!projectId) return;
@@ -460,7 +479,9 @@ const ManagerSafetyPage = () => {
                           <span className="text-xs font-semibold text-slate-600">{getProjectName(item.project_id)}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-semibold text-slate-400">—</span>
+                          <span className="text-xs font-semibold text-slate-600 truncate max-w-[120px] inline-block">
+                             {item.task_id ? getTaskNameFromCache(item.project_id, item.task_id) : "—"}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col max-w-xs">
@@ -742,7 +763,7 @@ const ManagerSafetyPage = () => {
                     <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getProjectName(selectedIncident.project_id)}>{getProjectName(selectedIncident.project_id)}</p>
                   </div>
                   <div className="font-inter">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task Link</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task Name</p>
                     <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedIncidentTask ? (selectedIncidentTask.title || `Task #${selectedIncident.task_id}`) : (selectedIncident.task_id ? `Task #${selectedIncident.task_id}` : "-")}>
                       {selectedIncidentTask ? (selectedIncidentTask.title || `Task #${selectedIncident.task_id}`) : (selectedIncident.task_id ? `Task #${selectedIncident.task_id}` : "-")}
                     </p>

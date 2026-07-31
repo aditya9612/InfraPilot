@@ -12,7 +12,6 @@ import ProjectSelector from "../../components/common/ProjectSelector";
 import { qcService } from "../../services/qcService";
 import type { QcItem } from "../../services/qcService";
 import { projectService } from "../../services/projectService";
-import { boqService } from "../../services/boqService";
 import { dsrService } from "../../services/dsrService";
 
 const INSPECTION_TYPES = ["General", "Concrete", "Steel", "Electrical", "Plumbing", "Finishing"];
@@ -75,8 +74,6 @@ const ManagerQualityPage = () => {
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedTaskDetail, setSelectedTaskDetail] = useState<any | null>(null);
-    const [selectedBoq, setSelectedBoq] = useState<any | null>(null);
-
     // ── DATA FETCH ────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
         if (!selectedProjectId) return;
@@ -253,33 +250,22 @@ const ManagerQualityPage = () => {
         } finally { setViewLoadingId(null); }
     };
 
-    // Fetch task and BOQ details when viewing a QC entry
+    // Fetch task details when viewing a QC entry
     useEffect(() => {
         if (!isViewModalOpen || !selectedQc) {
             setSelectedTaskDetail(null);
-            setSelectedBoq(null);
             return;
         }
 
         (async () => {
             setSelectedTaskDetail(null);
-            setSelectedBoq(null);
             try {
                 if (selectedQc.task_id && selectedQc.project_id) {
                     const task = await projectService.getTask(Number(selectedQc.project_id), Number(selectedQc.task_id));
                     setSelectedTaskDetail(task || null);
-                    const boqId = task?.boq_id || task?.boqId || task?.boq_id || null;
-                    if (boqId) {
-                        try {
-                            const b = await boqService.getBoqById(Number(boqId));
-                            setSelectedBoq(b || null);
-                        } catch (e) {
-                            // ignore
-                        }
-                    }
                 }
-            } catch (e) {
-                // ignore fetch errors
+            } catch (err) {
+                // ignore
             }
         })();
     }, [isViewModalOpen, selectedQc]);
@@ -797,8 +783,10 @@ const ManagerQualityPage = () => {
                                         <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedTaskDetail?.title || `Task #${selectedQc.task_id}`}>{selectedTaskDetail ? (selectedTaskDetail.title || `Task #${selectedQc.task_id}`) : (selectedQc.task_id ? `Task #${selectedQc.task_id}` : "-")}</p>
                                     </div>
                                     <div className="font-inter">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">BOQ</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedBoq?.item_name || `BOQ #${selectedBoq?.id}`}>{selectedBoq ? (selectedBoq.item_name || `BOQ #${selectedBoq.id}`) : (selectedTaskDetail?.boq_id ? `BOQ #${selectedTaskDetail.boq_id}` : "-")}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR</p>
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.dsr_id ? `DSR #${selectedQc.dsr_id}` : "-"}>
+                                            {selectedQc.dsr_id ? `DSR #${selectedQc.dsr_id}` : "-"}
+                                        </p>
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Inspection Type</p>

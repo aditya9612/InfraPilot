@@ -192,8 +192,8 @@ export const equipmentService = {
     },
 
     async deallocateEquipment(id: number): Promise<AllocationStatus> {
-        const response = await api.put<AllocationStatus>(`/equipment/${id}/deallocate`);
-        return response.data;
+        await api.put(`/equipment/${id}`, { project_id: null });
+        return { equipment_id: id, allocated: false, project_id: null };
     },
 
     // ==========================================
@@ -404,7 +404,7 @@ export const equipmentService = {
         return response.data;
     },
 
-    async listPurchase(params?: { limit?: number; offset?: number }): Promise<any> {
+    async listPurchase(params?: { purchase_type?: string, asset_id?: number, project_id?: number, boq_item_id?: number, vendor_name?: string, purchase_date_from?: string, purchase_date_to?: string, limit?: number; offset?: number }): Promise<any> {
         const response = await api.get('/equipment/purchase', { params });
         return response.data;
     },

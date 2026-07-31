@@ -4,6 +4,10 @@ import PageTransition from "../../components/common/PageTransition";
 import { reportService } from "../../services/reportService";
 import { boqService } from "../../services/boqService";
 import { workProgressService } from "../../services/workProgressService";
+import { issueService } from "../../services/issueService";
+import { materialService } from "../../services/materialService";
+import { expenseService } from "../../services/expenseService";
+import { financeService } from "../../services/financeService";
 import { useProject } from "../../context/ProjectContext";
 import ReportPreviewModal from "../../components/dashboard/ReportPreviewModal";
 import ShareReportModal from "../../components/dashboard/ShareReportModal";
@@ -24,7 +28,7 @@ import {
     CheckCircle2,
     ArrowRight,
     ChevronDown,
-    DollarSign,
+    IndianRupee,
     Users
 } from "lucide-react";
 import { formatCompactCurrency } from "../../utils/currencyUtils";
@@ -55,7 +59,7 @@ const REPORT_TYPES: ReportType[] = [
     { id: "assets", name: "Asset Reports", category: "Resources", description: "Fixed assets tracking, depreciation analysis, and asset utilization overview.", icon: <FileText size={20} className="text-violet-500" />, exportType: "Both" },
 
     // Financials
-    { id: "cost-comparison", name: "Budget vs Actual", category: "Financials", description: "Real-time comparison of estimated costs vs actual expenditure.", icon: <DollarSign size={20} className="text-emerald-600" />, exportType: "Both" },
+    { id: "cost-comparison", name: "Budget vs Actual", category: "Financials", description: "Real-time comparison of estimated costs vs actual expenditure.", icon: <IndianRupee size={20} className="text-emerald-600" />, exportType: "Both" },
     { id: "financial-summary", name: "Project Financial Health", category: "Financials", description: "Overview of billing status, expenses, and pending payments.", icon: <TrendingUp size={20} className="text-blue-600" />, exportType: "Both" },
     { id: "procurement", name: "Procurement Efficiency", category: "Financials", description: "Purchase order status and vendor payment reconciliation.", icon: <Building2 size={20} className="text-purple-500" />, exportType: "Both" },
     { id: "profit-loss", name: "Profit & Loss", category: "Financials", description: "Comprehensive income, expenses, and net profit/loss breakdown for the project.", icon: <PieChart size={20} className="text-rose-500" />, exportType: "Both" },
@@ -143,10 +147,11 @@ const ManagerReportsPage = () => {
         const fetchGlobalStats = async () => {
             if (!selectedProjectId) return;
             try {
-                const [finSummary, progressSummary, issueRes] = await Promise.all([
+                const [finSummary, progressSummary, issueRes, allIssuesRes] = await Promise.all([
                     reportService.getFinancialSummary(selectedProjectId).catch(() => null),
                     workProgressService.getProjectSummary(selectedProjectId).catch(() => null),
-                    reportService.getIssueReport(selectedProjectId).catch(() => null)
+                    reportService.getIssueReport(selectedProjectId).catch(() => null),
+                    issueService.listIssuesByProject(selectedProjectId).catch(() => null)
                 ]);
 
                 const profit = (finSummary?.total_billing || 0) - (finSummary?.total_expense || 0);
@@ -155,11 +160,13 @@ const ManagerReportsPage = () => {
                 const completed = progressSummary?.completed_activities || 0;
                 const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
+                const activeIssuesCount = allIssuesRes?.meta?.total ?? allIssuesRes?.items?.length ?? (issueRes as any)?.open_issues ?? 0;
+
                 setStats({
                     totalExpense: finSummary?.total_expense || 0,
                     totalProfit: profit,
                     completion: completionRate,
-                    activeIssues: (issueRes as any)?.open_issues || 0
+                    activeIssues: activeIssuesCount
                 });
             } catch (error) {
                 console.error("Failed to fetch dashboard stats", error);
@@ -210,6 +217,11 @@ const ManagerReportsPage = () => {
                     setIsPeriodModalOpen(true);
                     return;
                 case "cost-comparison":
+                    blob = format === "PDF"
+                        ? await reportService.exportFinancePdf(pid) // TODO: Should this be BOQ export?
+                        : await reportService.exportFinanceExcel(pid);
+                    break;
+                case "financial-summary":
                     blob = format === "PDF"
                         ? await reportService.exportFinancePdf(pid)
                         : await reportService.exportFinanceExcel(pid);
@@ -291,22 +303,6 @@ const ManagerReportsPage = () => {
         }
     };
 
-    const generateCSV = (data: any[], filename: string) => {
-        if (!data || data.length === 0) return;
-        const headers = Object.keys(data[0]).join(",");
-        const rows = data.map(row =>
-            Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
-        ).join("\n");
-        const blob = new Blob([headers + "\n" + rows], { type: "text/csv;charset=utf-8;" });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `${filename}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-    };
-
     const handleViewSummary = async (report: ReportType, selectedDate?: string) => {
         if (!selectedProjectId) {
             toast.error("Please select a project first");
@@ -335,8 +331,29 @@ const ManagerReportsPage = () => {
 
             switch (report.id) {
                 case "daily": data = await reportService.getDailyReport(pid, today); break;
-                case "cost-comparison": data = await boqService.getBoqComparison(pid); break;
-                case "financial-summary": data = await reportService.getFinancialSummary(pid); break;
+                case "cost-comparison": {
+                    const [boqComparison, expenseBoqComparison] = await Promise.all([
+                        boqService.getBoqComparison(pid).catch(() => null),
+                        expenseService.getBoqComparison(pid).catch(() => null)
+                    ]);
+                    data = { boqComparison, expenseBoqComparison };
+                    break;
+                }
+                case "financial-summary": {
+                    const [financialSummary, rawInvoiceSummary] = await Promise.all([
+                        reportService.getFinancialSummary(pid).catch(() => null),
+                        financeService.getProjectInvoiceSummary(pid).catch(() => null)
+                    ]);
+                    
+                    const invoiceSummary = rawInvoiceSummary ? {
+                        projectId: pid,
+                        paid: (rawInvoiceSummary.total_billing || 0) - (rawInvoiceSummary.pending_collections || 0),
+                        pending: rawInvoiceSummary.pending_collections || 0
+                    } : null;
+
+                    data = { financialSummary, invoiceSummary };
+                    break;
+                }
                 case "project-report": {
                     const d = new Date(today);
                     data = await reportService.getProjectReport(pid, "monthly", d.getMonth() + 1, d.getFullYear());
@@ -344,7 +361,22 @@ const ManagerReportsPage = () => {
                 }
                 case "labour": data = await reportService.getLabourReport(pid); break;
                 case "material": data = await reportService.getMaterialReport(pid); break;
-                case "profit-loss": data = await reportService.getProfitLoss(); break;
+                case "procurement": {
+                    const [transactions, summary] = await Promise.all([
+                        materialService.getProjectTransactions(pid).catch(() => []),
+                        materialService.getMaterialSummary(pid).catch(() => null)
+                    ]);
+                    data = { transactions, summary };
+                    break;
+                }
+                case "profit-loss": {
+                    const [projectPL, overallPL] = await Promise.all([
+                        reportService.getProjectProfitLoss(pid).catch(() => null),
+                        reportService.getProfitLoss().catch(() => null)
+                    ]);
+                    data = { projectProfitLoss: projectPL, overallProfitLoss: overallPL };
+                    break;
+                }
                 default: data = { message: "Advanced summary metrics are being calculated." };
             }
 
@@ -468,9 +500,9 @@ const ManagerReportsPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                     {[
                         { label: "Net Margin", value: formatCompactCurrency(stats.totalProfit), sub: "Billing vs Costs", icon: <TrendingUp size={22} />, color: "bg-emerald-50 text-emerald-600" },
-                        { label: "Operational Spend", value: formatCompactCurrency(stats.totalExpense), sub: "Total Expenditure", icon: <DollarSign size={22} />, color: "bg-rose-50 text-rose-500" },
+                        { label: "Operational Spend", value: formatCompactCurrency(stats.totalExpense), sub: "Total Expenditure", icon: <IndianRupee size={22} />, color: "bg-rose-50 text-rose-500" },
                         { label: "Execution Rank", value: `${stats.completion}%`, sub: "Progress Compliance", icon: <CheckCircle2 size={22} />, color: "bg-blue-50 text-blue-600" },
-                        { label: "Active Blockers", value: stats.activeIssues.toString(), sub: "Site Issues", icon: <AlertCircle size={22} />, color: "bg-amber-50 text-amber-600" },
+                        { label: "Active Blockers", value: `${stats.activeIssues} ${stats.activeIssues === 1 ? 'Issue' : 'Issues'}`, sub: "Site Issues", icon: <AlertCircle size={22} />, color: "bg-amber-50 text-amber-600" },
                     ].map((stat, i) => (
                         <div key={i} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm transition-all hover:shadow-md">
                             <div className="flex items-center gap-4 mb-4">

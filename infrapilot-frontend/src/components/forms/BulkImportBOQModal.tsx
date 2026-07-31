@@ -40,10 +40,11 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
             boqService.getBoqsByProject(projectId),
             masterService.getEntities('activity-types'),
           ]);
-          setAvailableBoqs(items);
+          const masterBoqs = items.filter((i: any) => i.approval_status !== 'Draft');
+          setAvailableBoqs(masterBoqs);
           setActivityTypes(types);
-          if (items.length > 0) {
-            setSelectedBoqId(String(items[0].boq_group_id ?? items[0].id));
+          if (masterBoqs.length > 0) {
+            setSelectedBoqId(String(masterBoqs[0].boq_group_id ?? masterBoqs[0].id));
             setIsCreatingNew(false);
           } else {
             setIsCreatingNew(true);

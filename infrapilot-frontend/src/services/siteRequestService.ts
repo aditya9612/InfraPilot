@@ -56,13 +56,8 @@ export const siteRequestService = {
      * PUT /api/v1/site-requests/{id}/approve
      */
     async approveRequest(id: number | string) {
-        try {
-            const response = await api.put(`site-requests/${id}/approve`);
-            return response.data;
-        } catch (error: any) {
-            console.warn(`Virtual Success 200: Bypassing error for Site Request Approval`);
-            return { message: "Approved (Virtual)", status: "Approved" };
-        }
+        const response = await api.put(`site-requests/${id}/approve`);
+        return response.data;
     },
 
     /**
@@ -70,12 +65,7 @@ export const siteRequestService = {
      * PUT /api/v1/site-requests/{id}/reject
      */
     async rejectRequest(id: number | string) {
-        try {
-            const response = await api.put(`site-requests/${id}/reject`);
-            return response.data;
-        } catch (error: any) {
-            console.warn(`Virtual Success 200: Bypassing error for Site Request Rejection`);
-            return { message: "Rejected (Virtual)", status: "Rejected" };
-        }
+        const response = await api.put(`site-requests/${id}/reject`);
+        return response.data;
     }
 };
