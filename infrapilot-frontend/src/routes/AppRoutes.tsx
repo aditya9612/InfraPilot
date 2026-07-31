@@ -211,6 +211,9 @@ function AppRoutes() {
                 <Route path="/admin/engineers/:id" element={<EngineerProfilePage />} />
                 <Route path="/admin/managers" element={<ProjectManagersPage />} />
                 <Route path="/admin/boq" element={<BOQPage />} />
+                <Route path="/admin/boq/list" element={<BOQPage />} />
+                <Route path="/admin/boq/items" element={<BOQPage />} />
+                <Route path="/admin/boq/cost" element={<BOQPage />} />
                 <Route path="/admin/boq/setup" element={<BOQPage />} />
                 <Route path="/admin/boq/activities" element={<BOQPage />} />
                 <Route path="/admin/inventory" element={<InventoryPage />} />
