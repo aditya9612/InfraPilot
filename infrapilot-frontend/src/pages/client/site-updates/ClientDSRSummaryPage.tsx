@@ -741,14 +741,14 @@ const ClientDSRSummaryPage = () => {
                     </div>
                   </div>
 
-                  {selectedReportForView.safety_observations && (
-                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Safety Observations</p>
-                      <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-                        <p className="text-sm text-amber-600 font-medium">{selectedReportForView.safety_observations}</p>
-                      </div>
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Safety Observations</p>
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                      <p className="text-sm text-amber-600 font-medium">
+                        {selectedReportForView.safety_observations || selectedReportForView.safety_observation || selectedReportForView.safety || "no safety observation found"}
+                      </p>
                     </div>
-                  )}
+                  </div>
 
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Remarks</p>

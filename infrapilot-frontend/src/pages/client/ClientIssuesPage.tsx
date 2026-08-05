@@ -53,7 +53,21 @@ const ClientIssuesPage = () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const response = await issueService.getIssues({ project_id: projectId, limit: 1000 });
+
+      // Build API params — pass priority when a specific filter is selected
+      const apiParams: any = { project_id: projectId, limit: 1000 };
+      if (priorityFilter !== "ALL PRIORITY") {
+        // Map UI label to the API-expected value (capitalize first letter)
+        const priorityMap: Record<string, string> = {
+          CRITICAL: "Critical",
+          HIGH: "High",
+          MEDIUM: "Medium",
+          LOW: "Low",
+        };
+        apiParams.priority = priorityMap[priorityFilter] || priorityFilter;
+      }
+
+      const response = await issueService.getIssues(apiParams);
 
       // The API returns data directly or in an items array
       const allIssues = Array.isArray(response) ? response : (response.items || []);
@@ -75,7 +89,7 @@ const ClientIssuesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, priorityFilter]);
 
   useEffect(() => {
     fetchIssues();

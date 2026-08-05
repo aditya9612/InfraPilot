@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
 import { projectService } from "../../services/projectService";
 import { workProgressService } from "../../services/workProgressService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Eye, FileText, FileSpreadsheet } from "lucide-react";
+import { Eye, FileText, FileSpreadsheet, ChevronDown } from "lucide-react";
 import ActivityDetailModal from "../../components/WorkProgress/ActivityDetailModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -14,12 +14,25 @@ const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
   const { projectId } = useClientProjectId();
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     if (!projectId) return;
@@ -57,7 +70,7 @@ const ClientProgressPage = () => {
           console.warn("Backend PDF export failed, falling back to local generation:", apiErr);
         }
       }
-      
+
       const doc = new jsPDF({ orientation: "landscape" }) as any;
       doc.setFillColor(15, 23, 42);
       doc.rect(0, 0, 297, 24, "F");
@@ -191,6 +204,14 @@ const ClientProgressPage = () => {
     delayed: activities.filter(a => ["DELAY", "DELAYED", "Delayed", "DELAY_ONGOING"].includes(a.status?.toUpperCase() || a.status)).length,
   };
 
+  const statusOptions = [
+    { value: "ALL", label: "All Status" },
+    { value: "NOT_STARTED", label: "Not Started" },
+    { value: "ON_TRACK", label: "On Track" },
+    { value: "DELAY", label: "Delay" },
+    { value: "COMPLETED", label: "Completed" },
+  ];
+
   return (
     <>
       <Navbar title="Work Progress" breadcrumb={["InfraPilot", "Client", "Work Progress"]} />
@@ -243,8 +264,8 @@ const ClientProgressPage = () => {
                 setCurrentPage(1);
               }}
               className={`p-6 rounded-2xl bg-white border transition-all flex flex-col items-start gap-4 text-left group active:scale-[0.98] ${filterStatus === card.id
-                  ? "border-blue-500 shadow-lg shadow-blue-50"
-                  : "border-slate-100 shadow-sm hover:border-slate-200"
+                ? "border-blue-500 shadow-lg shadow-blue-50"
+                : "border-slate-100 shadow-sm hover:border-slate-200"
                 }`}
             >
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
@@ -262,8 +283,53 @@ const ClientProgressPage = () => {
 
         {/* Detailed Activity Progress — now from API */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-8 border-b border-slate-50">
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Detailed Activity Progress</h2>
+          <div className="px-8 py-4 border-b border-slate-100 flex items-center gap-6">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">
+              Detailed Activity Progress
+            </h2>
+
+            {/* STATUS label + dropdown — placed right next to title in marked place */}
+            <div className="flex items-center gap-2.5" ref={dropdownRef}>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                Status:
+              </span>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 hover:border-blue-400 rounded-lg text-[11px] font-extrabold text-slate-700 transition-all cursor-pointer uppercase tracking-wider min-w-[130px] justify-between shadow-sm"
+                >
+                  <span>{statusOptions.find(o => o.value === filterStatus)?.label ?? "All Status"}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${dropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                    {statusOptions.map((opt) => {
+                      const isSelected = filterStatus === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setFilterStatus(opt.value);
+                            setCurrentPage(1);
+                            setDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-blue-600 text-white"
+                              : "text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

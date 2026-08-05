@@ -195,7 +195,7 @@ const MyTasksPage: React.FC = () => {
                     priority: (t.priority === 'Low' || t.priority === 'Medium' || t.priority === 'High') ? t.priority : 'Medium',
                     startDate: t.start_date || '2026-06-25',
                     endDate: t.end_date || '2026-06-30',
-                    status: (localStatus === 'Completed' ? 'Completed' : (localStatus === 'In Progress' ? 'In Progress' : (t.status === 'Hold' || t.status === 'Cancelled' ? 'Cancelled' : (t.status === 'In Progress' ? 'In Progress' : 'Pending')))) as any,
+                    status: (localStatus === 'Completed' ? 'Completed' : (localStatus === 'In Progress' ? 'In Progress' : (t.status === 'Hold' || t.status === 'Cancelled' ? 'Cancelled' : (t.status === 'In Progress' ? 'In Progress' : 'Planned')))) as any,
                     progress: (localStatus === 'Completed' ? 100 : (t.completion_percentage || 0)),
                     audioUrl,
                     imageUrl
@@ -230,7 +230,7 @@ const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
         const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.id.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = statusFilter === 'All Status' || t.status === statusFilter;
+        const matchesStatus = statusFilter === 'All Status' || t.status === statusFilter || (statusFilter === 'Planned' && (t.status === 'Pending' || t.status === 'Planned'));
         return matchesSearch && matchesStatus;
     });
 }, [tasks, searchQuery, statusFilter]);
@@ -302,7 +302,7 @@ return (
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
                 {[
                     { label: 'TOTAL TASKS', count: totalTasks, icon: List, filterStatus: 'All Status' },
-                    { label: 'PLANNED', count: tasks.filter(t => t.status === 'Pending').length, icon: Calendar, filterStatus: 'Pending' },
+                    { label: 'PLANNED', count: tasks.filter(t => t.status === 'Planned' || t.status === 'Pending').length, icon: Calendar, filterStatus: 'Planned' },
                     { label: 'IN PROGRESS', count: tasks.filter(t => t.status === 'In Progress').length, icon: Clock, filterStatus: 'In Progress' },
                     { label: 'COMPLETED', count: tasks.filter(t => t.status === 'Completed').length, icon: CheckCircle, filterStatus: 'Completed' },
                     { label: 'CANCELLED', count: tasks.filter(t => t.status === 'Cancelled').length, icon: XCircle, filterStatus: 'Cancelled' },
@@ -367,7 +367,7 @@ return (
                                 className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:border-slate-300 transition-all min-w-[140px]"
                             >
                                 <option>All Status</option>
-                                <option>Pending</option>
+                                <option>Planned</option>
                                 <option>In Progress</option>
                                 <option>Completed</option>
                                 <option>Cancelled</option>
