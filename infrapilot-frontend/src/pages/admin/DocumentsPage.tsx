@@ -376,11 +376,14 @@ const DocumentsPage = () => {
     // Main tab: Drawings vs Documents
     if (mainTab === "Drawings") {
       // Show only drawing-type items and folders
-      data = data.filter(d => d.is_folder || (d as any).type === "Drawing" || (d.document_type || "").toLowerCase() === "drawing");
+      data = data.filter(d => /* d.is_folder || */(d as any).type === "Drawing" || (d.document_type || "").toLowerCase() === "drawing");
     } else {
       // Show only non-drawing items (documents and folders)
-      data = data.filter(d => d.is_folder || ((d as any).type !== "Drawing" && (d.document_type || "").toLowerCase() !== "drawing"));
+      data = data.filter(d => /* d.is_folder || */((d as any).type !== "Drawing" && (d.document_type || "").toLowerCase() !== "drawing"));
     }
+
+    // Temporarily hide ALL folders unconditionally
+    data = data.filter(d => !d.is_folder);
 
     // Sub-tab: All, Documents (non-folders), Folders
     if (typeFilter === "Documents") {
@@ -448,13 +451,13 @@ const DocumentsPage = () => {
             >
               <RefreshCcw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
             </button>
-            <button
+            {/* <button
               onClick={() => setIsFolderModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all font-semibold"
             >
               <FolderPlus className="w-4 h-4 text-indigo-500" />
               New Folder
-            </button>
+            </button> */}
             <button
               onClick={() => {
                 const type = mainTab === "Drawings" ? "Drawing" : "Document";
@@ -555,14 +558,14 @@ const DocumentsPage = () => {
               >
                 <option value="All">All</option>
                 <option value="Documents">{mainTab === "Drawings" ? "Drawings" : "Documents"}</option>
-                <option value="Folders">Folders</option>
+                {/* <option value="Folders">Folders</option> */}
               </select>
               <SortDropdown value={sortOrder} onChange={setSortOrder} />
             </div>
           </div>
 
-          {/* Breadcrumbs */}
-          {(folderPath.length > 0 || currentFolderId !== null) && (
+          {/* Breadcrumbs (Temporarily hidden) */}
+          {/* {(folderPath.length > 0 || currentFolderId !== null) && (
             <div className="px-6 py-3 bg-slate-50/60 border-b border-slate-50 flex items-center gap-2">
               <button onClick={() => handleBreadcrumb(-1)} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-primary transition-colors">Root Vault</button>
               {folderPath.map((f, idx) => (
@@ -577,7 +580,7 @@ const DocumentsPage = () => {
                 </React.Fragment>
               ))}
             </div>
-          )}
+          )} */}
 
           <div className="overflow-x-auto">
             <table className="w-full text-left min-w-[800px]">
@@ -785,11 +788,11 @@ const DocumentsPage = () => {
         </div>
       </PageTransition>
 
-      <CreateFolderModal
+      {/* <CreateFolderModal
         isOpen={isFolderModalOpen}
         onClose={() => setIsFolderModalOpen(false)}
         onSubmit={handleNewFolder}
-      />
+      /> */}
 
       <UploadDocumentModal
         isOpen={isUploadModalOpen}
