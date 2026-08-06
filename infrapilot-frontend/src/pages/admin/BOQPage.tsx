@@ -6,8 +6,8 @@ import PageTransition from "../../components/common/PageTransition";
 import { useProject } from "../../context/ProjectContext";
 import { boqService } from "../../services/boqService";
 import { projectService } from "../../services/projectService";
-import { approvalService } from "../../services/approvalService";
 import { masterService } from "../../services/masterService";
+
 import toast from "react-hot-toast";
 import {
     List,
@@ -24,8 +24,9 @@ import {
     Eye,
     Trash2,
     Pencil,
-    FileCheck,
+
     Bell,
+    Plus,
     ClipboardList,
     Sparkles,
 } from "lucide-react";
@@ -34,7 +35,6 @@ import type { BoqItem, BoqSummary } from "../../types/boq";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { exportToCSV } from "../../utils/csvExport";
-import StatCard from "../../components/common/StatCard";
 import Pagination from "../../components/common/Pagination";
 import CreateBOQModal from "../../components/forms/CreateBOQModal";
 import BOQDetailsModal from "../../components/dashboard/BOQDetailsModal";
@@ -45,6 +45,8 @@ import OptimizationModal from "../../components/dashboard/OptimizationModal";
 import BulkImportBOQModal from "../../components/forms/BulkImportBOQModal";
 import ProjectSelector from "../../components/common/ProjectSelector";
 import { BOQ_CATEGORIES } from "../../config/constants";
+import AddBoqItemModal from "../../components/forms/AddBoqItemModal";
+import EditBoqItemModal from "../../components/forms/EditBoqItemModal";
 
 
 /* ─── page ───────────────────────────────────────────────────── */
@@ -56,12 +58,16 @@ const BOQPage = () => {
     const [boqData, setBoqData] = useState<BoqItem[]>([]);
     const [projectMap, setProjectMap] = useState<Record<number, string>>({});
     const [activityTypeMap, setActivityTypeMap] = useState<Record<number, string>>({});
+    const [boqGroups, setBoqGroups] = useState<any[]>([]);
+
     const [summary, setSummary] = useState<BoqSummary | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [itemRefreshCounter, setItemRefreshCounter] = useState(0);
 
     // Filter States
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [approvalStatusFilter, setApprovalStatusFilter] = useState("all");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
@@ -77,6 +83,8 @@ const BOQPage = () => {
     const [editingItem, setEditingItem] = useState<BoqItem | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+    const [isAddBoqItemModalOpen, setIsAddBoqItemModalOpen] = useState(false);
+    const [selectedBoqGroupId, setSelectedBoqGroupId] = useState<number | null>(null);
 
     // Advanced Feature States
     const [versionsList, setVersionsList] = useState<number[]>([]);
@@ -84,26 +92,25 @@ const BOQPage = () => {
     const [isActualsModalOpen, setIsActualsModalOpen] = useState(false);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [activeItemForModal, setActiveItemForModal] = useState<BoqItem | null>(null);
-    const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+    const [exportMenuId, setExportMenuId] = useState<number | null>(null);
     const exportMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
-                setIsExportMenuOpen(false);
+                setExportMenuId(null);
             }
         };
-        if (isExportMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+        if (exportMenuId !== null) document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [isExportMenuOpen]);
+    }, [exportMenuId]);
     const [isExporting, setIsExporting] = useState(false);
     const [isOptimizationModalOpen, setIsOptimizationModalOpen] = useState(false);
-    const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
-
     const [optimizationBoqId, setOptimizationBoqId] = useState<number | null>(null);
+    const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
     const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
     const [generatedTasksList, setGeneratedTasksList] = useState<any[]>([]);
-
+    
     // Select Milestone for Generate Tasks
     const [isSelectMilestoneModalOpen, setIsSelectMilestoneModalOpen] = useState(false);
     const [milestonesList, setMilestonesList] = useState<any[]>([]);
@@ -114,6 +121,7 @@ const BOQPage = () => {
     // Map URL param to tab ID
     const tabMap: Record<string, string> = useMemo(() => ({
         list: "boq-list",
+        items: "item-list",
         cost: "cost-tracking"
     }), []);
 
@@ -140,17 +148,13 @@ const BOQPage = () => {
                 });
                 setProjectMap(map);
 
-                // Fetch activity types for mapping
-                try {
-                    const activityRes = await masterService.getEntities('activity-types');
-                    const aMap: Record<number, string> = {};
-                    activityRes.forEach((a: any) => {
-                        aMap[a.id] = a.name;
-                    });
-                    setActivityTypeMap(aMap);
-                } catch (err) {
-                    console.error("Failed to fetch activity types", err);
-                }
+                // Fetch activity types
+                const activityTypes = await masterService.getEntities("activity-types");
+                const activityMap: Record<number, string> = {};
+                activityTypes.forEach((a: any) => {
+                    activityMap[a.id] = a.name;
+                });
+                setActivityTypeMap(activityMap);
 
                 // Initial fetch
                 await refreshBoqs();
@@ -164,12 +168,36 @@ const BOQPage = () => {
         loadInitialData();
     }, [assignedProjects]);
 
+    // Fetch BOQ groups whenever project changes
+    useEffect(() => {
+        if (!selectedProjectId) { setBoqGroups([]); return; }
+        boqService.getBoqsByProject(Number(selectedProjectId))
+            .then(async (items: any[]) => {
+                // Filter out draft items as per user requirement to not show added items in BOQ list
+                const masters = items.filter((i: any) => i.approval_status !== 'Draft');
+                
+                // Fetch details for each master to get the correct internal boq_group_id to avoid 404s
+                const enrichedMasters = await Promise.all(masters.map(async (m: any) => {
+                    try {
+                        const detail = await boqService.getBoqById(m.id);
+                        return { ...m, true_group_id: detail.boq_group_id || m.boq_group_id || m.id };
+                    } catch {
+                        return { ...m, true_group_id: m.boq_group_id || m.id };
+                    }
+                }));
+                
+                setBoqGroups(enrichedMasters);
+            })
+            .catch(() => { setBoqGroups([]); });
+    }, [selectedProjectId, itemRefreshCounter]);
+
     const refreshBoqs = useCallback(async () => {
         setIsLoading(true);
         try {
             const filters: any = {
                 search: searchTerm || null,
                 status: statusFilter === "all" ? null : statusFilter,
+                approval_status: approvalStatusFilter === "all" ? null : approvalStatusFilter,
                 category: categoryFilter === "all" ? null : categoryFilter,
                 project_id: selectedProjectId || null,
                 version_no: selectedVersion === "latest" ? null : Number(selectedVersion),
@@ -179,14 +207,10 @@ const BOQPage = () => {
 
             const res = await boqService.getBoqs(filters);
 
-            // Filter out deleted and inactive items from the local state
-            const activeItems = res.items.filter((item: any) =>
-                item.status?.toLowerCase() !== 'deleted' &&
-                item.status?.toLowerCase() !== 'inactive'
-            );
-
-            setBoqData(activeItems);
-            setTotalItems(res.total || activeItems.length);
+            // Filter out draft items from BOQ list
+            const masterItems = res.items.filter((item: any) => item.approval_status !== 'Draft');
+            setBoqData(masterItems);
+            setTotalItems(masterItems.length);
 
             // Also refresh summary if project is selected
             if (selectedProjectId) {
@@ -203,6 +227,7 @@ const BOQPage = () => {
     }, [
         searchTerm,
         statusFilter,
+        approvalStatusFilter,
         categoryFilter,
         selectedProjectId,
         selectedVersion,
@@ -218,7 +243,7 @@ const BOQPage = () => {
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, statusFilter, categoryFilter, selectedProjectId, selectedVersion]);
+    }, [searchTerm, statusFilter, approvalStatusFilter, categoryFilter, selectedProjectId, selectedVersion]);
 
     // Fetch versions when boqData changes
     useEffect(() => {
@@ -249,52 +274,21 @@ const BOQPage = () => {
                 await boqService.updateBoqItem(editingItem.id, data);
                 toast.success("BOQ item updated successfully!");
             } else {
-                // Use the group endpoint for adding items
-                // Find the first BOQ item's group_id for this project, or use the project_id as the group
-                const firstItem = boqData[0];
-                const groupId = firstItem?.boq_group_id || data.project_id;
-
-                if (!groupId) {
-                    toast.error("Unable to determine BOQ group. Please ensure project is selected.");
+                if (!selectedProjectId) {
+                    toast.error("Please select a project first.");
                     return;
                 }
-
-                const newItem = await boqService.addBoqItem(groupId, data);
-                toast.success("BOQ item added to group successfully!");
-
-                // Automatically request approval for new items
-                try {
-                    await approvalService.createApproval({
-                        entity_type: "boq",
-                        entity_id: newItem.id,
-                        remarks: `Initial approval request for ${newItem.item_name}`,
-                    });
-                    toast.success("Approval request initiated!");
-                } catch (approveErr) {
-                    console.error("Auto-approval error:", approveErr);
-                    toast.error("Failed to auto-initiate approval. Use manual action.");
-                }
+                await boqService.createBoq({
+                    ...data,
+                    project_id: selectedProjectId
+                });
+                toast.success("BOQ item created successfully!");
             }
             await refreshBoqs();
             setIsModalOpen(false);
             setEditingItem(null);
         } catch (error) {
-            toast.error(editingItem ? "Failed to update BOQ" : "Failed to add BOQ item");
-        }
-    };
-
-    const handleRequestApproval = async (item: BoqItem) => {
-        try {
-            await approvalService.createApproval({
-                entity_type: "boq",
-                entity_id: item.id,
-                remarks: `Requesting approval for BOQ item: ${item.item_name}`,
-            });
-            toast.success("Approval request sent successfully!");
-            refreshBoqs();
-        } catch (error) {
-            toast.error("Failed to send approval request");
-            console.error("Approval Request Error:", error);
+            toast.error(editingItem ? "Failed to update BOQ" : "Failed to create BOQ item");
         }
     };
 
@@ -362,19 +356,14 @@ const BOQPage = () => {
         }
     };
 
-    const handleExport = async (format: "excel" | "pdf" | "json") => {
+    const handleExport = async (item: BoqItem, format: "excel" | "pdf" | "json") => {
         if (isExporting) return;
-        if (boqData.length === 0) {
-            toast.error("No data to export");
-            return;
-        }
 
         setIsExporting(true);
+        setExportMenuId(null);
         const dateStr = new Date().toISOString().split("T")[0];
         const projectName = selectedProjectId ? projectMap[Number(selectedProjectId)] : "All_Projects";
-        const firstItem = boqData[0];
-        // Use the item's own id for /api/v1/boq/{boq_id}/export/{format}
-        const boqId = firstItem?.id;
+        const boqId = item?.id;
 
         if (!boqId) {
             toast.error("Unable to determine BOQ ID for export");
@@ -439,7 +428,7 @@ const BOQPage = () => {
                     autoTable(doc, {
                         startY: 45,
                         head: [["Item Name", "Category", "Qty & Unit", "Unit Cost", "Est. Total", "Status"]],
-                        body: boqData.map((item) => [
+                        body: [item].map((item: any) => [
                             item.item_name,
                             item.category,
                             `${item.quantity} ${item.unit}`,
@@ -449,11 +438,11 @@ const BOQPage = () => {
                         ]),
                         headStyles: { fillColor: [37, 99, 235] },
                     });
-                    doc.save(`BOQ_${projectName}_${dateStr}.pdf`);
+                    doc.save(`BOQ_${projectName}_${item.item_name}_${dateStr}.pdf`);
                     toast.success("PDF generated successfully", { id: "export" });
 
                 } else if (format === "excel") {
-                    exportToCSV(boqData, `BOQ_${projectName}_${dateStr}.csv`, {
+                    exportToCSV([item], `BOQ_${projectName}_${item.item_name}_${dateStr}.csv`, {
                         item_name: "Item Name",
                         category: "Category",
                         quantity: "Quantity",
@@ -465,11 +454,11 @@ const BOQPage = () => {
                     toast.success("CSV exported successfully", { id: "export" });
 
                 } else {
-                    const blob = new Blob([JSON.stringify(boqData, null, 2)], { type: "application/json" });
+                    const blob = new Blob([JSON.stringify([item], null, 2)], { type: "application/json" });
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `BOQ_${projectName}_${dateStr}.json`;
+                    a.download = `BOQ_${projectName}_${item.item_name}_${dateStr}.json`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -482,7 +471,7 @@ const BOQPage = () => {
             }
         } finally {
             setIsExporting(false);
-            setIsExportMenuOpen(false);
+            setExportMenuId(null);
         }
     };
 
@@ -491,11 +480,23 @@ const BOQPage = () => {
         setIsActualsModalOpen(true);
     };
 
-    const openHistoryModal = (item: BoqItem) => {
-        setActiveItemForModal(item);
-        setIsHistoryModalOpen(true);
+    const handleAddBoqItemSubmit = async (data: any) => {
+        if (!selectedBoqGroupId) {
+            toast.error("No BOQ Group selected.");
+            return;
+        }
+        try {
+            await boqService.addBoqItem(selectedBoqGroupId, data);
+            toast.success("BOQ Item added successfully!");
+            await refreshBoqs();
+            setItemRefreshCounter(prev => prev + 1);
+            setIsAddBoqItemModalOpen(false);
+            setSelectedBoqGroupId(null);
+            handleTabChange("item-list");
+        } catch (error) {
+            toast.error("Failed to add BOQ item");
+        }
     };
-
 
     const handleDownloadReport = async (item: BoqItem) => {
         try {
@@ -529,10 +530,15 @@ const BOQPage = () => {
         }
     };
 
+    const openHistoryModal = (item: BoqItem) => {
+        setActiveItemForModal(item);
+        setIsHistoryModalOpen(true);
+    };
+
     const openSelectMilestoneModal = async (item: BoqItem) => {
         setPendingGenerateTaskBoqId(item.id);
         setPendingGenerateTaskBoqName(item.item_name);
-
+        
         if (selectedProjectId) {
             try {
                 const ms = await projectService.getMilestones(Number(selectedProjectId));
@@ -552,7 +558,8 @@ const BOQPage = () => {
             toast.dismiss(loadingToast);
             toast.success("Tasks generated successfully!");
             setIsSelectMilestoneModalOpen(false);
-
+            
+            // Expected result to have a list of tasks. Handle array or object wrapping an array.
             const tasks = Array.isArray(result) ? result : (result.tasks || result.data || []);
             setGeneratedTasksList(tasks);
             setIsTasksModalOpen(true);
@@ -567,6 +574,8 @@ const BOQPage = () => {
         setIsOptimizationModalOpen(true);
     };
 
+
+
     const filteredBoqData = useMemo(() => {
         return [...boqData].sort((a, b) => {
             const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -578,9 +587,20 @@ const BOQPage = () => {
         });
     }, [boqData, sortOrder]);
 
+    const handleViewDetails = async (item: BoqItem) => {
+        try {
+            const details = await boqService.getBoqById(item.id);
+            setViewingItem(details);
+            setIsViewModalOpen(true);
+        } catch (error) {
+            toast.error("Failed to fetch BOQ details.");
+            console.error(error);
+        }
+    };
 
     const tabs = [
         { id: "boq-list", label: `BOQ List (${totalItems})`, icon: <List className="w-4 h-4" /> },
+        { id: "item-list", label: "BOQ Item List", icon: <Layers className="w-4 h-4" /> },
         { id: "cost-tracking", label: "Cost Tracking", icon: <TrendingUp className="w-4 h-4" /> },
     ];
 
@@ -622,12 +642,12 @@ const BOQPage = () => {
                             }}
                             className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all"
                         >
-                            + Add BOQ Item
+                            Create BOQ
                         </button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     {[
                         {
                             title: "Budget Estimate",
@@ -649,13 +669,6 @@ const BOQPage = () => {
                             sub: "Budget Gap Analysis",
                             accent: (summary?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))) < 0 ? "bg-rose-500" : "bg-emerald-500",
                             text: (summary?.difference || (filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.total_cost?.toString() || "0"), 0) - filteredBoqData.reduce((acc, curr) => acc + parseFloat(curr.actual_cost?.toString() || "0"), 0))) < 0 ? "text-rose-600" : "text-emerald-600"
-                        },
-                        {
-                            title: "Rate Approvals",
-                            value: filteredBoqData.filter((i) => i.status?.toLowerCase().includes("review") || i.status?.toLowerCase().includes("draft") || i.status?.toLowerCase().includes("pending")).length.toString(),
-                            sub: "Pending Review Items",
-                            accent: "bg-amber-500",
-                            text: "text-amber-600"
                         },
                     ].map((s) => (
                         <div key={s.title} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all group overflow-hidden relative">
@@ -729,6 +742,18 @@ const BOQPage = () => {
                                         </select>
 
                                         <select
+                                            value={approvalStatusFilter}
+                                            onChange={(e) => setApprovalStatusFilter(e.target.value)}
+                                            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                                        >
+                                            <option value="all">All Approvals</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="under_review">Under Review</option>
+                                            <option value="approved">Approved</option>
+                                            <option value="rejected">Rejected</option>
+                                        </select>
+
+                                        <select
                                             value={categoryFilter}
                                             onChange={(e) => setCategoryFilter(e.target.value)}
                                             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 outline-none focus:ring-2 focus:ring-primary/10 transition-all"
@@ -767,32 +792,6 @@ const BOQPage = () => {
                                                 </button>
                                             </div>
                                         )}
-
-                                        <div className="relative" ref={exportMenuRef}>
-                                            <button
-                                                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-                                                className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all"
-                                            >
-                                                <Upload className="w-3.5 h-3.5" />
-                                                Export
-                                            </button>
-                                            {isExportMenuOpen && (
-                                                <div className="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                    <button onClick={() => handleExport("excel")} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-                                                        <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                                                        CSV (.csv)
-                                                    </button>
-                                                    <button onClick={() => handleExport("pdf")} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all">
-                                                        <FileText className="w-4 h-4 text-rose-500" />
-                                                        PDF Report
-                                                    </button>
-                                                    <button onClick={() => handleExport("json")} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all">
-                                                        <FileJson className="w-4 h-4 text-amber-500" />
-                                                        JSON Data
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
                                     </div>
                                 </div>
 
@@ -868,12 +867,33 @@ const BOQPage = () => {
                                                             </td>
                                                             <td className="px-6 py-5 text-right">
                                                                 <div className="flex items-center justify-end gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
-                                                                    <button onClick={() => { setViewingItem(item); setIsViewModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-slate-900 transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
+                                                                    <div className="relative" ref={exportMenuId === item.id ? exportMenuRef : null}>
+                                                                        <button onClick={() => setExportMenuId(exportMenuId === item.id ? null : item.id)} className={`p-1.5 transition-colors ${exportMenuId === item.id ? "text-primary bg-primary/10 rounded-lg" : "text-slate-500 hover:text-primary"}`} title="Export Details">
+                                                                            <Upload className="w-4 h-4" />
+                                                                        </button>
+                                                                        {exportMenuId === item.id && (
+                                                                            <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                                                <button onClick={(e) => { e.stopPropagation(); handleExport(item, "excel"); }} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                                                                                    <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                                                                                    CSV (.csv)
+                                                                                </button>
+                                                                                <button onClick={(e) => { e.stopPropagation(); handleExport(item, "pdf"); }} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all">
+                                                                                    <FileText className="w-4 h-4 text-rose-500" />
+                                                                                    PDF Report
+                                                                                </button>
+                                                                                <button onClick={(e) => { e.stopPropagation(); handleExport(item, "json"); }} disabled={isExporting} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 transition-all">
+                                                                                    <FileJson className="w-4 h-4 text-amber-500" />
+                                                                                    JSON Data
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <button onClick={() => { setSelectedBoqGroupId(item.true_group_id || item.boq_group_id || item.id); setIsAddBoqItemModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-primary transition-colors" title="Add Item to Group"><Plus className="w-4 h-4" /></button>
+                                                                    <button onClick={() => handleViewDetails(item)} className="p-1.5 text-slate-500 hover:text-slate-900 transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
                                                                     <button onClick={() => openActualsModal(item)} className="p-1.5 text-slate-500 hover:text-emerald-600 transition-colors" title="Update Actuals"><TrendingUp className="w-4 h-4" /></button>
                                                                     <button onClick={() => handleDownloadReport(item)} className="p-1.5 text-slate-500 hover:text-indigo-500 transition-colors" title="Download Report"><FileText className="w-4 h-4" /></button>
                                                                     <button onClick={() => handleViewAlerts(item)} className="p-1.5 text-slate-500 hover:text-amber-500 transition-colors" title="View Alerts"><Bell className="w-4 h-4" /></button>
                                                                     <button onClick={() => openOptimizationModal(item)} className="p-1.5 text-slate-500 hover:text-amber-500 transition-colors" title="Optimize BOQ"><Sparkles className="w-4 h-4" /></button>
-                                                                    <button onClick={() => item.approval_status !== 'Approved' && handleRequestApproval(item)} disabled={item.approval_status === 'Approved'} className={`p-1.5 transition-colors ${item.approval_status === 'Approved' ? 'text-emerald-500 cursor-not-allowed opacity-50' : 'text-slate-500 hover:text-blue-600'}`} title={item.approval_status === 'Approved' ? 'Already Approved' : 'Request Approval'}><FileCheck className="w-4 h-4" /></button>
                                                                     <button onClick={() => openHistoryModal(item)} className="p-1.5 text-slate-500 hover:text-violet-600 transition-colors" title="View History"><History className="w-4 h-4" /></button>
                                                                     <button onClick={() => openSelectMilestoneModal(item)} className="p-1.5 text-slate-500 hover:text-fuchsia-600 transition-colors" title="Generate Tasks"><ClipboardList className="w-4 h-4" /></button>
                                                                     <button onClick={() => handleEditClick(item)} className="p-1.5 text-slate-500 hover:text-amber-600 transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
@@ -895,6 +915,12 @@ const BOQPage = () => {
                                 />
                             </div>
                         )}
+                        {activeTab === "item-list" && (
+                            <ItemListView
+                                projectId={selectedProjectId !== null ? String(selectedProjectId) : null}
+                                boqGroups={boqGroups}
+                            />
+                        )}
                         {activeTab === "cost-tracking" && <CostTrackingView projectId={selectedProjectId !== null ? String(selectedProjectId) : null} selectedVersion={selectedVersion} />}
                     </motion.div>
                 </AnimatePresence>
@@ -906,6 +932,14 @@ const BOQPage = () => {
                 onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
                 onSubmit={handleCreateOrUpdateBOQ}
                 initialData={editingItem}
+            />
+
+            <AddBoqItemModal
+                isOpen={isAddBoqItemModalOpen}
+                onClose={() => { setIsAddBoqItemModalOpen(false); setSelectedBoqGroupId(null); }}
+                onSubmit={handleAddBoqItemSubmit}
+                projects={assignedProjects}
+                groupId={selectedBoqGroupId}
             />
 
             {viewingItem && (
@@ -950,7 +984,6 @@ const BOQPage = () => {
                 />
             )}
 
-
             {/* Generated Tasks Modal */}
             {isTasksModalOpen && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
@@ -958,7 +991,7 @@ const BOQPage = () => {
                         <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-white sticky top-0 z-10">
                             <div>
                                 <h3 className="text-xl font-bold text-slate-800 tracking-tight">Generated Tasks</h3>
-                                <p className="text-xs text-slate-500 font-medium">Tasks created from: <span className="text-primary font-bold">{pendingGenerateTaskBoqName}</span></p>
+                                <p className="text-xs text-slate-500 font-medium">Tasks created from: <span className="text-primary font-bold">{activeItemForModal?.item_name}</span></p>
                             </div>
                             <button
                                 onClick={() => setIsTasksModalOpen(false)}
@@ -1020,12 +1053,16 @@ const BOQPage = () => {
                             </button>
                         </div>
                         <div className="p-6 bg-slate-50/30 max-h-[60vh] overflow-y-auto space-y-6">
+                            
+                            {/* BOQ Selection (Read-only since it's selected from row) */}
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Target BOQ</label>
                                 <div className="w-full p-4 rounded-xl border border-primary/20 bg-primary/5 flex items-center justify-between">
                                     <span className="font-bold text-primary">{pendingGenerateTaskBoqName}</span>
                                 </div>
                             </div>
+
+                            {/* Milestone Selection (List) */}
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Select Milestone</label>
                                 {milestonesList.length === 0 ? (
@@ -1054,6 +1091,7 @@ const BOQPage = () => {
                                                 </div>
                                             </button>
                                         ))}
+                                        
                                         <div className="pt-4 mt-4 border-t border-slate-100">
                                             <button onClick={() => handleGenerateTasks(0)} className="w-full p-4 rounded-xl border border-dashed border-slate-300 text-slate-500 font-bold text-sm hover:border-slate-400 hover:text-slate-700 transition-colors bg-white">
                                                 Skip & Generate Without Milestone
@@ -1067,7 +1105,6 @@ const BOQPage = () => {
                 </div>
             )}
 
-
             <OptimizationModal
                 isOpen={isOptimizationModalOpen}
                 onClose={() => { setIsOptimizationModalOpen(false); setOptimizationBoqId(null); }}
@@ -1080,74 +1117,14 @@ const BOQPage = () => {
                 projectId={selectedProjectId || 0}
                 onSuccess={refreshBoqs}
             />
+
+
         </div>
     );
 };
 
 /* ═══════════════════════════════════════════════════════════════
-   2. BUDGET VIEW
-   ════════════════════════════════════════════════════════════ */
-const BudgetView = ({ summary, items }: { summary: any; items: BoqItem[]; isLoading: boolean }) => {
-    return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6">Expense Distribution</h3>
-                    <div className="space-y-4">
-                        {/* Logic to group by category could go here */}
-                        {["Material", "Labour", "Equipment", "General"].map((cat) => {
-                            const catItems = items.filter(i => i.category === cat);
-                            const est = catItems.reduce((acc, curr) => acc + Number(curr.total_cost || 0), 0);
-                            const percent = summary?.estimated ? (est / Number(summary.estimated)) * 100 : 0;
-
-                            return (
-                                <div key={cat} className="space-y-2">
-                                    <div className="flex justify-between items-center text-xs font-bold">
-                                        <span className="text-slate-600">{cat}</span>
-                                        <span className="text-slate-400">{formatCompactCurrency(est)}</span>
-                                    </div>
-                                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-primary rounded-full" style={{ width: `${percent}%` }} />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-6">Budget Health Index</h3>
-                    <div className="flex flex-col items-center justify-center py-4">
-                        <div className="relative w-32 h-32 flex items-center justify-center">
-                            <svg className="w-full h-full transform -rotate-90">
-                                <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
-                                <circle
-                                    cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="12" fill="transparent"
-                                    strokeDasharray={364.4}
-                                    strokeDashoffset={364.4 * (1 - (summary?.actual ? Math.min(summary.estimated / summary.actual, 1) : 1))}
-                                    className={summary?.actual > summary?.estimated ? "text-rose-500" : "text-emerald-500"}
-                                />
-                            </svg>
-                            <div className="absolute flex flex-col items-center">
-                                <span className="text-xl font-black text-slate-900">
-                                    {summary?.actual ? ((Number(summary.estimated) / Number(summary.actual)) * 100).toFixed(0) : 100}%
-                                </span>
-                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Health</span>
-                            </div>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-6 text-center max-w-[200px] font-medium leading-relaxed">
-                            {summary?.actual > summary?.estimated
-                                ? "Your project is currently over budget. Consider optimizing upcoming activities."
-                                : "Budget health is optimal. Project is running within estimated costs."}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-/* ═══════════════════════════════════════════════════════════════
-   3. COST TRACKING VIEW
+   COST TRACKING VIEW
    ════════════════════════════════════════════════════════════ */
 const CostTrackingView = ({ projectId, selectedVersion }: { projectId: string | null; selectedVersion: number | "latest" }) => {
     const [comparisonData, setComparisonData] = useState<any[]>([]);
@@ -1267,3 +1244,198 @@ const CostTrackingView = ({ projectId, selectedVersion }: { projectId: string | 
 };
 
 export default BOQPage;
+
+/* ═══════════════════════════════════════════════════════════════
+   ITEM LIST VIEW
+   ════════════════════════════════════════════════════════════ */
+const ItemListView = ({
+    projectId,
+    boqGroups
+}: {
+    projectId: string | null;
+    boqGroups: any[];
+}) => {
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+    const itemsPerPage = 10;
+    
+    // Modals
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [itemToEdit, setItemToEdit] = useState<any | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    const refreshItems = () => setRefreshTrigger(prev => prev + 1);
+
+    useEffect(() => {
+        if (boqGroups && boqGroups.length > 0 && !selectedGroupId) {
+            setSelectedGroupId(boqGroups[0].true_group_id || boqGroups[0].boq_group_id || boqGroups[0].id);
+        }
+    }, [boqGroups, selectedGroupId]);
+
+    // Fetch items for the specifically selected group
+    useEffect(() => {
+        if (!selectedGroupId) {
+            setItems([]);
+            return;
+        }
+        
+        const fetchItems = async () => {
+            setLoading(true);
+            try {
+                const groupItems = await boqService.getGroupItems(selectedGroupId);
+                setItems(groupItems);
+            } catch (error) {
+                console.error("Failed to fetch group items", error);
+                setItems([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchItems();
+    }, [selectedGroupId, refreshTrigger]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [boqGroups, refreshTrigger]);
+
+    if (!projectId) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-100">
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Select a project to view item list.</p>
+            </div>
+        );
+    }
+
+    const paginatedItems = items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row gap-4 justify-between items-center bg-white">
+                    <div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">All Items</h3>
+                        <p className="text-xs text-slate-500 font-medium">List of all items across BOQ groups.</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filter by BOQ:</label>
+                        <select
+                            value={selectedGroupId || ""}
+                            onChange={(e) => {
+                                setSelectedGroupId(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer min-w-[200px]"
+                        >
+                            <option value="" disabled>Select BOQ Group</option>
+                            {boqGroups?.map(group => (
+                                <option key={group.id} value={group.true_group_id || group.boq_group_id || group.id}>{group.item_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                                <th className="px-6 py-4">Item Name</th>
+                                <th className="px-6 py-4">Description</th>
+                                <th className="px-6 py-4">Quantity</th>
+                                <th className="px-6 py-4 text-right">Unit Rate</th>
+                                <th className="px-6 py-4 text-center">Status</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {loading ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">Loading items...</td></tr>
+                            ) : paginatedItems.length === 0 ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-sm font-bold text-slate-400 uppercase tracking-widest font-inter">No items available.</td></tr>
+                            ) : (
+                                paginatedItems.map((item, idx) => (
+                                    <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-bold text-slate-800">{item.item_name}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-medium text-slate-500 line-clamp-1">{item.description}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="text-xs font-bold text-slate-700">{item.quantity} {item.unit}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className="text-xs font-bold text-slate-700">{formatCompactCurrency(item.unit_cost)}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase ${item.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                                                {item.status || "Active"}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity">
+                                                {/* View button removed as per request */}
+                                                <button onClick={() => { setItemToEdit(item); setIsEditModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-blue-600 transition-colors" title="Edit Item"><Pencil className="w-4 h-4" /></button>
+                                                <button onClick={() => { setItemToDelete(item.id); setIsDeleteModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-red-500 transition-colors" title="Delete Item"><Trash2 className="w-4 h-4" /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                {items.length > itemsPerPage && (
+                    <div className="p-4 border-t border-slate-50 flex justify-center bg-slate-50/30">
+                        <Pagination
+                            currentPage={currentPage}
+                            totalItems={items.length}
+                            pageSize={itemsPerPage}
+                            onPageChange={setCurrentPage}
+                        />
+                    </div>
+                )}
+            </div>
+
+            <EditBoqItemModal
+                isOpen={isEditModalOpen}
+                onClose={() => { setIsEditModalOpen(false); setItemToEdit(null); }}
+                onSubmit={async (data) => {
+                    if (itemToEdit) {
+                        await boqService.updateGroupItem(itemToEdit.id, data);
+                        toast.success("Item updated successfully");
+                        refreshItems();
+                        setIsEditModalOpen(false);
+                        setItemToEdit(null);
+                    }
+                }}
+                initialData={itemToEdit}
+            />
+
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => { setIsDeleteModalOpen(false); setItemToDelete(null); }}
+                onConfirm={async () => {
+                    if (itemToDelete) {
+                        try {
+                            await boqService.deleteGroupItem(itemToDelete);
+                            toast.success("Item deleted successfully");
+                            refreshItems();
+                        } catch (e) {
+                            toast.error("Failed to delete item");
+                        } finally {
+                            setIsDeleteModalOpen(false);
+                            setItemToDelete(null);
+                        }
+                    }
+                }}
+                title="Delete Item"
+                message="Are you sure you want to delete this item? This action cannot be undone."
+                confirmText="Delete"
+            />
+        </div>
+    );
+};
