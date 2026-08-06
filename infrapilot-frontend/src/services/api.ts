@@ -54,15 +54,19 @@ api.interceptors.response.use(
     if (status === 401) {
       // Ignore 401s from known buggy or sensitive endpoints to prevent aggressive logouts
       const isIgnored =
-        url.includes("/invoices") ||
-        url.includes("/communication") ||
-        url.includes("/alerts") ||
-        url.includes("/projects/alerts") ||
-        url.includes("/chats") ||
-        url.includes("/chat") ||
-        url.includes("/settings") ||
-        url.includes("/notifications") ||
-        url.includes("/dashboard");
+        url.includes("invoices") ||
+        url.includes("communication") ||
+        url.includes("alerts") ||
+        url.includes("chats") ||
+        url.includes("chat") ||
+        url.includes("settings") ||
+        url.includes("notifications") ||
+        url.includes("dashboard") ||
+        url.includes("billing") ||
+        url.includes("contractors") ||
+        url.includes("work-orders") ||
+        url.includes("quotations") ||
+        url.includes("measurements");
 
       if (!isIgnored) {
         const path = window.location.pathname;

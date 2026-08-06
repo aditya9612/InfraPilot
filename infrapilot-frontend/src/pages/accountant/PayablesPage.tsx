@@ -38,7 +38,7 @@ const DashboardSection = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    accountingService.getPayablesSummary().then(setSummary).catch(() => {});
+    accountingService.getPayablesSummary().then(setSummary).catch(() => { });
   }, []);
 
   const handleFetchDateRange = async (e: React.FormEvent) => {
@@ -192,8 +192,8 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
     setActiveSubTab("list");
   };
 
-  const filtered = vendorBills.filter(b => 
-    (b?.vendor || "").toLowerCase().includes((search || "").toLowerCase()) || 
+  const filtered = vendorBills.filter(b =>
+    (b?.vendor || "").toLowerCase().includes((search || "").toLowerCase()) ||
     (b?.bill_no || "").toLowerCase().includes((search || "").toLowerCase())
   );
 
@@ -220,12 +220,12 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <input 
-            type="text" 
-            placeholder="Search bills or vendors..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" 
+          <input
+            type="text"
+            placeholder="Search bills or vendors..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white"
           />
         </div>
       </div>
@@ -366,7 +366,7 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
                 <div className="flex justify-between text-xs text-slate-500"><span>GST</span><span className="font-semibold text-emerald-600">{editingBill ? fmt(editingBill.gst) : "—"}</span></div>
                 <div className="flex justify-between text-xs text-slate-500"><span>TDS</span><span className="font-semibold text-rose-600">—</span></div>
                 <div className="flex justify-between text-xs font-bold text-slate-800 border-t border-slate-100 pt-2"><span>Payable Amount</span><span>{editingBill ? fmt(editingBill.payable) : "—"}</span></div>
-                
+
                 <div className="pt-2">
                   <div className="flex justify-between text-xs text-slate-500 mb-2"><span>Advance Paid</span><span className="font-semibold text-slate-700">{editingBill ? fmt(editingBill.paid) : "—"}</span></div>
                   <div className="flex justify-between text-sm font-bold text-primary border-t border-slate-100 pt-2"><span>Balance Amount</span><span>{editingBill ? fmt(editingBill.payable - editingBill.paid) : "—"}</span></div>
@@ -389,7 +389,7 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
           </div>
         </form>
       )}
-      
+
       {/* Approval & Payments placeholders */}
       {activeSubTab === "approval" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -445,7 +445,7 @@ const VendorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
 };
 
 // 3. Contractor Bills
-const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
+export const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState<"list" | "create" | "approval" | "payments">(
     (initialSubTab as any) || "list"
   );
@@ -472,7 +472,7 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
   const handleConfirmPay = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!payingBill) return;
-    
+
     const formData = new FormData(e.currentTarget);
     const payload = {
       amount: Number(formData.get("amount")),
@@ -515,8 +515,8 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
     setActiveSubTab("list");
   };
 
-  const filtered = contractorBills.filter(b => 
-    b.contractor.toLowerCase().includes(search.toLowerCase()) || 
+  const filtered = contractorBills.filter(b =>
+    b.contractor.toLowerCase().includes(search.toLowerCase()) ||
     b.bill_no.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -543,12 +543,12 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <input 
-            type="text" 
-            placeholder="Search bills or contractors..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
-            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white" 
+          <input
+            type="text"
+            placeholder="Search bills or contractors..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="text-xs border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 w-44 bg-white"
           />
         </div>
       </div>
@@ -673,7 +673,7 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
                 <div className="flex justify-between text-xs text-slate-500"><span>Bill Amount</span><span className="font-semibold text-slate-700">{editingBill ? fmt(editingBill.amt) : "—"}</span></div>
                 <div className="flex justify-between text-xs text-slate-500"><span>GST</span><span className="font-semibold text-emerald-600">{editingBill ? fmt(editingBill.gst) : "—"}</span></div>
                 <div className="flex justify-between text-xs font-bold text-slate-800 border-t border-slate-100 pt-2"><span>Gross Amount</span><span>{editingBill ? fmt(editingBill.amt + editingBill.gst) : "—"}</span></div>
-                
+
                 <div className="pt-2">
                   <div className="flex justify-between text-xs text-slate-500 mb-1"><span>Total Deductions</span><span className="font-semibold text-rose-600">{editingBill ? "-" + fmt(editingBill.tds) : "—"}</span></div>
                   <div className="flex justify-between text-sm font-bold text-primary border-t border-slate-100 pt-2"><span>Net Payable</span><span>{editingBill ? fmt(editingBill.payable) : "—"}</span></div>
@@ -765,7 +765,7 @@ const ContractorBillsSection = ({ initialSubTab }: { initialSubTab?: string }) =
               </div>
               <button type="button" onClick={() => setPayingBill(null)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            
+
             <div className="p-6 space-y-5">
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Amount to Pay (Due: {fmt(payingBill.payable - (payingBill.paid || 0))})</label>
@@ -823,20 +823,20 @@ const OutstandingPayablesSection = () => (
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50">
-          {[...MOCK_VENDOR_BILLS.map(b => ({...b, name: b.vendor, type: "Vendor"})), ...MOCK_CONTRACTOR_BILLS.map(b => ({...b, name: b.contractor, type: "Contractor"}))]
+          {[...MOCK_VENDOR_BILLS.map(b => ({ ...b, name: b.vendor, type: "Vendor" })), ...MOCK_CONTRACTOR_BILLS.map(b => ({ ...b, name: b.contractor, type: "Contractor" }))]
             .filter(b => b.payable > b.paid)
             .map(b => (
-            <tr key={b.id + b.type} className="hover:bg-slate-50/50 transition-colors">
-              <td className="px-4 py-3 text-xs font-bold text-slate-700">{b.name}</td>
-              <td className="px-4 py-3"><span className="px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest bg-slate-100 text-slate-600">{b.type}</span></td>
-              <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
-              <td className="px-4 py-3 text-xs text-slate-500">{b.date}</td>
-              <td className="px-4 py-3 text-xs font-semibold text-rose-500">{b.due}</td>
-              <td className="px-4 py-3 text-xs text-slate-700 text-right">{fmt(b.payable)}</td>
-              <td className="px-4 py-3 text-xs text-emerald-600 text-right">{fmt(b.paid)}</td>
-              <td className="px-4 py-3 text-xs font-bold text-rose-600 text-right">{fmt(b.payable - b.paid)}</td>
-            </tr>
-          ))}
+              <tr key={b.id + b.type} className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-4 py-3 text-xs font-bold text-slate-700">{b.name}</td>
+                <td className="px-4 py-3"><span className="px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest bg-slate-100 text-slate-600">{b.type}</span></td>
+                <td className="px-4 py-3 text-xs font-bold text-primary">{b.bill_no}</td>
+                <td className="px-4 py-3 text-xs text-slate-500">{b.date}</td>
+                <td className="px-4 py-3 text-xs font-semibold text-rose-500">{b.due}</td>
+                <td className="px-4 py-3 text-xs text-slate-700 text-right">{fmt(b.payable)}</td>
+                <td className="px-4 py-3 text-xs text-emerald-600 text-right">{fmt(b.paid)}</td>
+                <td className="px-4 py-3 text-xs font-bold text-rose-600 text-right">{fmt(b.payable - b.paid)}</td>
+              </tr>
+            ))}
         </tbody>
       </table>
     </div>
@@ -852,12 +852,11 @@ const OutstandingPayablesSection = () => (
 
 // --- MAIN COMPONENT ---
 
-type TabKey = "dashboard" | "vendor-bills" | "contractor-bills" | "outstanding" | "payment-requests";
+type TabKey = "dashboard" | "vendor-bills" | "outstanding" | "payment-requests";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "vendor-bills", label: "Vendor Bills" },
-  { key: "contractor-bills", label: "Contractor Bills" },
   { key: "outstanding", label: "Outstanding" },
   { key: "payment-requests", label: "Payment Requests" },
 ];
@@ -877,7 +876,6 @@ const PayablesPage = () => {
     const map: Record<string, TabKey> = {
       "dashboard": "dashboard",
       "vendor-bills": "vendor-bills",
-      "contractor-bills": "contractor-bills",
       "payment-requests": "payment-requests",
       "outstanding": "outstanding",
     };
@@ -923,9 +921,8 @@ const PayablesPage = () => {
         <div className="flex gap-2 bg-slate-100/70 rounded-xl p-1.5 mb-6 overflow-x-auto w-fit border border-slate-200">
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
-              }`}>
+              className={`px-5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === tab.key ? "bg-white text-blue-600 shadow-sm border border-slate-200 font-bold" : "text-slate-500 hover:text-slate-700"
+                }`}>
               {tab.label}
             </button>
           ))}
@@ -939,11 +936,10 @@ const PayablesPage = () => {
         </div>
 
         {/* Content Rendering */}
-        {activeTab === "dashboard"         && <DashboardSection />}
-        {activeTab === "vendor-bills"      && <VendorBillsSection key={subTab || "list"} initialSubTab={subTab} />}
-        {activeTab === "contractor-bills"  && <ContractorBillsSection key={subTab || "list"} initialSubTab={subTab} />}
-        {activeTab === "outstanding"       && <OutstandingPayablesSection />}
-        {activeTab === "payment-requests"  && <PaymentRequestsSection />}
+        {activeTab === "dashboard" && <DashboardSection />}
+        {activeTab === "vendor-bills" && <VendorBillsSection key={subTab || "list"} initialSubTab={subTab} />}
+        {activeTab === "outstanding" && <OutstandingPayablesSection />}
+        {activeTab === "payment-requests" && <PaymentRequestsSection />}
       </PageTransition>
     </>
   );
