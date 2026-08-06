@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -10,10 +10,13 @@ import { quotationService } from "../../services/quotationService";
 import api from "../../services/api";
 import { projectService } from "../../services/projectService";
 import { measurementService } from "../../services/measurementService";
+import { financeService } from "../../services/financeService";
+import { ownerService } from "../../services/ownerService";
 import { Zap, Eye, Download, Trash, Pencil, CheckCircle, XCircle, ChevronLeft, ChevronRight, FileText, Send, Banknote, Check, X } from "lucide-react";
 import QuotationViewModal from "./QuotationViewModal";
 import InvoiceViewModal from "./InvoiceViewModal";
 import InvoiceEditModal from "./InvoiceEditModal";
+import CreateManualReceivableModal from "../../components/forms/CreateManualReceivableModal";
 
 const ProjectNameCell = ({ projectId, projects }: { projectId: number | string, projects: any[] }) => {
   const [name, setName] = useState<string>("");
@@ -41,31 +44,6 @@ const ProjectNameCell = ({ projectId, projects }: { projectId: number | string, 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock Data
 // ─────────────────────────────────────────────────────────────────────────────
-
-const MOCK_INVOICES = [
-  { id: 1, invoice_number: "INV-2026-001", client_name: "Aditya Enterprises", project_name: "Skyline Residency", billing_date: "2026-05-15", due_date: "2026-06-15", work_description: "Excavation & PCC Work – Phase 1", quantity: 1200, unit: "Sqft", rate: 15, amount: 18000, gst_percent: 18, gst_amount: 3240, total_with_gst: 21240, payment_status: "Paid", received_amount: 21240, pending_amount: 0 },
-  { id: 2, invoice_number: "INV-2026-002", client_name: "BuildCorp Solutions", project_name: "Metropolis Hub", billing_date: "2026-05-20", due_date: "2026-06-20", work_description: "RCC Column Casting – Ground Floor", quantity: 500, unit: "CuM", rate: 200, amount: 100000, gst_percent: 18, gst_amount: 18000, total_with_gst: 118000, payment_status: "Partial", received_amount: 60000, pending_amount: 58000 },
-  { id: 3, invoice_number: "INV-2026-003", client_name: "Zenith Infrastructures", project_name: "NH-48 Expansion", billing_date: "2026-06-01", due_date: "2026-07-01", work_description: "Bitumen Laying – Km 22 to 28", quantity: 250, unit: "Km", rate: 450, amount: 112500, gst_percent: 18, gst_amount: 20250, total_with_gst: 132750, payment_status: "Pending", received_amount: 0, pending_amount: 132750 },
-  { id: 4, invoice_number: "INV-2026-004", client_name: "Greenfield Developers", project_name: "Green Valley Township", billing_date: "2026-06-05", due_date: "2026-06-25", work_description: "Plumbing & Electrical Rough-in", quantity: 800, unit: "Sqft", rate: 90, amount: 72000, gst_percent: 18, gst_amount: 12960, total_with_gst: 84960, payment_status: "Overdue", received_amount: 0, pending_amount: 84960 },
-];
-
-
-
-const MOCK_COLLECTIONS = [
-  { id: 1, invoice: "INV-2026-001", client: "Aditya Enterprises", amount: 21240, received_on: "2026-06-05", mode: "NEFT", ref: "HDFC20260605001", status: "Received" },
-  { id: 2, invoice: "INV-2026-002", client: "BuildCorp Solutions", amount: 60000, received_on: "2026-06-10", mode: "Cheque", ref: "CHQ-004521", status: "Received" },
-  { id: 3, invoice: "INV-2026-003", client: "Zenith Infrastructures", amount: 0, received_on: "—", mode: "—", ref: "—", status: "Pending" },
-  { id: 4, invoice: "INV-2026-004", client: "Greenfield Developers", amount: 0, received_on: "—", mode: "—", ref: "—", status: "Overdue" },
-];
-
-const MOCK_LEDGER = [
-  { date: "2026-05-15", particulars: "Invoice INV-2026-001 Raised", debit: 21240, credit: 0, balance: 21240 },
-  { date: "2026-05-20", particulars: "Credit Note CN-2026-001 Issued", debit: 0, credit: 5900, balance: 15340 },
-  { date: "2026-06-05", particulars: "Payment Received – NEFT", debit: 0, credit: 21240, balance: -5900 },
-  { date: "2026-05-20", particulars: "Invoice INV-2026-002 Raised", debit: 118000, credit: 0, balance: 112100 },
-  { date: "2026-06-10", particulars: "Partial Payment Received – Cheque", debit: 0, credit: 60000, balance: 52100 },
-];
-
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,6 +101,44 @@ const InvoicesSection = ({
 
   const [deleteModalId, setDeleteModalId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportReceivables = async () => {
+    try {
+      toast.loading("Exporting receivables...", { id: "export-rec" });
+      const blob = await financeService.exportReceivables();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Receivables_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Receivables Exported!", { id: "export-rec" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to export receivables", { id: "export-rec" });
+    }
+  };
+
+  const handleImportReceivables = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      toast.loading("Importing receivables...", { id: "import-rec" });
+      const formData = new FormData();
+      formData.append("file", file);
+      await financeService.importReceivables(formData);
+      toast.success("Receivables imported successfully!", { id: "import-rec" });
+      // Optionally trigger a refresh
+      const data = await quotationService.getQuotations();
+      setInvoices(data);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to import receivables", { id: "import-rec" });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     const fetchQuotations = async () => {
@@ -324,6 +340,17 @@ const InvoicesSection = ({
             <option value="All">All Projects</option>
             {projects.map(p => <option key={p.id} value={p.project_name || p.name}>{p.project_name || p.name}</option>)}
           </select>
+          <input type="file" ref={fileInputRef} className="hidden" accept=".csv,.xlsx,.xls" onChange={handleImportReceivables} />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">
+            📥 Import
+          </button>
+          <button 
+            onClick={handleExportReceivables}
+            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-3 py-2 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">
+            📤 Export
+          </button>
         </div>
       </div>
 
@@ -1729,69 +1756,214 @@ const RABillsSection = ({ initialSubTab }: { initialSubTab?: string; }) => {
 
 
 // 5. Collections
-const CollectionsSection = () => (
-  <div className="space-y-5">
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {[
-        { label: "Total Collected", value: fmt(81240), icon: "💰", color: "bg-emerald-50 text-emerald-600" },
-        { label: "Pending Collection", value: fmt(132750), icon: "⏳", color: "bg-amber-50 text-amber-600" },
-        { label: "Overdue", value: fmt(84960), icon: "🚨", color: "bg-rose-50 text-rose-600" },
-        { label: "Follow-ups Today", value: "3", icon: "📞", color: "bg-blue-50 text-blue-600" },
-      ].map((k, i) => (
-        <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center gap-4">
-          <div className={`w-12 h-12 rounded-xl ${k.color} flex items-center justify-center text-2xl`}>{k.icon}</div>
+const CollectionsSection = () => {
+  const [summary, setSummary] = useState<any>(null);
+  const [collections, setCollections] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+
+  const fetchCollectionsData = async () => {
+    setIsLoading(true);
+    try {
+      const [sumRes, collRes] = await Promise.all([
+        financeService.getReceivablesSummary(),
+        financeService.getReceivablesCollections()
+      ]);
+      setSummary(sumRes);
+      setCollections(collRes);
+    } catch (error) {
+      toast.error("Failed to fetch collections data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCollectionsData();
+  }, []);
+
+  const handleExportCollections = async () => {
+    try {
+      toast.loading("Exporting collections...", { id: "export-col" });
+      const blob = await financeService.exportReceivablesCollections();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Collections_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Collections Exported!", { id: "export-col" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to export collections", { id: "export-col" });
+    }
+  };
+
+  const stats = [
+    { label: "Portfolio Value", value: fmt(summary?.portfolio_value || 0), icon: "📊", color: "bg-blue-50 text-blue-600" },
+    { label: "Total Billed", value: fmt(summary?.total_billed || 0), icon: "🧾", color: "bg-indigo-50 text-indigo-600" },
+    { label: "Total Received", value: fmt(summary?.total_received || 0), icon: "💰", color: "bg-emerald-50 text-emerald-600" },
+    { label: "Pending Amount", value: fmt(summary?.pending_amount || 0), icon: "⏳", color: "bg-amber-50 text-amber-600" },
+    { label: "Overdue Amount", value: fmt(summary?.overdue_amount || 0), icon: "🚨", color: "bg-rose-50 text-rose-600" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {stats.map((k, i) => (
+          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center gap-4">
+            <div className={`w-12 h-12 min-w-[48px] rounded-xl ${k.color} flex items-center justify-center text-2xl`}>{k.icon}</div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{k.label}</p>
+              <p className="text-lg font-bold text-slate-800 mt-0.5">{k.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-5 border-b border-slate-100 flex justify-between items-center">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{k.label}</p>
-            <p className="text-lg font-bold text-slate-800 mt-0.5">{k.value}</p>
+            <h3 className="font-bold text-slate-800">Collection Records</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Payment received & pending follow-ups</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleExportCollections} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">
+              📤 Export Collections
+            </button>
+            <button onClick={() => setIsManualModalOpen(true)} className="flex items-center gap-2 bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-600 transition-all active:scale-95">
+              + Add Manual Entry
+            </button>
+            <button onClick={() => toast.success("Payment recorded!")} className="flex items-center gap-2 bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-slate-700 transition-all active:scale-95">
+              + Record Payment
+            </button>
           </div>
         </div>
-      ))}
-    </div>
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-        <div>
-          <h3 className="font-bold text-slate-800">Collection Records</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Payment received & pending follow-ups</p>
-        </div>
-        <button onClick={() => toast.success("Payment recorded!")} className="flex items-center gap-2 bg-primary text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-blue-600 transition-all active:scale-95">+ Record Payment</button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50/60 border-b border-slate-100">
-            <tr>
-              {["Invoice", "Client", "Amount Received", "Received On", "Mode", "Reference", "Status", "Action"].map(h => (
-                <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {MOCK_COLLECTIONS.map(c => (
-              <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-4 py-3 text-xs font-bold text-primary">{c.invoice}</td>
-                <td className="px-4 py-3 text-xs font-semibold text-slate-700">{c.client}</td>
-                <td className="px-4 py-3 text-xs font-bold text-emerald-700 text-right">{c.amount > 0 ? fmt(c.amount) : "—"}</td>
-                <td className="px-4 py-3 text-xs text-slate-500">{c.received_on}</td>
-                <td className="px-4 py-3 text-xs text-slate-500">{c.mode}</td>
-                <td className="px-4 py-3 text-xs font-mono text-slate-400">{c.ref}</td>
-                <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(c.status)}`}>{c.status}</span></td>
-                <td className="px-4 py-3">
-                  {c.status !== "Received" && (
-                    <button onClick={() => toast.success("Follow-up sent!")} className="text-[10px] font-bold px-2.5 py-1 bg-blue-50 text-primary rounded-lg border border-blue-100 hover:bg-blue-100 transition-all">Follow Up</button>
-                  )}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/60 border-b border-slate-100">
+              <tr>
+                {["Invoice", "Client", "Amount Received", "Received On", "Mode", "Reference", "Status", "Action"].map(h => (
+                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-sm font-semibold">Loading collections...</td>
+                </tr>
+              ) : collections.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-sm font-semibold">No collection records found.</td>
+                </tr>
+              ) : (
+                collections.map((c: any, idx: number) => (
+                  <tr key={c.id || idx} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-4 py-3 text-xs font-bold text-primary">{c.invoice || c.invoice_no || "—"}</td>
+                    <td className="px-4 py-3 text-xs font-semibold text-slate-700">{c.client || c.client_name || "—"}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-emerald-700 text-right">{c.amount || c.amount_received ? fmt(c.amount || c.amount_received) : "—"}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{c.received_on || c.date || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{c.mode || c.payment_mode || "—"}</td>
+                    <td className="px-4 py-3 text-xs font-mono text-slate-400">{c.ref || c.reference || "—"}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-widest ${statusBadge(c.status || c.payment_status || "PENDING")}`}>{c.status || c.payment_status || "PENDING"}</span></td>
+                    <td className="px-4 py-3">
+                      {(c.status || c.payment_status || "").toLowerCase() !== "received" && (
+                        <button onClick={() => toast.success("Follow-up sent!")} className="text-[10px] font-bold px-2.5 py-1 bg-blue-50 text-primary rounded-lg border border-blue-100 hover:bg-blue-100 transition-all">Follow Up</button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+      {isManualModalOpen && (
+        <CreateManualReceivableModal
+          onClose={() => setIsManualModalOpen(false)}
+          onSuccess={() => {
+            setIsManualModalOpen(false);
+            fetchCollectionsData();
+          }}
+        />
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 // 6. Client Ledger
 const ClientLedgerSection = () => {
-  const [selectedClient, setSelectedClient] = useState("Aditya Enterprises");
-  const clients = [...new Set(MOCK_INVOICES.map(i => i.client_name))];
+  const [clients, setClients] = useState<any[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [ledgerData, setLedgerData] = useState<any>(null);
+  const [isLoadingClients, setIsLoadingClients] = useState(true);
+  const [isLoadingLedger, setIsLoadingLedger] = useState(false);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await ownerService.getOwners();
+        const clientsList = ((response as any)?.items || response || []).map((owner: any) => ({
+          id: String(owner.id),
+          name: owner.name || owner.company_name || `Client ${owner.id}`
+        }));
+        
+        setClients(clientsList);
+        if (clientsList.length > 0) {
+          setSelectedClientId(clientsList[0].id);
+        }
+      } catch (error) {
+        toast.error("Failed to load clients");
+      } finally {
+        setIsLoadingClients(false);
+      }
+    };
+    fetchClients();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedClientId) return;
+    const fetchLedger = async () => {
+      setIsLoadingLedger(true);
+      try {
+        const data = await financeService.getClientLedger(selectedClientId);
+        setLedgerData(data);
+      } catch (error) {
+        toast.error("Failed to fetch client ledger");
+        setLedgerData(null);
+      } finally {
+        setIsLoadingLedger(false);
+      }
+    };
+    fetchLedger();
+  }, [selectedClientId]);
+
+  const selectedClientName = clients.find(c => c.id === selectedClientId)?.name || "—";
+  
+  const totalBilled = ledgerData?.total_billed || ledgerData?.transactions?.reduce((sum: number, t: any) => sum + (Number(t.debit) || 0), 0) || 0;
+  const totalReceived = ledgerData?.total_received || ledgerData?.transactions?.reduce((sum: number, t: any) => sum + (Number(t.credit) || 0), 0) || 0;
+  const outstanding = ledgerData?.outstanding || (totalBilled - totalReceived);
+  const transactions = ledgerData?.transactions || (Array.isArray(ledgerData) ? ledgerData : []);
+
+  const handleExportLedger = async () => {
+    if (!selectedClientId) return toast.error("Please select a client first");
+    try {
+      toast.loading("Exporting client ledger...", { id: "export-ledger" });
+      const blob = await financeService.exportClientLedger(selectedClientId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ClientLedger_${selectedClientId}_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Client Ledger Exported!", { id: "export-ledger" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to export client ledger", { id: "export-ledger" });
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -1800,24 +1972,29 @@ const ClientLedgerSection = () => {
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="space-y-1.5 flex-1">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Select Client</label>
-            <select value={selectedClient} onChange={e => setSelectedClient(e.target.value)}
-              className="w-full max-w-sm px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer">
-              {clients.map(c => <option key={c}>{c}</option>)}
+            <select 
+              value={selectedClientId} 
+              onChange={e => setSelectedClientId(e.target.value)}
+              disabled={isLoadingClients}
+              className="w-full max-w-sm px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer disabled:opacity-50">
+              {isLoadingClients ? <option>Loading clients...</option> : clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {!isLoadingClients && clients.length === 0 && <option value="">No clients found</option>}
             </select>
           </div>
           <div className="flex gap-2 mt-4 sm:mt-5">
-            <button onClick={() => toast.success("Client statement downloaded!")} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2.5 rounded-xl hover:border-primary/30 hover:text-primary transition-all">📥 Client Statement</button>
-            <button onClick={() => toast.success("Outstanding summary downloaded!")} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2.5 rounded-xl hover:border-primary/30 hover:text-primary transition-all">📊 Outstanding Summary</button>
+            <button onClick={handleExportLedger} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2.5 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">📤 Export Ledger</button>
+            <button onClick={() => toast.success("Client statement downloaded!")} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2.5 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">📥 Client Statement</button>
+            <button onClick={() => toast.success("Outstanding summary downloaded!")} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold px-4 py-2.5 rounded-xl hover:border-primary/30 hover:text-primary transition-all active:scale-95">📊 Outstanding Summary</button>
           </div>
         </div>
       </div>
 
       {/* Outstanding Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: "Total Billed", value: fmt(21240 + 118000 + 132750 + 84960) },
-          { label: "Total Received", value: fmt(21240 + 60000), green: true },
-          { label: "Outstanding", value: fmt(118000 - 60000 + 132750 + 84960), red: true },
+          { label: "Total Billed", value: fmt(totalBilled) },
+          { label: "Total Received", value: fmt(totalReceived), green: true },
+          { label: "Outstanding", value: fmt(outstanding), red: true },
         ].map((s, i) => (
           <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
@@ -1829,7 +2006,7 @@ const ClientLedgerSection = () => {
       {/* Transaction History */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-5 border-b border-slate-100">
-          <h3 className="font-bold text-slate-800">Transaction History — {selectedClient}</h3>
+          <h3 className="font-bold text-slate-800">Transaction History — {selectedClientName}</h3>
           <p className="text-xs text-slate-400 mt-0.5">All debits and credits in chronological order</p>
         </div>
         <div className="overflow-x-auto">
@@ -1837,20 +2014,35 @@ const ClientLedgerSection = () => {
             <thead className="bg-slate-50/60 border-b border-slate-100">
               <tr>
                 {["Date", "Particulars", "Debit (₹)", "Credit (₹)", "Balance (₹)"].map(h => (
-                  <th key={h} className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
+                  <th key={h} className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {MOCK_LEDGER.map((row, i) => (
-                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-5 py-3 text-xs text-slate-500">{row.date}</td>
-                  <td className="px-5 py-3 text-xs font-semibold text-slate-700">{row.particulars}</td>
-                  <td className="px-5 py-3 text-xs font-semibold text-indigo-700 text-right">{row.debit > 0 ? fmt(row.debit) : "—"}</td>
-                  <td className="px-5 py-3 text-xs font-semibold text-emerald-700 text-right">{row.credit > 0 ? fmt(row.credit) : "—"}</td>
-                  <td className={`px-5 py-3 text-xs font-bold text-right ${row.balance < 0 ? "text-emerald-700" : "text-rose-700"}`}>{fmt(Math.abs(row.balance))}</td>
+              {isLoadingLedger ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-8 text-center text-slate-400 text-sm font-semibold">Loading ledger...</td>
                 </tr>
-              ))}
+              ) : transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-8 text-center text-slate-400 text-sm font-semibold">No transactions found.</td>
+                </tr>
+              ) : (
+                transactions.map((row: any, i: number) => {
+                  const debit = Number(row.debit) || 0;
+                  const credit = Number(row.credit) || 0;
+                  const balance = Number(row.balance) || 0;
+                  return (
+                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-5 py-3 text-xs text-slate-500 whitespace-nowrap">{row.date || "—"}</td>
+                      <td className="px-5 py-3 text-xs font-semibold text-slate-700">{row.particulars || row.description || "—"}</td>
+                      <td className="px-5 py-3 text-xs font-semibold text-indigo-700 text-right">{debit > 0 ? fmt(debit) : "—"}</td>
+                      <td className="px-5 py-3 text-xs font-semibold text-emerald-700 text-right">{credit > 0 ? fmt(credit) : "—"}</td>
+                      <td className={`px-5 py-3 text-xs font-bold text-right ${balance < 0 ? "text-emerald-700" : "text-rose-700"}`}>{fmt(Math.abs(balance))}</td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>

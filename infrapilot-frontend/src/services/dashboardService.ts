@@ -194,6 +194,15 @@ export const dashboardService = {
   },
 
   /**
+   * Export Accountant Dashboard
+   * GET /api/v1/dashboard/accountant/export
+   */
+  async exportAccountantDashboard(): Promise<Blob> {
+    const response = await api.get('/dashboard/accountant/export', { responseType: 'blob' });
+    return response.data;
+  },
+
+  /**
    * Labour Dashboard
    * GET /api/v1/dashboard/labour
    */

@@ -98,7 +98,8 @@ const LabourRegistryPage = () => {
     // Image preview
     const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
-    const projectId = selectedProjectId || (user as any)?.project_id;
+    const isGlobalView = selectedProjectId === null;
+    const projectId = isGlobalView ? null : (selectedProjectId || (user as any)?.project_id);
 
     // Delete
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -199,7 +200,7 @@ const LabourRegistryPage = () => {
 
     // ─── Fetch Registry ───────────────────────────────────────────────────────
     const fetchLaborers = useCallback(async () => {
-        if (!projectId) return;
+        if (!isGlobalView && !projectId) return;
         setIsLoading(true);
         try {
             const response = await labourService.getLabours(projectId, { limit: 100, status: statusFilter === "All" ? undefined : statusFilter });
@@ -211,8 +212,27 @@ const LabourRegistryPage = () => {
             const deletedSaved = localStorage.getItem(deletedKey);
             const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
             const existingIds = new Set(items.map((l: any) => l.id));
-            const merged = [...items];
+            let merged = [...items];
             localItems.forEach((l: any) => { if (!existingIds.has(l.id)) merged.unshift(l); });
+            
+            // Strict filtering: ensure we only show labours assigned to this project if a specific project is selected
+            if (projectId && String(projectId) !== "undefined") {
+                merged = merged.filter((l: any) => {
+                    const pidMatch = l.project_id && Number(l.project_id) === Number(projectId);
+                    const arrayMatch = l.projects && Array.isArray(l.projects) && l.projects.some((p: any) => Number(p.id || p.project_id) === Number(projectId));
+                    // If the item explicitly has a project_id or projects array, filter strictly
+                    if (l.project_id !== undefined || (l.projects && Array.isArray(l.projects))) {
+                        return pidMatch || arrayMatch;
+                    }
+                    // Fallback if backend doesn't send project mapping explicitly: we trust the backend's response
+                    // However, we filter out clearly unassigned ones if marked as such
+                    if (l.status === 'Unassigned' || !l.assigned_task) {
+                        // Assuming unassigned might not have assigned_task, but this is risky. Let's just return true if no project info is available to avoid hiding everything.
+                    }
+                    return true;
+                });
+            }
+
             setLaborers(merged.filter((l: any) => !deletedIds.has(l.id)));
         } catch { toast.error("Failed to sync registry"); }
         finally { setIsLoading(false); }
@@ -269,6 +289,12 @@ const LabourRegistryPage = () => {
                 const deletedIds = new Set(deletedSaved ? JSON.parse(deletedSaved) : []);
                 allLabourers = allLabourers.filter((l: any) => !deletedIds.has(l.id));
             } catch { }
+            
+            setDashboardStats(prev => ({
+                ...prev,
+                total_labour: prev.total_labour || allLabourers.length
+            }));
+            
             const data = await labourService.getAttendanceList(projectId, fromDate, toDate);
             const attendances = data.items || [];
             const enriched = allLabourers.map((lab: any) => {
@@ -322,7 +348,7 @@ const LabourRegistryPage = () => {
     }, [projectId, payrollMonth, payrollYear]);
 
     useEffect(() => {
-        if (!isProjectLoading && projectId) {
+        if (!isProjectLoading && (isGlobalView || projectId)) {
             if (activeTab === "Registry") {
                 fetchLaborers();
                 fetchSiteEngineers();
@@ -332,7 +358,7 @@ const LabourRegistryPage = () => {
             else if (activeTab === "Attendance") fetchAttendance();
             else if (activeTab === "Payroll") fetchPayrollData();
         }
-    }, [activeTab, fetchLaborers, fetchSiteEngineers, fetchAttendance, fetchPayrollData, isProjectLoading, projectId]);
+    }, [activeTab, fetchLaborers, fetchSiteEngineers, fetchAttendance, fetchPayrollData, isProjectLoading, projectId, isGlobalView]);
 
     const handleGeneratePayroll = async () => {
         if (!projectId) return;
@@ -434,17 +460,24 @@ const LabourRegistryPage = () => {
                 setLaborers(prev => prev.map(l => l.id === editId ? { ...l, ...updated } : l));
                 toast.success("Worker updated successfully!");
             } else {
-                const activePId = projectId;
-                const payload = { project_id: activePId, aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null, labour_name: formData.labour_name, mobile_number: formData.mobile_number, email: formData.email || null, pan_number: formData.pan_number || null, address: formData.address || null, labour_type_id: Number(formData.labour_type_id), custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : null, custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : null, contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null, status: formData.status || "Active", notes: formData.notes || null, profile_image: formData.profile_image || null };
-                const newLaborer = await labourService.createLabour(payload);
-                try { await labourService.assignLabourToProject(newLaborer.id, activePId); } catch (e: any) { await labourService.deleteLabour(newLaborer.id); throw new Error("Failed to assign project. Worker rolled back."); }
-                setLaborers(prev => [newLaborer, ...prev]);
-                const localKey = `created_labourers_${activePId}`;
-                const localSaved = localStorage.getItem(localKey);
-                const localItems = localSaved ? JSON.parse(localSaved) : [];
-                localItems.unshift(newLaborer);
-                localStorage.setItem(localKey, JSON.stringify(localItems));
-                toast.success("Personnel registered successfully!");
+                const payload = { 
+                    project_id: null, 
+                    aadhaar_number: formData.aadhaar_number ? formData.aadhaar_number.replace(/-/g, "") : null, 
+                    labour_name: formData.labour_name, 
+                    mobile_number: formData.mobile_number, 
+                    email: formData.email || null, 
+                    pan_number: formData.pan_number || null, 
+                    address: formData.address || null, 
+                    labour_type_id: Number(formData.labour_type_id), 
+                    custom_daily_wage_rate: formData.custom_daily_wage_rate ? Number(formData.custom_daily_wage_rate) : null, 
+                    custom_ot_rate_per_hour: formData.custom_ot_rate_per_hour ? Number(formData.custom_ot_rate_per_hour) : null, 
+                    contractor_id: formData.contractor_id ? Number(formData.contractor_id) : null, 
+                    status: formData.status || "Active", 
+                    notes: formData.notes || null, 
+                    profile_image: formData.profile_image || null 
+                };
+                await labourService.createLabour(payload);
+                toast.success("Personnel registered successfully! You can now assign them to a project.");
             }
             setIsFormModalOpen(false); setFormData(initialFormData); setErrors({});
             setTimeout(() => fetchLaborers(), 1000);
@@ -500,7 +533,11 @@ const LabourRegistryPage = () => {
                 : [];
     const pagedData = currentListData.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
-    const getProjectName = () => selectedProject?.project_name || `Project #${projectId}`;
+    const getProjectName = () => {
+        if (selectedProject?.project_name) return selectedProject.project_name;
+        if (projectId && String(projectId) !== "undefined") return `Project #${projectId}`;
+        return "Global / All Projects";
+    };
     const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
     const labelCls = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
 

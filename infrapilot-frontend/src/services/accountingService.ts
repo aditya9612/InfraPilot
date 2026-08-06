@@ -193,6 +193,10 @@ export const accountingService = {
     const response = await api.post(`/accountant/assets/${id}/depreciate`, data);
     return response.data;
   },
+  generateAssetQR: async (id: number | string) => {
+    const response = await api.get(`/accountant/assets/${id}/qr`, { responseType: 'blob' });
+    return response.data;
+  },
 
   // Reports
   getTrialBalance: async (params?: any) => {

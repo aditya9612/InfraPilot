@@ -228,14 +228,14 @@ const DrawingsDocumentsPage = () => {
         fetchDrawings();
     }, [fetchDrawings]);
 
-    const openFolderModal = () => {
-        setFolderFormData({
-            project_id: projectId || 0,
-            title: "",
-            parent_id: currentParentId || ""
-        });
-        setIsFolderModalOpen(true);
-    };
+    // const openFolderModal = () => {
+    //     setFolderFormData({
+    //         project_id: projectId || 0,
+    //         title: "",
+    //         parent_id: currentParentId || ""
+    //     });
+    //     setIsFolderModalOpen(true);
+    // };
 
     const handleCreateFolder = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -578,6 +578,9 @@ const DrawingsDocumentsPage = () => {
     const filteredDrawings = useMemo(() => {
         let data = drawingData;
 
+        // Force hide folders globally as requested
+        data = data.filter((d: any) => !d.is_folder && d.type !== "Folder");
+
         // Backend natively fetches Drawings when on Drawings tab and Documents when on Documents tab
         // No frontend filtering by file extension is needed.
 
@@ -704,13 +707,13 @@ const DrawingsDocumentsPage = () => {
                         </button>
                         {typeFilter === "Documents" ? (
                             <>
-                                <button
+                                {/* <button
                                     onClick={openFolderModal}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
                                 >
                                     <Folder className="w-4 h-4" />
                                     Create Folder
-                                </button>
+                                </button> */}
                                 <button
                                     onClick={() => {
                                         setDocCreateFormData({
@@ -731,7 +734,7 @@ const DrawingsDocumentsPage = () => {
                             </>
                         ) : (
                             <>
-                                <button
+                                {/* <button
                                     onClick={() => {
                                         setDrawingFolderFormData({ project_id: projectId, drawing_name: "", parent_id: currentParentId || 0 });
                                         setIsDrawingFolderModalOpen(true);
@@ -740,7 +743,7 @@ const DrawingsDocumentsPage = () => {
                                 >
                                     <Folder className="w-4 h-4" />
                                     Create Folder
-                                </button>
+                                </button> */}
                                 <button
                                     onClick={() => { setIsEditMode(false); setFormData(initialFormData); setErrors({}); setIsFormModalOpen(true); }}
                                     className="flex items-center justify-center gap-2 px-6 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"

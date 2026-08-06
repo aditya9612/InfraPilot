@@ -138,20 +138,10 @@ const DailyProgressEntryPage = () => {
       if (!hasLoadedToday) {
         setLoading(true);
       }
-      let allEntriesList: any[] = [];
-      let offset = 0;
-      const limit = 100;
-      while (true) {
-        const res = await workProgressService.listDailyEntries(undefined, undefined, projectId, limit, offset);
-        if (!res || res.length === 0) break;
-        allEntriesList = allEntriesList.concat(res);
-        if (res.length < limit) break;
-        offset += limit;
-      }
+      const res = await workProgressService.getTodayProgress(engineer_id, projectId);
+      const entries = res?.data || [];
       
-      const entries = allEntriesList;
       setTodayActivities(entries as DailyEntry[]);
-      setAllEntries(entries as DailyEntry[]);
       setHasLoadedToday(true);
 
       const uniqueUserIds = [...new Set(
@@ -519,6 +509,7 @@ const DailyProgressEntryPage = () => {
   const paginatedAllEntries = filteredAllEntries.slice(startIndex, endIndex);
   const paginatedHistoryEntries = filteredHistoryEntries.slice(startIndex, endIndex);
   const paginatedDelayActivities = filteredDelayActivities.slice(startIndex, endIndex);
+  const paginatedGlobalLogs = globalLogs.slice(startIndex, endIndex);
 
   const getCurrentListLength = () => {
     switch (activeTab) {
@@ -921,8 +912,8 @@ const DailyProgressEntryPage = () => {
                             <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400">Loading Data...</p>
                           </td>
                         </tr>
-                      ) : globalLogs.length > 0 ? (
-                        globalLogs.map((log: any, idx) => {
+                      ) : paginatedGlobalLogs.length > 0 ? (
+                        paginatedGlobalLogs.map((log: any, idx) => {
                           const currentActivity = activitiesList.find(a => a.id === log.activity_id);
                           return (
                             <tr key={log.id || idx} className="hover:bg-slate-50/50 transition-colors group font-inter">
@@ -965,6 +956,75 @@ const DailyProgressEntryPage = () => {
                       )}
                     </tbody>
                   </table>
+                  {globalLogs.length > itemsPerPage && (
+                    <div className="p-4 border-t border-slate-100 flex items-center justify-between font-inter bg-slate-50/30">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Show</span>
+                        <select
+                          value={itemsPerPage}
+                          onChange={(e) => {
+                            setItemsPerPage(Number(e.target.value));
+                            setCurrentPage(1);
+                          }}
+                          className="bg-white border border-slate-200 text-slate-600 text-xs rounded-lg focus:ring-primary focus:border-primary block p-1.5 font-bold shadow-sm"
+                        >
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
+                      <div className="text-[11px] font-medium text-slate-500 hidden md:block">
+                        Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, globalLogs.length)} of {globalLogs.length} records
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        {(() => {
+                          const totalItems = globalLogs.length;
+                          const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                          const pages = [];
+                          if (totalPages <= 5) {
+                            for (let i = 1; i <= totalPages; i++) pages.push(i);
+                          } else {
+                            if (currentPage <= 3) {
+                              pages.push(1, 2, 3, 4, '...', totalPages);
+                            } else if (currentPage >= totalPages - 2) {
+                              pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+                            } else {
+                              pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+                            }
+                          }
+                          return pages.map((page, index) => {
+                            if (page === '...') return <span key={`ellipsis-${index}`} className="text-slate-400 mx-1 text-[11px] font-medium tracking-widest">...</span>;
+                            const pageNum = page;
+                            const isActive = currentPage === pageNum;
+                            return (
+                              <button
+                                key={`page-${pageNum}`}
+                                onClick={() => setCurrentPage(pageNum as number)}
+                                className={`min-w-[28px] h-[28px] flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${isActive ? 'bg-primary text-white shadow-sm shadow-primary/20 border border-primary' : 'bg-white text-slate-500 border border-slate-200 hover:text-primary shadow-sm'}`}
+                              >
+                                {pageNum}
+                              </button>
+                            );
+                          });
+                        })()}
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(globalLogs.length / itemsPerPage), prev + 1))}
+                          disabled={currentPage === Math.max(1, Math.ceil(globalLogs.length / itemsPerPage)) || globalLogs.length === 0}
+                          className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-white shadow-sm"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {activeTab === 'history' && (

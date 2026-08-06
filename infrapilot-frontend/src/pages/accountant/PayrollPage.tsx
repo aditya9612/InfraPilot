@@ -756,15 +756,251 @@ const LedgerSection = () => {
   );
 };
 
+const CreateOfferModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess: () => void }) => {
+  const [formData, setFormData] = useState({
+    project_name: "",
+    society_name: "",
+    address: "",
+    developer_name: "",
+    contact_email: "",
+    contact_phone: "",
+    extra_carpet_percent: 0,
+    note: ""
+  });
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      import("../../services/projectService").then((m) => {
+        m.projectService.getProjects().then((data: any) => {
+          const items = Array.isArray(data) ? data : (data?.items || data?.data || []);
+          setProjects(items);
+        }).catch(err => console.error("Failed to fetch projects", err));
+      });
+    }
+  }, [isOpen]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === "extra_carpet_percent" ? Number(value) : value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.project_name || !formData.society_name || !formData.developer_name) {
+      toast.error("Please fill required fields properly.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await payrollService.createOffer(formData);
+      toast.success("Offer Created!");
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create offer");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create Offer Letter"
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
+            {loading ? "Creating..." : "Create Offer"}
+          </button>
+        </>
+      }
+    >
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label>
+              <select name="project_name" value={formData.project_name} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500">
+                <option value="">Select Project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.name}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Society Name *</label>
+              <input type="text" name="society_name" value={formData.society_name} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Developer Name *</label>
+              <input type="text" name="developer_name" value={formData.developer_name} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Address</label>
+              <input type="text" name="address" value={formData.address} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact Email</label>
+              <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contact Phone</label>
+              <input type="text" name="contact_phone" value={formData.contact_phone} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Extra Carpet Percent (%)</label>
+              <input type="number" name="extra_carpet_percent" value={formData.extra_carpet_percent || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Note</label>
+              <textarea name="note" value={formData.note} onChange={handleChange} rows={2} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500" />
+            </div>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+const OfferLettersWrapper = () => {
+  const [offers, setOffers] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [rpp, setRpp] = useState(10);
+
+  const fetchOffers = async () => {
+    try {
+      const data = await payrollService.getOffers();
+      setOffers(Array.isArray(data) ? data : data?.data || data?.items || []);
+    } catch (err) {
+      toast.error("Failed to load offers");
+    }
+  };
+
+  useEffect(() => {
+    fetchOffers();
+  }, []);
+
+  const handleGenerate = async (id: number) => {
+    try {
+      toast.loading("Generating offer letter...", { id: "gen-offer" });
+      await payrollService.generateOfferLetter(id);
+      toast.success("Offer letter generated successfully!", { id: "gen-offer" });
+      fetchOffers(); // Refresh status
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate offer", { id: "gen-offer" });
+    }
+  };
+
+  const handleDownload = async (id: number, name: string) => {
+    try {
+      toast.loading("Downloading PDF...", { id: "dl-offer" });
+      const blob = await payrollService.downloadOfferPdf(id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Offer_Letter_${name.replace(/\s+/g, "_")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Downloaded!", { id: "dl-offer" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to download PDF", { id: "dl-offer" });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <h2 className="font-bold text-slate-800">Recruitment Offers</h2>
+        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all shadow-sm whitespace-nowrap">
+          + Create Offer
+        </button>
+      </div>
+
+      <CreateOfferModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchOffers} />
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                {["ID", "Project Name", "Society", "Developer", "Email", "Phone", "Status", "Actions"].map(h => (
+                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {offers.length > 0 ? offers.slice((page-1)*rpp, page*rpp).map((offer, idx) => (
+                <tr key={offer.id || idx} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-3 text-xs font-mono">OFF-{offer.id}</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">{offer.project_name}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{offer.society_name}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{offer.developer_name || "-"}</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">{offer.contact_email || "-"}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{offer.contact_phone || "-"}</td>
+                  <td className="px-4 py-3 text-xs">
+                    <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${offer.status === 'Generated' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {offer.status || 'Draft'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    <div className="flex gap-2">
+                      <button onClick={() => handleGenerate(offer.id)} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded text-xs transition-colors">
+                        Generate
+                      </button>
+                      <button onClick={() => handleDownload(offer.id, offer.project_name)} className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold rounded text-xs transition-colors">
+                        PDF
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No offers found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {offers.length > 0 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select value={rpp} onChange={(e) => { setRpp(Number(e.target.value)); setPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">Showing {(page-1)*rpp+1} – {Math.min(page*rpp, offers.length)} of {offers.length} records</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{page}</span>
+              <button onClick={() => setPage(p => Math.min(Math.ceil(offers.length/rpp),p+1))} disabled={page===Math.ceil(offers.length/rpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // --- MAIN COMPONENT ---
 
-type TabKey = "salary" | "wages" | "contractor" | "ledger";
+type TabKey = "salary" | "wages" | "contractor" | "ledger" | "offers";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "salary",      label: "Staff Salary" },
   { key: "wages",       label: "Labour Payroll" },
   { key: "contractor",  label: "Contractor Payment" },
   { key: "ledger",      label: "Payroll Register" },
+  { key: "offers",      label: "Offer Letters" },
 ];
 
 const PayrollPage = () => {
@@ -784,6 +1020,7 @@ const PayrollPage = () => {
       "wages": "wages",
       "contractor": "contractor",
       "ledger": "ledger",
+      "offers": "offers",
     };
     return map[currentSub || ""] || "salary";
   };
@@ -888,6 +1125,11 @@ const PayrollPage = () => {
         </div>
       ),
     },
+    offers: {
+      title: "Offer Letters",
+      subtitle: "Generate and manage recruitment offer letters.",
+      actions: null,
+    },
   };
 
   const currentConfig = TAB_CONFIG[activeTab];
@@ -925,13 +1167,14 @@ const PayrollPage = () => {
         </div>
 
         {/* ── KPI Stat Cards ─────────────────────────────── */}
-        <PayrollKPICards summary={summaryData} />
+        {activeTab !== "offers" && <PayrollKPICards summary={summaryData} />}
 
         {/* ── Content Rendering ──────────────────────────── */}
         {activeTab === "salary"     && <StaffSalaryWrapper initialSubTab={subTab} key={subTab || "process"} />}
         {activeTab === "wages"      && <LaborWagesWrapper initialSubTab={subTab} key={subTab || "daily"} />}
         {activeTab === "contractor" && <ContractorPaymentSection />}
         {activeTab === "ledger"     && <LedgerSection />}
+        {activeTab === "offers"     && <OfferLettersWrapper />}
       </PageTransition>
     </>
   );

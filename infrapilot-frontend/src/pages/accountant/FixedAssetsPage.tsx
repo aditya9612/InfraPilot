@@ -202,10 +202,50 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
             <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase Date</label><input type="date" className="px-3 py-1 text-xs border border-slate-200 rounded-lg text-slate-600" /></div>
             <button className="bg-slate-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold mt-5">Apply</button>
           </div>
-        <PaginatedTableSection title="Asset List" columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status"]} data={[
-            ["AST-2024-001", "CAT 320 Excavator", "Machinery", "₹65,00,000", "₹55,25,000", "Metro Line 3", "Active"],
-            ["AST-2024-002", "Tata Prima Tipper", "Vehicles", "₹35,00,000", "₹29,75,000", "Highway Proj", "Active"]
-          ]} />
+          <PaginatedTableSection 
+            title="Asset List" 
+            columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status", "Action"]} 
+            data={[
+              ["AST-2024-001", "CAT 320 Excavator", "Machinery", "₹65,00,000", "₹55,25,000", "Metro Line 3", "Active", 
+                <button key="1" onClick={async () => {
+                  try {
+                    toast.loading("Generating QR...", { id: "qr" });
+                    const blob = await accountingService.generateAssetQR(1);
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "AST-2024-001_QR.png";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    toast.success("QR Generated!", { id: "qr" });
+                  } catch(e) {
+                    toast.error("Failed to generate QR", { id: "qr" });
+                  }
+                }} className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200">QR Code</button>
+              ],
+              ["AST-2024-002", "Tata Prima Tipper", "Vehicles", "₹35,00,000", "₹29,75,000", "Highway Proj", "Active",
+                <button key="2" onClick={async () => {
+                  try {
+                    toast.loading("Generating QR...", { id: "qr" });
+                    const blob = await accountingService.generateAssetQR(2);
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "AST-2024-002_QR.png";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    toast.success("QR Generated!", { id: "qr" });
+                  } catch(e) {
+                    toast.error("Failed to generate QR", { id: "qr" });
+                  }
+                }} className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200">QR Code</button>
+              ]
+            ]} 
+          />
         </div>
       )}
       {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]} data={[["AST-2024-001", "CAT 320 Excavator", "2023-01-15", "10 Years", "SLM", "₹5,00,000"]]} />}

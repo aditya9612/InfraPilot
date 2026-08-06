@@ -21,7 +21,6 @@ export interface BoqItem {
   created_at?: string;
   updated_at?: string;
   activity_type_id?: number;
-  true_group_id?: number;
 }
 
 export interface BoqGroupItem {

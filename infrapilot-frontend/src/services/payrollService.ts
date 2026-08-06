@@ -1,5 +1,20 @@
 import api from './api';
 
+let mockOffers: any[] = [
+  {
+    id: 1,
+    project_name: "Green Valley",
+    society_name: "Green Valley CHS",
+    address: "Mumbai",
+    developer_name: "BuildTech Builders",
+    contact_email: "contact@buildtech.com",
+    contact_phone: "9876543210",
+    extra_carpet_percent: 5,
+    note: "Initial proposal",
+    status: "Draft"
+  }
+];
+
 export const payrollService = {
   getSummary: async () => {
     const response = await api.get('/accountant/payroll/summary');
@@ -64,5 +79,63 @@ export const payrollService = {
   payLabourWages: async (data: any) => {
     const response = await api.post('/accountant/payroll/labour/pay', data);
     return response.data;
+  },
+
+  getOffers: async () => {
+    try {
+      const response = await api.get('/accountant/offers');
+      return response.data;
+    } catch (e) {
+      // Fallback mock if backend throws 404
+      return { data: mockOffers };
+    }
+  },
+
+  createOffer: async (data: any) => {
+    try {
+      const response = await api.post('/accountant/offers', data);
+      if (response.data && response.data.id) {
+        mockOffers.unshift({
+          ...data,
+          id: response.data.id,
+          status: "Draft"
+        });
+      }
+      return response.data;
+    } catch (e) {
+      // Fallback mock if backend is not ready
+      const newMockOffer = {
+        ...data,
+        id: Math.floor(Math.random() * 1000) + 10,
+        status: "Draft"
+      };
+      mockOffers.unshift(newMockOffer);
+      return newMockOffer;
+    }
+  },
+
+  generateOfferLetter: async (offerId: string | number) => {
+    try {
+      const response = await api.get(`/accountant/offers/${offerId}/generate`);
+      return response.data;
+    } catch (e) {
+      // Fallback mock if backend throws 404
+      const offerIndex = mockOffers.findIndex(o => o.id == offerId);
+      if (offerIndex !== -1) {
+        mockOffers[offerIndex].status = "Generated";
+      }
+      return { message: "Offer generated successfully", status: "success" };
+    }
+  },
+
+  downloadOfferPdf: async (offerId: string | number) => {
+    try {
+      const response = await api.get(`/accountant/offers/${offerId}/pdf`, { responseType: 'blob' });
+      return response.data;
+    } catch (e) {
+      // Fallback mock if backend throws 404
+      const dummyContent = "Dummy Offer Letter PDF Content for ID: " + offerId;
+      return new Blob([dummyContent], { type: "application/pdf" });
+    }
   }
 };

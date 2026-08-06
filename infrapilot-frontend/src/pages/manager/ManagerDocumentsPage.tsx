@@ -529,6 +529,9 @@ const ManagerDocumentsPage = () => {
     const filtered = useMemo(() => {
         let data = docs;
 
+        // Force hide folders globally as requested
+        data = data.filter(d => !d.is_folder);
+
         // Main tab filter: Drawings vs Documents
         if (mainTab === "Drawings") {
             data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() === "drawing");
@@ -607,13 +610,13 @@ const ManagerDocumentsPage = () => {
                         >
                             <RefreshCcw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
                         </button>
-                        <button
+                        {/* <button
                             onClick={() => setIsFolderModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all"
                         >
                             <FolderPlus className="w-4 h-4 text-indigo-500" />
                             New Folder
-                        </button>
+                        </button> */}
                         <button
                             onClick={() => {
                                 const type = mainTab === "Drawings" ? "Drawing" : "Document";

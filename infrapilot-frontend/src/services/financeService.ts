@@ -47,7 +47,7 @@ export const financeService = {
    * Get receivable summary
    * GET /api/v1/invoices/receivables/summary
    */
-  async getReceivablesSummary(): Promise<{ total: number; paid: number; pending: number }> {
+  async getReceivablesSummary(): Promise<any> {
     try {
       const response = await api.get('/invoices/receivables/summary');
       return response.data;
@@ -57,6 +57,93 @@ export const financeService = {
     }
   },
 
+  /**
+   * Get receivable collections
+   * GET /api/v1/invoices/receivables/collections
+   */
+  async getReceivablesCollections(limit: number = 50, offset: number = 0): Promise<any> {
+    try {
+      const response = await api.get('/invoices/receivables/collections', {
+        params: { limit, offset }
+      });
+      const data = response.data;
+      return Array.isArray(data) ? data : (data.items || data.data || []);
+    } catch (error: any) {
+      console.error("Get Receivables Collections Error:", error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Get client ledger
+   * GET /api/v1/invoices/receivables/client-ledger/{client_id}
+   */
+  async getClientLedger(clientId: number | string): Promise<any> {
+    try {
+      const response = await api.get(`/invoices/receivables/client-ledger/${clientId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Get Client Ledger Error (Client ${clientId}):`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Create Manual Receivable
+   * POST /api/v1/invoices/receivables/manual
+   */
+  async createManualReceivable(data: any): Promise<any> {
+    try {
+      const response = await api.post('/invoices/receivables/manual', data);
+      return response.data;
+    } catch (error: any) {
+      console.error("Create Manual Receivable Error:", error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Import Receivables
+   * POST /api/v1/invoices/receivables/import
+   */
+  async importReceivables(fileData: FormData): Promise<any> {
+    try {
+      const response = await api.post('/invoices/receivables/import', fileData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Import Receivables Error:", error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * Export Receivables
+   * GET /api/v1/invoices/receivables/export
+   */
+  async exportReceivables(): Promise<Blob> {
+    const response = await api.get('/invoices/receivables/export', { responseType: 'blob' });
+    return response.data;
+  },
+
+  /**
+   * Export Receivables Collections
+   * GET /api/v1/invoices/receivables/collections/export
+   */
+  async exportReceivablesCollections(): Promise<Blob> {
+    const response = await api.get('/invoices/receivables/collections/export', { responseType: 'blob' });
+    return response.data;
+  },
+
+  /**
+   * Export Client Ledger
+   * GET /api/v1/invoices/receivables/client-ledger/{client_id}/export
+   */
+  async exportClientLedger(clientId: number | string): Promise<Blob> {
+    const response = await api.get(`/invoices/receivables/client-ledger/${clientId}/export`, { responseType: 'blob' });
+    return response.data;
+  },
   /**
    * Get payment summary for a project
    * GET /api/v1/invoices/project/{project_id}/summary

@@ -1173,30 +1173,30 @@ const EquipmentRegistryPage = () => {
                     ))}
                 </div>
             )}
+            
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+                <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 className="font-bold text-sm text-slate-800">Maintenance Logs {selectedEquipment ? `- ${selectedEquipment.equipment_name}` : "- All Equipment"}</h3>
+                    <div className="flex items-center gap-3">
+                        <select 
+                            value={selectedEquipment?.id || ''} 
+                            onChange={(e) => {
+                                const id = e.target.value ? Number(e.target.value) : null;
+                                const eq = activeEquipmentList.find(x => Number(x.id) === Number(id));
+                                setSelectedEquipment(eq || null);
+                            }}
+                            className="px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none bg-white font-medium text-slate-700 min-w-[200px]"
+                        >
+                            <option value="">All Equipment (Fleet View)</option>
+                            {activeEquipmentList.map(eq => (
+                                <option key={eq.id} value={eq.id}>{eq.equipment_code} - {eq.equipment_name}</option>
+                            ))}
+                        </select>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-2 max-h-[520px] overflow-auto">
-                    <h3 className="px-3 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">Select Equipment</h3>
-                    <button onClick={() => setSelectedEquipment(null)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors mb-1 ${!selectedEquipment ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-slate-50 text-slate-700'}`}>
-                        All Equipment (Fleet View)
-                        <span className="block text-xs text-slate-400 truncate">Show all maintenance logs</span>
-                    </button>
-                    {activeEquipmentList.length > 0 ? activeEquipmentList.map(eq => (
-                        <button key={eq.id} onClick={() => setSelectedEquipment(eq)} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${selectedEquipment?.id === eq.id ? 'bg-primary/10 text-primary' : 'hover:bg-slate-50 text-slate-700'}`}>
-                            {eq.equipment_code}
-                            <span className="block text-xs text-slate-400 truncate">{eq.equipment_name}</span>
-                        </button>
-                    )) : (
-                        <div className="px-4 py-5 text-sm text-slate-500">No equipment available.</div>
-                    )}
-                </div>
-
-                <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 bg-slate-50">
-                        <h3 className="font-bold text-sm text-slate-800">Maintenance Logs {selectedEquipment ? `— ${selectedEquipment.equipment_name}` : "— All Equipment"}</h3>
                     </div>
-                    <div className="overflow-auto max-h-[520px]">
-                        <table className="w-full text-left text-sm">
+                </div>
+                <div className="overflow-auto max-h-[520px]">
+                    <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 sticky top-0 text-[10px] uppercase font-bold text-slate-500 tracking-wider whitespace-nowrap">
                                 <tr>
                                     <th className="p-4">Project</th>
@@ -1262,76 +1262,6 @@ const EquipmentRegistryPage = () => {
                     </div>
                 </div>
             </div>
-
-            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm mt-6">
-                <h3 className="font-bold text-sm text-slate-800 mb-3">All Maintenance History</h3>
-                <div className="overflow-auto max-h-[400px]">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 sticky top-0 text-[10px] uppercase font-bold text-slate-500 tracking-wider whitespace-nowrap">
-                            <tr>
-                                <th className="p-3">Project</th>
-                                <th className="p-3">BOQ Item</th>
-                                <th className="p-3">Equipment</th>
-                                <th className="p-3">Description</th>
-                                <th className="p-3">Maintenance Date</th>
-                                <th className="p-3">Cost</th>
-                                <th className="p-3">Next Maintenance Date</th>
-                                <th className="p-3">Created / Completed</th>
-                                <th className="p-3">Status</th>
-                                <th className="p-3 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {isLoading ? (
-                                <tr><td colSpan={10} className="p-8 text-center text-slate-400">Loading maintenance records...</td></tr>
-                            ) : allMaintenanceLogs.length > 0 ? allMaintenanceLogs.map((logItem: any) => {
-                                const log = logItem as any;
-                                return (
-                                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="p-3 whitespace-nowrap">{log.project_id ? (projects.find(p => Number(p.id) === Number(log.project_id))?.project_name || projects.find(p => Number(p.id) === Number(log.project_id))?.name || `Project #${log.project_id}`) : '-'}</td>
-                                        <td className="p-3 whitespace-nowrap">{log.boq_item_id ? (boqItems.find(b => Number(b.id) === Number(log.boq_item_id))?.item_name || boqItems.find(b => Number(b.id) === Number(log.boq_item_id))?.name || `BOQ Item #${log.boq_item_id}`) : '-'}</td>
-                                        <td className="p-3 font-bold whitespace-nowrap">{log.equipment_id ? (equipmentList.find(e => e.id === log.equipment_id)?.equipment_code || equipmentList.find(e => e.id === log.equipment_id)?.equipment_name || `EQ-${log.equipment_id}`) : '-'}</td>
-                                        <td className="p-3 text-slate-700">{log.description || '-'}</td>
-                                        <td className="p-3 whitespace-nowrap">{log.maintenance_date || '-'}</td>
-                                        <td className="p-3 font-bold text-slate-800">₹{(log.cost || 0).toLocaleString()}</td>
-                                        <td className="p-3 whitespace-nowrap">{log.next_maintenance_date || '-'}</td>
-                                        <td className="p-3 whitespace-nowrap">
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-[10px] text-slate-500">Created: {log.created_at ? new Date(log.created_at).toLocaleDateString() : '-'}</span>
-                                                <span className="text-[10px] text-slate-500">Completed: {log.completed_at ? new Date(log.completed_at).toLocaleDateString() : '-'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="p-3">
-                                            <span className={`px-2 py-1 text-[10px] font-bold rounded-lg ${log.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                {log.status || 'Pending'}
-                                            </span>
-                                        </td>
-                                        <td className="p-3 text-right">
-                                            <div className="flex justify-end gap-1">
-                                                <button onClick={() => handleCompleteMaintenance(log.id, log.equipment_id || selectedEquipment?.id || 0)} disabled={log.status === 'COMPLETED'} className={`p-1.5 rounded ${log.status === 'COMPLETED' ? 'text-slate-300 cursor-not-allowed' : 'text-emerald-500 hover:text-white hover:bg-emerald-500'}`} title="Complete Maintenance">
-                                                    <Check className="w-4 h-4" />
-                                                </button>
-                                                <button onClick={() => { setSelectedEquipment(equipmentList.find(eq => eq.id === log.equipment_id) || null); setFormData({ ...log, equipment_id: log.equipment_id || selectedEquipment?.id }); setIsMaintenanceModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded" title="Edit">
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button onClick={() => {
-                                                    setMaintenanceToDelete({ id: log.id, equipment_id: log.equipment_id || selectedEquipment?.id || 0 });
-                                                    setIsMaintenanceDeleteModalOpen(true);
-                                                }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" title="Delete">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            }) : (
-                                <tr><td colSpan={10} className="p-10 text-center text-slate-400">No maintenance records found</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
     );
 
     const renderRental = () => {
