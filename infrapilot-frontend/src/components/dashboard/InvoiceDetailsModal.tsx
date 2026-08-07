@@ -10,7 +10,7 @@ interface InvoiceDetailsModalProps {
   invoice: Invoice | null;
   projects: Project[];
   owners?: Owner[];
-  quotations?: { id: number; quotation_no?: string }[];
+  quotations?: { id?: number; quotation_no?: string }[];
   onMarkPaid: (id: number) => void;
   onDownloadPDF: (id: number) => void;
   onSendInvoice?: (id: number) => void;
