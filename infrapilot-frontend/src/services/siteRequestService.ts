@@ -43,39 +43,12 @@ export const siteRequestService = {
      * GET /api/v1/site-requests?project_id={projectId}
      */
     async getRequests(projectId: number) {
-        try {
-            // Must pass project_id in params as backend strictly validates the query string
-            const response = await api.get("site-requests", { params: { project_id: projectId } });
-            if (response.data && (Array.isArray(response.data) || response.data.items)) {
-                return Array.isArray(response.data) ? response.data : response.data.items;
-            }
-            return [];
-        } catch (error: any) {
-            console.warn("Virtual Success 200: API failed, falling back to mock data");
-            const mockData = [
-                {
-                    id: 1,
-                    project_id: projectId,
-                    request_type: "Material",
-                    description: "OPC Cement 53 Grade for slab casting",
-                    quantity: 150,
-                    requested_by: 1,
-                    approved_by: null,
-                    status: "Pending"
-                },
-                {
-                    id: 2,
-                    project_id: projectId,
-                    request_type: "Labour",
-                    description: "Need 5 electricians for wiring work",
-                    quantity: 5,
-                    requested_by: 1,
-                    approved_by: null,
-                    status: "Pending"
-                }
-            ];
-            return mockData;
-        }
+        const response = await api.get("site-requests", { params: { project_id: projectId } });
+        const data = response.data;
+        if (Array.isArray(data)) return data;
+        if (data?.items) return data.items;
+        if (data?.data) return data.data;
+        return [];
     },
 
     /**
@@ -83,13 +56,8 @@ export const siteRequestService = {
      * PUT /api/v1/site-requests/{id}/approve
      */
     async approveRequest(id: number | string) {
-        try {
-            const response = await api.put(`site-requests/${id}/approve`);
-            return response.data;
-        } catch (error: any) {
-            console.warn(`Virtual Success 200: Bypassing error for Site Request Approval`);
-            return { message: "Approved (Virtual)", status: "Approved" };
-        }
+        const response = await api.put(`site-requests/${id}/approve`);
+        return response.data;
     },
 
     /**
@@ -97,12 +65,7 @@ export const siteRequestService = {
      * PUT /api/v1/site-requests/{id}/reject
      */
     async rejectRequest(id: number | string) {
-        try {
-            const response = await api.put(`site-requests/${id}/reject`);
-            return response.data;
-        } catch (error: any) {
-            console.warn(`Virtual Success 200: Bypassing error for Site Request Rejection`);
-            return { message: "Rejected (Virtual)", status: "Rejected" };
-        }
+        const response = await api.put(`site-requests/${id}/reject`);
+        return response.data;
     }
 };

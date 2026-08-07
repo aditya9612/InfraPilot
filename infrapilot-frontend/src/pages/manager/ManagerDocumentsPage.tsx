@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useParams, useNavigate } from "react-router-dom";
+
+import { useParams } from "react-router-dom";
 import PageTransition from "../../components/common/PageTransition";
 import Navbar from "../../components/common/Navbar";
 import Modal from "../../components/common/Modal";
@@ -8,11 +8,11 @@ import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
 import { useProject } from "../../context/ProjectContext";
 import { documentService } from "../../services/documentService";
-import type { Document, DocumentUpdateParams } from "../../types/document";
+import type { Document, DocumentUpdateParams, DocumentStats } from "../../types/document";
 import {
     Download, ChevronLeft, ChevronRight, Folder, FolderPlus,
     Upload, Trash2, X, FileImage, FileSpreadsheet, Filter,
-    Edit2, History, FileText, RefreshCcw, Eye, Loader2, Search, Info
+    Edit2, History, FileText, RefreshCcw, Eye, Loader2, Search
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
 import { drawingService } from "../../services/drawingService";
@@ -59,7 +59,9 @@ const normalizeDrawingToDocument = (drawing: any, projectName?: string): Documen
         ? "APPROVED"
         : approvalStatus === "rejected"
             ? "REJECTED"
-            : "PENDING";
+            : approvalStatus === "under_review" || approvalStatus === "under review"
+                ? "UNDER_REVIEW"
+                : "PENDING";
 
     return {
         id: Number(drawing.id),
@@ -84,10 +86,11 @@ const normalizeDrawingToDocument = (drawing: any, projectName?: string): Documen
 const ManagerDocumentsPage = () => {
     const { selectedProjectId, selectedProject, assignedProjects, setSelectedProjectId } = useProject();
     const { tab } = useParams();
-    const navigate = useNavigate();
+
 
     // Data
     const [docs, setDocs] = useState<Document[]>([]);
+    const [stats, setStats] = useState<DocumentStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     // Navigation
@@ -108,8 +111,6 @@ const ManagerDocumentsPage = () => {
     // Modals
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
-    const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const [viewingDoc, setViewingDoc] = useState<Document | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
 
@@ -125,6 +126,16 @@ const ManagerDocumentsPage = () => {
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [selectedDocForHistory, setSelectedDocForHistory] = useState<Document | null>(null);
     const [approvalHistory, setApprovalHistory] = useState<any[]>([]);
+
+    // Document Viewer Modal State
+    const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
+    const [docViewerDoc, setDocViewerDoc] = useState<Document | null>(null);
+    const [docViewerBlobUrl, setDocViewerBlobUrl] = useState<string | null>(null);
+
+    const [, setDocViewerVersions] = useState<any[]>([]);
+    const [, setDocViewerLatest] = useState<any | null>(null);
+    const [docViewerLoading, setDocViewerLoading] = useState(false);
+    const docViewerBlobRef = React.useRef<string | null>(null);
 
     // Form
     const [uploadForm, setUploadForm] = useState({
@@ -152,34 +163,61 @@ const ManagerDocumentsPage = () => {
         }
     }, [tab]);
 
-    const handleTabChange = (newTab: TypeFilter) => {
-        setTypeFilter(newTab);
-        setCurrentPage(1);
-        const urlMap: Record<TypeFilter, string> = {
-            All: "files",
-            Documents: "documents",
-            Folders: "folders",
-        };
-        navigate(`/manager/documents/${urlMap[newTab]}`);
-    };
 
     // ─── Fetch ───────────────────────────────────────────────────────
     const fetchDocs = useCallback(async () => {
         if (!selectedProjectId) return;
         setIsLoading(true);
         try {
+            documentService.getStats().then(res => setStats(res)).catch(() => null);
             let items: Document[] = [];
 
             if (mainTab === "Drawings") {
-                const drawingsRes = await drawingService.getDrawings(selectedProjectId);
-                const rawItems = Array.isArray(drawingsRes)
-                    ? drawingsRes
-                    : (drawingsRes as any).items || (drawingsRes as any).data || [];
+                // ── Hit all 3 drawing APIs in parallel (same as engineer module) ──
+                // 1. GET /api/v1/drawings          (list)
+                // 2. GET /api/v1/drawings/{id}/latest
+                // 3. GET /api/v1/drawings/{id}/versions
+                const listParams = {
+                    project_id: Number(selectedProjectId),
+                    parent_id: currentParentId,
+                    limit: 50,
+                    offset: 0,
+                    latest_only: true,
+                };
+                const latestParams = { parent_id: currentParentId };
+                const versionParams = { parent_id: currentParentId, skip: 0, limit: 50 };
 
-                items = rawItems.map((drawing: any) => normalizeDrawingToDocument(drawing, selectedProject?.project_name));
+                const rawAccumulator: any[] = [];
+
+                await Promise.allSettled([
+                    drawingService.getList(listParams)
+                        .then(res => { rawAccumulator.push(...(Array.isArray(res) ? res : [])); })
+                        .catch(err => console.warn("getList failed:", err)),
+
+                    drawingService.getLatest(Number(selectedProjectId), latestParams)
+                        .then(res => { rawAccumulator.push(...(Array.isArray(res) ? res : [])); })
+                        .catch(err => console.warn("getLatest failed:", err)),
+
+                    drawingService.getVersions(Number(selectedProjectId), versionParams)
+                        .then(res => { rawAccumulator.push(...(Array.isArray(res) ? res : [])); })
+                        .catch(err => console.warn("getVersions failed:", err)),
+                ]);
+
+                // Deduplicate by id, sort newest first
+                const seen = new Set<number>();
+                const deduped = rawAccumulator.filter((d: any) => {
+                    if (seen.has(Number(d.id))) return false;
+                    seen.add(Number(d.id));
+                    return true;
+                });
+                deduped.sort((a: any, b: any) => (Number(b.id) || 0) - (Number(a.id) || 0));
+
+                items = deduped.map((drawing: any) =>
+                    normalizeDrawingToDocument(drawing, selectedProject?.project_name)
+                );
             } else {
                 const listRes = await documentService.listDocuments({
-                    project_id: selectedProjectId,
+                    project_id: (selectedProjectId && selectedProjectId !== 0) ? Number(selectedProjectId) : undefined,
                     parent_id: currentParentId,
                     limit: 100,
                 });
@@ -311,22 +349,74 @@ const ManagerDocumentsPage = () => {
     };
 
     const handleViewDocumentFile = async (doc: Document) => {
-        const toastId = toast.loading(`Opening ${doc.title}...`);
+        // Revoke any previous blob URL
+        if (docViewerBlobRef.current) {
+            window.URL.revokeObjectURL(docViewerBlobRef.current);
+            docViewerBlobRef.current = null;
+        }
+
+        setDocViewerDoc(doc);
+        setDocViewerBlobUrl(null);
+        setDocViewerVersions([]);
+        setDocViewerLatest(null);
+        setDocViewerLoading(true);
+        setIsDocViewerOpen(true);
+
+        const toastId = toast.loading(`Loading ${doc.title}...`);
         try {
-            let res;
-            if (mainTab === "Drawings" || (doc.document_type || "").toLowerCase() === "drawing") {
-                res = await drawingService.viewDocument(doc.id);
-            } else {
-                res = await documentService.viewDocument(doc.id);
+            // Run all 3 API calls in parallel
+            const [viewRes, versionsRes, latestRes] = await Promise.allSettled([
+                // 1. GET /api/v1/drawings/documents/view/{id}
+                (mainTab === "Drawings" || (doc.document_type || "").toLowerCase() === "drawing")
+                    ? drawingService.viewDocument(doc.id)
+                    : documentService.viewDocument(doc.id),
+                // 2. GET /api/v1/drawings/{project_id}/versions
+                drawingService.getVersions(doc.project_id),
+                // 3. GET /api/v1/drawings/{project_id}/latest
+                drawingService.getLatest(doc.project_id),
+            ]);
+
+            // Handle blob/view
+            if (viewRes.status === "fulfilled") {
+                const res = viewRes.value;
+                const ct = String(res.contentType || "application/pdf");
+                const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: ct }));
+                docViewerBlobRef.current = blobUrl;
+                setDocViewerBlobUrl(blobUrl);
             }
 
-            const url = window.URL.createObjectURL(new Blob([res.data], { type: res.contentType }));
-            window.open(url, "_blank");
-            setTimeout(() => window.URL.revokeObjectURL(url), 1000 * 60);
+            // Handle versions
+            if (versionsRes.status === "fulfilled") {
+                setDocViewerVersions(Array.isArray(versionsRes.value) ? versionsRes.value : []);
+            }
+
+            // Handle latest
+            if (latestRes.status === "fulfilled") {
+                const latestArr = Array.isArray(latestRes.value) ? latestRes.value : [latestRes.value];
+                // Find the one matching this drawing name or just use first
+                const match = latestArr.find((l: any) => l?.drawing_name === doc.title) || latestArr[0];
+                setDocViewerLatest(match || null);
+            }
+
             toast.dismiss(toastId);
         } catch {
             toast.error("Failed to open document.", { id: toastId });
+        } finally {
+            setDocViewerLoading(false);
         }
+    };
+
+    const handleCloseDocViewer = () => {
+        setIsDocViewerOpen(false);
+        // Delay revoke so iframe can finish unloading
+        setTimeout(() => {
+            if (docViewerBlobRef.current) {
+                window.URL.revokeObjectURL(docViewerBlobRef.current);
+                docViewerBlobRef.current = null;
+            }
+            setDocViewerBlobUrl(null);
+            setDocViewerDoc(null);
+        }, 500);
     };
 
     const handleEditClick = (doc: Document) => {
@@ -443,8 +533,7 @@ const ManagerDocumentsPage = () => {
         if (mainTab === "Drawings") {
             data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() === "drawing");
         } else {
-            // Documents tab: show everything that is NOT a drawing (includes null/empty document_type)
-            data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() !== "drawing");
+            // Documents tab: show all items in repository
         }
 
         // Sub-tab filter: All, Documents (non-folders), Folders
@@ -474,19 +563,12 @@ const ManagerDocumentsPage = () => {
         return [...data].sort((a, b) => {
             if (a.is_folder && !b.is_folder) return -1;
             if (!a.is_folder && b.is_folder) return 1;
-            const timeA = new Date(a.uploaded_at || 0).getTime();
-            const timeB = new Date(b.uploaded_at || 0).getTime();
-            return sortOrder === "latest" ? timeB - timeA : timeA - timeB;
+            
+            return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
         });
     }, [docs, mainTab, typeFilter, categoryFilter, searchTerm, sortOrder]);
 
-    // Derive available category options from ALL docs (not filtered) so dropdown always shows full list
-    const availableCategories = useMemo(() => {
-        const types = docs
-            .filter(d => !d.is_folder && d.document_type)
-            .map(d => d.document_type as string);
-        return Array.from(new Set(types)).sort();
-    }, [docs]);
+
 
     const paginated = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
@@ -494,12 +576,6 @@ const ManagerDocumentsPage = () => {
     }, [filtered, currentPage]);
 
     const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-
-    const statsCounts = useMemo(() => ({
-        total: docs.filter(d => !d.is_folder).length,
-        folders: docs.filter(d => d.is_folder).length,
-        approved: docs.filter(d => !d.is_folder && (d.status === "APPROVED")).length,
-    }), [docs]);
 
     // ─── Styles ──────────────────────────────────────────────────────
     const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all";
@@ -579,9 +655,30 @@ const ManagerDocumentsPage = () => {
                         {/* Stats */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                             {[
-                                { title: "Total Files", value: statsCounts.total, sub: "In this project", accent: "text-slate-800", icon: <FileText className="w-5 h-5" />, bg: "bg-slate-100 text-slate-600" },
-                                { title: "Folders", value: statsCounts.folders, sub: "Organized categories", accent: "text-indigo-600", icon: <Folder className="w-5 h-5" />, bg: "bg-indigo-100 text-indigo-600" },
-                                { title: "Approved Files", value: statsCounts.approved, sub: "Review completed", accent: "text-emerald-600", icon: <FileText className="w-5 h-5" />, bg: "bg-emerald-100 text-emerald-600" },
+                                {
+                                    title: "Total Storage",
+                                    value: stats ? (stats.total_storage_bytes >= 1048576 ? `${(stats.total_storage_bytes / 1024 / 1024).toFixed(1)} MB` : stats.total_storage_bytes >= 1024 ? `${(stats.total_storage_bytes / 1024).toFixed(1)} KB` : `${stats.total_storage_bytes} B`) : "...",
+                                    sub: `${stats?.total_storage_gb || 0} GB used of 10 GB`,
+                                    accent: "text-primary",
+                                    icon: <FileText className="w-5 h-5" />,
+                                    bg: "bg-primary/10 text-primary"
+                                },
+                                {
+                                    title: "Pending Approval",
+                                    value: docs.filter(d => !d.is_folder && ["PENDING", "UNDER_REVIEW"].includes(String(d.status).toUpperCase())).length.toString(),
+                                    sub: "Documents awaiting review",
+                                    accent: "text-amber-500",
+                                    icon: <RefreshCcw className="w-5 h-5 text-amber-500" />,
+                                    bg: "bg-amber-50 text-amber-600"
+                                },
+                                {
+                                    title: "Total Documents",
+                                    value: docs.filter(d => !d.is_folder).length.toString(),
+                                    sub: "Total files in repository",
+                                    accent: "text-emerald-500",
+                                    icon: <FileText className="w-5 h-5 text-emerald-500" />,
+                                    bg: "bg-emerald-50 text-emerald-600"
+                                },
                             ].map(s => (
                                 <div key={s.title} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
                                     <div className="flex items-center justify-between mb-4">
@@ -666,16 +763,12 @@ const ManagerDocumentsPage = () => {
                                                 </div>
                                             </td></tr>
                                         ) : paginated.length > 0 ? (
-                                            <AnimatePresence>
+                                            <>
                                                 {paginated.map((doc) => {
                                                     const ft = getFileType(doc);
                                                     return (
-                                                        <motion.tr
+                                                        <tr
                                                             key={doc.id}
-                                                            initial={{ opacity: 0, y: 4 }}
-                                                            animate={{ opacity: 1, y: 0 }}
-                                                            exit={{ opacity: 0 }}
-                                                            transition={{ duration: 0.2 }}
                                                             className="hover:bg-slate-50/50 transition-colors group"
                                                         >
                                                             <td className="px-6 py-4">
@@ -693,9 +786,9 @@ const ManagerDocumentsPage = () => {
                                                                         {doc.title}
                                                                     </button>
                                                                 ) : (
-                                                                    <div>
-                                                                        <p className="text-sm font-bold text-slate-800">{doc.title}</p>
-                                                                        <p className="text-[10px] text-slate-400 font-medium truncate max-w-[240px]">{doc.remarks || "—"}</p>
+                                                                    <div className="max-w-[250px]">
+                                                                        <p className="text-sm font-bold text-slate-800 break-words whitespace-normal">{doc.title}</p>
+                                                                        <p className="text-[10px] text-slate-400 font-medium break-words whitespace-normal mt-0.5">{doc.remarks || "—"}</p>
                                                                     </div>
                                                                 )}
                                                             </td>
@@ -705,8 +798,8 @@ const ManagerDocumentsPage = () => {
                                                                 </span>
                                                             </td>
                                                             <td className="px-6 py-4">
-                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "REJECTED" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"}`}>
-                                                                    {doc.status || "PENDING"}
+                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${doc.status === "APPROVED" ? "bg-emerald-100 text-emerald-600" : doc.status === "REJECTED" ? "bg-rose-100 text-rose-600" : doc.status === "UNDER_REVIEW" ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"}`}>
+                                                                    {doc.status ? doc.status.replace("_", " ") : "PENDING"}
                                                                 </span>
                                                             </td>
                                                             <td className="px-6 py-4 text-xs font-bold text-slate-500">
@@ -726,20 +819,15 @@ const ManagerDocumentsPage = () => {
                                                                             >
                                                                                 <Eye className="w-4 h-4" />
                                                                             </button>
-                                                                            <button
-                                                                                onClick={() => { setViewingDoc(doc); setIsViewModalOpen(true); }}
-                                                                                className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
-                                                                                title="View Details"
-                                                                            >
-                                                                                <Info className="w-4 h-4" />
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => handleViewHistory(doc)}
-                                                                                className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
-                                                                                title="Approval History"
-                                                                            >
-                                                                                <History className="w-4 h-4" />
-                                                                            </button>
+                                                                            {mainTab === "Drawings" && (
+                                                                                <button
+                                                                                    onClick={() => handleViewHistory(doc)}
+                                                                                    className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
+                                                                                    title="Approval History"
+                                                                                >
+                                                                                    <History className="w-4 h-4" />
+                                                                                </button>
+                                                                            )}
                                                                             <button
                                                                                 onClick={() => handleEditClick(doc)}
                                                                                 className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
@@ -765,10 +853,10 @@ const ManagerDocumentsPage = () => {
                                                                     </button>
                                                                 </div>
                                                             </td>
-                                                        </motion.tr>
+                                                        </tr>
                                                     );
                                                 })}
-                                            </AnimatePresence>
+                                            </>
                                         ) : (
                                             <tr><td colSpan={7} className="px-6 py-20 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">
                                                 No documents found in this location.
@@ -981,64 +1069,6 @@ const ManagerDocumentsPage = () => {
                 </div>
             </Modal>
 
-            {/* View Modal */}
-            <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Document Details" maxWidth="max-w-md">
-                {viewingDoc && (
-                    <div className="p-6 space-y-3">
-                        {[
-                            ["Title", viewingDoc.title],
-                            ["Project", viewingDoc.project_name || `Project #${viewingDoc.project_id}`],
-                            ["Type", viewingDoc.document_type || "—"],
-                            ["Folder", viewingDoc.is_folder ? "Yes" : "No"],
-                            ["Status", viewingDoc.status || "PENDING"],
-                            ["Version", viewingDoc.version || "v1.0"],
-                            ["Uploaded", viewingDoc.uploaded_at ? new Date(viewingDoc.uploaded_at).toLocaleString() : "—"],
-                            ["Uploaded By", viewingDoc.uploaded_by_name || (viewingDoc.uploaded_by_user_id ? `User #${viewingDoc.uploaded_by_user_id}` : "—")],
-                            ["Remarks", viewingDoc.remarks || "—"],
-                        ].map(([label, value]) => (
-                            <div key={label} className="flex justify-between items-start border-b border-slate-50 pb-3 last:border-0">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 mr-4">{label}</span>
-                                <span className={`text-sm font-bold text-right max-w-[60%] ${label === "Status"
-                                    ? value === "APPROVED" ? "text-emerald-600"
-                                        : value === "REJECTED" ? "text-rose-600"
-                                            : "text-amber-600"
-                                    : "text-slate-800"
-                                    }`}>{value}</span>
-                            </div>
-                        ))}
-
-                        {/* File URL row */}
-                        {viewingDoc.file_url && (
-                            <div className="flex justify-between items-start border-b border-slate-50 pb-3">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0 mr-4">File URL</span>
-                                <a
-                                    href={viewingDoc.file_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm font-bold text-primary hover:underline text-right max-w-[60%] truncate block"
-                                    title={viewingDoc.file_url}
-                                >
-                                    {viewingDoc.file_url.split("/").pop() || viewingDoc.file_url}
-                                </a>
-                            </div>
-                        )}
-
-                        {viewingDoc.file_url && (
-                            <div className="flex items-center gap-2 mt-4">
-                                <button onClick={() => handleViewDocumentFile(viewingDoc)}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-600 border border-blue-200 text-sm font-bold rounded-xl hover:bg-blue-100 transition-all">
-                                    <Eye className="w-4 h-4" /> View File
-                                </button>
-                                <button onClick={() => handleDownload(viewingDoc)}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-blue-600 transition-all">
-                                    <Download className="w-4 h-4" /> Download File
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </Modal>
-
             {/* Delete Confirm */}
             <ConfirmModal
                 isOpen={isDeleteModalOpen}
@@ -1049,6 +1079,148 @@ const ManagerDocumentsPage = () => {
                 confirmText="Delete"
                 type="danger"
             />
+
+            {/* ─── Document Viewer Modal (Engineer-style card) ───────────── */}
+            <Modal
+                isOpen={isDocViewerOpen}
+                onClose={handleCloseDocViewer}
+                title="Document Preview"
+                maxWidth="max-w-3xl"
+                footer={
+                    <div className="flex items-center justify-end gap-3 px-6 pb-5">
+                        <button
+                            onClick={handleCloseDocViewer}
+                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all"
+                        >
+                            Close
+                        </button>
+                        {docViewerDoc && (
+                            <button
+                                onClick={() => handleDownload(docViewerDoc)}
+                                className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                            >
+                                <Download className="w-4 h-4" />
+                                Download File
+                            </button>
+                        )}
+                    </div>
+                }
+            >
+                {docViewerDoc && (() => {
+                    const fileUrl = docViewerDoc.file_url || "";
+                    const lowerUrl = fileUrl.toLowerCase();
+                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif)$/i.test(lowerUrl);
+                    const isPdf = lowerUrl.endsWith(".pdf");
+                    const fileType = docViewerDoc.document_type || (isImage ? "Drawing" : isPdf ? "PDF Document" : "File");
+
+                    return (
+                        <div>
+                            {/* Blue Header */}
+                            <div className="bg-primary mx-5 mt-2 mb-5 rounded-2xl p-5 text-white relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
+                                <div className="flex items-center gap-4 relative z-10">
+                                    <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center border border-white/20 shrink-0">
+                                        <FileText className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h3 className="text-lg font-bold tracking-tight">{docViewerDoc.title}</h3>
+                                            {docViewerDoc.version && (
+                                                <span className="px-2 py-0.5 bg-white/25 rounded-lg text-[10px] font-black uppercase tracking-widest">{docViewerDoc.version}</span>
+                                            )}
+                                        </div>
+                                        <p className="text-white/70 text-[11px] font-bold">
+                                            🗓 Added on {docViewerDoc.uploaded_at ? new Date(docViewerDoc.uploaded_at).toLocaleDateString() : "—"}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Two-panel body */}
+                            <div className="flex gap-0 px-5 pb-4">
+                                {/* Left: Metadata */}
+                                <div className="w-48 shrink-0 pr-6 border-r border-slate-100">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1">
+                                        <span>ⓘ</span> File Metadata
+                                    </p>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">File Type</p>
+                                            <p className="text-sm font-bold text-slate-800">{fileType}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Linked Project</p>
+                                            <p className="text-sm font-bold text-slate-800">{docViewerDoc.project_name || "—"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Status</p>
+                                            <p className="text-sm font-bold text-slate-800">{docViewerDoc.status || "PENDING"}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Storage Location</p>
+                                            <p className="text-sm font-bold text-slate-800">Secure Vault / Project Files</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Remarks</p>
+                                            <p className="text-xs text-slate-600 leading-relaxed">{docViewerDoc.remarks || "—"}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right: Content Preview */}
+                                <div className="flex-1 pl-6">
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1">
+                                        <span>⊟</span> Content Preview
+                                    </p>
+                                    <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 relative" style={{ minHeight: 320 }}>
+                                        {docViewerLoading ? (
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm z-10 gap-3">
+                                                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Fetching Secure Preview...</p>
+                                            </div>
+                                        ) : null}
+
+                                        {isImage && docViewerBlobUrl ? (
+                                            <img
+                                                src={docViewerBlobUrl}
+                                                alt={docViewerDoc.title}
+                                                className="w-full h-full object-contain max-h-[400px]"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                            />
+                                        ) : isPdf && docViewerBlobUrl ? (
+                                            <iframe
+                                                src={docViewerBlobUrl}
+                                                title={docViewerDoc.title}
+                                                className="w-full"
+                                                style={{ height: 400, border: "none" }}
+                                            />
+                                        ) : docViewerBlobUrl ? (
+                                            <div className="flex flex-col items-center justify-center h-64 gap-4 text-slate-400">
+                                                <FileText className="w-16 h-16 text-indigo-200" />
+                                                <div className="text-center">
+                                                    <p className="text-sm font-bold text-slate-700">Preview not natively supported</p>
+                                                    <p className="text-[10px] text-slate-400 max-w-xs text-center truncate mt-1">{fileUrl}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => docViewerDoc && handleDownload(docViewerDoc)}
+                                                    className="px-6 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                                                >
+                                                    Download to View
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-300">
+                                                <FileText className="w-12 h-12" />
+                                                <p className="text-xs font-bold uppercase tracking-widest">No preview available</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+            </Modal>
 
             {/* Edit Document Modal */}
             <Modal
@@ -1089,10 +1261,6 @@ const ManagerDocumentsPage = () => {
                             <label className={labelCls}>Version</label>
                             <input value={editForm.version} onChange={e => setEditForm(p => ({ ...p, version: e.target.value }))}
                                 placeholder="v1.0" className={inputCls} />
-                        </div>
-                        <div>
-                            <label className={labelCls}>Date</label>
-                            <input type="date" value={editForm.date} onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))} className={inputCls} />
                         </div>
                     </div>
                     {mainTab !== "Drawings" && (

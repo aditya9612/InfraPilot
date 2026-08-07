@@ -161,7 +161,7 @@ const QCInspectionPage = () => {
                 const usersList = Array.isArray(usersRes) ? usersRes : (usersRes.data || usersRes.items || []);
                 setAvailableTasks(tasksList);
                 setAvailableDsrs(dsrsList);
-                setAvailableEngineers(usersList.filter((u: any) => u.role === 'ENGINEER' || u.role === 'PROJECT_MANAGER' || u.role === 'ADMIN'));
+                setAvailableEngineers(usersList.filter((u: any) => u.role === 'SiteEngineer' || u.role === 'ProjectManager' || u.role === 'Admin'));
             }).finally(() => {
                 setIsFetchingDeps(false);
             });
@@ -297,6 +297,17 @@ const QCInspectionPage = () => {
 
     const resetForm = () => {
         setSelectedFile(null);
+        let defaultEngineerName = "";
+        try {
+            const userStr = localStorage.getItem("infrapilot_user");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                defaultEngineerName = user.full_name || user.username || "";
+            }
+        } catch (e) {
+            console.error("Failed to parse user from localStorage", e);
+        }
+
         setFormData({
             project_id: projectId || 0,
             task_id: null,
@@ -306,7 +317,7 @@ const QCInspectionPage = () => {
             result: "",
             standard_value: "",
             status: "Pass",
-            engineer_name: "",
+            engineer_name: defaultEngineerName,
             remarks: "",
             report_file: ""
         });

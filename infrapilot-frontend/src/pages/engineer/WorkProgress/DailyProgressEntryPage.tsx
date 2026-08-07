@@ -47,8 +47,8 @@ const DailyProgressEntryPage = () => {
   useEffect(() => {
     // Fetch projects for the dropdown
     projectService.getProjects(100, 0).then((data: any) => {
-        setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
-    }).catch(() => {});
+      setProjectsList(Array.isArray(data) ? data : (data.items || data.data || []));
+    }).catch(() => { });
   }, []);
 
   const [activeTab, setActiveTab] = useState<'all' | 'today' | 'summary' | 'history' | 'delay' | 'logs'>('all');
@@ -567,67 +567,69 @@ const DailyProgressEntryPage = () => {
           {/* ─── Registry Container ────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-6 font-inter flex flex-col">
             {/* Integrated Filter Bar */}
-            <div className="p-4 border-b border-slate-50 flex flex-row items-center gap-4 bg-white font-inter flex-nowrap overflow-x-auto overflow-y-hidden scrollbar-none w-full">
-              
-              {/* 1. Search Box */}
-              <div className="relative flex-1 min-w-[200px] max-w-md font-inter shrink-0">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
-                  <Search className="w-4 h-4" />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search by activity ref or BOQ identity..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
-                />
-              </div>
+            {activeTab !== 'summary' && (
+              <div className="p-4 border-b border-slate-50 flex flex-row items-center gap-4 bg-white font-inter flex-nowrap overflow-x-auto overflow-y-hidden scrollbar-none w-full">
 
-              {/* 2. Date Filter */}
-              {activeTab === 'all' && (
-                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
-                  <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                {/* 1. Search Box */}
+                <div className="relative flex-1 min-w-[200px] max-w-md font-inter shrink-0">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-inter">
+                    <Search className="w-4 h-4" />
+                  </span>
                   <input
-                    type="date"
-                    value={filterDate}
-                    onChange={(e) => setFilterDate(e.target.value)}
-                    className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter w-[95px]"
+                    type="text"
+                    placeholder="Search by activity ref or BOQ identity..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-11 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 font-inter"
                   />
                 </div>
-              )}
 
-              {/* 3. Project Filter */}
-              <div className="flex items-center gap-2 font-inter shrink-0">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden xl:inline-block">Project:</span>
-                <select
+                {/* 2. Date Filter */}
+                {activeTab === 'all' && (
+                  <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm font-inter shrink-0">
+                    <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                    <input
+                      type="date"
+                      value={filterDate}
+                      onChange={(e) => setFilterDate(e.target.value)}
+                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter w-[95px]"
+                    />
+                  </div>
+                )}
+
+                {/* 3. Project Filter */}
+                <div className="flex items-center gap-2 font-inter shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden xl:inline-block">Project:</span>
+                  <select
                     value={projectId || ""}
                     onChange={(e) => setSelectedProjectId(Number(e.target.value) || null)}
                     className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none cursor-pointer uppercase tracking-widest font-inter shadow-sm max-w-[150px] truncate"
-                >
+                  >
                     <option value="">ALL PROJECTS</option>
                     {projectsList.map(p => (
-                        <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name}</option>
-                    ))}
-                </select>
-              </div>
-
-              {/* 4. All Activity Filter */}
-              {(activeTab === 'all' || activeTab === 'history') && (
-                <div className="flex items-center gap-2 font-inter shrink-0">
-                  <select
-                    value={selectedActivityId}
-                    onChange={(e) => setSelectedActivityId(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm max-w-[130px] truncate"
-                  >
-                    <option value="all">ALL ACTIVITIES</option>
-                    {activitiesList.map(a => (
-                      <option key={a.id} value={a.id}>{a.activity_name}</option>
+                      <option key={p.id || p.project_id} value={p.id || p.project_id}>{p.name || p.project_name}</option>
                     ))}
                   </select>
                 </div>
-              )}
 
-            </div>
+                {/* 4. All Activity Filter */}
+                {(activeTab === 'all' || activeTab === 'history') && (
+                  <div className="flex items-center gap-2 font-inter shrink-0">
+                    <select
+                      value={selectedActivityId}
+                      onChange={(e) => setSelectedActivityId(e.target.value)}
+                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 outline-none cursor-pointer font-inter shadow-sm max-w-[130px] truncate"
+                    >
+                      <option value="all">ALL ACTIVITIES</option>
+                      {activitiesList.map(a => (
+                        <option key={a.id} value={a.id}>{a.activity_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+              </div>
+            )}
 
             <div className="flex-1 overflow-auto p-10 font-inter scrollbar-thin scrollbar-thumb-slate-200">
               {activeTab === 'summary' && (
@@ -683,7 +685,7 @@ const DailyProgressEntryPage = () => {
                               <td className="px-6 py-6 font-inter text-[13px] font-bold text-blue-600">
                                 {e.today_progress} {currentActivity?.unit || ""}
                               </td>
-                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600 max-w-[250px] truncate" title={e.remarks}>{e.remarks || "-"}</td>
+                              <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-600 max-w-[250px] truncate" title={e.remarks || (e as any).remark || (e as any).notes}>{e.remarks || (e as any).remark || (e as any).notes || "-"}</td>
                               <td className="px-6 py-6 font-inter text-[13px] font-medium text-slate-500">{e.created_at ? new Date(e.created_at).toLocaleString() : "-"}</td>
                               {activeTab === 'all' && (
                                 <td className="px-6 py-6 font-inter">

@@ -217,8 +217,17 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
         { label: "Resource Hub", path: "/manager/resources/orchestrator", icon: "grid" },
         { label: "Site Engineer & Labour", path: "/manager/resources/labour", icon: "users" },
         { label: "Equipment", path: "/manager/resources/equipment", icon: "tool" },
-        { label: "Materials", path: "/manager/resources/materials", icon: "package" },
       ]
+    },
+    {
+      label: "Material Management",
+      path: "/manager/material/receipt",
+      icon: "package",
+      subNav: [
+        { label: "Material Receipt", path: "/manager/material/receipt", icon: "package" },
+        { label: "Material Consumption", path: "/manager/material/consumption", icon: "tool" },
+        { label: "Stock Summary", path: "/manager/material/stock", icon: "database" },
+      ],
     },
     {
       label: "BOQ & Estimation",

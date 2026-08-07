@@ -7,7 +7,7 @@ export interface Document {
     file_url: string | null;
     file_size: number | null;
     version: string;
-    status: "PENDING" | "APPROVED" | "REJECTED";
+    status: "PENDING" | "APPROVED" | "REJECTED" | "UNDER_REVIEW";
     is_folder: boolean;
     parent_id: number | null;
     uploaded_by_user_id: number;

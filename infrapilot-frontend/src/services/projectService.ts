@@ -29,13 +29,19 @@ export const projectService = {
         const rawStatus = p.status || "";
         let normalizedStatus = rawStatus;
 
-        // Map backend UPPERCASE to frontend PascalCase if needed
-        if (rawStatus === "PLANNED") normalizedStatus = "Planned";
-        else if (rawStatus === "ONGOING") normalizedStatus = "Ongoing";
-        else if (rawStatus === "COMPLETED") normalizedStatus = "Completed";
-        else if (rawStatus === "ON_HOLD") normalizedStatus = "On Hold";
-        else if (rawStatus === "DELAYED") normalizedStatus = "Delayed";
-        else if (rawStatus === "delayed") normalizedStatus = "Delayed"; // Handle lowercase too
+        const rawStatusStr = String(rawStatus || "").trim().toUpperCase();
+        if (rawStatusStr === "PLANNED") normalizedStatus = "Planned";
+        else if (rawStatusStr === "ONGOING" || rawStatusStr === "ACTIVE") normalizedStatus = "Ongoing";
+        else if (rawStatusStr === "COMPLETED") normalizedStatus = "Completed";
+        else if (rawStatusStr === "ON_HOLD" || rawStatusStr === "ON HOLD" || rawStatusStr === "SUSPENDED") normalizedStatus = "On Hold";
+        else if (rawStatusStr === "DELAYED" || rawStatusStr === "DELAY" || rawStatusStr === "DELAY_ONGOING") normalizedStatus = "Delayed";
+
+        if (normalizedStatus !== "Completed" && p.end_date) {
+          const end = new Date(p.end_date).getTime();
+          if (!isNaN(end) && end < Date.now()) {
+            normalizedStatus = "Delayed";
+          }
+        }
 
         return {
           ...p,
@@ -309,92 +315,22 @@ export const projectService = {
     }
   },
 
-  async getTaskRequests(params?: { project_id?: number; status?: string; priority?: string; skip?: number; limit?: number }) {
+  async getTaskRequests(params?: number | { project_id?: number; status?: string; priority?: string; skip?: number; limit?: number }) {
     try {
-      // Trying the API URL 'projects/task-requests'
-      const response = await api.get('projects/task-requests', { params });
+      const queryParams = typeof params === 'number' ? { project_id: params } : (params || {});
+      const response = await api.get('projects/task-requests', { params: queryParams });
       const data = response.data;
-      return Array.isArray(data) ? data : (data.items || data.data || []);
+      return Array.isArray(data) ? data : (data?.items || data?.data || []);
     } catch (error) {
       console.error("Task Requests API Error:", error);
-      // Fallback in case of error, but the user expects a 200 OK from the backend
-      return [
-        {
-          "title": "string1",
-          "category": "string",
-          "project_id": 92,
-          "priority": "medium",
-          "description": "string",
-          "attachment_url": "string",
-          "assigned_to": 181,
-          "id": 1,
-          "status": "PENDING",
-          "is_deleted": false,
-          "created_at": "2026-07-02T13:27:36",
-          "updated_at": "2026-07-02T13:27:36"
-        },
-        {
-          "title": "Testing Task",
-          "category": "High",
-          "project_id": 92,
-          "priority": "1",
-          "description": "string",
-          "attachment_url": "null",
-          "assigned_to": 2,
-          "id": 5,
-          "status": "PENDING",
-          "is_deleted": false,
-          "created_at": "2026-07-03T11:18:16",
-          "updated_at": "2026-07-03T11:18:16"
-        },
-        {
-          "title": "Testing Task",
-          "category": "High",
-          "project_id": 92,
-          "priority": "1",
-          "description": "string",
-          "attachment_url": "null",
-          "assigned_to": 2,
-          "id": 7,
-          "status": "PENDING",
-          "is_deleted": false,
-          "created_at": "2026-07-03T11:23:19",
-          "updated_at": "2026-07-03T11:23:19"
-        },
-        {
-          "title": "fggbj",
-          "category": "support",
-          "project_id": 92,
-          "priority": "high",
-          "description": "hjhjijii",
-          "attachment_url": "-",
-          "assigned_to": 181,
-          "id": 9,
-          "status": "PENDING",
-          "is_deleted": false,
-          "created_at": "2026-07-06T08:10:16",
-          "updated_at": "2026-07-06T08:10:16"
-        },
-        {
-          "title": "fggbj",
-          "category": "support",
-          "project_id": 92,
-          "priority": "high",
-          "description": "hjhjijii",
-          "attachment_url": "-",
-          "assigned_to": 181,
-          "id": 10,
-          "status": "PENDING",
-          "is_deleted": false,
-          "created_at": "2026-07-06T08:14:26",
-          "updated_at": "2026-07-06T08:14:26"
-        }
-      ];
+      return [];
     }
   },
 
-  async updateTaskRequest(requestId: number, data: any) {
+  async updateTaskRequest(arg1: number, arg2: any, arg3?: any) {
     try {
+      const requestId = arg3 !== undefined ? arg2 : arg1;
+      const data = arg3 !== undefined ? arg3 : arg2;
       const response = await api.put(`projects/task-requests/${requestId}`, data);
       return response.data;
     } catch (error) {
@@ -403,8 +339,9 @@ export const projectService = {
     }
   },
 
-  async deleteTaskRequest(requestId: number) {
+  async deleteTaskRequest(arg1: number, arg2?: number) {
     try {
+      const requestId = arg2 !== undefined ? arg2 : arg1;
       const response = await api.delete(`projects/task-requests/${requestId}`);
       return response.data;
     } catch (error) {
@@ -608,7 +545,23 @@ export const projectService = {
 
     const shouldUseCache = !forceRefresh && cached && cached.data.length > 0 && (Date.now() - cached.timestamp < projectService._CACHE_TTL);
     if (shouldUseCache) {
-      console.log(`[ProjectService] Using cached assigned projects for user ${userId} (${cached.data.length} found)`);
+      console.log(`[ProjectService] Using cached assigned projects for user ${userId} (${cached.data.length} found). Refreshing current statuses...`);
+      try {
+        const freshRes = await this.getProjects(100, 0, "", "");
+        const freshList = Array.isArray(freshRes) ? freshRes : (freshRes.items || freshRes.data || []);
+        if (freshList.length > 0) {
+          const freshMap = new Map<number, any>(freshList.map((p: any) => [Number(p.id || p.project_id), p]));
+          const updatedCachedData = cached.data.map((cp: any) => {
+            const fresh = freshMap.get(Number(cp.id || cp.project_id));
+            return fresh ? { ...cp, ...fresh, status: fresh.status, completion_percentage: fresh.completion_percentage, end_date: fresh.end_date } : cp;
+          });
+          cache.set(userId, { data: updatedCachedData, timestamp: cached.timestamp });
+          projectService._saveCache(cache);
+          return updatedCachedData;
+        }
+      } catch (e) {
+        console.warn("Failed to refresh cached project statuses, returning cached data:", e);
+      }
       return cached.data;
     }
 
@@ -704,72 +657,6 @@ export const projectService = {
         status: error.response?.status,
         data: error.response?.data,
         endpoint: `projects/task-requests`
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Get all task requests for a project
-   * GET /api/v1/projects/task-requests?project_id={project_id}
-   */
-  async getTaskRequests(projectId: number) {
-    try {
-      const endpoint = `projects/task-requests`;
-      console.log(`Fetching task requests from: ${endpoint}?project_id=${projectId}`);
-      const response = await api.get(endpoint, { params: { project_id: projectId } });
-      const data = response.data;
-      return Array.isArray(data) ? data : (data?.items || data?.data || []);
-    } catch (error: any) {
-      console.error("Get Task Requests API Error:", {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        endpoint: `projects/task-requests?project_id=${projectId}`
-      });
-      return [];
-    }
-  },
-
-  /**
-   * Update a task request
-   * PUT /api/v1/projects/task-requests/{request_id}
-   */
-  async updateTaskRequest(projectId: number, requestId: number, requestData: any) {
-    try {
-      const endpoint = `projects/task-requests/${requestId}`;
-      const payload = {
-        ...requestData,
-        project_id: projectId
-      };
-      console.log(`Updating task request at: ${endpoint}`, payload);
-      const response = await api.put(endpoint, payload);
-      return response.data;
-    } catch (error: any) {
-      console.error("Update Task Request API Error:", {
-        status: error.response?.status,
-        data: error.response?.data,
-        endpoint: `projects/task-requests/${requestId}`
-      });
-      throw error;
-    }
-  },
-
-  /**
-   * Delete a task request
-   * DELETE /api/v1/projects/task-requests/{request_id}
-   */
-  async deleteTaskRequest(projectId: number, requestId: number) {
-    try {
-      const endpoint = `projects/task-requests/${requestId}`;
-      console.log(`Deleting task request at: ${endpoint}`);
-      const response = await api.delete(endpoint);
-      return response.data;
-    } catch (error: any) {
-      console.error("Delete Task Request API Error:", {
-        status: error.response?.status,
-        data: error.response?.data,
-        endpoint: `projects/task-requests/${requestId}`
       });
       throw error;
     }

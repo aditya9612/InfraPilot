@@ -122,28 +122,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!isBackground) setIsLoading(true);
             const data = await chatService.getEnhancedChatList();
 
-            // Fetch typing and online status for up to 10 top active unmuted chats to avoid spam
+            // Fetch typing and online status ONLY for the active chat (or top 2 if none active) to prevent API spam
             try {
-                const topChats = data.slice(0, 10);
-                const typingObj: Record<number, string> = {};
-                const onlineObj: Record<number, boolean> = {};
-                
-                await Promise.all(topChats.map(async (conv) => {
-                    const res = await chatService.getTypingUsers(conv.id);
-                    const typers = res.users.filter(u => u.user_id.toString() !== user?.id);
-                    if (typers.length > 0) {
-                        typingObj[conv.id] = conv.type === "group" ? `${typers[0].name} is typing...` : `typing...`;
-                    }
-                    
+                const chatsToPoll = activeChatIdRef.current
+                    ? data.filter(c => c.id === activeChatIdRef.current)
+                    : data.slice(0, 2);
+
+                await Promise.all(chatsToPoll.map(async (conv) => {
+                    try {
+                        const _res = await chatService.getTypingUsers(conv.id);
+                        // Do something with typers if needed
+                    } catch { }
+
                     if (conv.type !== 'group' && conv.other_user_id) {
                         try {
-                            const statusRes = await chatService.getUserStatus(conv.other_user_id);
-                            onlineObj[conv.id] = statusRes.online;
+                            const _statusRes = await chatService.getUserStatus(conv.other_user_id);
+                            // Do something with status if needed
                         } catch { }
                     }
                 }));
-                setTypingStatus(typingObj);
-                setOnlineStatus(onlineObj);
             } catch { /* silent fetch err */ }
 
             // Merge with local overrides (in-memory + localStorage) BEFORE checking unread messages to ensure mute state is accurate
@@ -156,68 +153,68 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const prevCount = prevCounts[conv.id] || 0;
                     if (conv.unread_count > prevCount) {
                         const isMuted = !!(conv.is_muted || (conv as any).muted || (conv as any).isMuted || (conv as any).is_mute);
-                        
+
                         if (!isMuted) {
                             const audio = new Audio(NOTIFICATION_SOUND_URL);
                             audio.volume = 1.0;
                             audio.play().catch(err => console.debug("Audio play blocked", err));
+                        }
 
-                            if (activeChatIdRef.current !== conv.id) {
-                                const chatTitle = conv.type === "group" ? conv.name : (conv.other_user_name || "New Message");
-                                toast.success(
-                                    (t) => (
-                                        <div
-                                            className="flex items-center gap-3.5 cursor-pointer group/toast"
-                                            onClick={() => {
-                                                setActiveChatId(conv.id);
-                                                toast.dismiss(t.id);
-                                            }}
-                                        >
-                                            <div className="relative shrink-0">
-                                                <div className="w-10 h-10 rounded-2xl overflow-hidden bg-white/10 p-0.5 shadow-inner">
-                                                    {conv.other_user_avatar || conv.avatar_url ? (
-                                                        <img
-                                                            src={getFullImageUrl(conv.other_user_avatar || conv.avatar_url)}
-                                                            alt="A"
-                                                            className="w-full h-full object-cover rounded-[14px]"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-xs font-black text-white uppercase bg-gradient-to-br from-primary to-blue-600 rounded-[14px]">
-                                                            {(chatTitle || "?").charAt(0)}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="min-w-0 pr-4">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <span className="text-[10px] font-black bg-primary/20 text-primary px-1.5 py-0.5 rounded-md uppercase tracking-wider">
-                                                        {conv.type === "group" ? "Group" : "Direct"}
-                                                    </span>
-                                                    <p className="text-[11px] font-black text-white leading-tight truncate tracking-tight">
-                                                        {chatTitle}
-                                                    </p>
-                                                </div>
-                                                <p className="text-[10px] font-semibold text-slate-400 truncate leading-relaxed">
-                                                    {conv.last_message || "New message received"}
-                                                </p>
+                        if (activeChatIdRef.current !== conv.id) {
+                            const chatTitle = conv.type === "group" ? conv.name : (conv.other_user_name || "New Message");
+                            toast.success(
+                                (t) => (
+                                    <div
+                                        className="flex items-center gap-3.5 cursor-pointer group/toast"
+                                        onClick={() => {
+                                            setActiveChatId(conv.id);
+                                            toast.dismiss(t.id);
+                                        }}
+                                    >
+                                        <div className="relative shrink-0">
+                                            <div className="w-10 h-10 rounded-2xl overflow-hidden bg-white/10 p-0.5 shadow-inner">
+                                                {conv.other_user_avatar || conv.avatar_url ? (
+                                                    <img
+                                                        src={getFullImageUrl(conv.other_user_avatar || conv.avatar_url)}
+                                                        alt="A"
+                                                        className="w-full h-full object-cover rounded-[14px]"
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-xs font-black text-white uppercase bg-gradient-to-br from-primary to-blue-600 rounded-[14px]">
+                                                        {(chatTitle || "?").charAt(0)}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                    ),
-                                    {
-                                        duration: 6000,
-                                        position: "bottom-right",
-                                        icon: null,
-                                        style: {
-                                            padding: '10px 14px',
-                                            borderRadius: '20px',
-                                            background: '#0f172a',
-                                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                                            color: '#ffffff',
-                                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                                        }
+                                        <div className="min-w-0 pr-4">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <span className="text-[10px] font-black bg-primary/20 text-primary px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                                                    {conv.type === "group" ? "Group" : "Direct"}
+                                                </span>
+                                                <p className="text-[11px] font-black text-white leading-tight truncate tracking-tight">
+                                                    {chatTitle}
+                                                </p>
+                                            </div>
+                                            <p className="text-[10px] font-semibold text-slate-400 truncate leading-relaxed">
+                                                {conv.last_message || "New message received"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ),
+                                {
+                                    duration: 6000,
+                                    position: "bottom-right",
+                                    icon: null,
+                                    style: {
+                                        padding: '10px 14px',
+                                        borderRadius: '20px',
+                                        background: '#0f172a',
+                                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                                        color: '#ffffff',
+                                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                                     }
-                                );
-                            }
+                                }
+                            );
                         }
                     }
                 });
@@ -237,7 +234,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (is401 && (isBackground || isLabour)) return;
             if (isBackground && (error.response?.status === 502 || error.code === 'ECONNABORTED')) return;
-            
+
             console.error("Failed to refresh chat list", error);
         } finally {
             if (!isBackground) setIsLoading(false);
@@ -249,11 +246,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
 
         const poll = async () => {
-            if (!isAuthenticated || (user?.role === "Labour")) return;
-            await refreshChatList(true);
+            if (isAuthenticated && document.visibilityState === 'visible' && user?.role !== "Labour") {
+                await refreshChatList(true);
+            }
             pollTimerRef.current = setTimeout(poll, 5000);
         };
-
         pollTimerRef.current = setTimeout(poll, 5000);
     }, [isAuthenticated, user, refreshChatList]);
 

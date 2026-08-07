@@ -54,7 +54,9 @@ import ManagerQualityPage from "../pages/manager/ManagerQualityPage";
 import ManagerSafetyPage from "../pages/manager/ManagerSafetyPage";
 import LabourRegistryPage from "../pages/manager/Resources/LabourRegistryPage";
 import EquipmentRegistryPage from "../pages/manager/Resources/EquipmentRegistryPage";
-import MaterialInventoryPage from "../pages/manager/Resources/MaterialInventoryPage";
+import ManagerMaterialReceiptPage from "../pages/manager/Resources/MaterialManagement/MaterialReceiptPage";
+import ManagerMaterialConsumptionPage from "../pages/manager/Resources/MaterialManagement/MaterialConsumptionPage";
+import ManagerMaterialStockPage from "../pages/manager/Resources/MaterialManagement/MaterialStockPage";
 import ManagerDocumentsPage from "../pages/manager/ManagerDocumentsPage";
 import ManagerReportsPage from "../pages/manager/ManagerReportsPage";
 
@@ -106,7 +108,6 @@ import LabourTaskDetailPage from "../pages/engineer/LabourManagement/LabourTaskD
 import MaterialReceiptPage from "../pages/engineer/MaterialManagement/MaterialReceiptPage";
 import MaterialConsumptionPage from "../pages/engineer/MaterialManagement/MaterialConsumptionPage";
 import MaterialStockPage from "../pages/engineer/MaterialManagement/MaterialStockPage";
-import MaterialHistoryPage from "../pages/engineer/MaterialManagement/MaterialHistoryPage";
 import QCInspectionPage from "../pages/engineer/QC/QCInspectionPage";
 import MachineryPage from "../pages/engineer/MachineryManagement/MachineryPage";
 import SafetyManagementPage from "../pages/engineer/Safety/SafetyManagementPage";
@@ -211,6 +212,9 @@ function AppRoutes() {
                 <Route path="/admin/engineers/:id" element={<EngineerProfilePage />} />
                 <Route path="/admin/managers" element={<ProjectManagersPage />} />
                 <Route path="/admin/boq" element={<BOQPage />} />
+                <Route path="/admin/boq/list" element={<BOQPage />} />
+                <Route path="/admin/boq/items" element={<BOQPage />} />
+                <Route path="/admin/boq/cost" element={<BOQPage />} />
                 <Route path="/admin/boq/setup" element={<BOQPage />} />
                 <Route path="/admin/boq/activities" element={<BOQPage />} />
                 <Route path="/admin/inventory" element={<InventoryPage />} />
@@ -321,7 +325,9 @@ function AppRoutes() {
                 <Route path="labour/:id" element={<LabourTaskDetailPage />} />
                 <Route path="resources/labour" element={<LabourRegistryPage />} />
                 <Route path="resources/equipment" element={<EquipmentRegistryPage />} />
-                <Route path="resources/materials" element={<MaterialInventoryPage />} />
+                <Route path="material/stock" element={<ManagerMaterialStockPage />} />
+                <Route path="material/receipt" element={<ManagerMaterialReceiptPage />} />
+                <Route path="material/consumption" element={<ManagerMaterialConsumptionPage />} />
                 <Route path="resources/orchestrator" element={<ResourceOrchestratorPage />} />
                 <Route path="compliance/qc" element={<QCGovernancePage />} />
                 <Route path="compliance/safety" element={<SafetyManagementPage />} />
@@ -475,7 +481,6 @@ function AppRoutes() {
                 <Route path="/engineer/material/receipt" element={<MaterialReceiptPage />} />
                 <Route path="/engineer/material/consumption" element={<MaterialConsumptionPage />} />
                 <Route path="/engineer/material/stock" element={<MaterialStockPage />} />
-                <Route path="/engineer/material/history" element={<MaterialHistoryPage />} />
                 <Route path="/engineer/qc/inspection" element={<QCInspectionPage />} />
                 <Route path="/engineer/qc/reports" element={<QCInspectionPage />} />
                 <Route path="/engineer/machinery" element={<MachineryPage />} />

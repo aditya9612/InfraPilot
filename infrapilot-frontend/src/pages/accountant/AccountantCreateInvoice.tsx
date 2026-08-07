@@ -67,6 +67,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
   const projectIdFromUrl = queryParams.get("projectId");
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
 
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
   const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
@@ -131,6 +132,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
   // Form State
   const [clientDetails, setClientDetails] = useState({
+    client_user_id: null as number | null,
     name: "",
     company: "",
     mobile: "",
@@ -276,14 +278,16 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
             try {
               const u = await userService.getUserById(selectedProject.owner_id);
               if (u) {
-                setClientDetails({
+                setClientDetails(prev => ({
+                  ...prev,
+                  client_user_id: selectedProject.owner_id || null,
                   name: u.full_name || "",
                   company: u.designation || "",
                   mobile: u.mobile_number || "",
                   email: u.email || "",
                   address: u.address || "",
                   gst: u.pan_number || ""
-                });
+                }));
               }
             } catch (error: any) {
               // Silently ignore 404 — owner user may not exist in users endpoint
@@ -308,19 +312,25 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
     }
   }, [projectIdFromUrl, id, projects]);
 
-  // Fetch Projects
+  // Fetch Projects and Clients
   useEffect(() => {
-    const fetchProjects = async () => {
+    const fetchProjectsAndClients = async () => {
       try {
-        const res = await projectService.getProjects(100, 0);
-        const list = Array.isArray(res) ? res : (res.items || res.data || []);
-        setProjects(list);
-        console.log("AccountantCreateInvoice fetched projects:", list);
+        const [projRes, clientRes] = await Promise.all([
+          projectService.getProjects(100, 0),
+          userService.getAllUsers(100, 0)
+        ]);
+        const projList = Array.isArray(projRes) ? projRes : (projRes.items || projRes.data || []);
+        setProjects(projList);
+
+        const usersList = Array.isArray(clientRes) ? clientRes : (clientRes.items || clientRes.data || []);
+        const clientList = usersList.filter((u: any) => u.role?.toLowerCase() === 'client');
+        setClients(clientList);
       } catch (error) {
-        console.error("Failed to fetch projects", error);
+        console.error("Failed to fetch projects or clients", error);
       }
     };
-    fetchProjects();
+    fetchProjectsAndClients();
   }, []);
 
   // Pre-populate client details if clientId is provided in URL
@@ -330,14 +340,16 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         try {
           const u = await userService.getUserById(Number(clientIdFromUrl));
           if (u) {
-            setClientDetails({
+            setClientDetails(prev => ({
+              ...prev,
+              client_user_id: Number(clientIdFromUrl) || null,
               name: u.full_name || "",
               company: u.designation || "", // Using designation as company placeholder
               mobile: u.mobile_number || "",
               email: u.email || "",
               address: u.address || "",
               gst: u.pan_number || "" // Using PAN as GST placeholder if not available
-            });
+            }));
           }
         } catch (error) {
           console.error("Failed to pre-populate client details", error);
@@ -357,14 +369,16 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
         if (q) {
           setStatus(q.status || "draft");
           // Map basic details
-          setClientDetails({
+          setClientDetails(prev => ({
+            ...prev,
+            client_user_id: q.client_user_id || null,
             name: q.client_name || "",
             company: q.company_name || "",
             mobile: q.mobile_number || "",
             email: q.email || "",
             address: q.billing_address || "",
             gst: q.gst_number || ""
-          });
+          }));
 
           setProjectDetails({
             name: q.project_name || "",
@@ -583,6 +597,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
       const payload: any = {
         client_name: clientDetails.name,
+        client_user_id: clientDetails.client_user_id || null,
         company_name: clientDetails.company || "Patil Construction Pvt Ltd",
         mobile_number: clientDetails.mobile,
         email: clientDetails.email || "rahul.patil@example.com",
@@ -767,14 +782,16 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
 
   const handleImportQuotation = (q: Quotation) => {
     // 1. Map Client Details
-    setClientDetails({
+    setClientDetails(prev => ({
+      ...prev,
+      client_user_id: q.client_user_id || null,
       name: q.client_name || "",
       company: q.company_name || "",
       mobile: q.mobile_number || "",
       email: q.email || "",
       address: q.billing_address || "",
       gst: q.gst_number || ""
-    });
+    }));
 
     // 2. Map Project Details
     setProjectDetails({
@@ -1185,12 +1202,35 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Name <span className="text-rose-500">*</span></label>
                     <input
-                      type="text"
+                      list="clients-list"
                       value={clientDetails.name}
-                      onChange={(e) => setClientDetails({ ...clientDetails, name: e.target.value })}
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const selected = clients.find(c => (c.full_name || c.username || `Client #${c.id}`) === val);
+                        if (selected) {
+                          setClientDetails(prev => ({
+                            ...prev,
+                            client_user_id: selected.id,
+                            name: selected.full_name || selected.username || "",
+                            company: selected.designation || "",
+                            mobile: selected.mobile_number || "",
+                            email: selected.email || "",
+                            address: selected.address || "",
+                            gst: selected.pan_number || ""
+                          }));
+                        } else {
+                          setClientDetails(prev => ({ ...prev, client_user_id: null, name: val }));
+                        }
+                      }}
+                      disabled={isReadOnly}
+                      className={`w-full px-4 py-2.5 pr-10 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      placeholder="Type or select a Client..."
                     />
+                    <datalist id="clients-list">
+                      {clients.map(c => (
+                        <option key={c.id} value={c.full_name || c.username || `Client #${c.id}`} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1255,17 +1295,28 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                 <div className="space-y-4">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name</label>
-                    <select
-                      value={selectedProjectId}
-                      onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+                    <input
+                      list="projects-list"
+                      value={projectDetails.name}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const selected = projects.find(p => ((p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`) === val);
+                        setProjectDetails(prev => ({ ...prev, name: val }));
+                        if (selected) {
+                          setSelectedProjectId(selected.id);
+                        } else {
+                          setSelectedProjectId(0);
+                        }
+                      }}
                       disabled={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    >
-                      <option value={0}>Select Project</option>
+                      className={`w-full px-4 py-2.5 pr-10 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      placeholder="Type or select Project..."
+                    />
+                    <datalist id="projects-list">
                       {projects.map(p => (
-                        <option key={p.id} value={p.id}>{(p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`}</option>
+                        <option key={p.id} value={(p as any).project_name || (p as any).name || (p as any).title || `Project #${p.id}`} />
                       ))}
-                    </select>
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>
@@ -2013,6 +2064,19 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                       <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-indigo-600">Bank / Payment Details</h4>
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Payment Mode</label>
+                        <select
+                          value={paymentDetails.payment_mode}
+                          onChange={(e) => setPaymentDetails({ ...paymentDetails, payment_mode: e.target.value })}
+                          className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none cursor-pointer"
+                        >
+                          <option value="UPI">UPI</option>
+                          <option value="Bank Transfer">Bank Transfer (NEFT/RTGS/IMPS)</option>
+                          <option value="Cash">Cash</option>
+                          <option value="Cheque">Cheque</option>
+                        </select>
+                      </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bank Name</label>

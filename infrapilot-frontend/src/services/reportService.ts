@@ -50,6 +50,11 @@ export const reportService = {
         return response.data;
     },
 
+    getProjectProfitLoss: async (projectId: number) => {
+        const response = await api.get(`/projects/${projectId}/profit-loss`);
+        return response.data;
+    },
+
     getProjectReport: async (projectId: number, type: string = "monthly", month?: number, year?: number) => {
         const now = new Date();
         const m = month ?? (now.getMonth() + 1);

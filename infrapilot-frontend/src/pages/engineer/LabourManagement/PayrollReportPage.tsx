@@ -206,7 +206,8 @@ const PayrollReportPage: React.FC = () => {
                                 <p className={`text-lg font-bold mt-0.5 ${item.color}`}>{item.val}</p>
                             </div>
                         ))}
-                        {momentum && (
+                        {/* Payroll Momentum — temporarily hidden */}
+                        {false && momentum && (
                             <div className="bg-white border border-slate-100 rounded-xl px-4 py-3 shadow-sm md:col-span-4">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Payroll Momentum</p>
                                 <div className="flex items-center gap-6 flex-wrap">

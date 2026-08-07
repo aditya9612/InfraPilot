@@ -1,9 +1,8 @@
 import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
-import CreateRoleModal from "../../components/forms/CreateRoleModal";
-import ConfirmModal from "../../components/common/ConfirmModal";
 import toast from "react-hot-toast";
+import CreateRoleModal from "../../components/forms/CreateRoleModal";
 import type { Role } from "../../types/user";
 
 const INITIAL_ROLES: Role[] = [
@@ -40,14 +39,6 @@ const INITIAL_ROLES: Role[] = [
     is_active: true,
   },
   {
-    id: "5",
-    name: "Contractor",
-    description: "Submit progress reports, material requests, and sub-bills.",
-    userCount: 12,
-    color: "rose-500",
-    is_active: true,
-  },
-  {
     id: "6",
     name: "Client",
     description: "Read-only access to specific project progress and timelines.",
@@ -57,16 +48,18 @@ const INITIAL_ROLES: Role[] = [
   },
 ];
 
+import { useEffect, useRef } from "react";
+import { userService } from "../../services/userService";
+
 const RolesPage = () => {
   const [roles, setRoles] = useState<Role[]>(INITIAL_ROLES);
+  const roleStatusOverrides = useRef<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<Role | null>(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [roleToDelete, setRoleToDelete] = useState<{ id: string, name: string } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
 
   const handleCreateOrUpdateRole = (roleData: any) => {
     if (editingRole) {
@@ -78,22 +71,69 @@ const RolesPage = () => {
     setEditingRole(null);
   };
 
-  const handleEditClick = (role: Role) => {
-    setEditingRole(role);
-    setIsModalOpen(true);
+  const fetchDynamicRoles = async () => {
+    try {
+      const rawRoles = await userService.getRoles(statusFilter === "all" ? undefined : statusFilter);
+
+      const updatedRoles = INITIAL_ROLES.map(blueprint => {
+        const matchedAPI = rawRoles.find((r: any) =>
+          r && ((r.name && r.name.toLowerCase().replace(/\s+/g, '') === blueprint.name.toLowerCase().replace(/\s+/g, '')) ||
+            (r.role && r.role.toLowerCase().replace(/\s+/g, '') === blueprint.name.toLowerCase().replace(/\s+/g, '')))
+        );
+
+        if (matchedAPI) {
+          const isActive = roleStatusOverrides.current[blueprint.name] !== undefined
+            ? roleStatusOverrides.current[blueprint.name]
+            : (matchedAPI.is_active !== undefined ? matchedAPI.is_active : blueprint.is_active);
+
+          return {
+            ...blueprint,
+            userCount: matchedAPI.count !== undefined ? matchedAPI.count :
+              (matchedAPI.user_count !== undefined ? matchedAPI.user_count :
+                (matchedAPI.total !== undefined ? matchedAPI.total : blueprint.userCount)),
+            is_active: isActive
+          };
+        }
+
+        const fallbackActive = roleStatusOverrides.current[blueprint.name] !== undefined ? roleStatusOverrides.current[blueprint.name] : blueprint.is_active;
+        return { ...blueprint, userCount: 0, is_active: fallbackActive };
+      });
+
+      setRoles(updatedRoles);
+    } catch (error) {
+      console.error("Failed to map dynamic roles from API:", error);
+    }
   };
 
-  const handleDeleteClick = (id: string, name: string) => {
-    setRoleToDelete({ id, name });
-    setIsDeleteModalOpen(true);
-  };
+  useEffect(() => {
+    fetchDynamicRoles();
+  }, [statusFilter]);
 
-  const confirmDeleteRole = () => {
-    if (roleToDelete) {
-      setRoles(roles.filter(role => role.id !== roleToDelete.id));
-      toast.success(`Role "${roleToDelete.name}" deleted successfully!`);
-      setIsDeleteModalOpen(false);
-      setRoleToDelete(null);
+  const handleToggleStatus = async (roleName: string, currentStatus: boolean) => {
+    try {
+      if (roleName.toLowerCase() === 'admin' && currentStatus) {
+        toast.error("Admin role users cannot be deactivated.");
+        return;
+      }
+      const newStatus = !currentStatus;
+
+      // Update our local visual state overrides first so it snaps instantly and holds!
+      roleStatusOverrides.current[roleName] = newStatus;
+
+      setRoles(prevRoles => prevRoles.map(role =>
+        role.name === roleName ? { ...role, is_active: newStatus } : role
+      ));
+
+      await userService.toggleRoleStatus(roleName.replace(/\s+/g, ''), newStatus);
+      toast.success(`Successfully ${newStatus ? 'activated' : 'deactivated'} all users in the ${roleName} role!`);
+      setTimeout(() => fetchDynamicRoles(), 500);
+    } catch (error: any) {
+      // Revert on error
+      roleStatusOverrides.current[roleName] = currentStatus;
+      setRoles(prevRoles => prevRoles.map(role =>
+        role.name === roleName ? { ...role, is_active: currentStatus } : role
+      ));
+      toast.error(error.response?.data?.detail || "Failed to update users");
     }
   };
 
@@ -226,24 +266,18 @@ const RolesPage = () => {
                       </div>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end">
                         <button
-                          onClick={() => handleEditClick(role)}
-                          className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                          title="Edit Role"
+                          onClick={() => handleToggleStatus(role.name, role.is_active)}
+                          disabled={role.name.toLowerCase() === 'admin'}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${role.is_active ? 'bg-emerald-500' : 'bg-slate-300'
+                            } ${role.name.toLowerCase() === 'admin' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          title={role.is_active ? "Deactivate Role Users" : "Activate Role Users"}
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(role.id, role.name)}
-                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                          title="Delete Role"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${role.is_active ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                          />
                         </button>
                       </div>
                     </td>
@@ -286,19 +320,6 @@ const RolesPage = () => {
         }}
         onSubmit={handleCreateOrUpdateRole}
         initialData={editingRole}
-      />
-
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setRoleToDelete(null);
-        }}
-        onConfirm={confirmDeleteRole}
-        title="Delete Role"
-        message={`Are you sure you want to delete the "${roleToDelete?.name}" role? This action cannot be undone and will affect all associated users.`}
-        confirmText="Yes, Delete Role"
-        type="danger"
       />
     </>
   );

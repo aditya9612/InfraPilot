@@ -67,6 +67,7 @@ export interface Quotation {
     site_address: string;
     gst_number: string;
     project_id?: number;
+    client_user_id?: number | null;
 
     project_name: string;
     project_type: string;

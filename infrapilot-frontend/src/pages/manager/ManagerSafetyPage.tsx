@@ -9,7 +9,7 @@ import { useProject } from "../../context/ProjectContext";
 import {
   Plus, Search, Eye, Edit2, RotateCcw, Trash2,
   ChevronLeft, ChevronRight, HeartPulse,
-  AlertOctagon, ShieldCheck
+  AlertOctagon, ShieldCheck, Mail, Briefcase, Activity
 } from "lucide-react";
 import { safetyService } from "../../services/safetyService";
 import { projectService } from "../../services/projectService";
@@ -56,6 +56,25 @@ const ManagerSafetyPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [tasks, setTasks] = useState<{ id: number; title: string }[]>([]);
+  const [taskCache, setTaskCache] = useState<Record<number, { id: number; title: string }[]>>({});
+
+  useEffect(() => {
+    const pids = Array.from(new Set(incidentList.map(item => Number(item.project_id)).filter(Boolean)));
+    pids.forEach(pid => {
+      if (!taskCache[pid]) {
+        projectService.getTasks(pid).then(res => {
+          const items = Array.isArray(res) ? res : ((res as any).items || (res as any).data || []);
+          setTaskCache(prev => ({ ...prev, [pid]: items.map((t: any) => ({ id: t.id, title: t.title || t.name })) }));
+        }).catch(() => {});
+      }
+    });
+  }, [incidentList, taskCache]);
+
+  const getTaskNameFromCache = (projectId: number, taskId: number) => {
+    const cachedTasks = taskCache[projectId] || [];
+    const task = cachedTasks.find(t => t.id === taskId);
+    return task ? task.title : `Task #${taskId}`;
+  };
 
   const fetchTasks = useCallback(async (projectId: number) => {
     if (!projectId) return;
@@ -460,7 +479,9 @@ const ManagerSafetyPage = () => {
                           <span className="text-xs font-semibold text-slate-600">{getProjectName(item.project_id)}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-semibold text-slate-400">—</span>
+                          <span className="text-xs font-semibold text-slate-600 truncate max-w-[120px] inline-block">
+                             {item.task_id ? getTaskNameFromCache(item.project_id, item.task_id) : "—"}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-col max-w-xs">
@@ -487,7 +508,7 @@ const ManagerSafetyPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">{item.responsible_person}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[140px]">POC: {item.action_taken}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[140px]">Action: {item.action_taken}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -681,26 +702,115 @@ const ManagerSafetyPage = () => {
       </Modal>
 
       {/* ── View Modal ── */}
-      <Modal isOpen={isViewModalOpen} onClose={() => setIsViewModalOpen(false)} title="Safety Record Details" maxWidth="max-w-lg">
+      <Modal
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        title="Safety Protocol Insight"
+        maxWidth="max-w-xl"
+      >
         {selectedIncident && (
-          <div className="p-6 space-y-4">
-            {[
-              ["Date", selectedIncident.date],
-              ["Project", getProjectName(selectedIncident.project_id)],
-              ["Task", selectedIncidentTask ? (selectedIncidentTask.title || `Task #${selectedIncident.task_id}`) : (selectedIncident.task_id ? `Task #${selectedIncident.task_id}` : "-")],
-              ["Violation Type", selectedIncident.violation_type],
-              ["Description", selectedIncident.description],
-              ["Action Taken", selectedIncident.action_taken],
-              ["Responsible Person", selectedIncident.responsible_person],
-              ["Injury Details", selectedIncident.injury_details || "No injuries reported"],
-              ["PPE Compliance", selectedIncident.ppe_compliance ? "Compliant" : "Missing"],
-              ["Checklist Status", selectedIncident.safety_checklist_status || "pending"],
-            ].map(([label, value]) => (
-              <div key={label} className="flex justify-between items-start">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
-                <span className="text-sm font-bold text-slate-800 text-right max-w-[60%]">{value}</span>
+          <div className="p-6 font-inter">
+            <div className="bg-primary rounded-xl p-8 mb-8 text-white shadow-2xl relative overflow-hidden font-inter">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl" />
+              <div className="relative z-10 flex items-center gap-8 font-inter">
+                <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
+                  <span className="text-4xl font-bold font-inter text-center leading-none px-2">{selectedIncident.violation_type.split(" ").map(w => w[0]).join("").slice(0, 2)}</span>
+                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 border-4 border-slate-800 rounded-full animate-pulse ${selectedIncident.safety_checklist_status === 'resolved' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                </div>
+                <div className="font-inter">
+                  <div className="flex items-center gap-3 mb-2 font-inter">
+                    <h3 className="text-2xl font-bold tracking-tight font-inter truncate max-w-[200px]">{selectedIncident.violation_type}</h3>
+                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest ${selectedIncident.safety_checklist_status === 'resolved' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'}`}>
+                      {selectedIncident.safety_checklist_status || "pending"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-white/60 mb-4 font-inter">
+                    <Mail className="w-3 h-3" />
+                    <span className="text-[10px] font-bold font-inter uppercase tracking-widest">sfty.ref-#{selectedIncident.id}</span>
+                  </div>
+                  <div className="px-4 py-1.5 bg-white/15 rounded-xl border border-white/10 inline-block font-inter shadow-sm">
+                    <span className="text-[9px] font-bold uppercase tracking-widest font-inter">OFFICER: {selectedIncident.responsible_person}</span>
+                  </div>
+                </div>
               </div>
-            ))}
+            </div>
+
+            <div className="space-y-8 px-2 mb-10 font-inter">
+              <div className="font-inter">
+                <div className="flex items-center gap-2 mb-6 font-inter">
+                  <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                    <Briefcase className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Incident Intelligence</p>
+                </div>
+                <div className="grid grid-cols-2 gap-x-12 gap-y-6 font-inter">
+                  <div className="font-inter">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Violation Profile</p>
+                    <p className="text-sm font-bold text-slate-800 font-inter uppercase truncate" title={selectedIncident.violation_type}>{selectedIncident.violation_type}</p>
+                  </div>
+                  <div className="font-inter">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">PPE Compliance</p>
+                    <p className={`text-sm font-bold font-inter uppercase tracking-widest ${selectedIncident.ppe_compliance ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {selectedIncident.ppe_compliance ? 'Compliant' : 'Non-Compliant'}
+                    </p>
+                  </div>
+                  <div className="font-inter">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Audit Date</p>
+                    <p className="text-sm font-bold text-slate-800 font-inter">{selectedIncident.date}</p>
+                  </div>
+                  <div className="font-inter">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Project Link</p>
+                    <p className="text-sm font-bold text-slate-800 font-inter truncate" title={getProjectName(selectedIncident.project_id)}>{getProjectName(selectedIncident.project_id)}</p>
+                  </div>
+                  <div className="font-inter">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Task Name</p>
+                    <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedIncidentTask ? (selectedIncidentTask.title || `Task #${selectedIncident.task_id}`) : (selectedIncident.task_id ? `Task #${selectedIncident.task_id}` : "-")}>
+                      {selectedIncidentTask ? (selectedIncidentTask.title || `Task #${selectedIncident.task_id}`) : (selectedIncident.task_id ? `Task #${selectedIncident.task_id}` : "-")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="font-inter">
+                <div className="flex items-center gap-2 mb-6 font-inter">
+                  <div className="p-2 bg-blue-50 rounded-lg font-inter">
+                    <Activity className="w-4 h-4 text-primary" />
+                  </div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.15em] font-inter">Observation Narrative</p>
+                </div>
+                <div className="grid grid-cols-1 gap-6 font-inter">
+                  <div className="font-inter">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Observation Summary</p>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm text-slate-600 leading-relaxed font-inter">
+                      "{selectedIncident.description || "No narrative provided."}"
+                    </div>
+                  </div>
+                  {selectedIncident.injury_details && (
+                    <div className="font-inter">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Injury Report</p>
+                      <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100 text-sm text-rose-700 leading-relaxed font-inter">
+                        "{selectedIncident.injury_details}"
+                      </div>
+                    </div>
+                  )}
+                  {selectedIncident.action_taken && (
+                    <div className="font-inter">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">Corrective Measures</p>
+                      <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 text-sm text-emerald-700 leading-relaxed font-inter">
+                        "{selectedIncident.action_taken}"
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsViewModalOpen(false)}
+              className="w-full py-5 bg-primary text-white rounded-xl text-[11px] font-bold uppercase tracking-[0.2em] transition-all shadow-xl shadow-primary/20 active:scale-95 font-inter"
+            >
+              Dismiss Audit Insight
+            </button>
           </div>
         )}
       </Modal>

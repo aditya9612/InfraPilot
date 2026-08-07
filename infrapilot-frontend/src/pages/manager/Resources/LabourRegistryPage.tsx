@@ -7,20 +7,22 @@ import Pagination from "../../../components/common/Pagination";
 import ProjectSelector from "../../../components/common/ProjectSelector";
 import toast from "react-hot-toast";
 import {
-    Search, Trash2, RotateCcw, FileDown, Activity, CreditCard, AlertCircle,
+    Search, Trash2, RotateCcw, FileDown, Activity, AlertCircle,
     LogIn, LogOut, Camera, MapPin, Eye, Filter, Calendar, Plus, Edit2,
     IndianRupee, Briefcase, UserPlus, Users
 } from "lucide-react";
 import { labourService } from "../../../services/labourService";
 import { paymentService } from "../../../services/paymentService";
 import { masterService } from "../../../services/masterService";
+import { projectService } from "../../../services/projectService";
+import { userService } from "../../../services/userService";
 import { useProject } from "../../../context/ProjectContext";
 import { useAuth } from "../../../context/AuthContext";
 import type { LabourItem } from "../../../types/labour";
 import CheckInModal from "../../../components/labour/CheckInModal";
 import CheckOutModal from "../../../components/labour/CheckOutModal";
 
-type TabType = "Registry" | "Attendance" | "Payroll";
+type TabType = "Registry" | "Site Engineers" | "Attendance" | "Payroll";
 
 const formatAadhaar = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 12);
@@ -60,12 +62,12 @@ const LabourRegistryPage = () => {
     const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
     const [payrollList, setPayrollList] = useState<any[]>([]);
     const [payrollStats, setPayrollStats] = useState<any>(null);
-    const [contractorLiability, setContractorLiability] = useState<any>(null);
-    const [weeklyVelocity, setWeeklyVelocity] = useState<any[]>([]);
-    const [disbursementHistory, setDisbursementHistory] = useState<any[]>([]);
-    const [fiscalSummary, setFiscalSummary] = useState<any>(null);
-    const [payrollMomentum, setPayrollMomentum] = useState<any[]>([]);
-    const [aggregateReport, setAggregateReport] = useState<any[]>([]);
+    const [_contractorLiability, setContractorLiability] = useState<any>(null);
+    const [_weeklyVelocity, setWeeklyVelocity] = useState<any[]>([]);
+    const [_disbursementHistory, setDisbursementHistory] = useState<any[]>([]);
+    const [_fiscalSummary, setFiscalSummary] = useState<any>(null);
+    const [_payrollMomentum, setPayrollMomentum] = useState<any[]>([]);
+    const [_aggregateReport, setAggregateReport] = useState<any[]>([]);
     const [contractorFilter, setContractorFilter] = useState("All");
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -110,6 +112,18 @@ const LabourRegistryPage = () => {
     const [selectedAssignLabourId, setSelectedAssignLabourId] = useState<string | number>("");
     const [isAssigning, setIsAssigning] = useState(false);
     const [isFetchingAll, setIsFetchingAll] = useState(false);
+
+    // Site Engineers State
+    const [siteEngineers, setSiteEngineers] = useState<any[]>([]);
+    const [isAssignEngineerModalOpen, setIsAssignEngineerModalOpen] = useState(false);
+    const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [selectedUserId, setSelectedUserId] = useState<string | number>("");
+    const [isAssigningEngineer, setIsAssigningEngineer] = useState(false);
+
+    // Delete Engineer
+    const [isDeleteEngineerModalOpen, setIsDeleteEngineerModalOpen] = useState(false);
+    const [engineerToDelete, setEngineerToDelete] = useState<number | null>(null);
+    const [isDeletingEngineer, setIsDeletingEngineer] = useState(false);
 
     // Create/Edit form
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -204,6 +218,21 @@ const LabourRegistryPage = () => {
         finally { setIsLoading(false); }
     }, [projectId, statusFilter]);
 
+    // ─── Fetch Site Engineers ────────────────────────────────────────────────
+    const fetchSiteEngineers = useCallback(async () => {
+        if (!projectId) return;
+        setIsLoading(true);
+        try {
+            const data = await projectService.getProjectMembers(Number(projectId));
+            setSiteEngineers(Array.isArray(data) ? data : (data.items || []));
+        } catch (error) {
+            console.error("Error fetching site engineers:", error);
+            toast.error("Failed to fetch Site Engineers");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [projectId]);
+
     // ─── Fetch Attendance (exact Site Engineer approach) ──────────────────────
     const fetchAttendance = useCallback(async () => {
         if (!projectId) return;
@@ -294,11 +323,16 @@ const LabourRegistryPage = () => {
 
     useEffect(() => {
         if (!isProjectLoading && projectId) {
-            if (activeTab === "Registry") fetchLaborers();
+            if (activeTab === "Registry") {
+                fetchLaborers();
+                fetchSiteEngineers();
+                fetchAttendance();
+            }
+            else if (activeTab === "Site Engineers") fetchSiteEngineers();
             else if (activeTab === "Attendance") fetchAttendance();
             else if (activeTab === "Payroll") fetchPayrollData();
         }
-    }, [activeTab, fetchLaborers, fetchAttendance, fetchPayrollData, isProjectLoading, projectId]);
+    }, [activeTab, fetchLaborers, fetchSiteEngineers, fetchAttendance, fetchPayrollData, isProjectLoading, projectId]);
 
     const handleGeneratePayroll = async () => {
         if (!projectId) return;
@@ -318,7 +352,7 @@ const LabourRegistryPage = () => {
         if (!projectId) return;
         setIsExportingPayroll(true);
         try {
-            await paymentService.exportPayroll(payrollMonth, payrollYear);
+            await paymentService.exportPayroll({ month: payrollMonth, year: payrollYear });
             toast.success("Payroll export started.");
         } catch (err: any) {
             toast.error(err?.response?.data?.detail || "Failed to export payroll.");
@@ -422,7 +456,12 @@ const LabourRegistryPage = () => {
     const handleExport = async (type: "pdf" | "excel") => {
         try {
             toast.loading(`Preparing ${type.toUpperCase()} report...`);
-            const blob = type === "excel" ? await labourService.exportAttendanceExcel(projectId) : await labourService.exportAttendancePDF(projectId);
+            let blob;
+            if (activeTab === "Registry" || activeTab === "Site Engineers") {
+                blob = await labourService.exportLabourReport({ project_id: projectId, format: type });
+            } else {
+                blob = type === "excel" ? await labourService.exportAttendanceExcel(projectId) : await labourService.exportAttendancePDF(projectId);
+            }
             const url = window.URL.createObjectURL(new Blob([blob]));
             const link = document.createElement("a"); link.href = url;
             link.setAttribute("download", `Personnel_${activeTab}_${new Date().toISOString().split("T")[0]}.${type === "excel" ? "xlsx" : "pdf"}`);
@@ -471,13 +510,25 @@ const LabourRegistryPage = () => {
             <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 sticky top-0 z-10">
                 <tr>
                     <th className="px-6 py-4">Worker</th><th className="px-6 py-4">Skill Type</th>
-                    <th className="px-6 py-4">Contractor</th><th className="px-6 py-4 text-right">Daily Wage</th>
+                    <th className="px-6 py-4">Contractor</th><th className="px-6 py-4">Assigned Task</th><th className="px-6 py-4">Assigned Site Engg</th><th className="px-6 py-4 text-right">Daily Wage</th>
                     <th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-                {isLoading ? <tr><td colSpan={6} className="p-10 text-center text-slate-400">Loading registry...</td></tr>
-                    : pagedData.length > 0 ? pagedData.map((labor: any) => (
+                {isLoading ? <tr><td colSpan={8} className="p-10 text-center text-slate-400">Loading registry...</td></tr>
+                    : pagedData.length > 0 ? pagedData.map((labor: any) => {
+                        const att = attendanceRecords.find((a: any) => Number(a.labour_id) === Number(labor.id) || Number(a.id) === Number(labor.id));
+                        const taskName = labor.assigned_task || labor.task_name || labor.task_description || labor.task || att?.task_description || att?.task_name || "—";
+                        let engName = labor.assigned_engineer || labor.site_engineer_name || labor.engineer_name || labor.site_engineer || labor.assigned_engineer_name || att?.assigned_engineer || att?.site_engineer_name || att?.engineer_name;
+                        if (!engName && (labor.assigned_engineer_id || labor.site_engineer_id || labor.engineer_id || att?.assigned_engineer_id || att?.site_engineer_id || att?.engineer_id)) {
+                            const engId = labor.assigned_engineer_id || labor.site_engineer_id || labor.engineer_id || att?.assigned_engineer_id || att?.site_engineer_id || att?.engineer_id;
+                            const foundEng = siteEngineers.find((e: any) => (e.id || e.user_id) === Number(engId));
+                            if (foundEng) engName = foundEng.name || foundEng.full_name || `Engineer #${engId}`;
+                        }
+                        if (!engName && siteEngineers.length > 0 && (labor.project_id || projectId)) {
+                            engName = siteEngineers.map((e: any) => e.name || e.full_name).filter(Boolean).join(", ") || "—";
+                        }
+                        return (
                         <tr key={labor.id} className="hover:bg-slate-50/50 transition-colors group">
                             <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
@@ -487,6 +538,8 @@ const LabourRegistryPage = () => {
                             </td>
                             <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.labour_type_name || labor.skill_type || "—"}</td>
                             <td className="px-6 py-4 text-xs text-slate-500">{labor.contractor_name || "—"}</td>
+                            <td className="px-6 py-4 text-xs font-medium text-slate-700">{taskName}</td>
+                            <td className="px-6 py-4 text-xs font-medium text-blue-600">{engName || "—"}</td>
                             <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{labor.effective_daily_wage || labor.daily_wage_rate || "—"}</td>
                             <td className="px-6 py-4"><span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${labor.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>{labor.status}</span></td>
                             <td className="px-6 py-4 text-right">
@@ -497,7 +550,8 @@ const LabourRegistryPage = () => {
                                 </div>
                             </td>
                         </tr>
-                    )) : <tr><td colSpan={6} className="p-10 text-center text-slate-400 font-medium">No workforce records found</td></tr>}
+                        );
+                    }) : <tr><td colSpan={8} className="p-10 text-center text-slate-400 font-medium">No workforce records found</td></tr>}
             </tbody>
         </table>
     );
@@ -592,13 +646,117 @@ const LabourRegistryPage = () => {
         </>
     );
 
+    const renderPayroll = () => (
+        <div className="space-y-6 p-4">
+            {/* Payroll Stat Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 border-b border-slate-50 pb-6">
+                <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-3 border border-slate-100 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                        <IndianRupee className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Paid This Month</p>
+                        <h3 className="text-xl font-black text-slate-800">₹{(payrollStats?.paid_this_month || 0).toLocaleString()}</h3>
+                    </div>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-3 border border-slate-100 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                        <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Pending Due</p>
+                        <h3 className="text-xl font-black text-slate-800">₹{(payrollStats?.pending_due || 0).toLocaleString()}</h3>
+                    </div>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-3 border border-slate-100 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <Briefcase className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Monthly Budget</p>
+                        <h3 className="text-xl font-black text-slate-800">₹{(payrollStats?.monthly_budget || 0).toLocaleString()}</h3>
+                    </div>
+                </div>
+                <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-3 border border-slate-100 shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                        <Activity className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Advance Logs</p>
+                        <h3 className="text-xl font-black text-slate-800">{payrollStats?.advance_logs || 0}</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div className="overflow-x-auto font-inter">
+                <table className="w-full text-left min-w-[1200px]">
+                    <thead className="bg-slate-50/80 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
+                        <tr>
+                            <th className="px-6 py-4">Labour Name</th>
+                            <th className="px-6 py-4">Skill Type</th>
+                            <th className="px-6 py-4 text-center">Daily Wage</th>
+                            <th className="px-6 py-4 text-center">Days Present</th>
+                            <th className="px-6 py-4 text-center">OT Hours</th>
+                            <th className="px-6 py-4 text-center">Total Wage Earned</th>
+                            <th className="px-6 py-4 text-center">Status</th>
+                            <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {isLoading ? (
+                            <tr><td colSpan={8} className="p-20 text-center text-slate-400">Syncing payroll intelligence...</td></tr>
+                        ) : currentListData.length === 0 ? (
+                            <tr><td colSpan={8} className="p-12 text-center text-slate-400">No payroll data available</td></tr>
+                        ) : pagedData.map((labour: any, index: number) => (
+                            <tr key={labour.labour_id ?? index} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs">{(labour.labour_name || "?").charAt(0)}</div>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-slate-800">{labour.labour_name || "Unknown"}</span>
+                                            <span className="text-[10px] text-slate-400 uppercase tracking-widest">{String(labour.labour_id || labour.worker_code || "—")}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">{labour.skill_category || "—"}</td>
+                                <td className="px-6 py-4 text-center text-slate-500">₹{(labour.daily_wage?.toLocaleString?.() ?? labour.daily_wage) || "—"}</td>
+                                <td className="px-6 py-4 text-center">
+                                    <span className="text-sm font-bold text-slate-700">{labour.days_present != null ? `${labour.days_present}` : "—"}</span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                    <span className="text-sm font-bold text-slate-700 tabular-nums">{labour.ot_hours != null ? `${labour.ot_hours}h` : "—"}</span>
+                                </td>
+                                <td className="px-6 py-4 text-center text-slate-800 font-bold">₹{(labour.total_wage_earned || 0).toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center">
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${labour.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-500"}`}>
+                                        {labour.status || "Inactive"}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <div className="inline-flex items-center gap-2 justify-end">
+                                        <button onClick={() => handlePaySalary(labour)} disabled={payingId === labour.labour_id || isLoading} className="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                            {payingId === labour.labour_id ? "Paying..." : "Pay"}
+                                        </button>
+                                        <button onClick={handleExportPayroll} disabled={isExportingPayroll || isLoading} className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                            {isExportingPayroll ? "Exporting..." : "Export"}
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+
     return (
         <>
             <Navbar title="Personnel Registry" breadcrumb={["Manager", "Resources", "Personnel"]} />
             <PageTransition className="p-6 bg-slate-50 min-h-screen font-inter flex flex-col">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div><h1 className="text-2xl font-bold text-slate-800 tracking-tight">Site Engineer & Labour</h1><p className="text-slate-500 text-sm">Deployment oversight, attendance metrics, and payroll compliance auditing.</p></div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <ProjectSelector variant="page" />
                         {activeTab === "Registry" && (
                             <div className="flex items-center gap-2">
@@ -618,15 +776,33 @@ const LabourRegistryPage = () => {
                                 </button>
                             </div>
                         )}
-                        <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
-                            <button onClick={() => handleExport("pdf")} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 border-r border-slate-100 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-rose-500" /> PDF</button>
-                            <button onClick={() => handleExport("excel")} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-emerald-500" /> Excel</button>
-                        </div>
+                        {activeTab === "Site Engineers" && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        setSelectedUserId("");
+                                        setIsAssignEngineerModalOpen(true);
+                                        userService.getAllUsers(100, 0).then((res: any) => {
+                                            const users = Array.isArray(res) ? res : (res.items || res.data || []);
+                                            setAllUsers(users);
+                                        }).catch(() => toast.error("Failed to fetch users"));
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95"
+                                >
+                                    <UserPlus className="w-4 h-4" /> Assign Engineer
+                                </button>
+                            </div>
+                        )}
+                        {activeTab !== "Site Engineers" && (
+                            <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden h-10 shadow-sm">
+                                <button onClick={() => handleExport("excel")} className="px-4 text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-all active:scale-95"><FileDown className="w-4 h-4 text-emerald-500" /> Excel</button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6 overflow-x-auto max-w-full no-scrollbar">
-                    {(["Registry", "Attendance", "Payroll"] as TabType[]).map(tab => (
+                    {(["Registry", "Site Engineers", "Attendance", "Payroll"] as TabType[]).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-slate-100 text-slate-800 shadow-inner" : "text-slate-500 hover:bg-slate-50"}`}>{tab}</button>
                     ))}
                 </div>
@@ -703,68 +879,51 @@ const LabourRegistryPage = () => {
 
                     <div className="flex-1 overflow-auto">
                         {activeTab === "Registry" && renderRegistry()}
-                        {activeTab === "Attendance" && renderAttendance()}
-                        {activeTab === "Payroll" && (
-                            <div className="overflow-x-auto font-inter">
-                                <table className="w-full text-left min-w-[1200px]">
-                                    <thead className="bg-slate-50/80 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
-                                        <tr>
-                                            <th className="px-6 py-4">Labour Name</th>
-                                            <th className="px-6 py-4">Skill Type</th>
-                                            <th className="px-6 py-4 text-center">Daily Wage</th>
-                                            <th className="px-6 py-4 text-center">Days Present</th>
-                                            <th className="px-6 py-4 text-center">OT Hours</th>
-                                            <th className="px-6 py-4 text-center">Total Wage Earned</th>
-                                            <th className="px-6 py-4 text-center">Status</th>
-                                            <th className="px-6 py-4 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {isLoading ? (
-                                            <tr><td colSpan={8} className="p-20 text-center text-slate-400">Syncing payroll intelligence...</td></tr>
-                                        ) : currentListData.length === 0 ? (
-                                            <tr><td colSpan={8} className="p-12 text-center text-slate-400">No payroll data available</td></tr>
-                                        ) : pagedData.map((labour: any, index: number) => (
-                                            <tr key={labour.labour_id ?? index} className="hover:bg-slate-50/50 transition-colors">
+                        {activeTab === "Site Engineers" && (
+                            <table className="w-full text-left whitespace-nowrap">
+                                <thead className="bg-slate-50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50 sticky top-0 z-10">
+                                    <tr>
+                                        <th className="px-6 py-4">Engineer Name</th>
+                                        <th className="px-6 py-4">Email / Contact</th>
+                                        <th className="px-6 py-4">Role</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {isLoading ? <tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading site engineers...</td></tr>
+                                        : siteEngineers.length > 0 ? siteEngineers.map((engineer: any) => (
+                                            <tr key={engineer.id || engineer.user_id} className="hover:bg-slate-50/50 transition-colors group">
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-bold text-xs">{(labour.labour_name || "?").charAt(0)}</div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-bold text-slate-800">{labour.labour_name || "Unknown"}</span>
-                                                            <span className="text-[10px] text-slate-400 uppercase tracking-widest">{String(labour.labour_id || labour.worker_code || "—")}</span>
-                                                        </div>
+                                                        <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-[10px] font-bold text-blue-600">{(engineer.name || engineer.full_name || "E").charAt(0)}</div>
+                                                        <div className="flex flex-col"><span className="text-sm font-bold text-slate-800">{engineer.name || engineer.full_name || "Unknown"}</span></div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">{labour.skill_category || "—"}</td>
-                                                <td className="px-6 py-4 text-center text-slate-500">₹{(labour.daily_wage?.toLocaleString?.() ?? labour.daily_wage) || "—"}</td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="text-sm font-bold text-slate-700">{labour.days_present != null ? `${labour.days_present}` : "—"}</span>
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="text-sm font-bold text-slate-700 tabular-nums">{labour.ot_hours != null ? `${labour.ot_hours}h` : "—"}</span>
-                                                </td>
-                                                <td className="px-6 py-4 text-center text-slate-800 font-bold">₹{(labour.total_wage_earned || 0).toLocaleString()}</td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${labour.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-500"}`}>
-                                                        {labour.status || "Inactive"}
-                                                    </span>
-                                                </td>
+                                                <td className="px-6 py-4 text-xs font-medium text-slate-600">{engineer.email || engineer.phone || "—"}</td>
+                                                <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">{engineer.role || "Site Engineer"}</td>
+                                                <td className="px-6 py-4"><span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600">Active</span></td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <div className="inline-flex items-center gap-2 justify-end">
-                                                        <button onClick={() => handlePaySalary(labour)} disabled={payingId === labour.labour_id || isLoading} className="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:cursor-not-allowed disabled:opacity-60">
-                                                            {payingId === labour.labour_id ? "Paying..." : "Pay"}
-                                                        </button>
-                                                        <button onClick={handleExportPayroll} disabled={isExportingPayroll || isLoading} className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
-                                                            {isExportingPayroll ? "Exporting..." : "Export"}
-                                                        </button>
-                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const targetId = engineer.id || engineer.user_id;
+                                                            if (!targetId || !projectId) return;
+                                                            setEngineerToDelete(Number(targetId));
+                                                            setIsDeleteEngineerModalOpen(true);
+                                                        }}
+                                                        className="p-2 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                                                        title="Remove from Project"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
                                                 </td>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        )) : <tr><td colSpan={5} className="p-10 text-center text-slate-400 font-medium">No site engineers assigned to this project</td></tr>}
+                                </tbody>
+                            </table>
                         )}
+                        {activeTab === "Attendance" && renderAttendance()}
+                        {activeTab === "Payroll" && renderPayroll()}
                     </div>
                     {activeTab !== "Attendance" && <Pagination currentPage={currentPage} totalItems={currentListData.length} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} label={activeTab === "Registry" ? "Workers" : "Records"} />}
                 </div>
@@ -875,7 +1034,33 @@ const LabourRegistryPage = () => {
             </Modal>
 
             {/* Delete Confirm */}
-            <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setDeletingId(null); }} onConfirm={handleDeleteConfirm} title="Delete Worker" message="This will permanently remove the worker record." confirmText="Delete" type="danger" isLoading={isDeleting} />
+            <ConfirmModal isOpen={isDeleteModalOpen} onClose={() => { setIsDeleteModalOpen(false); setDeletingId(null); }} onConfirm={handleDeleteConfirm} title="Delete Labour" message="This will permanently remove the labour record." confirmText="Delete" type="danger" isLoading={isDeleting} />
+
+            {/* Delete Site Engineer Confirm */}
+            <ConfirmModal 
+                isOpen={isDeleteEngineerModalOpen} 
+                onClose={() => { setIsDeleteEngineerModalOpen(false); setEngineerToDelete(null); }} 
+                onConfirm={async () => {
+                    if (!engineerToDelete || !projectId) return;
+                    setIsDeletingEngineer(true);
+                    try {
+                        await projectService.removeMember(Number(projectId), engineerToDelete);
+                        toast.success("Engineer removed from project");
+                        setIsDeleteEngineerModalOpen(false);
+                        setEngineerToDelete(null);
+                        fetchSiteEngineers();
+                    } catch (err: any) {
+                        toast.error(err?.response?.data?.detail || "Failed to remove engineer");
+                    } finally {
+                        setIsDeletingEngineer(false);
+                    }
+                }} 
+                title="Remove Site Engineer" 
+                message="Are you sure you want to remove this site engineer from the project?" 
+                confirmText="Remove" 
+                type="danger" 
+                isLoading={isDeletingEngineer} 
+            />
 
             {/* Create / Edit Form Modal — exact Site Engineer fields */}
             <Modal isOpen={isFormModalOpen} onClose={() => setIsFormModalOpen(false)} title={formMode === "edit" ? "Edit Personnel" : "Register Labour"} maxWidth="max-w-2xl"
@@ -988,6 +1173,57 @@ const LabourRegistryPage = () => {
             {/* Image Preview */}
             <Modal isOpen={!!previewImage} onClose={() => setPreviewImage(null)} title={previewImage?.title || "Image Preview"} maxWidth="max-w-sm">
                 {previewImage && <div className="w-full"><img src={previewImage.url} alt={previewImage.title} className="w-full h-auto object-cover rounded-b-2xl" /></div>}
+            </Modal>
+
+            {/* Assign Site Engineer Modal */}
+            <Modal isOpen={isAssignEngineerModalOpen} onClose={() => setIsAssignEngineerModalOpen(false)} title="Assign Site Engineer to Project" maxWidth="max-w-md">
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-2">Select User</label>
+                        <select
+                            value={selectedUserId}
+                            onChange={e => setSelectedUserId(e.target.value)}
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                            <option value="">-- Select an Engineer --</option>
+                            {allUsers.map((u: any) => (
+                                <option key={u.id || u.user_id} value={u.id || u.user_id}>
+                                    {u.name || u.full_name || `User #${u.id || u.user_id}`} ({u.role || "User"})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                        <button
+                            type="button"
+                            onClick={() => setIsAssignEngineerModalOpen(false)}
+                            className="px-5 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={!selectedUserId || isAssigningEngineer}
+                            onClick={async () => {
+                                if (!selectedUserId || !projectId) return;
+                                setIsAssigningEngineer(true);
+                                try {
+                                    await projectService.assignMember(Number(projectId), Number(selectedUserId));
+                                    toast.success("Engineer assigned successfully!");
+                                    setIsAssignEngineerModalOpen(false);
+                                    fetchSiteEngineers();
+                                } catch (err: any) {
+                                    toast.error(err?.response?.data?.detail || "Failed to assign engineer");
+                                } finally {
+                                    setIsAssigningEngineer(false);
+                                }
+                            }}
+                            className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-all disabled:opacity-50"
+                        >
+                            {isAssigningEngineer ? "Assigning..." : "Assign Engineer"}
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </>
     );

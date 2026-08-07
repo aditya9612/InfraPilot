@@ -11,6 +11,7 @@ import TeamMembersList from "../../components/projects/TeamMembersList";
 import ProfitLossCard from "../../components/projects/ProfitLossCard";
 import ProjectExpensesTable from "../../components/projects/ProjectExpensesTable";
 import { generateProjectReport, generateProjectReportPDF } from "../../utils/reportGenerator";
+import { formatDateBySettings } from "../../utils/dateUtils";
 import { reportService } from "../../services/reportService";
 import EditProjectModal from "../../components/dashboard/EditProjectModal";
 import AssignMemberModal from "../../components/projects/AssignMemberModal";
@@ -640,13 +641,13 @@ const ProjectDetailsPage = () => {
                   <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 hover:bg-white hover:shadow-md transition-all group">
                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
                     <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                      {new Date(schedule?.start_date || project.start_date).toLocaleDateString()}
+                      {formatDateBySettings(schedule?.start_date || project.start_date)}
                     </p>
                   </div>
                   <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 hover:bg-white hover:shadow-md transition-all group">
                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">End Date</p>
                     <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
-                      {new Date(schedule?.end_date || project.end_date).toLocaleDateString()}
+                      {formatDateBySettings(schedule?.end_date || project.end_date)}
                     </p>
                   </div>
                   <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 hover:bg-white hover:shadow-md transition-all group">
@@ -974,7 +975,7 @@ const ProjectDetailsPage = () => {
                         <p className="text-xs text-slate-500 line-clamp-1">{photo.description || "No description provided."}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">{photo.created_at ? new Date(photo.created_at).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">{photo.created_at ? formatDateBySettings(photo.created_at) : 'N/A'}</p>
                       </div>
                     </div>
                   ))}

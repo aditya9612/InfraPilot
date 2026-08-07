@@ -2,6 +2,7 @@ export interface BoqItem {
   id: number;
   project_id: number;
   boq_group_id?: number;
+  true_group_id?: number;
   version_no?: number;
   is_latest?: boolean;
   item_name: string;
@@ -20,6 +21,7 @@ export interface BoqItem {
   created_at?: string;
   updated_at?: string;
   activity_type_id?: number;
+  true_group_id?: number;
 }
 
 export interface BoqGroupItem {
@@ -42,6 +44,7 @@ export interface BoqGroupItem {
   activity_type_id?: number;
   created_at?: string;
   updated_at?: string;
+  true_group_id?: number;
 }
 
 export interface BoqSummary {
@@ -112,6 +115,7 @@ export interface BoqFilters {
   status?: string | null;
   project_id?: number | null;
   category?: string | null;
+  approval_status?: string | null;
   version_no?: number | null;
 }
 

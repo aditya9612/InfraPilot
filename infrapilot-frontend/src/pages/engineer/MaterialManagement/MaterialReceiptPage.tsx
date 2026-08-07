@@ -77,12 +77,7 @@ const MaterialReceiptPage = () => {
         fetchUnits();
     }, []);
 
-    const fetchUnits = async () => {
-        try {
-            const res = await masterService.getEntities("units");
-            setMasterUnits(Array.isArray(res) ? res : ((res as any).items || (res as any).data || []));
-        } catch (err) { }
-    };
+
     const [isViewMaterialOpen, setIsViewMaterialOpen] = useState(false);
     const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
     const [isPriceHistoryOpen, setIsPriceHistoryOpen] = useState(false);
@@ -110,9 +105,11 @@ const MaterialReceiptPage = () => {
 
     // Fetch Methods
     const fetchMaterials = async (pId: number = projectId) => {
+        if (!pId) { setMaterials([]); return; }
         setIsLoading(true);
         try {
-            const data = await materialService.listMaterials(pId, 0, 500);
+            const raw = await materialService.listMaterials(pId, 0, 500);
+            const data: MaterialItem[] = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
             // Sort by id descending so newest is first
             setMaterials(data.sort((a: any, b: any) => (b.id || b.material_id || 0) - (a.id || a.material_id || 0)));
         }
@@ -121,15 +118,25 @@ const MaterialReceiptPage = () => {
     };
 
     const fetchSuppliers = async (pId: number = projectId) => {
+        if (!pId) { setSuppliers([]); return; }
         setIsLoading(true);
-        try { const data = await materialService.getSuppliers(pId); setSuppliers(data); }
+        try {
+            const raw = await materialService.getSuppliers(pId);
+            const data: Supplier[] = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
+            setSuppliers(data);
+        }
         catch (e) { toast.error("Failed to load suppliers"); }
         finally { setIsLoading(false); }
     };
 
     const fetchPOs = async (pId: number = projectId) => {
+        if (!pId) { setPurchaseOrders([]); return; }
         setIsLoading(true);
-        try { const data = await materialService.listPurchaseOrders(pId, 0, 500); setPurchaseOrders(data); }
+        try {
+            const raw = await materialService.listPurchaseOrders(pId, 0, 500);
+            const data: PurchaseOrder[] = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
+            setPurchaseOrders(data);
+        }
         catch (e) { toast.error("Failed to load POs"); }
         finally { setIsLoading(false); }
     };
@@ -362,7 +369,7 @@ const MaterialReceiptPage = () => {
                         </p>
                     </div>
                     {activeTab === "Materials" && (
-                        <button onClick={() => { setSelectedMaterial(null); setMaterialForm({ category: "Construction", unit: "Bags", rate_type: "FIXED", quantity_purchased: 0, payment_given: 0 }); setIsMaterialModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
+                        <button onClick={() => { setSelectedMaterial(null); setMaterialForm({ category: "Construction", unit: "Bags", rate_type: "FIXED", quantity_purchased: 0, payment_given: 0 }); if (suppliers.length === 0) fetchSuppliers(projectId); setIsMaterialModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95">
                             <Plus className="w-4 h-4" /> Add Material
                         </button>
                     )}
@@ -372,7 +379,15 @@ const MaterialReceiptPage = () => {
                         </button>
                     )}
                     {activeTab === "Purchase Orders" && (
-                        <button onClick={() => { setSelectedPO(null); setPoForm({ project_id: projectId }); setIsPOModalOpen(true); }} className="flex items-center gap-2 px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all active:scale-95">
+                        <button onClick={() => {
+                            setSelectedPO(null);
+                            setPoForm({ project_id: projectId });
+                            // Ensure materials and suppliers are loaded before opening
+                            if (materials.length === 0 && projectId) fetchMaterials(projectId);
+                            if (suppliers.length === 0 && projectId) fetchSuppliers(projectId);
+                            if (boqs.length === 0 && projectId) fetchBoqs(projectId);
+                            setIsPOModalOpen(true);
+                        }} className="flex items-center gap-2 px-6 py-2.5 bg-purple-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all active:scale-95">
                             <Plus className="w-4 h-4" /> Create PO
                         </button>
                     )}
@@ -507,6 +522,7 @@ const MaterialReceiptPage = () => {
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {isLoading ? <tr><td colSpan={10} className="p-8 text-center text-slate-400">Loading...</td></tr> :
+                                        !projectId ? <tr><td colSpan={10} className="p-8 text-center text-slate-400 font-bold">Please select a project to view data.</td></tr> :
                                             activeTab === "Materials" ? paginatedMaterials.map(m => (
                                                 <tr key={m.id} className="hover:bg-slate-50/50">
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800">{m.material_name}</td>
@@ -740,7 +756,7 @@ const MaterialReceiptPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div><label className={labelClasses}>Supplier Name *</label><input required value={supplierForm.name || ""} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. BuildTech Supplies" /></div>
                             <div><label className={labelClasses}>Contact Person *</label><input required value={supplierForm.contactPerson || ""} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value.replace(/[^a-zA-Z\s]/g, '') })} className={inputClasses} placeholder="E.g. Rajesh Kumar" /></div>
-                            <div><label className={labelClasses}>Phone / Email *</label><input required value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value })} className={inputClasses} placeholder="Mobile number or Email" /></div>
+                            <div><label className={labelClasses}>Phone Number * <span className="text-rose-400 text-[9px] normal-case font-normal ml-1">(exactly 10 digits)</span></label><input required type="tel" maxLength={10} value={supplierForm.contact || ""} onChange={e => setSupplierForm({ ...supplierForm, contact: e.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClasses} placeholder="E.g. 9876543210" /></div>
                             <div><label className={labelClasses}>GST Number *</label><input required value={supplierForm.gst || ""} onChange={e => setSupplierForm({ ...supplierForm, gst: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) })} className={inputClasses} placeholder="E.g. 27ABCDE1234F1Z5" /></div>
                             <div className="md:col-span-2"><label className={labelClasses}>Address</label><textarea value={supplierForm.address || ""} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} className={inputClasses} rows={3} /></div>
                         </div>
@@ -806,10 +822,7 @@ const MaterialReceiptPage = () => {
                                     className={inputClasses}
                                 >
                                     <option value="">Select Material</option>
-                                    {materials
-                                        .filter(m => !poForm.supplier_id || m.supplier_id === poForm.supplier_id)
-                                        .map(m => <option key={m.id} value={m.id}>{m.material_name}</option>)
-                                    }
+                                    {materials.map(m => <option key={m.id} value={m.id}>{m.material_name}</option>)}
                                 </select>
                             </div>
                             <div>

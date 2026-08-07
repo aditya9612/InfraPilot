@@ -24,7 +24,9 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
   const [parsedItems, setParsedItems] = useState<any[]>([]);
   const [step, setStep] = useState<1 | 2>(1);
   const [availableBoqs, setAvailableBoqs] = useState<BoqItem[]>([]);
-  const [boqName, setBoqName] = useState("");
+  const [selectedBoqId, setSelectedBoqId] = useState<string>("");
+  const [newBoqName, setNewBoqName] = useState("");
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [isLoadingBoqs, setIsLoadingBoqs] = useState(false);
   const [activityTypes, setActivityTypes] = useState<MasterEntity[]>([]);
   const [selectedActivityTypeId, setSelectedActivityTypeId] = useState<string>("");
@@ -38,10 +40,14 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
             boqService.getBoqsByProject(projectId),
             masterService.getEntities('activity-types'),
           ]);
-          setAvailableBoqs(items);
+          const masterBoqs = items.filter((i: any) => i.approval_status !== 'Draft');
+          setAvailableBoqs(masterBoqs);
           setActivityTypes(types);
-          if (items.length > 0) {
-            setBoqName(items[0].item_name);
+          if (masterBoqs.length > 0) {
+            setSelectedBoqId(String(masterBoqs[0].boq_group_id ?? masterBoqs[0].id));
+            setIsCreatingNew(false);
+          } else {
+            setIsCreatingNew(true);
           }
         } catch (error) {
           console.error("Failed to load BOQs", error);
@@ -110,34 +116,24 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
   const handleUpload = async () => {
     setIsUploading(true);
     try {
-      if (!boqName.trim()) {
-        toast.error("Please enter or select a target BOQ name");
-        setIsUploading(false);
-        return;
-      }
-
       if (!selectedActivityTypeId) {
         toast.error("Please select an Activity Type for the imported items");
         setIsUploading(false);
         return;
       }
 
-      // Check if the name matches an existing BOQ
-      const existingBoq = availableBoqs.find(
-        (b) => b.item_name.toLowerCase() === boqName.toLowerCase(),
-      );
-
       let targetId: number;
 
-      if (existingBoq) {
-        // Prefer boq_group_id for the new group-based endpoints; fall back to id
-        targetId = existingBoq.boq_group_id ?? existingBoq.id;
-      } else {
-        // Create a new one
+      if (isCreatingNew) {
+        if (!newBoqName.trim()) {
+          toast.error("Please enter a name for the new BOQ group");
+          setIsUploading(false);
+          return;
+        }
         toast.loading("Creating new BOQ group...", { id: "boq-create" });
         const newBoq = await boqService.createBoq({
           project_id: projectId,
-          item_name: boqName,
+          item_name: newBoqName.trim(),
           description: "Created via bulk import",
           quantity: 1,
           unit_cost: 1,
@@ -146,6 +142,13 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
         });
         targetId = newBoq.boq_group_id ?? newBoq.id;
         toast.success("New BOQ group created", { id: "boq-create" });
+      } else {
+        if (!selectedBoqId) {
+          toast.error("Please select a BOQ group");
+          setIsUploading(false);
+          return;
+        }
+        targetId = Number(selectedBoqId);
       }
 
       // Stamp current selected activity_type_id onto all items at submission time
@@ -180,7 +183,7 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
     setParsedItems([]);
     setStep(1);
     setSelectedActivityTypeId("");
-    // Don't reset boqName here to keep the context if they change file
+    setNewBoqName("");
   };
 
   return (
@@ -210,39 +213,54 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
           <div className="p-8">
             {step === 1 ? (
               <div className="space-y-6">
-                {/* BOQ Selection Input with Suggestions */}
+                {/* BOQ Group Selection Dropdown */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                      BOQ ID or Name
+                      Select BOQ Group <span className="text-rose-500">*</span>
                     </label>
                     {isLoadingBoqs && (
                       <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                     )}
                   </div>
                   <div className="relative group">
-                    <input
-                      type="text"
-                      list="boq-suggestions"
-                      placeholder="Type name or select from suggestions..."
-                      value={boqName}
-                      onChange={(e) => setBoqName(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all pr-10"
-                    />
-                    <datalist id="boq-suggestions">
+                    <select
+                      value={isCreatingNew ? "__new__" : selectedBoqId}
+                      onChange={(e) => {
+                        if (e.target.value === "__new__") {
+                          setIsCreatingNew(true);
+                          setSelectedBoqId("");
+                        } else {
+                          setIsCreatingNew(false);
+                          setSelectedBoqId(e.target.value);
+                        }
+                      }}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none pr-10 cursor-pointer"
+                    >
+                      {availableBoqs.length === 0 && !isLoadingBoqs && (
+                        <option value="__new__">➕ No BOQs found — Create new group</option>
+                      )}
                       {availableBoqs.map((boq) => (
-                        <option key={boq.id} value={boq.item_name}>
-                          {boq.item_name} (ID: {boq.id})
+                        <option key={boq.boq_group_id ?? boq.id} value={String(boq.boq_group_id ?? boq.id)}>
+                          {boq.item_name}
                         </option>
                       ))}
-                    </datalist>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                      <option value="__new__">➕ Create new BOQ group...</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                       <ChevronDown className="w-4 h-4" />
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    If the name doesn't exist, a new BOQ group will be created automatically.
-                  </p>
+                  {isCreatingNew && (
+                    <input
+                      type="text"
+                      placeholder="Enter new BOQ group name..."
+                      value={newBoqName}
+                      onChange={(e) => setNewBoqName(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border-2 border-primary/30 rounded-2xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      autoFocus
+                    />
+                  )}
                 </div>
 
                 {/* Activity Type Selection */}
@@ -326,7 +344,9 @@ const BulkImportBOQModal: React.FC<BulkImportBOQModalProps> = ({
                       {file?.name}
                     </h4>
                     <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mt-0.5">
-                      Importing to: <span className="underline decoration-2 underline-offset-4">{boqName}</span> • {parsedItems.length} items
+                      Importing to: <span className="underline decoration-2 underline-offset-4">
+                        {isCreatingNew ? newBoqName || "New BOQ Group" : availableBoqs.find(b => String(b.boq_group_id ?? b.id) === selectedBoqId)?.item_name || "Selected BOQ"}
+                      </span> • {parsedItems.length} items
                     </p>
                   </div>
                   <button

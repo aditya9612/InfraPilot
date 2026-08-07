@@ -291,8 +291,13 @@ const ChatSidebar: React.FC = () => {
                                 onClick={() => setActiveChatId(c.id)}
                                 className={`w-full flex items-center gap-3 px-5 py-3.5 transition-all relative border-b border-slate-50/60 cursor-pointer ${activeChatId === c.id ? "bg-primary/5" : "hover:bg-slate-50"}`}
                             >
-                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black text-white shrink-0 uppercase shadow-sm overflow-hidden ${c.type === "group" ? "bg-violet-500 text-white/90" : "bg-primary"}`}>
-                                    {c.type === "group" ? <Users className="w-4 h-4" /> : c.other_user_avatar ? <img src={getFullImageUrl(c.other_user_avatar)} className="w-full h-full object-cover" /> : (c.name || c.other_user_name || "?").charAt(0)}
+                                <div className="relative shrink-0">
+                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black text-white uppercase shadow-sm overflow-hidden ${c.type === "group" ? "bg-violet-500 text-white/90" : "bg-primary"}`}>
+                                        {c.type === "group" ? <Users className="w-4 h-4" /> : c.other_user_avatar ? <img src={getFullImageUrl(c.other_user_avatar)} className="w-full h-full object-cover" /> : (c.name || c.other_user_name || "?").charAt(0)}
+                                    </div>
+                                    {c.type !== 'group' && onlineStatus[c.id] && (
+                                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[#00a884] border-[2px] border-white rounded-full"></div>
+                                    )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-sm font-black text-slate-700 truncate">{c.name || c.other_user_name}</h3>
