@@ -33,11 +33,17 @@ const ClientDashboard = () => {
   const [dashboardData, setDashboardData] = useState<ClientDashboardData | null>(null);
   const [projectData, setProjectData] = useState<any>(null);
   const [recentExpensesList, setRecentExpensesList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { projectId } = useClientProjectId();
+  const [loading, setLoading] = useState(false); // false initially; set true only when fetching
+  const { projectId, loading: projectIdLoading } = useClientProjectId();
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId) {
+      // projectId not yet resolved — wait for the next effect run
+      // Don't set loading=false here; useClientProjectId will update projectId
+      // and trigger this effect again once it resolves
+      console.warn('[ClientDashboard] projectId is null — waiting for resolution...');
+      return;
+    }
     let active = true;
 
     const fetchDashboardContent = async () => {
@@ -52,6 +58,7 @@ const ClientDashboard = () => {
         }
 
         const statsData = await dashboardService.getClientDashboard(projectId);
+        console.log('[ClientDashboard] statsData set to state:', JSON.stringify(statsData, null, 2));
         if (active) setDashboardData(statsData);
 
         try {
@@ -82,12 +89,12 @@ const ClientDashboard = () => {
   const startDateStr = dashboardData?.start_date || projectData?.start_date || "";
   const endDateStr = dashboardData?.end_date || projectData?.end_date || "";
 
-  const daysRemaining       = dashboardData?.days_remaining ?? 0;
-  const progressPercent     = Number(dashboardData?.progress_percent ?? 0);
-  const budgetTotal         = Number(dashboardData?.budget_total ?? 0);
-  const totalExpense        = Number(dashboardData?.total_expense ?? 0);
-  const remainingBudget     = Number(dashboardData?.remaining_budget ?? 0);
-  const budgetUsedPercent   = Number(dashboardData?.budget_used_percent ?? 0);
+  const daysRemaining       = Number(dashboardData?.days_remaining ?? dashboardData?.remaining_days ?? 0);
+  const progressPercent     = Number(dashboardData?.progress_percent ?? dashboardData?.progress ?? dashboardData?.overall_progress ?? 0);
+  const budgetTotal         = Number(dashboardData?.budget_total ?? dashboardData?.budget ?? 0);
+  const totalExpense        = Number(dashboardData?.total_expense ?? dashboardData?.spent ?? 0);
+  const remainingBudget     = Number(dashboardData?.remaining_budget ?? dashboardData?.remaining ?? (budgetTotal > 0 ? budgetTotal - totalExpense : 0));
+  const budgetUsedPercent   = Number(dashboardData?.budget_used_percent ?? dashboardData?.spent_percent ?? 0);
   const tasksCompleted      = Number(dashboardData?.tasks_completed ?? 0);
   const tasksTotal          = Number(dashboardData?.tasks_total ?? 0);
   const tasksPending        = Math.max(0, tasksTotal - tasksCompleted);
@@ -95,22 +102,28 @@ const ClientDashboard = () => {
   const milestonesTotal     = Number(dashboardData?.milestones_total ?? 0);
   const milestonesPending   = Math.max(0, milestonesTotal - milestonesCompleted);
 
-  // Derived from real API fields
-  const remainingPercent = budgetTotal > 0 ? (remainingBudget / budgetTotal) * 100 : 0;
-  const spentPercent     = budgetTotal > 0 ? (totalExpense / budgetTotal) * 100 : 0;
-  const budgetStatus     = remainingBudget >= 0 ? "Healthy" : "Over Budget";
+  // Derived or direct percentage from API
+  const remainingPercent = dashboardData?.remaining_percent !== undefined && dashboardData?.remaining_percent !== null
+    ? Number(dashboardData.remaining_percent)
+    : (budgetTotal > 0 ? (remainingBudget / budgetTotal) * 100 : 0);
 
-  // Fields NOT in the API — default 0 / ""
-  const projectHealth      = (dashboardData as any)?.project_health || (dashboardData as any)?.health || "";
-  const projectDuration    = (dashboardData as any)?.project_duration ?? 0;
-  const elapsedDays        = (dashboardData as any)?.elapsed_days ?? 0;
-  const timelineProgress   = (dashboardData as any)?.timeline_progress ?? 0;
-  const scheduleVariance   = (dashboardData as any)?.variance_percent ?? 0;
-  const scheduleStatus     = (dashboardData as any)?.schedule_status || "";
-  const riskLevel          = (dashboardData as any)?.risk_level || "";
-  const overdueTasks       = (dashboardData as any)?.overdue_tasks ?? 0;
-  const overdueMilestones  = (dashboardData as any)?.overdue_milestones ?? 0;
-  const highPriorityOverdue = (dashboardData as any)?.high_priority_overdue ?? 0;
+  const spentPercent = dashboardData?.spent_percent !== undefined && dashboardData?.spent_percent !== null
+    ? Number(dashboardData.spent_percent)
+    : (budgetTotal > 0 ? (totalExpense / budgetTotal) * 100 : 0);
+
+  const budgetStatus     = dashboardData?.budget_status || (remainingBudget >= 0 ? "Healthy" : "Over Budget");
+
+  // Extended fields — now typed in ClientDashboardData (may be undefined if not returned by backend)
+  const projectHealth      = dashboardData?.project_health || dashboardData?.health || "";
+  const projectDuration    = dashboardData?.project_duration ?? 0;
+  const elapsedDays        = dashboardData?.elapsed_days ?? 0;
+  const timelineProgress   = dashboardData?.timeline_progress ?? 0;
+  const scheduleVariance   = dashboardData?.variance_percent ?? 0;
+  const scheduleStatus     = dashboardData?.schedule_status || "";
+  const riskLevel          = dashboardData?.risk_level || "";
+  const overdueTasks       = dashboardData?.overdue_tasks ?? 0;
+  const overdueMilestones  = dashboardData?.overdue_milestones ?? 0;
+  const highPriorityOverdue = dashboardData?.high_priority_overdue ?? 0;
 
   const taskCompletionPct      = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
   const milestoneCompletionPct = milestonesTotal > 0 ? Math.round((milestonesCompleted / milestonesTotal) * 100) : 0;
@@ -148,7 +161,7 @@ const ClientDashboard = () => {
     { role: "assistant", text: `Project health is ${projectHealth || "unknown"} with ${progressPercent}% completion.`, time: "Just now" },
   ];
 
-  if (loading) {
+  if (projectIdLoading || loading) {
     return (
       <>
         <Navbar title="Dashboard" breadcrumb={["InfraPilot", "Client", "Dashboard"]} />

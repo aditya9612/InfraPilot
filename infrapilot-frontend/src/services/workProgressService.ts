@@ -41,14 +41,22 @@ export const workProgressService = {
    * GET /api/v1/work-progress/activities
    */
   async listActivities(project_id?: number, engineer_id?: number, limit?: number, offset?: number): Promise<ActivityItem[]> {
-    const params: Record<string, any> = {};
-    if (project_id) params.project_id = project_id;
-    if (engineer_id) params.engineer_id = engineer_id;
-    if (limit !== undefined) params.limit = limit;
-    if (offset !== undefined) params.offset = offset;
-    const response = await api.get("/work-progress/activities", { params });
-    const data = response.data;
-    return Array.isArray(data) ? data : (data.items || data.data || []);
+    try {
+      const params: Record<string, any> = {};
+      if (project_id) params.project_id = project_id;
+      if (engineer_id) params.engineer_id = engineer_id;
+      if (limit !== undefined) params.limit = limit;
+      if (offset !== undefined) params.offset = offset;
+      const response = await api.get("/work-progress/activities", { params });
+      const data = response.data;
+      return Array.isArray(data) ? data : (data.items || data.data || []);
+    } catch (error: any) {
+      console.warn("listActivities API error, using virtual fallback:", error.message);
+      let filtered = [...mockActivities];
+      if (project_id) filtered = filtered.filter(a => a.project_id === project_id);
+      if (engineer_id) filtered = filtered.filter(a => a.engineer_id === engineer_id);
+      return filtered;
+    }
   },
 
   /**

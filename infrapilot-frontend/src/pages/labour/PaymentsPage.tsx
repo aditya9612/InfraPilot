@@ -23,6 +23,7 @@ import autoTable from 'jspdf-autotable';
 const PaymentsPage: React.FC = () => {
     const { user } = useAuth();
     const [filterPeriod, setFilterPeriod] = useState("Daily Analysis");
+    const [searchTerm, setSearchTerm] = useState("");
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [recordsPerPage, setRecordsPerPage] = useState(20);
@@ -43,7 +44,6 @@ const PaymentsPage: React.FC = () => {
     const fetchPayments = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Map UI filter to API params
             let time_filter = "";
             switch (filterPeriod) {
                 case "Daily Analysis": time_filter = "today"; break;
@@ -55,23 +55,30 @@ const PaymentsPage: React.FC = () => {
                 default: time_filter = "this_month";
             }
 
+            const savedIdStr = localStorage.getItem("client_selected_project_id") || localStorage.getItem("infrapilot_selected_project_id");
+            const selectedPid = savedIdStr ? Number(savedIdStr) : undefined;
+
             const params: any = {
                 page: currentPage,
                 page_size: recordsPerPage,
-                time_filter: time_filter
+                time_filter: time_filter,
+                ...(selectedPid ? { project_id: selectedPid } : {})
             };
 
             const data = await dashboardService.getLabourPayments(params);
             if (data) {
-                const items = data.items || (Array.isArray(data) ? data : []);
+                const items = Array.isArray(data)
+                    ? data
+                    : (data.items || data.data || data.payments || data.records || []);
+                
                 setPayments(items);
-                setTotalRecords(data.meta?.total || items.length);
+                setTotalRecords(data.meta?.total || data.total || data.total_count || items.length);
                 
                 setSummaryStats({
-                    total_payout: data.summary?.total_payout || items.reduce((acc: number, curr: any) => acc + (curr.total_earned || curr.amount || 0), 0),
-                    high_payouts: data.summary?.high_payouts || items.filter((i: any) => (i.total_earned || i.amount || 0) > 5000).length,
-                    ot_intensive: data.summary?.ot_intensive || items.filter((i: any) => (i.ot_hours || 0) > 2).length,
-                    advance_adjusted: data.summary?.advance_adjusted || 0
+                    total_payout: data.summary?.total_payout ?? data.total_payout ?? items.reduce((acc: number, curr: any) => acc + Number(curr.total_earned || curr.amount || curr.daily_wage || 0), 0),
+                    high_payouts: data.summary?.high_payouts ?? data.high_payouts ?? items.filter((i: any) => Number(i.total_earned || i.amount || i.daily_wage || 0) > 5000).length,
+                    ot_intensive: data.summary?.ot_intensive ?? data.ot_intensive ?? items.filter((i: any) => Number(i.ot_hours || i.overtime_hours || 0) > 2).length,
+                    advance_adjusted: data.summary?.advance_adjusted ?? data.advance_adjusted ?? 0
                 });
             }
         } catch (error) {
@@ -89,24 +96,35 @@ const PaymentsPage: React.FC = () => {
 
     const displayData = useMemo(() => {
         return payments.map(d => {
-            const dateStr = d.date || d.created_at || new Date().toISOString();
+            const dateStr = d.date || d.created_at || d.payment_date || new Date().toISOString();
             const dateObj = new Date(dateStr);
-            const day = String(dateObj.getDate()).padStart(2, '0');
+            const day = !isNaN(dateObj.getTime()) ? String(dateObj.getDate()).padStart(2, '0') : '';
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const month = months[dateObj.getMonth()];
+            const month = !isNaN(dateObj.getTime()) ? months[dateObj.getMonth()] : '';
             
             return {
-                period: d.period || `${day} ${month}`,
-                skill: d.skill || d.designation || 'Labour',
-                dailyWage: d.daily_wage || d.rate || 0,
-                otHours: d.ot_hours || 0,
-                totalEarned: d.total_earned || d.amount || 0,
+                period: (day && month) ? `${day} ${month}` : (d.period || dateStr),
+                skill: d.skill || d.skill_type || d.designation || d.labour_type || d.name || 'Labour',
+                dailyWage: Number(d.dailyWage ?? d.daily_wage ?? d.rate ?? d.wage ?? 0),
+                otHours: Number(d.otHours ?? d.ot_hours ?? d.overtime_hours ?? 0),
+                totalEarned: Number(d.totalEarned ?? d.total_earned ?? d.amount ?? d.total_amount ?? 0),
                 remarks: d.remarks || d.description || '—',
-                status: d.status || 'Pending',
-                id: d.id
+                status: (d.status || 'Paid').toUpperCase(),
+                id: d.id || d.payment_id
             };
         });
     }, [payments]);
+
+    const filteredData = useMemo(() => {
+        if (!searchTerm.trim()) return displayData;
+        const q = searchTerm.toLowerCase();
+        return displayData.filter(item =>
+            item.skill.toLowerCase().includes(q) ||
+            item.period.toLowerCase().includes(q) ||
+            item.remarks.toLowerCase().includes(q) ||
+            item.status.toLowerCase().includes(q)
+        );
+    }, [displayData, searchTerm]);
 
     const generateFrontendPDF = (data: any[]) => {
         const doc = new jsPDF();
@@ -228,6 +246,8 @@ const PaymentsPage: React.FC = () => {
         { label: 'ADVANCE ADJUSTED', value: `₹${summaryStats.advance_adjusted.toLocaleString()}`, sub: 'Recovery Target', icon: CreditCard, color: 'text-rose-500', borderColor: 'border-slate-100' },
     ];
 
+    const totalPages = Math.ceil((totalRecords || filteredData.length) / recordsPerPage) || 1;
+
     return (
         <>
             <Navbar title="Financial Intelligence" breadcrumb={['Labour', 'Human Resources', 'Payroll Reports']} />
@@ -254,20 +274,36 @@ const PaymentsPage: React.FC = () => {
 
                 <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
                     <div className="p-8 border-b border-slate-50 flex flex-wrap items-center justify-between gap-6">
-                        <div className="flex items-center gap-4">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">View Mode</span>
-                            <div className="relative">
-                                <select value={filterPeriod} onChange={(e) => { setFilterPeriod(e.target.value); setCurrentPage(1); }} className="appearance-none pl-6 pr-12 py-3 bg-white border border-slate-200 rounded-2xl text-[11px] font-black text-slate-700 uppercase tracking-widest focus:ring-2 focus:ring-indigo-500/20 outline-none cursor-pointer min-w-[200px]">
-                                    <option>Daily Analysis</option>
-                                    <option>Weekly Summary</option>
-                                    <option>Monthly Report</option>
-                                    <option>3 Months</option>
-                                    <option>6 Months</option>
-                                    <option>1 Year</option>
-                                </select>
-                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90" />
+                        <div className="flex flex-wrap items-center gap-4">
+                            {/* View Mode Filter */}
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">View Mode</span>
+                                <div className="relative">
+                                    <select value={filterPeriod} onChange={(e) => { setFilterPeriod(e.target.value); setCurrentPage(1); }} className="appearance-none pl-6 pr-12 py-3 bg-white border border-slate-200 rounded-2xl text-[11px] font-black text-slate-700 uppercase tracking-widest focus:ring-2 focus:ring-indigo-500/20 outline-none cursor-pointer min-w-[180px]">
+                                        <option>Daily Analysis</option>
+                                        <option>Weekly Summary</option>
+                                        <option>Monthly Report</option>
+                                        <option>3 Months</option>
+                                        <option>6 Months</option>
+                                        <option>1 Year</option>
+                                    </select>
+                                    <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90" />
+                                </div>
+                            </div>
+
+                            {/* Search input */}
+                            <div className="relative min-w-[220px]">
+                                <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                                <input
+                                    type="text"
+                                    placeholder="Search skill, date, status..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-500 rounded-2xl text-xs font-bold text-slate-700 outline-none transition-all placeholder:text-slate-400"
+                                />
                             </div>
                         </div>
+
                         <div className="flex items-center gap-4 ml-auto">
                             <button onClick={() => setShowDateFilter(!showDateFilter)} className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${showDateFilter ? 'bg-[#111827] text-white shadow-lg' : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100'}`}>
                                 <Calendar className="w-4 h-4" /> Date
@@ -299,8 +335,8 @@ const PaymentsPage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                                {displayData.map((row, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                {filteredData.map((row, idx) => (
+                                    <tr key={row.id || idx} className="hover:bg-slate-50/50 transition-colors group">
                                         <td className="px-10 py-6"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{row.period}</span></td>
                                         <td className="px-10 py-6"><span className="px-4 py-1.5 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-bold tracking-tight">{row.skill}</span></td>
                                         <td className="px-10 py-6"><span className="text-sm font-black text-slate-700">₹{row.dailyWage}</span></td>
@@ -313,12 +349,53 @@ const PaymentsPage: React.FC = () => {
                                         </td>
                                     </tr>
                                 ))}
-                                {displayData.length === 0 && !isLoading && (
+                                {filteredData.length === 0 && !isLoading && (
                                     <tr><td colSpan={6} className="px-10 py-24 text-center"><p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">No payment records found</p></td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination Footer */}
+                    {!isLoading && (totalRecords > 0 || filteredData.length > 0) && (
+                        <div className="px-10 py-6 border-t border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/30">
+                            <div className="flex items-center gap-4">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rows per page:</span>
+                                <select
+                                    value={recordsPerPage}
+                                    onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-black text-slate-700 outline-none cursor-pointer"
+                                >
+                                    {[10, 20, 50, 100].map(v => (
+                                        <option key={v} value={v}>{v}</option>
+                                    ))}
+                                </select>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    Showing <span className="text-slate-800 font-black">{(currentPage - 1) * recordsPerPage + 1}</span> - <span className="text-slate-800 font-black">{Math.min(currentPage * recordsPerPage, totalRecords || filteredData.length)}</span> of <span className="text-slate-800 font-black">{totalRecords || filteredData.length}</span>
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                                >
+                                    <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                                </button>
+                                <span className="text-xs font-black text-slate-700 px-3">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <button
+                                    disabled={currentPage >= totalPages}
+                                    onClick={() => setCurrentPage(p => p + 1)}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                                >
+                                    Next <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </PageTransition>
         </>

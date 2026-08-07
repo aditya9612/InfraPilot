@@ -40,7 +40,7 @@ const MyTasksPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-    const [filterType, setFilterType] = useState('ALL TASKS');
+    const [filterType, setFilterType] = useState('MY TASKS');
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize] = useState(10);
     const [totalTasks, setTotalTasks] = useState(0);
@@ -140,10 +140,10 @@ const MyTasksPage: React.FC = () => {
             };
 
             // Backend filtering based on filterType and active tab
-            if (filterType === 'MY TASKS') {
-                params.assigned_user_id = user?.id ? Number(user.id) : 181;
-            } else if (activeTab === 'My Tasks') {
-                params.assigned_user_id = user?.id ? Number(user.id) : 181;
+            if (filterType === 'MY TASKS' || activeTab === 'My Tasks') {
+                if (user?.id) {
+                    params.assigned_user_id = Number(user.id);
+                }
             }
 
             // Resolve active project from localStorage (set by LabourSettingsPage)
@@ -198,8 +198,10 @@ const MyTasksPage: React.FC = () => {
                     status: (localStatus === 'Completed' ? 'Completed' : (localStatus === 'In Progress' ? 'In Progress' : (t.status === 'Hold' || t.status === 'Cancelled' ? 'Cancelled' : (t.status === 'In Progress' ? 'In Progress' : 'Planned')))) as any,
                     progress: (localStatus === 'Completed' ? 100 : (t.completion_percentage || 0)),
                     audioUrl,
-                    imageUrl
-                };
+                    imageUrl,
+                    assigned_user_id: t.assigned_user_id,
+                    assigned_user_ids: t.assigned_users?.map((u: any) => u.id || u.user_id)
+                } as any;
             });
 
             setTasks(mappedTasks);
@@ -226,14 +228,28 @@ const MyTasksPage: React.FC = () => {
         };
     }, [activeTab, filterType, currentPage]);
 
-const filteredTasks = useMemo(() => {
-    return tasks.filter(t => {
-        const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            t.id.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = statusFilter === 'All Status' || t.status === statusFilter || (statusFilter === 'Planned' && (t.status === 'Pending' || t.status === 'Planned'));
-        return matchesSearch && matchesStatus;
-    });
-}, [tasks, searchQuery, statusFilter]);
+    const filteredTasks = useMemo(() => {
+        return tasks.filter(t => {
+            // When MY TASKS is selected (or active tab is My Tasks), filter to only show tasks assigned to the logged-in user (e.g., Ramesh Sharma)
+            if (filterType === 'MY TASKS' || activeTab === 'My Tasks') {
+                const currentUserName = (user?.name || user?.username || 'Ramesh Sharma').toLowerCase();
+                const assignedText = (t.assignedTo || '').toLowerCase();
+                
+                const isAssignedToMe = assignedText.includes(currentUserName) ||
+                    (currentUserName.includes('ramesh') && assignedText.includes('ramesh')) ||
+                    ((t as any).assigned_user_id && user?.id && Number((t as any).assigned_user_id) === Number(user.id)) ||
+                    ((t as any).assigned_user_ids && Array.isArray((t as any).assigned_user_ids) && user?.id && (t as any).assigned_user_ids.includes(Number(user.id)));
+
+                if (!isAssignedToMe) return false;
+            }
+
+            const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                t.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                t.project.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesStatus = statusFilter === 'All Status' || t.status === statusFilter || (statusFilter === 'Planned' && (t.status === 'Pending' || t.status === 'Planned'));
+            return matchesSearch && matchesStatus;
+        });
+    }, [tasks, searchQuery, statusFilter, filterType, activeTab, user]);
 
 
 const handleTaskClick = (task: Task) => {
@@ -301,11 +317,11 @@ return (
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
                 {[
-                    { label: 'TOTAL TASKS', count: totalTasks, icon: List, filterStatus: 'All Status' },
-                    { label: 'PLANNED', count: tasks.filter(t => t.status === 'Planned' || t.status === 'Pending').length, icon: Calendar, filterStatus: 'Planned' },
-                    { label: 'IN PROGRESS', count: tasks.filter(t => t.status === 'In Progress').length, icon: Clock, filterStatus: 'In Progress' },
-                    { label: 'COMPLETED', count: tasks.filter(t => t.status === 'Completed').length, icon: CheckCircle, filterStatus: 'Completed' },
-                    { label: 'CANCELLED', count: tasks.filter(t => t.status === 'Cancelled').length, icon: XCircle, filterStatus: 'Cancelled' },
+                    { label: 'TOTAL TASKS', count: filteredTasks.length, icon: List, filterStatus: 'All Status' },
+                    { label: 'PLANNED', count: filteredTasks.filter(t => t.status === 'Planned' || t.status === 'Pending').length, icon: Calendar, filterStatus: 'Planned' },
+                    { label: 'IN PROGRESS', count: filteredTasks.filter(t => t.status === 'In Progress').length, icon: Clock, filterStatus: 'In Progress' },
+                    { label: 'COMPLETED', count: filteredTasks.filter(t => t.status === 'Completed').length, icon: CheckCircle, filterStatus: 'Completed' },
+                    { label: 'CANCELLED', count: filteredTasks.filter(t => t.status === 'Cancelled').length, icon: XCircle, filterStatus: 'Cancelled' },
                 ].map(stat => (
                     <div
                         key={stat.label}

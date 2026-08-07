@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
-import { projectService } from "../../services/projectService";
 import { workProgressService } from "../../services/workProgressService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Eye, FileText, FileSpreadsheet, ChevronDown } from "lucide-react";
+import { Eye, FileText, FileSpreadsheet, ChevronDown, Search } from "lucide-react";
 import ActivityDetailModal from "../../components/WorkProgress/ActivityDetailModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -14,6 +13,7 @@ const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,11 +40,37 @@ const ClientProgressPage = () => {
     const fetchProgressData = async () => {
       try {
         setLoadingActivities(true);
-        const response = await projectService.getWorkProgressActivities(projectId, undefined, 50);
-        const fetchedActivities = Array.isArray(response) ? response : (response.data || response.items || []);
-        setActivities(fetchedActivities);
+        // Call GET /api/v1/work-progress/activities
+        const data = await workProgressService.listActivities(projectId);
+        const fetchedActivities = Array.isArray(data) ? data : [];
+        const normalized = fetchedActivities.map((act: any) => {
+          const planned = Number(act.planned_quantity) || 0;
+          const completed = Number(act.total_completed) || 0;
+          const remaining = act.remaining_quantity !== undefined
+            ? Number(act.remaining_quantity)
+            : Math.max(0, planned - completed);
+          const percent = act.completion_percentage !== undefined
+            ? Number(act.completion_percentage)
+            : (planned > 0 ? Math.round((completed / planned) * 100) : 0);
+
+          return {
+            ...act,
+            activity_name: act.activity_name || "Untitled Activity",
+            discipline: act.discipline || "General",
+            planned_quantity: planned,
+            total_completed: completed,
+            remaining_quantity: remaining,
+            completion_percentage: Math.min(100, Math.max(0, percent)),
+            unit: act.unit || "—",
+            start_date: act.start_date || "—",
+            end_date: act.end_date || "—",
+            status: (act.status || "NOT_STARTED").toUpperCase()
+          };
+        });
+        setActivities(normalized);
       } catch (err) {
         console.error("Failed to fetch work progress activities:", err);
+        toast.error("Failed to fetch work progress activities");
       } finally {
         setLoadingActivities(false);
       }
@@ -159,11 +185,18 @@ const ClientProgressPage = () => {
 
   // Filtering Logic
   const filteredActivities = activities.filter(act => {
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      const nameMatch = (act.activity_name || "").toLowerCase().includes(q);
+      const discMatch = (act.discipline || "").toLowerCase().includes(q);
+      if (!nameMatch && !discMatch) return false;
+    }
+
     if (filterStatus === "ALL") return true;
     const status = act.status?.toUpperCase() || "";
     if (filterStatus === "ON_TRACK") return ["ON_TRACK", "ON TRACK"].includes(status);
     if (filterStatus === "COMPLETED") return ["COMPLETED"].includes(status);
-    if (filterStatus === "DELAYED") return ["DELAY", "DELAYED", "DELAY_ONGOING"].includes(status);
+    if (filterStatus === "DELAYED" || filterStatus === "DELAY") return ["DELAY", "DELAYED", "DELAY_ONGOING"].includes(status);
     if (filterStatus === "NOT_STARTED") return ["NOT_STARTED", "NOT STARTED"].includes(status);
     return true;
   });
@@ -198,10 +231,10 @@ const ClientProgressPage = () => {
   // Compute status counts
   const stats = {
     all: activities.length,
-    onTrack: activities.filter(a => ["ON TRACK", "ON_TRACK", "On Track"].includes(a.status?.toUpperCase() || a.status)).length,
-    completed: activities.filter(a => ["COMPLETED", "Completed"].includes(a.status?.toUpperCase() || a.status)).length,
-    notStarted: activities.filter(a => ["NOT_STARTED", "NOT STARTED", "Not Started"].includes(a.status?.toUpperCase() || a.status)).length,
-    delayed: activities.filter(a => ["DELAY", "DELAYED", "Delayed", "DELAY_ONGOING"].includes(a.status?.toUpperCase() || a.status)).length,
+    onTrack: activities.filter(a => ["ON TRACK", "ON_TRACK"].includes((a.status || "").toUpperCase())).length,
+    completed: activities.filter(a => ["COMPLETED"].includes((a.status || "").toUpperCase())).length,
+    notStarted: activities.filter(a => ["NOT_STARTED", "NOT STARTED"].includes((a.status || "").toUpperCase())).length,
+    delayed: activities.filter(a => ["DELAY", "DELAYED", "DELAY_ONGOING"].includes((a.status || "").toUpperCase())).length,
   };
 
   const statusOptions = [
@@ -281,53 +314,70 @@ const ClientProgressPage = () => {
           ))}
         </div>
 
-        {/* Detailed Activity Progress — now from API */}
+        {/* Detailed Activity Progress */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="px-8 py-4 border-b border-slate-100 flex items-center gap-6">
+          <div className="px-8 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">
               Detailed Activity Progress
             </h2>
 
-            {/* STATUS label + dropdown — placed right next to title in marked place */}
-            <div className="flex items-center gap-2.5" ref={dropdownRef}>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                Status:
-              </span>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 hover:border-blue-400 rounded-lg text-[11px] font-extrabold text-slate-700 transition-all cursor-pointer uppercase tracking-wider min-w-[130px] justify-between shadow-sm"
-                >
-                  <span>{statusOptions.find(o => o.value === filterStatus)?.label ?? "All Status"}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${dropdownOpen ? "rotate-180" : ""}`} />
-                </button>
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Search Bar */}
+              <div className="relative min-w-[200px] sm:min-w-[240px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search activity or discipline..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-lg text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-400"
+                />
+              </div>
 
-                {dropdownOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                    {statusOptions.map((opt) => {
-                      const isSelected = filterStatus === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => {
-                            setFilterStatus(opt.value);
-                            setCurrentPage(1);
-                            setDropdownOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
-                            isSelected
-                              ? "bg-blue-600 text-white"
-                              : "text-slate-700 hover:bg-slate-50"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+              {/* STATUS label + dropdown */}
+              <div className="flex items-center gap-2" ref={dropdownRef}>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Status:
+                </span>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 hover:border-blue-400 rounded-lg text-[11px] font-extrabold text-slate-700 transition-all cursor-pointer uppercase tracking-wider min-w-[120px] justify-between shadow-sm"
+                  >
+                    <span>{statusOptions.find(o => o.value === filterStatus)?.label ?? "All Status"}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${dropdownOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {dropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                      {statusOptions.map((opt) => {
+                        const isSelected = filterStatus === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              setFilterStatus(opt.value);
+                              setCurrentPage(1);
+                              setDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                              isSelected
+                                ? "bg-blue-600 text-white"
+                                : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
