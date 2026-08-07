@@ -230,7 +230,18 @@ export const workProgressService = {
     }
   },
 
-
+  /**
+   * Get Work Order Progress Summary
+   */
+  async getWorkOrderProgressSummary(workOrderId: number): Promise<any> {
+    try {
+      const response = await api.get(`/work-progress/work-order/${workOrderId}/progress-summary`);
+      return response.data;
+    } catch (error: any) {
+      console.warn("getWorkOrderProgressSummary API error, throwing:", error.message);
+      throw error;
+    }
+  },
 
   async getTodayProgress(engineerId?: number, project_id?: number): Promise<{ limit: number; offset: number; page_count: number; total_count: number; data: DailyEntry[] }> {
     try {
