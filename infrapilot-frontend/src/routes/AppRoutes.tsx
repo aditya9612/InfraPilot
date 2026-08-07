@@ -20,6 +20,7 @@ import OwnerLedgerPage from "../pages/admin/OwnerLedgerPage";
 import AutoCADPage from "../pages/admin/AutoCADPage";
 import EngineersPage from "../pages/admin/EngineersPage";
 import EngineerProfilePage from "../pages/admin/EngineerProfilePage";
+import ProjectManagerProfilePage from "../pages/admin/ProjectManagerProfilePage";
 import ProjectManagersPage from "../pages/admin/ProjectManagersPage";
 import BOQPage from "../pages/admin/BOQPage";
 import InventoryPage from "../pages/admin/InventoryPage";
@@ -210,6 +211,7 @@ function AppRoutes() {
                 <Route path="/admin/engineers" element={<EngineersPage />} />
                 <Route path="/admin/engineers/:id" element={<EngineerProfilePage />} />
                 <Route path="/admin/managers" element={<ProjectManagersPage />} />
+                <Route path="/admin/managers/:id" element={<ProjectManagerProfilePage />} />
                 <Route path="/admin/boq" element={<BOQPage />} />
                 <Route path="/admin/boq/list" element={<BOQPage />} />
                 <Route path="/admin/boq/items" element={<BOQPage />} />

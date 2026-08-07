@@ -73,7 +73,13 @@ export const authService = {
     return response.data;
   },
 
-  logout() {
-    localStorage.removeItem("infrapilot_user");
+  async logout() {
+    try {
+      await api.post("auth/logout");
+    } catch (e) {
+      console.error("Failed to notify backend of logout", e);
+    } finally {
+      localStorage.removeItem("infrapilot_user");
+    }
   },
 };

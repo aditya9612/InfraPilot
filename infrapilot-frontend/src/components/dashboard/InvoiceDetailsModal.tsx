@@ -13,6 +13,7 @@ interface InvoiceDetailsModalProps {
   quotations?: { id: number; quotation_no?: string }[];
   onMarkPaid: (id: number) => void;
   onDownloadPDF: (id: number) => void;
+  onSendInvoice?: (id: number) => void;
 }
 
 const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
@@ -24,6 +25,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
   quotations = [],
   onMarkPaid,
   onDownloadPDF,
+  onSendInvoice,
 }) => {
   if (!invoice) return null;
 
@@ -33,8 +35,8 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
   const quotationDisplay = quotation?.quotation_no
     ? quotation.quotation_no
     : invoice.quotation_id
-    ? `QT-${invoice.quotation_id}`
-    : "N/A";
+      ? `QT-${invoice.quotation_id}`
+      : "N/A";
 
   const statusColors = {
     pending: "bg-amber-100 text-amber-600 border-amber-200",
@@ -248,6 +250,14 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
               className="px-8 py-3 bg-emerald-500 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all active:scale-95"
             >
               Mark as Paid
+            </button>
+          )}
+          {onSendInvoice && (
+            <button
+              onClick={() => onSendInvoice(invoice.id)}
+              className="px-8 py-3 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-2xl text-sm font-black shadow-sm hover:bg-indigo-100 transition-all flex items-center gap-2"
+            >
+              Send Invoice
             </button>
           )}
           <button

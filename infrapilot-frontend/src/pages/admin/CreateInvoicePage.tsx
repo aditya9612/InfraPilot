@@ -490,6 +490,17 @@ const CreateInvoicePage = () => {
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
+  const handleSendQuotation = async () => {
+    if (!id) return;
+    const toastId = toast.loading("Sending quotation...");
+    try {
+      await quotationService.sendQuotation(Number(id));
+      toast.success("Quotation sent successfully", { id: toastId });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send quotation", { id: toastId });
+    }
+  };
+
   const handleRemoveItem = async (itemId: string) => {
     if (items.length <= 1) {
       toast.error("At least one item is required");
@@ -2456,6 +2467,14 @@ const CreateInvoicePage = () => {
                 >
                   <Download className="w-4 h-4 text-indigo-600" /> Download PDF
                 </button>
+                {id && (
+                  <button
+                    onClick={handleSendQuotation}
+                    className="w-full py-3 bg-indigo-50 border border-indigo-100 text-indigo-700 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-sm hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-4 h-4 text-indigo-600" /> Send Quotation
+                  </button>
+                )}
                 <button
                   onClick={handleWhatsAppShare}
                   className="w-full py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
