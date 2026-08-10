@@ -13,11 +13,15 @@ import {
     FileText,
     History,
     Download,
-    FileDown
+    FileDown,
+    Edit,
+    Trash2,
+    Plus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { projectService } from '../../services/projectService';
+import { workUpdateService } from '../../services/workUpdateService';
 
 const base64ToFile = (base64String: string, filename: string): File => {
     const arr = base64String.split(',');
@@ -57,10 +61,13 @@ const WorkUpdatesPage: React.FC = () => {
     const [tasks, setTasks] = useState<any[]>([]);
     const [selectedTaskId, setSelectedTaskId] = useState(taskId || '');
     const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+    const [myUpdates, setMyUpdates] = useState<any[]>([]);
+    const [timeline, setTimeline] = useState<any[]>([]);
+    const [editingUpdateId, setEditingUpdateId] = useState<number | null>(null);
 
-    // Fetch tasks if missing
+    // Fetch tasks, my work updates, and project timeline
     useEffect(() => {
-        const fetchTasks = async () => {
+        const fetchInitialData = async () => {
             try {
                 const response = await projectService.getTasks(Number(projectId));
                 const items = Array.isArray(response) ? response : (response.items || []);
@@ -76,9 +83,173 @@ const WorkUpdatesPage: React.FC = () => {
             } catch (error) {
                 console.error("Failed to fetch tasks:", error);
             }
+
+            // Fetch My Work Updates (GET /api/v1/work-updates/my)
+            try {
+                const updates = await workUpdateService.getMyWorkUpdates({ project_id: Number(projectId) });
+                setMyUpdates(updates);
+                
+                // Extract photos from my updates to populate prior site history dynamically
+                const apiPhotos: string[] = [];
+                updates.forEach((u: any) => {
+                    if (Array.isArray(u.before_images)) apiPhotos.push(...u.before_images);
+                    if (Array.isArray(u.after_images)) apiPhotos.push(...u.after_images);
+                });
+                if (apiPhotos.length > 0) {
+                    setPriorPhotos(prev => [...apiPhotos, ...prev].slice(0, 8));
+                }
+            } catch (err) {
+                console.warn("Failed to fetch my work updates:", err);
+            }
+
+            // Fetch Project Work-Update Timeline (GET /api/v1/work-updates/project/{project_id}/timeline)
+            try {
+                const timelineData = await workUpdateService.getProjectTimeline(Number(projectId));
+                setTimeline(timelineData);
+            } catch (err) {
+                console.warn("Failed to fetch project timeline:", err);
+            }
         };
-        fetchTasks();
+        fetchInitialData();
     }, [projectId, taskId]);
+
+    // GET /api/v1/work-updates/{work_update_id}
+    const handleLoadWorkUpdate = async (id: number) => {
+        const loadingToast = toast.loading(`Loading Work Update #${id}...`);
+        try {
+            const data = await workUpdateService.getWorkUpdate(id);
+            setEditingUpdateId(data.id);
+            if (data.task_id) setSelectedTaskId(String(data.task_id));
+            if (data.description) setDescription(data.description);
+            if (data.category) setCategory(data.category);
+            if (data.location) setLocation(data.location);
+            if (data.work_date) setWorkDate(data.work_date);
+            if (data.start_time) setStartTime(data.start_time);
+            if (data.end_time) setEndTime(data.end_time);
+            if (data.before_remarks) setBeforeRemarks(data.before_remarks);
+            if (data.after_remarks) setAfterRemarks(data.after_remarks);
+            if (Array.isArray(data.before_images)) setBeforePhotos(data.before_images);
+            if (Array.isArray(data.after_images)) setAfterPhotos(data.after_images);
+            toast.success(`Loaded Work Update #${id}`, { id: loadingToast });
+        } catch (err: any) {
+            console.error("Failed to fetch work update:", err);
+            toast.error(err?.message || "Failed to load work update details", { id: loadingToast });
+        }
+    };
+
+    // DELETE /api/v1/work-updates/{work_update_id}
+    const handleDeleteWorkUpdate = async (id: number, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (!window.confirm(`Are you sure you want to delete Work Update #${id}?`)) return;
+
+        const loadingToast = toast.loading(`Deleting Work Update #${id}...`);
+        try {
+            await workUpdateService.deleteWorkUpdate(id);
+            toast.success(`Work Update #${id} deleted`, { id: loadingToast });
+            setMyUpdates(prev => prev.filter(u => u.id !== id));
+            setTimeline(prev => prev.filter(t => t.id !== id));
+            if (editingUpdateId === id) {
+                setEditingUpdateId(null);
+                setDescription('');
+                setBeforePhotos([]);
+                setAfterPhotos([]);
+            }
+        } catch (err: any) {
+            console.error("Failed to delete work update:", err);
+            toast.error(err?.message || "Failed to delete work update", { id: loadingToast });
+        }
+    };
+
+    // POST /api/v1/work-updates/{work_update_id}/before-image
+    const handleSaveBeforePhotos = async () => {
+        console.log('[handleSaveBeforePhotos] called', { selectedTaskId, editingUpdateId, beforePhotosCount: beforePhotos.length });
+        if (!selectedTaskId) return toast.error("Please select a task first");
+        if (beforePhotos.length === 0) return toast.error("Please upload at least one Before photo");
+        
+        const loadingToast = toast.loading("Uploading Before Work images...");
+        try {
+            let activeUpdateId = editingUpdateId;
+
+            // If no work update exists yet, create one first via POST /api/v1/work-updates
+            if (!activeUpdateId) {
+                console.log('[handleSaveBeforePhotos] No activeUpdateId, creating work update...');
+                // Try JSON payload first
+                try {
+                    const initialPayload: any = {
+                        project_id: Number(projectId),
+                        task_id: Number(selectedTaskId),
+                        description: description || `Before Work – ${category || 'General'}`,
+                        category: category || undefined,
+                        location: location || undefined,
+                        work_date: workDate || undefined,
+                        start_time: startTime || undefined,
+                    };
+                    if (beforeRemarks) initialPayload.before_remarks = beforeRemarks;
+                    const res = await workUpdateService.createWorkUpdate(initialPayload);
+                    console.log('[handleSaveBeforePhotos] createWorkUpdate response:', res);
+                    activeUpdateId = res?.id || res?.data?.id || res?.work_update_id || res?.work_update?.id || null;
+                } catch (jsonErr: any) {
+                    console.warn('[handleSaveBeforePhotos] JSON create failed, trying FormData:', jsonErr?.response?.data || jsonErr?.message);
+                    // Fallback: try FormData with images included
+                    const formData = new FormData();
+                    formData.append('project_id', String(projectId));
+                    formData.append('task_id', String(selectedTaskId));
+                    formData.append('description', description || `Before Work – ${category || 'General'}`);
+                    if (category) formData.append('category', category);
+                    if (location) formData.append('location', location);
+                    if (workDate) formData.append('work_date', workDate);
+                    if (startTime) formData.append('start_time', startTime);
+                    if (beforeRemarks) formData.append('before_remarks', beforeRemarks);
+                    beforePhotos.forEach((photo, idx) => {
+                        if (photo.startsWith('data:')) {
+                            formData.append('before_images', base64ToFile(photo, `before_${idx + 1}.jpg`));
+                        }
+                    });
+                    const res = await workUpdateService.createWorkUpdate(formData);
+                    console.log('[handleSaveBeforePhotos] FormData create response:', res);
+                    activeUpdateId = res?.id || res?.data?.id || res?.work_update_id || res?.work_update?.id || null;
+                }
+                if (activeUpdateId) {
+                    console.log('[handleSaveBeforePhotos] Got activeUpdateId:', activeUpdateId);
+                    setEditingUpdateId(activeUpdateId);
+                }
+            }
+
+            // Upload each before photo individually to POST /api/v1/work-updates/{id}/before-image
+            if (activeUpdateId) {
+                for (let i = 0; i < beforePhotos.length; i++) {
+                    const photo = beforePhotos[i];
+                    try {
+                        console.log(`[handleSaveBeforePhotos] Uploading before photo #${i + 1} to work_update_id=${activeUpdateId}`);
+                        if (photo.startsWith('data:')) {
+                            const file = base64ToFile(photo, `before_${i + 1}.jpg`);
+                            await workUpdateService.uploadBeforeImage(activeUpdateId, file);
+                        } else {
+                            await workUpdateService.uploadBeforeImage(activeUpdateId, { image: photo });
+                        }
+                        console.log(`[handleSaveBeforePhotos] Before photo #${i + 1} uploaded successfully`);
+                    } catch (imgErr: any) {
+                        console.warn(`[handleSaveBeforePhotos] uploadBeforeImage #${i + 1} failed:`, imgErr?.response?.data || imgErr?.message);
+                    }
+                }
+            } else {
+                console.error('[handleSaveBeforePhotos] Could not obtain work_update_id — images not uploaded');
+                toast.error("Could not create work update to attach images", { id: loadingToast });
+                return;
+            }
+
+            // Update status to "In Progress"
+            try {
+                await projectService.updateTaskStatus(Number(projectId), Number(selectedTaskId), 'In Progress');
+                localStorage.setItem(`task_status_${selectedTaskId}`, 'In Progress');
+            } catch (_) {}
+
+            toast.success("Before Work images uploaded!", { id: loadingToast });
+        } catch (err: any) {
+            console.error('[handleSaveBeforePhotos] Error:', err);
+            toast.error(err?.response?.data?.detail || err.message || "Failed to save Before Work details", { id: loadingToast });
+        }
+    };
 
     const [priorPhotos, setPriorPhotos] = useState<string[]>([
         "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&q=80&w=200",
@@ -205,69 +376,86 @@ const WorkUpdatesPage: React.FC = () => {
         else setAfterPhotos(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleSaveBeforePhotos = async () => {
-        if (!selectedTaskId) return toast.error("Please select a task first");
-        
-        const loadingToast = toast.loading("Saving Before Work details...");
-        try {
-            // Update status to "In Progress"
-            await projectService.updateTaskStatus(Number(projectId), Number(selectedTaskId), 'In Progress');
-            localStorage.setItem(`task_status_${selectedTaskId}`, 'In Progress');
-
-            // Best-effort description / before details update
-            try {
-                const formData = new FormData();
-                const combinedDesc = beforeRemarks ? `${description} | Before: ${beforeRemarks}` : description;
-                formData.append('description', combinedDesc);
-                formData.append('category', category);
-                formData.append('location', location);
-                formData.append('work_date', workDate);
-                formData.append('start_time', startTime);
-
-                beforePhotos.forEach((base64, index) => {
-                    formData.append('before_images', base64ToFile(base64, `before_${index}.jpg`));
-                });
-
-                await projectService.updateTask(Number(projectId), Number(selectedTaskId), formData);
-            } catch (putErr) {
-                console.warn('PUT before details skipped (permission):', putErr);
-            }
-
-            toast.success("Before Work details saved!", { id: loadingToast });
-        } catch (err: any) {
-            console.error(err);
-            toast.error(err.message || "Failed to save Before Work details", { id: loadingToast });
-        }
-    };
-
+    // POST /api/v1/work-updates/{work_update_id}/after-image
     const handleSaveAfterPhotos = async () => {
+        console.log('[handleSaveAfterPhotos] called', { selectedTaskId, editingUpdateId, afterPhotosCount: afterPhotos.length });
         if (!selectedTaskId) return toast.error("Please select a task first");
+        if (afterPhotos.length === 0) return toast.error("Please upload at least one After photo");
         
-        const loadingToast = toast.loading("Saving After Work details...");
+        const loadingToast = toast.loading("Uploading After Work images...");
         try {
-            // Best-effort description / after details update
-            try {
-                const formData = new FormData();
-                const combinedDesc = afterRemarks ? `${description} | After: ${afterRemarks}` : description;
-                formData.append('description', combinedDesc);
-                formData.append('category', category);
-                formData.append('location', location);
-                formData.append('work_date', workDate);
-                formData.append('end_time', endTime);
+            let activeUpdateId = editingUpdateId;
 
-                afterPhotos.forEach((base64, index) => {
-                    formData.append('after_images', base64ToFile(base64, `after_${index}.jpg`));
-                });
-
-                await projectService.updateTask(Number(projectId), Number(selectedTaskId), formData);
-            } catch (putErr) {
-                console.warn('PUT after details skipped (permission):', putErr);
+            // If no work update exists yet, create one first via POST /api/v1/work-updates
+            if (!activeUpdateId) {
+                console.log('[handleSaveAfterPhotos] No activeUpdateId, creating work update...');
+                try {
+                    const initialPayload: any = {
+                        project_id: Number(projectId),
+                        task_id: Number(selectedTaskId),
+                        description: description || `After Work – ${category || 'General'}`,
+                        category: category || undefined,
+                        location: location || undefined,
+                        work_date: workDate || undefined,
+                        end_time: endTime || undefined,
+                    };
+                    if (afterRemarks) initialPayload.after_remarks = afterRemarks;
+                    const res = await workUpdateService.createWorkUpdate(initialPayload);
+                    console.log('[handleSaveAfterPhotos] createWorkUpdate response:', res);
+                    activeUpdateId = res?.id || res?.data?.id || res?.work_update_id || res?.work_update?.id || null;
+                } catch (jsonErr: any) {
+                    console.warn('[handleSaveAfterPhotos] JSON create failed, trying FormData:', jsonErr?.response?.data || jsonErr?.message);
+                    const formData = new FormData();
+                    formData.append('project_id', String(projectId));
+                    formData.append('task_id', String(selectedTaskId));
+                    formData.append('description', description || `After Work – ${category || 'General'}`);
+                    if (category) formData.append('category', category);
+                    if (location) formData.append('location', location);
+                    if (workDate) formData.append('work_date', workDate);
+                    if (endTime) formData.append('end_time', endTime);
+                    if (afterRemarks) formData.append('after_remarks', afterRemarks);
+                    afterPhotos.forEach((photo, idx) => {
+                        if (photo.startsWith('data:')) {
+                            formData.append('after_images', base64ToFile(photo, `after_${idx + 1}.jpg`));
+                        }
+                    });
+                    const res = await workUpdateService.createWorkUpdate(formData);
+                    console.log('[handleSaveAfterPhotos] FormData create response:', res);
+                    activeUpdateId = res?.id || res?.data?.id || res?.work_update_id || res?.work_update?.id || null;
+                }
+                if (activeUpdateId) {
+                    console.log('[handleSaveAfterPhotos] Got activeUpdateId:', activeUpdateId);
+                    setEditingUpdateId(activeUpdateId);
+                }
             }
 
-            toast.success("After Work details saved!", { id: loadingToast });
+            // Upload each after photo individually to POST /api/v1/work-updates/{id}/after-image
+            if (activeUpdateId) {
+                for (let i = 0; i < afterPhotos.length; i++) {
+                    const photo = afterPhotos[i];
+                    try {
+                        console.log(`[handleSaveAfterPhotos] Uploading after photo #${i + 1} to work_update_id=${activeUpdateId}`);
+                        if (photo.startsWith('data:')) {
+                            const file = base64ToFile(photo, `after_${i + 1}.jpg`);
+                            await workUpdateService.uploadAfterImage(activeUpdateId, file);
+                        } else {
+                            await workUpdateService.uploadAfterImage(activeUpdateId, { image: photo });
+                        }
+                        console.log(`[handleSaveAfterPhotos] After photo #${i + 1} uploaded successfully`);
+                    } catch (imgErr: any) {
+                        console.warn(`[handleSaveAfterPhotos] uploadAfterImage #${i + 1} failed:`, imgErr?.response?.data || imgErr?.message);
+                    }
+                }
+            } else {
+                console.error('[handleSaveAfterPhotos] Could not obtain work_update_id — images not uploaded');
+                toast.error("Could not create work update to attach images", { id: loadingToast });
+                return;
+            }
+
+            toast.success("After Work images uploaded!", { id: loadingToast });
         } catch (err: any) {
-            console.error(err);
-            toast.error(err.message || "Failed to save After Work details", { id: loadingToast });
+            console.error('[handleSaveAfterPhotos] Error:', err);
+            toast.error(err?.response?.data?.detail || err.message || "Failed to save After Work details", { id: loadingToast });
         }
     };
 
@@ -277,41 +465,90 @@ const WorkUpdatesPage: React.FC = () => {
         if (beforePhotos.length === 0 || afterPhotos.length === 0) return toast.error("Please upload before and after photos");
 
         setIsSubmitting(true);
-        const loadingToast = toast.loading("Updating mission task...");
+        const loadingToast = toast.loading(editingUpdateId ? `Updating work update #${editingUpdateId}...` : "Submitting work update...");
 
         try {
-            // 1. Update Status (PATCH) — Labour role has permission for this
-            await projectService.updateTaskStatus(Number(projectId), Number(selectedTaskId), 'Completed');
+            const payload = {
+                project_id: Number(projectId),
+                task_id: Number(selectedTaskId),
+                description,
+                category,
+                location,
+                work_date: workDate,
+                start_time: startTime,
+                end_time: endTime,
+                before_remarks: beforeRemarks,
+                after_remarks: afterRemarks,
+                before_images: beforePhotos,
+                after_images: afterPhotos
+            };
 
-            // 2. Best-effort: Update Task Details (PUT) — Labour may get 403, that's acceptable
+            // 1. Submit or Update Work Update (PUT or POST /api/v1/work-updates)
+            let currentUpdateId = editingUpdateId;
             try {
+                if (editingUpdateId) {
+                    await workUpdateService.updateWorkUpdate(editingUpdateId, payload);
+                } else {
+                    const res = await workUpdateService.createWorkUpdate(payload);
+                    currentUpdateId = res?.id || res?.data?.id || res?.work_update_id || null;
+                }
+            } catch (apiErr: any) {
+                console.warn("API attempt failed, trying FormData fallback:", apiErr?.message);
                 const formData = new FormData();
-                const combinedRemarks = [
-                    beforeRemarks ? `Before: ${beforeRemarks}` : '',
-                    afterRemarks ? `After: ${afterRemarks}` : ''
-                ].filter(Boolean).join(' | ');
-                const finalDesc = combinedRemarks ? `${description} | ${combinedRemarks}` : description;
-                formData.append('description', finalDesc);
+                formData.append('project_id', String(projectId));
+                formData.append('task_id', String(selectedTaskId));
+                formData.append('description', description);
                 formData.append('category', category);
                 formData.append('location', location);
                 formData.append('work_date', workDate);
                 formData.append('start_time', startTime);
                 formData.append('end_time', endTime);
-
+                if (beforeRemarks) formData.append('before_remarks', beforeRemarks);
+                if (afterRemarks) formData.append('after_remarks', afterRemarks);
                 beforePhotos.forEach((base64, index) => {
                     formData.append('before_images', base64ToFile(base64, `before_${index}.jpg`));
                 });
                 afterPhotos.forEach((base64, index) => {
                     formData.append('after_images', base64ToFile(base64, `after_${index}.jpg`));
                 });
-
-                await projectService.updateTask(Number(projectId), Number(selectedTaskId), formData);
-            } catch (putErr: any) {
-                // 403/401 = Labour doesn't have task-edit permission — status already updated, safe to continue
-                console.warn('PUT task details skipped (permission):', putErr?.response?.status || putErr.message);
+                if (editingUpdateId) {
+                    await workUpdateService.updateWorkUpdate(editingUpdateId, formData);
+                } else {
+                    const res = await workUpdateService.createWorkUpdate(formData);
+                    currentUpdateId = res?.id || res?.data?.id || res?.work_update_id || null;
+                }
             }
 
-            toast.success('Task status updated to Completed!', { id: loadingToast });
+            // 2. Explicitly Submit Work Update (POST /api/v1/work-updates/{work_update_id}/submit)
+            if (currentUpdateId) {
+                try {
+                    await workUpdateService.submitWorkUpdate(currentUpdateId);
+                } catch (subErr) {
+                    console.warn("POST /work-updates/{id}/submit sync warning:", subErr);
+                }
+            }
+
+            // 3. Sync Task Status to Completed
+            try {
+                await projectService.updateTaskStatus(Number(projectId), Number(selectedTaskId), 'Completed');
+            } catch (statusErr) {
+                console.warn("Task status update sync warning:", statusErr);
+            }
+
+            toast.success(editingUpdateId ? `Work update #${editingUpdateId} updated!` : 'Work update submitted successfully!', { id: loadingToast });
+            setEditingUpdateId(null);
+
+            // Refresh My Work Updates & Timeline
+            try {
+                const [refreshedUpdates, refreshedTimeline] = await Promise.all([
+                    workUpdateService.getMyWorkUpdates({ project_id: Number(projectId) }),
+                    workUpdateService.getProjectTimeline(Number(projectId))
+                ]);
+                setMyUpdates(refreshedUpdates);
+                setTimeline(refreshedTimeline);
+            } catch (e) {
+                console.warn("Refresh work updates failed:", e);
+            }
 
             // Save photos to history
             const existingHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
@@ -335,7 +572,7 @@ const WorkUpdatesPage: React.FC = () => {
 
         } catch (error: any) {
             console.error('Submission Error:', error);
-            const errMsg = error?.response?.data?.detail || error?.message || 'Failed to update task status';
+            const errMsg = error?.response?.data?.detail || error?.message || 'Failed to submit work update';
             toast.error(errMsg, { id: loadingToast });
         } finally {
             setIsSubmitting(false);
@@ -426,7 +663,26 @@ const WorkUpdatesPage: React.FC = () => {
         }, 400);
     };
 
-    const handleExportCSV = () => {
+    const handleExportCSV = async () => {
+        try {
+            const data = await workUpdateService.exportWorkUpdates({ project_id: Number(projectId), format: 'csv' });
+            if (data instanceof Blob) {
+                const url = URL.createObjectURL(data);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `work-updates-${projectId}-${workDate || 'export'}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                toast.success("Exported work updates CSV!");
+                return;
+            }
+        } catch (exportErr) {
+            console.warn("Backend export API call skipped/fallback to client CSV:", exportErr);
+        }
+
+        // Client-side CSV generator fallback
         const selectedTask = tasks.find((t: any) => String(t.id) === String(selectedTaskId));
         const taskLabel = taskName || selectedTask?.title || selectedTask?.name || (selectedTaskId ? `Task #${selectedTaskId}` : '');
 
@@ -465,6 +721,7 @@ const WorkUpdatesPage: React.FC = () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+        toast.success("Downloaded Work Update CSV!");
     };
 
     return (
@@ -860,6 +1117,77 @@ const WorkUpdatesPage: React.FC = () => {
                         </div>
 
 
+
+                        {/* Recent Work Updates & Project Timeline */}
+                        {(myUpdates.length > 0 || timeline.length > 0) && (
+                            <div className="pt-6 border-t border-slate-100 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-800">Recent Work Updates &amp; Timeline</h3>
+                                        <p className="text-xs text-slate-400 font-medium">History of submitted work updates for this project</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {editingUpdateId && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setEditingUpdateId(null);
+                                                    setDescription('');
+                                                    setBeforePhotos([]);
+                                                    setAfterPhotos([]);
+                                                    toast.success("Switched to New Update mode");
+                                                }}
+                                                className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-full transition-colors"
+                                            >
+                                                <Plus className="w-3 h-3" />
+                                                <span>New Update</span>
+                                            </button>
+                                        )}
+                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                                            {(myUpdates.length || timeline.length)} Updates
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-72 overflow-y-auto pr-1">
+                                    {(myUpdates.length > 0 ? myUpdates : timeline).map((item: any, idx: number) => (
+                                        <div key={item.id || idx} className={`p-4 bg-slate-50 border ${editingUpdateId === item.id ? 'border-blue-500 bg-blue-50/20' : 'border-slate-100'} rounded-xl space-y-2 hover:bg-slate-100/50 transition-colors group relative`}>
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="font-bold text-slate-800">{item.task_name || item.title || `Update #${item.id || idx + 1}`}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-medium text-slate-400">{item.work_date || item.created_at?.split('T')[0] || item.date || 'Today'}</span>
+                                                    {item.id && (
+                                                        <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                type="button"
+                                                                title="Edit Work Update"
+                                                                onClick={() => handleLoadWorkUpdate(item.id)}
+                                                                className="p-1 hover:bg-blue-100 text-blue-600 rounded-md transition-colors"
+                                                            >
+                                                                <Edit className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                title="Delete Work Update"
+                                                                onClick={(e) => handleDeleteWorkUpdate(item.id, e)}
+                                                                className="p-1 hover:bg-red-100 text-red-600 rounded-md transition-colors"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-slate-600 line-clamp-2">{item.description || item.remarks || item.content || 'Work update logged'}</p>
+                                            <div className="flex items-center gap-3 text-[10px] text-slate-400 font-semibold pt-1">
+                                                {item.category && <span className="bg-white border border-slate-200 px-2 py-0.5 rounded-md text-slate-600">{item.category}</span>}
+                                                {item.location && <span className="bg-white border border-slate-200 px-2 py-0.5 rounded-md text-slate-600">{item.location}</span>}
+                                                {(item.start_time || item.end_time) && <span>{item.start_time || ''} - {item.end_time || ''}</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Footer Buttons */}
                         <div className="flex items-center justify-between pt-6 border-t border-slate-100">

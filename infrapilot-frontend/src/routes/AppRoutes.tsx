@@ -144,6 +144,7 @@ import LabourAttendancePageSelf from "../pages/labour/AttendancePage";
 import WorkUpdatesPage from "../pages/labour/WorkUpdatesPage";
 import TaskRequestsPage from "../pages/labour/TaskRequestsPage";
 import LabourNotificationsPage from "../pages/labour/LabourNotificationsPage";
+import LabourChatPage from "../pages/labour/LabourChatPage";
 
 const RootRedirect = () => {
   const { user, isAuthenticated } = useAuth();
@@ -502,6 +503,7 @@ function AppRoutes() {
                 <Route path="/labour/notifications" element={<LabourNotificationsPage />} />
                 <Route path="/labour/payments" element={<PaymentsPage />} />
                 <Route path="/labour/settings" element={<LabourSettingsPage />} />
+                <Route path="/labour/chat" element={<LabourChatPage />} />
               </Route>
 
               {/* Contractor Routes - Temporarily commented out as Contractor is not in UserRole type */}

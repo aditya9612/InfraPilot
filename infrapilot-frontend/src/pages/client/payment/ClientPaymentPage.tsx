@@ -234,33 +234,57 @@ const ClientPaymentPage = () => {
 
   // ── Data fetch (quotation approvals only) ──
   useEffect(() => {
-    if (!projectId || activeTab !== "quotation") return;
+    if (activeTab !== "quotation") return;
 
     const fetchData = async () => {
       try {
         setLoading(true);
-        const data = await quotationService.getQuotations(100, 0, Number(projectId));
-        const projectFiltered = data.filter((q: any) => Number(q.project_id) === Number(projectId));
-        const mapped = projectFiltered.map((q: any) => ({
-          ...q,
-          entity_title: "QUOTATION",
-          entity_id_display: q.quotation_no,
-          requested_by_name: q.client_name || q.company_name || "Admin",
-          remarks_details: q.project_name || "No project description",
-          status: q.is_approved ? "Approved" : q.status === "rejected" ? "Rejected" : "Pending",
-          approved_by_name: q.is_approved ? "CLIENT" : "-",
-          created_at: q.created_at || new Date().toISOString(),
-        }));
+        const data = await quotationService.getQuotations(100, 0, projectId ? Number(projectId) : undefined);
+        const rawList = Array.isArray(data) ? data : ((data as any)?.items || (data as any)?.data || []);
+
+        // Filter by project_id ONLY IF items actually contain project_id field and projectId is valid
+        const projectFiltered = (projectId && rawList.some((q: any) => q.project_id != null))
+          ? rawList.filter((q: any) => q.project_id == null || Number(q.project_id) === Number(projectId))
+          : rawList;
+
+        const mapped = projectFiltered.map((q: any) => {
+          const rawStatus = String(q.status || "").toLowerCase();
+          let status = "Pending";
+          if (q.is_approved === true || rawStatus === "approved" || rawStatus === "converted") {
+            status = "Approved";
+          } else if (rawStatus === "declined" || rawStatus === "rejected") {
+            status = "Rejected";
+          } else {
+            status = "Pending";
+          }
+
+          const quotationNo = q.quotation_no || q.quotation_number || (q.id ? `QT/2026/${String(q.id).padStart(4, '0')}` : "QT/2026/0001");
+          const companyName = q.company_name || q.client_name || q.requested_by_name || "Company";
+          const projectNameVal = q.project_name || q.remarks_details || "Project";
+          const createdAt = q.created_at || q.date || q.quotation_date || new Date().toISOString();
+          const approvedBy = q.approved_by_name || q.approved_by || (status === "Approved" ? (q.client_name || "CLIENT") : "-");
+
+          return {
+            ...q,
+            id: q.id,
+            entity_title: "QUOTATION",
+            entity_id_display: quotationNo,
+            quotation_no: quotationNo,
+            company_name: companyName,
+            client_name: q.client_name || companyName,
+            project_name: projectNameVal,
+            requested_by_name: companyName,
+            remarks_details: projectNameVal,
+            status,
+            approved_by_name: approvedBy,
+            created_at: createdAt,
+            amount: Number(q.grand_total || q.total_amount || q.subtotal || q.amount || 0)
+          };
+        });
         setQuotations(mapped);
       } catch (error) {
         console.error("Failed to fetch quotation data:", error);
-        setQuotations([
-          { id: 212, entity_title: "BOQ", requested_by_name: "Rohit", remarks_details: "Initial approval request for base", status: "Pending", approved_by_name: "-", created_at: "2026-06-12T10:00:00Z" },
-          { id: 48, entity_title: "DRAWING", requested_by_name: "Client", remarks_details: "Approval requested for drawing: Foundation", status: "Pending", approved_by_name: "-", created_at: "2026-06-11T12:00:00Z" },
-          { id: 46, entity_title: "DRAWING", requested_by_name: "Client", remarks_details: "Approved after site review", status: "Approved", approved_by_name: "CLIENT", created_at: "2026-06-10T14:00:00Z" },
-          { id: 45, entity_title: "DRAWING", requested_by_name: "Client", remarks_details: "Approval requested for drawing: Layout plan V2", status: "Pending", approved_by_name: "-", created_at: "2026-06-09T16:00:00Z" },
-          { id: 210, entity_title: "BOQ", requested_by_name: "Rohit", remarks_details: "Initial approval request for cement", status: "Pending", approved_by_name: "-", created_at: "2026-06-08T18:00:00Z" },
-        ]);
+        setQuotations([]);
       } finally {
         setLoading(false);
       }
@@ -405,7 +429,17 @@ const ClientPaymentPage = () => {
   const filteredQuotations = quotations
     .filter(q => {
       const s = searchTerm.toLowerCase();
-      const matchesSearch = (q.entity_title + q.id + (q.entity_id_display || "") + q.remarks_details + q.requested_by_name).toLowerCase().includes(s);
+      const matchesSearch = (
+        (q.entity_title || "") +
+        (q.id || "") +
+        (q.entity_id_display || "") +
+        (q.quotation_no || "") +
+        (q.company_name || "") +
+        (q.client_name || "") +
+        (q.project_name || "") +
+        (q.remarks_details || "") +
+        (q.requested_by_name || "")
+      ).toLowerCase().includes(s);
       const matchesStatus = statusFilter === "All Status" || q.status === statusFilter;
       return matchesSearch && matchesStatus;
     })

@@ -2,6 +2,7 @@ import { useState } from "react";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
 import toast from "react-hot-toast";
+import CreateRoleModal from "../../components/forms/CreateRoleModal";
 import type { Role } from "../../types/user";
 
 const INITIAL_ROLES: Role[] = [
@@ -47,16 +48,28 @@ const INITIAL_ROLES: Role[] = [
   },
 ];
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { userService } from "../../services/userService";
 
 const RolesPage = () => {
   const [roles, setRoles] = useState<Role[]>(INITIAL_ROLES);
-  const [roleStatusOverrides, setRoleStatusOverrides] = useState<Record<string, boolean>>({});
+  const roleStatusOverrides = useRef<Record<string, boolean>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
+
+  const handleCreateOrUpdateRole = (roleData: any) => {
+    if (editingRole) {
+      setRoles(prev => prev.map(r => r.id === editingRole.id ? { ...r, ...roleData } : r));
+    } else {
+      setRoles(prev => [...prev, roleData]);
+    }
+    setIsModalOpen(false);
+    setEditingRole(null);
+  };
 
   const fetchDynamicRoles = async () => {
     try {
@@ -69,8 +82,8 @@ const RolesPage = () => {
         );
 
         if (matchedAPI) {
-          const isActive = roleStatusOverrides[blueprint.name] !== undefined
-            ? roleStatusOverrides[blueprint.name]
+          const isActive = roleStatusOverrides.current[blueprint.name] !== undefined
+            ? roleStatusOverrides.current[blueprint.name]
             : (matchedAPI.is_active !== undefined ? matchedAPI.is_active : blueprint.is_active);
 
           return {
@@ -82,7 +95,7 @@ const RolesPage = () => {
           };
         }
 
-        const fallbackActive = roleStatusOverrides[blueprint.name] !== undefined ? roleStatusOverrides[blueprint.name] : blueprint.is_active;
+        const fallbackActive = roleStatusOverrides.current[blueprint.name] !== undefined ? roleStatusOverrides.current[blueprint.name] : blueprint.is_active;
         return { ...blueprint, userCount: 0, is_active: fallbackActive };
       });
 
@@ -105,17 +118,21 @@ const RolesPage = () => {
       const newStatus = !currentStatus;
 
       // Update our local visual state overrides first so it snaps instantly and holds!
-      setRoleStatusOverrides(prev => ({
-        ...prev,
-        [roleName]: newStatus
-      }));
+      roleStatusOverrides.current[roleName] = newStatus;
+
+      setRoles(prevRoles => prevRoles.map(role =>
+        role.name === roleName ? { ...role, is_active: newStatus } : role
+      ));
 
       await userService.toggleRoleStatus(roleName.replace(/\s+/g, ''), newStatus);
       toast.success(`Successfully ${newStatus ? 'activated' : 'deactivated'} all users in the ${roleName} role!`);
       setTimeout(() => fetchDynamicRoles(), 500);
     } catch (error: any) {
       // Revert on error
-      setRoleStatusOverrides(prev => ({ ...prev, [roleName]: currentStatus }));
+      roleStatusOverrides.current[roleName] = currentStatus;
+      setRoles(prevRoles => prevRoles.map(role =>
+        role.name === roleName ? { ...role, is_active: currentStatus } : role
+      ));
       toast.error(error.response?.data?.detail || "Failed to update users");
     }
   };
@@ -149,6 +166,15 @@ const RolesPage = () => {
               Define access hierarchies and permissions for all platform users.
             </p>
           </div>
+          <button
+            onClick={() => {
+              setEditingRole(null);
+              setIsModalOpen(true);
+            }}
+            className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 hover:shadow-xl transition-all active:scale-95"
+          >
+            + Create Custom Role
+          </button>
         </div>
 
         {/* Master Card Container */}
@@ -285,6 +311,16 @@ const RolesPage = () => {
           </div>
         </div>
       </PageTransition>
+
+      <CreateRoleModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingRole(null);
+        }}
+        onSubmit={handleCreateOrUpdateRole}
+        initialData={editingRole}
+      />
     </>
   );
 };

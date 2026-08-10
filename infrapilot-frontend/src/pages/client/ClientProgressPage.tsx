@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "../../components/common/Navbar";
-import { projectService } from "../../services/projectService";
 import { workProgressService } from "../../services/workProgressService";
 import { useClientProjectId } from "../../hooks/useClientProjectId";
-import { Eye, FileText, FileSpreadsheet } from "lucide-react";
+import { Eye, FileText, FileSpreadsheet, ChevronDown, Search } from "lucide-react";
 import ActivityDetailModal from "../../components/WorkProgress/ActivityDetailModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -14,6 +13,9 @@ const ClientProgressPage = () => {
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
@@ -21,17 +23,54 @@ const ClientProgressPage = () => {
   const [exportingExcel, setExportingExcel] = useState(false);
   const { projectId } = useClientProjectId();
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   useEffect(() => {
     if (!projectId) return;
 
     const fetchProgressData = async () => {
       try {
         setLoadingActivities(true);
-        const response = await projectService.getWorkProgressActivities(projectId, undefined, 50);
-        const fetchedActivities = Array.isArray(response) ? response : (response.data || response.items || []);
-        setActivities(fetchedActivities);
+        // Call GET /api/v1/work-progress/activities
+        const data = await workProgressService.listActivities(projectId);
+        const fetchedActivities = Array.isArray(data) ? data : [];
+        const normalized = fetchedActivities.map((act: any) => {
+          const planned = Number(act.planned_quantity) || 0;
+          const completed = Number(act.total_completed) || 0;
+          const remaining = act.remaining_quantity !== undefined
+            ? Number(act.remaining_quantity)
+            : Math.max(0, planned - completed);
+          const percent = act.completion_percentage !== undefined
+            ? Number(act.completion_percentage)
+            : (planned > 0 ? Math.round((completed / planned) * 100) : 0);
+
+          return {
+            ...act,
+            activity_name: act.activity_name || "Untitled Activity",
+            discipline: act.discipline || "General",
+            planned_quantity: planned,
+            total_completed: completed,
+            remaining_quantity: remaining,
+            completion_percentage: Math.min(100, Math.max(0, percent)),
+            unit: act.unit || "—",
+            start_date: act.start_date || "—",
+            end_date: act.end_date || "—",
+            status: (act.status || "NOT_STARTED").toUpperCase()
+          };
+        });
+        setActivities(normalized);
       } catch (err) {
         console.error("Failed to fetch work progress activities:", err);
+        toast.error("Failed to fetch work progress activities");
       } finally {
         setLoadingActivities(false);
       }
@@ -57,7 +96,7 @@ const ClientProgressPage = () => {
           console.warn("Backend PDF export failed, falling back to local generation:", apiErr);
         }
       }
-      
+
       const doc = new jsPDF({ orientation: "landscape" }) as any;
       doc.setFillColor(15, 23, 42);
       doc.rect(0, 0, 297, 24, "F");
@@ -146,11 +185,18 @@ const ClientProgressPage = () => {
 
   // Filtering Logic
   const filteredActivities = activities.filter(act => {
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      const nameMatch = (act.activity_name || "").toLowerCase().includes(q);
+      const discMatch = (act.discipline || "").toLowerCase().includes(q);
+      if (!nameMatch && !discMatch) return false;
+    }
+
     if (filterStatus === "ALL") return true;
     const status = act.status?.toUpperCase() || "";
     if (filterStatus === "ON_TRACK") return ["ON_TRACK", "ON TRACK"].includes(status);
     if (filterStatus === "COMPLETED") return ["COMPLETED"].includes(status);
-    if (filterStatus === "DELAYED") return ["DELAY", "DELAYED", "DELAY_ONGOING"].includes(status);
+    if (filterStatus === "DELAYED" || filterStatus === "DELAY") return ["DELAY", "DELAYED", "DELAY_ONGOING"].includes(status);
     if (filterStatus === "NOT_STARTED") return ["NOT_STARTED", "NOT STARTED"].includes(status);
     return true;
   });
@@ -185,11 +231,19 @@ const ClientProgressPage = () => {
   // Compute status counts
   const stats = {
     all: activities.length,
-    onTrack: activities.filter(a => ["ON TRACK", "ON_TRACK", "On Track"].includes(a.status?.toUpperCase() || a.status)).length,
-    completed: activities.filter(a => ["COMPLETED", "Completed"].includes(a.status?.toUpperCase() || a.status)).length,
-    notStarted: activities.filter(a => ["NOT_STARTED", "NOT STARTED", "Not Started"].includes(a.status?.toUpperCase() || a.status)).length,
-    delayed: activities.filter(a => ["DELAY", "DELAYED", "Delayed", "DELAY_ONGOING"].includes(a.status?.toUpperCase() || a.status)).length,
+    onTrack: activities.filter(a => ["ON TRACK", "ON_TRACK"].includes((a.status || "").toUpperCase())).length,
+    completed: activities.filter(a => ["COMPLETED"].includes((a.status || "").toUpperCase())).length,
+    notStarted: activities.filter(a => ["NOT_STARTED", "NOT STARTED"].includes((a.status || "").toUpperCase())).length,
+    delayed: activities.filter(a => ["DELAY", "DELAYED", "DELAY_ONGOING"].includes((a.status || "").toUpperCase())).length,
   };
+
+  const statusOptions = [
+    { value: "ALL", label: "All Status" },
+    { value: "NOT_STARTED", label: "Not Started" },
+    { value: "ON_TRACK", label: "On Track" },
+    { value: "DELAY", label: "Delay" },
+    { value: "COMPLETED", label: "Completed" },
+  ];
 
   return (
     <>
@@ -243,8 +297,8 @@ const ClientProgressPage = () => {
                 setCurrentPage(1);
               }}
               className={`p-6 rounded-2xl bg-white border transition-all flex flex-col items-start gap-4 text-left group active:scale-[0.98] ${filterStatus === card.id
-                  ? "border-blue-500 shadow-lg shadow-blue-50"
-                  : "border-slate-100 shadow-sm hover:border-slate-200"
+                ? "border-blue-500 shadow-lg shadow-blue-50"
+                : "border-slate-100 shadow-sm hover:border-slate-200"
                 }`}
             >
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
@@ -260,10 +314,72 @@ const ClientProgressPage = () => {
           ))}
         </div>
 
-        {/* Detailed Activity Progress — now from API */}
+        {/* Detailed Activity Progress */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-8 border-b border-slate-50">
-            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Detailed Activity Progress</h2>
+          <div className="px-8 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">
+              Detailed Activity Progress
+            </h2>
+
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Search Bar */}
+              <div className="relative min-w-[200px] sm:min-w-[240px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search activity or discipline..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 rounded-lg text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-400"
+                />
+              </div>
+
+              {/* STATUS label + dropdown */}
+              <div className="flex items-center gap-2" ref={dropdownRef}>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Status:
+                </span>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 hover:border-blue-400 rounded-lg text-[11px] font-extrabold text-slate-700 transition-all cursor-pointer uppercase tracking-wider min-w-[120px] justify-between shadow-sm"
+                  >
+                    <span>{statusOptions.find(o => o.value === filterStatus)?.label ?? "All Status"}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${dropdownOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {dropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                      {statusOptions.map((opt) => {
+                        const isSelected = filterStatus === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => {
+                              setFilterStatus(opt.value);
+                              setCurrentPage(1);
+                              setDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                              isSelected
+                                ? "bg-blue-600 text-white"
+                                : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
