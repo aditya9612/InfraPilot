@@ -32,6 +32,29 @@ api.interceptors.request.use(
       config.url = config.url.substring(1);
     }
 
+    // ── Global Trailing Slash Enforcer ──────────────────────────────────────
+    // The backend (Django/FastAPI) requires a trailing slash before query params.
+    // Without it, server sends 307 redirect → browser drops the Authorization
+    // header on redirect → 401 "Not authenticated".
+    // This block ensures every request path ends with '/' before any '?' params.
+    if (config.url) {
+      const qIndex = config.url.indexOf('?');
+      if (qIndex === -1) {
+        // No query string — just ensure path ends with /
+        if (!config.url.endsWith('/')) {
+          config.url = `${config.url}/`;
+        }
+      } else {
+        // Has query string — insert / between path and ?
+        const path = config.url.substring(0, qIndex);
+        const query = config.url.substring(qIndex);
+        if (!path.endsWith('/')) {
+          config.url = `${path}/${query}`;
+        }
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     return config;
   },
   (error) => Promise.reject(error),
@@ -66,7 +89,13 @@ api.interceptors.response.use(
         url.includes("contractors") ||
         url.includes("work-orders") ||
         url.includes("quotations") ||
-        url.includes("measurements");
+        url.includes("measurements") ||
+        url.includes("accountant/") ||
+        url.includes("labour/payroll") ||
+        url.includes("labour/attendance") ||
+        url.includes("projects/module-summary") ||
+        url.includes("health-score") ||
+        url.includes("resource-summary");
 
       if (!isIgnored) {
         const path = window.location.pathname;

@@ -5,7 +5,7 @@ import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { payrollService } from "../../services/payrollService";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 
 // --- SECTIONS ---
 
@@ -697,58 +697,138 @@ const ContractorPaymentSection = () => {
 
 const LedgerSection = () => {
   const [registerData, setRegisterData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerRpp, setLedgerRpp] = useState(10);
 
-  useEffect(() => {
-    const fetchRegister = async () => {
-      try {
-        const data = await payrollService.getPayrollRegister();
-        setRegisterData(Array.isArray(data) ? data : data?.data || []);
-      } catch (err) {
-        toast.error("Failed to load payroll register");
+  const fetchRegister = async () => {
+    setLoading(true);
+    try {
+      const raw = await payrollService.getPayrollRegister();
+      let list: any[] = [];
+      if (Array.isArray(raw)) list = raw;
+      else if (raw && typeof raw === 'object') {
+        list = raw.items || raw.data || raw.results || raw.transactions || [];
       }
-    };
+      setRegisterData(list);
+    } catch (err) {
+      toast.error("Failed to load transactions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchRegister();
   }, []);
 
+  // Parse linked_to: "LABOUR-WAGE:5:2026-08-05" → "Labour Wage #5"
+  const parseLinkedTo = (linked_to: string | null, reference: string) => {
+    if (!linked_to) return reference || '—';
+    const parts = linked_to.split(':');
+    const category = parts[0]; // e.g. LABOUR-WAGE, CONTRACTOR-PAY, STAFF-SALARY
+    const id = parts[1] || '';
+    if (category === 'LABOUR-WAGE') return `Labour Wage #${id}`;
+    if (category === 'CONTRACTOR-PAY') return `Contractor Pay #${id}`;
+    if (category === 'STAFF-SALARY') return `Staff Salary #${id}`;
+    return linked_to;
+  };
+
+  const paged = registerData.slice((ledgerPage - 1) * ledgerRpp, ledgerPage * ledgerRpp);
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div className="p-5 border-b border-slate-100"><h3 className="font-bold text-slate-800">Payroll Ledger</h3></div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 border-b border-slate-100">
-            <tr>{["Date", "Employee/Contractor", "Type", "Debit", "Credit", "Balance"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {registerData.length > 0 ? registerData.slice((ledgerPage-1)*ledgerRpp, ledgerPage*ledgerRpp).map((item, idx) => (
-              <tr key={idx} className="hover:bg-slate-50/50">
-                <td className="px-4 py-3 text-xs text-slate-500">{item.date || '-'}</td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-800">{item.name || item.employee || item.contractor || '-'}</td>
-                <td className="px-4 py-3 text-xs text-slate-600">{item.type || 'Transaction'}</td>
-                <td className="px-4 py-3 text-xs text-rose-500 font-semibold">{item.debit ? `₹${item.debit}` : '—'}</td>
-                <td className="px-4 py-3 text-xs text-emerald-600 font-bold">{item.credit ? `₹${item.credit}` : '—'}</td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-800">₹{item.balance || 0}</td>
-              </tr>
-            )) : (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No register entries found.</td></tr>
-            )}
-          </tbody>
-        </table>
+      <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 className="font-bold text-slate-800 flex items-center gap-3">
+          Payroll Ledger
+          <button onClick={fetchRegister} disabled={loading} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-primary' : ''}`} />
+          </button>
+        </h3>
+        {!loading && <span className="text-xs text-slate-400 font-semibold">{registerData.length} records</span>}
       </div>
-      {registerData.length > 0 && (
+      <div className="overflow-x-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          </div>
+        ) : (
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                {["Date", "Employee/Contractor", "Type", "Debit", "Credit", "Balance"].map(h => (
+                  <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {paged.length > 0 ? paged.map((item: any) => {
+                const isPayment = item.type === 'payment';
+                const isReceipt = item.type === 'receipt';
+                const debit  = isPayment ? item.amount : null;
+                const credit = isReceipt ? item.amount : null;
+                const dateStr = item.created_at ? item.created_at.split('T')[0] : '—';
+                const party = item.party_name || parseLinkedTo(item.linked_to, item.reference);
+
+                return (
+                  <tr key={item.id} className="hover:bg-slate-50/50">
+                    {/* DATE */}
+                    <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{dateStr}</td>
+
+                    {/* EMPLOYEE/CONTRACTOR */}
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-bold text-slate-800">{party}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px]">{item.reference}</p>
+                    </td>
+
+                    {/* TYPE */}
+                    <td className="px-4 py-3">
+                      <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                        isReceipt ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                      }`}>{item.type}</span>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{item.mode || ''}</p>
+                    </td>
+
+                    {/* DEBIT */}
+                    <td className="px-4 py-3 text-xs text-rose-500 font-semibold">
+                      {debit != null ? `₹${Number(debit).toLocaleString('en-IN')}` : '—'}
+                    </td>
+
+                    {/* CREDIT */}
+                    <td className="px-4 py-3 text-xs text-emerald-600 font-bold">
+                      {credit != null ? `₹${Number(credit).toLocaleString('en-IN')}` : '—'}
+                    </td>
+
+                    {/* BALANCE — not in API */}
+                    <td className="px-4 py-3 text-xs text-slate-400">—</td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-sm font-bold text-slate-400">
+                    No transactions found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+      {!loading && registerData.length > 0 && (
         <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+            <span className="text-xs text-slate-500 font-semibold">Per page:</span>
             <select value={ledgerRpp} onChange={(e) => { setLedgerRpp(Number(e.target.value)); setLedgerPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
               {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
-          <span className="text-xs text-slate-500 font-semibold">Showing {(ledgerPage-1)*ledgerRpp+1} – {Math.min(ledgerPage*ledgerRpp, registerData.length)} of {registerData.length} records</span>
+          <span className="text-xs text-slate-500 font-semibold">
+            {(ledgerPage - 1) * ledgerRpp + 1}–{Math.min(ledgerPage * ledgerRpp, registerData.length)} of {registerData.length}
+          </span>
           <div className="flex items-center gap-1">
-            <button onClick={() => setLedgerPage(p => Math.max(1,p-1))} disabled={ledgerPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+            <button onClick={() => setLedgerPage(p => Math.max(1, p - 1))} disabled={ledgerPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
             <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{ledgerPage}</span>
-            <button onClick={() => setLedgerPage(p => Math.min(Math.ceil(registerData.length/ledgerRpp),p+1))} disabled={ledgerPage===Math.ceil(registerData.length/ledgerRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+            <button onClick={() => setLedgerPage(p => Math.min(Math.ceil(registerData.length / ledgerRpp), p + 1))} disabled={ledgerPage === Math.ceil(registerData.length / ledgerRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
           </div>
         </div>
       )}

@@ -20,7 +20,7 @@ export const payrollService = {
     const response = await api.get('/accountant/payroll/summary');
     return response.data;
   },
-  
+
   getStaffRegister: async () => {
     const response = await api.get('/accountant/payroll/staff/register');
     return response.data;
@@ -62,12 +62,17 @@ export const payrollService = {
   },
 
   getPayrollRegister: async () => {
-    const response = await api.get('/accountant/payroll/register');
-    return response.data;
+    try {
+      const response = await api.get('accountant/transactions');
+      return response.data;
+    } catch (e: any) {
+      console.warn('getPayrollRegister (transactions) failed:', e.message);
+      return [];
+    }
   },
 
   getContractorBills: async () => {
-    const response = await api.get('/accountant/payroll/contractor/bills');
+    const response = await api.get('/billing');
     return response.data;
   },
 
