@@ -622,7 +622,7 @@ const ManagerBOQPage = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <ProjectSelector variant="page" />
+                        <ProjectSelector variant="page" hideAllProjects={true} />
 
                         <button
                             onClick={() => setIsBulkImportModalOpen(true)}

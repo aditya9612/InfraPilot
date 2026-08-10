@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
+import { authService } from "../services/authService";
 
 export type Role =
   | "Admin"
@@ -26,7 +27,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   login: (userData: User) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
 }
@@ -70,9 +71,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("infrapilot_user", JSON.stringify(userData));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await authService.logout();
     setUser(null);
-    localStorage.removeItem("infrapilot_user");
   };
 
   const refreshUser = (updates: Partial<User>) => {

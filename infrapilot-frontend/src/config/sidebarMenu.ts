@@ -78,11 +78,6 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       icon: "clipboard",
       subNav: [
         { label: "BOQ Setup", path: "/admin/boq/setup", icon: "list" },
-        {
-          label: "Activity List",
-          path: "/admin/boq/activities",
-          icon: "activity",
-        },
       ],
     },
     {

@@ -362,6 +362,20 @@ export const financeService = {
   },
 
   /**
+   * Send an invoice
+   * POST /api/v1/invoices/{id}/send
+   */
+  async sendInvoice(id: number, data: any = {}): Promise<any> {
+    try {
+      const response = await api.post(`/invoices/${id}/send`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Send Invoice ${id} Error:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  /**
    * Get invoice summary for a project
    * GET /api/v1/invoices/project/{project_id}/summary
    */
