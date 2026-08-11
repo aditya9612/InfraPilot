@@ -281,7 +281,12 @@ const ClientPaymentPage = () => {
             amount: Number(q.grand_total || q.total_amount || q.subtotal || q.amount || 0)
           };
         });
-        setQuotations(mapped);
+        const filtered = mapped.filter((q: any) => {
+          const pName = (q.project_name || q.remarks_details || q.project || "").toLowerCase();
+          const qNo = (q.quotation_no || q.entity_id_display || "").toLowerCase();
+          return !pName.includes("residential bungalow") && !qNo.includes("0005");
+        });
+        setQuotations(filtered);
       } catch (error) {
         console.error("Failed to fetch quotation data:", error);
         setQuotations([]);
@@ -428,6 +433,9 @@ const ClientPaymentPage = () => {
   // ── Quotation filtered/sorted ──
   const filteredQuotations = quotations
     .filter(q => {
+      const pName = (q.project_name || q.remarks_details || q.project || "").toLowerCase();
+      const qNo = (q.quotation_no || q.entity_id_display || "").toLowerCase();
+      if (pName.includes("residential bungalow") || qNo.includes("0005")) return false;
       const s = searchTerm.toLowerCase();
       const matchesSearch = (
         (q.entity_title || "") +
