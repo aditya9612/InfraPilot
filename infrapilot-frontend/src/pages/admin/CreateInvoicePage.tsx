@@ -61,6 +61,7 @@ const CreateInvoicePage = () => {
   const projectIdFromUrl = queryParams.get("projectId");
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
 
   const [selectedProjectId, setSelectedProjectId] = useState<number>(0);
   const [activeTab, setActiveTab] = useState(queryParams.get("tab") || "items");
@@ -118,6 +119,7 @@ const CreateInvoicePage = () => {
 
   // Form State
   const [clientDetails, setClientDetails] = useState({
+    clientId: null as number | null,
     name: "",
     company: "",
     mobile: "",
@@ -214,25 +216,26 @@ const CreateInvoicePage = () => {
         ...prev,
         plum: { ...prev.plum, cuft, m3 }
       }));
-      // Find plum item by item_type or fall back to id="2"
-      setItems(prev => prev.map(item =>
-        (item.item_type === "plum_concrete" || item.id === "2")
-          ? { ...item, quantity: m3, amount: Number((m3 * item.rate).toFixed(2)) }
-          : item
-      ));
+      setItems(prev => prev.map(item => {
+        if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+          const qty = item.unit === "Brass" ? Number((cuft / 100).toFixed(2)) : item.unit === "Sqft" ? Number((measurementData.plum.l * measurementData.plum.w).toFixed(2)) : item.unit === "Nos" ? 1 : m3;
+          return { ...item, quantity: qty, amount: Number((qty * item.rate).toFixed(2)) };
+        }
+        return item;
+      }));
     }
   }, [measurementData.plum.l, measurementData.plum.w, measurementData.plum.h]);
 
   // Calculate Stone Work
   useEffect(() => {
     const totalCuft = measurementData.stone.reduce((sum, s) => sum + (s.l * s.w * s.h), 0);
-    const brass = Number((totalCuft / 100).toFixed(2));
-    // Find stone item by item_type or fall back to id="3"
-    setItems(prev => prev.map(item =>
-      (item.item_type === "stone_work" || item.id === "3")
-        ? { ...item, quantity: brass, amount: Number((brass * item.rate).toFixed(2)) }
-        : item
-    ));
+    setItems(prev => prev.map(item => {
+      if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+        const qty = (item.unit === "Cum" || item.unit === "m3") ? Number((totalCuft * 0.0283168).toFixed(2)) : item.unit === "Sqft" ? Number((measurementData.stone.reduce((sum, s) => sum + (s.l * s.w), 0)).toFixed(2)) : item.unit === "Nos" ? measurementData.stone.length : Number((totalCuft / 100).toFixed(2));
+        return { ...item, quantity: qty, amount: Number((qty * item.rate).toFixed(2)) };
+      }
+      return item;
+    }));
   }, [measurementData.stone]);
 
   useEffect(() => {
@@ -257,29 +260,8 @@ const CreateInvoicePage = () => {
           });
         }
 
-        // Auto-populate client details if the project has an owner/client
-        if (selectedProject.owner_id) {
-          const fetchClient = async () => {
-            try {
-              const u = await userService.getUserById(selectedProject.owner_id);
-              if (u) {
-                setClientDetails({
-                  name: u.full_name || "",
-                  company: u.designation || "Patil Construction Pvt Ltd",
-                  mobile: u.mobile_number || "",
-                  email: u.email || "",
-                  address: u.address || "",
-                  gst: u.pan_number || ""
-                });
-              }
-            } catch (error: any) {
-              if (error?.response?.status !== 404) {
-                console.error("Failed to auto-populate client details from project owner", error);
-              }
-            }
-          };
-          fetchClient();
-        }
+        // Client details will NOT be auto-populated from project owner.
+        // User requested to type client details manually without them being overwritten by project selection.
       }
     }
   }, [selectedProjectId, projects, id]);
@@ -294,7 +276,7 @@ const CreateInvoicePage = () => {
     }
   }, [projectIdFromUrl, id, projects]);
 
-  // Fetch Projects
+  // Fetch Projects and Clients
   useEffect(() => {
     const fetchProjects = async () => {
       try {
@@ -306,6 +288,18 @@ const CreateInvoicePage = () => {
       }
     };
     fetchProjects();
+
+    const fetchClients = async () => {
+      try {
+        const res = await userService.getAllUsers(100, 0);
+        const list = Array.isArray(res) ? res : (res.items || res.data || []);
+        // Match the exact Titlecase 'Client' from the backend UserRole type
+        setClients(list.filter((u: any) => u.role === "Client" || u.role === "client"));
+      } catch (error) {
+        console.error("Failed to fetch clients", error);
+      }
+    };
+    fetchClients();
   }, []);
 
   // Pre-populate client details if clientId is provided in URL
@@ -316,6 +310,7 @@ const CreateInvoicePage = () => {
           const u = await userService.getUserById(Number(clientIdFromUrl));
           if (u) {
             setClientDetails({
+              clientId: u.id,
               name: u.full_name || "",
               company: u.designation || "", // Using designation as company placeholder
               mobile: u.mobile_number || "",
@@ -343,6 +338,7 @@ const CreateInvoicePage = () => {
           setStatus(q.status || "draft");
           // Map basic details
           setClientDetails({
+            clientId: q.client_user_id || (clientIdFromUrl ? Number(clientIdFromUrl) : null),
             name: q.client_name || "",
             company: q.company_name || "",
             mobile: q.mobile_number || "",
@@ -392,7 +388,7 @@ const CreateInvoicePage = () => {
             setInvoiceDetails(prev => ({ ...prev, dueDate: q.due_date || "" }));
           }
 
-          // Set project dropdown to the project this quotation belongs to
+          // Store raw fetched project ID just in case
           if (q.project_id) {
             setSelectedProjectId(q.project_id);
           }
@@ -448,6 +444,16 @@ const CreateInvoicePage = () => {
     };
     fetchQuotation();
   }, [id]);
+
+  // Fallback: If viewing an existing quote but the backend GET omitted project_id, try to match by name
+  useEffect(() => {
+    if (id && selectedProjectId === 0 && projectDetails.name && projects.length > 0) {
+      const matched = projects.find(p => p.project_name?.trim() === projectDetails.name?.trim());
+      if (matched && matched.id) {
+        setSelectedProjectId(matched.id);
+      }
+    }
+  }, [id, selectedProjectId, projectDetails.name, projects]);
 
   // Calculations
   // Calculations with robust rounding to 2 decimal places
@@ -609,10 +615,17 @@ const CreateInvoicePage = () => {
 
   // Implement Save
   const handleSaveQuotation = async () => {
+    if (!projectDetails.name || projectDetails.name.trim() === "") {
+      toast.error("Project Name is required! Please select a valid project.");
+      setIsSaving(false);
+      return;
+    }
+
     try {
       setIsSaving(true);
 
       const payload: any = {
+        client_user_id: clientDetails.clientId || 1,
         client_name: clientDetails.name,
         company_name: clientDetails.company || "Patil Construction Pvt Ltd",
         mobile_number: clientDetails.mobile,
@@ -634,25 +647,51 @@ const CreateInvoicePage = () => {
         extra_charge_items: extraChargeItems,
 
         items: id ? items.filter(i => !String(i.id).startsWith("new_")).map(item => {
+          let itemType = item.item_type || "custom";
           let measurements: any[] = [];
-          if (String(item.id) === "1" || String(item.id) === "soling") {
+          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+            itemType = "soling";
             const { l, w, h } = measurementData.soling;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "ft" }];
             }
-          } else if (String(item.id) === "2" || String(item.id) === "plum_concrete") {
+          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+            itemType = "plum_concrete";
             const { l, w, h } = measurementData.plum;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "m" }];
             }
-          } else {
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+            itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
+          } else {
+            itemType = item.item_type || "custom";
+            measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
           }
 
+          if (measurements.length === 0) {
+            let dummyLength = item.quantity || 1;
+            if (itemType === "plum_concrete" && (item.unit === "Cum" || item.unit === "m3")) {
+              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
+            } else if ((itemType === "soling" || itemType === "stone_work") && item.unit === "Brass") {
+              dummyLength = dummyLength * 100;
+            }
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
+          }
+
+          measurements = measurements.map(m => {
+            return {
+              ...m,
+              length: m.length || 1,
+              width: m.width || 1,
+              height: m.height || 1
+            };
+          });
+
           return {
-            item_type: (String(item.id) === "1" || String(item.id) === "soling") ? "soling" : (String(item.id) === "2" || String(item.id) === "plum_concrete") ? "plum_concrete" : "stone_work",
+            item_type: itemType,
             title: item.description.split('\n')[0],
             description: item.description,
             unit: item.unit,
@@ -660,25 +699,51 @@ const CreateInvoicePage = () => {
             measurements
           };
         }) : items.map(item => {
+          let itemType = item.item_type || "custom";
           let measurements: any[] = [];
-          if (String(item.id) === "1") {
+          if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+            itemType = "soling";
             const { l, w, h } = measurementData.soling;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "ft" }];
             }
-          } else if (String(item.id) === "2") {
+          } else if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+            itemType = "plum_concrete";
             const { l, w, h } = measurementData.plum;
             if (l > 0 || w > 0 || h > 0) {
               measurements = [{ length: l, width: w, height: h, unit: "m" }];
             }
-          } else {
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+            itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
+          } else {
+            itemType = item.item_type || "custom";
+            measurements = [{ length: item.quantity || 1, width: 1, height: 1, unit: item.unit || "unit" }];
           }
 
+          if (measurements.length === 0) {
+            let dummyLength = item.quantity || 1;
+            if (itemType === "plum_concrete" && (item.unit === "Cum" || item.unit === "m3")) {
+              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
+            } else if ((itemType === "soling" || itemType === "stone_work") && item.unit === "Brass") {
+              dummyLength = dummyLength * 100;
+            }
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
+          }
+
+          measurements = measurements.map(m => {
+            return {
+              ...m,
+              length: m.length || 1,
+              width: m.width || 1,
+              height: m.height || 1
+            };
+          });
+
           return {
-            item_type: String(item.id) === "1" ? "soling" : String(item.id) === "2" ? "plum_concrete" : "stone_work",
+            item_type: itemType,
             title: item.description.split('\n')[0],
             description: item.description,
             unit: item.unit,
@@ -718,18 +783,41 @@ const CreateInvoicePage = () => {
         const newItemsLocal = items.filter(i => String(i.id).startsWith("new_"));
         for (const newItem of newItemsLocal) {
           let measurements: any[] = [];
-          let itemType = "stone_work";
-          if (newItem.id.includes("soling")) {
+          let itemType = newItem.item_type || "custom";
+          if (newItem.item_type === "soling" || String(newItem.id) === "1" || String(newItem.id).includes("soling")) {
             itemType = "soling";
-            measurements = [{ length: measurementData.soling.l, width: measurementData.soling.w, height: measurementData.soling.h, unit: "ft" }];
-          } else if (newItem.id.includes("plum")) {
+            measurements = [{ length: measurementData.soling.l || 0, width: measurementData.soling.w || 0, height: measurementData.soling.h || 0, unit: "ft" }];
+          } else if (newItem.item_type === "plum_concrete" || String(newItem.id) === "2" || String(newItem.id).includes("plum")) {
             itemType = "plum_concrete";
-            measurements = [{ length: measurementData.plum.l, width: measurementData.plum.w, height: measurementData.plum.h, unit: "m" }];
-          } else {
+            measurements = [{ length: measurementData.plum.l || 0, width: measurementData.plum.w || 0, height: measurementData.plum.h || 0, unit: "m" }];
+          } else if (newItem.item_type === "stone_work" || String(newItem.id) === "3" || String(newItem.id).includes("stone")) {
+            itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
+          } else {
+            itemType = newItem.item_type || "custom";
+            measurements = [{ length: newItem.quantity || 1, width: 1, height: 1, unit: newItem.unit || "unit" }];
           }
+
+          if (measurements.length === 0) {
+            let dummyLength = newItem.quantity || 1;
+            if (itemType === "plum_concrete" && (newItem.unit === "Cum" || newItem.unit === "m3")) {
+              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
+            } else if ((itemType === "soling" || itemType === "stone_work") && newItem.unit === "Brass") {
+              dummyLength = dummyLength * 100;
+            }
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
+          }
+
+          measurements = measurements.map(m => {
+            return {
+              ...m,
+              length: m.length || 1,
+              width: m.width || 1,
+              height: m.height || 1
+            };
+          });
 
           const itemPayload = {
             item_type: itemType,
@@ -746,18 +834,41 @@ const CreateInvoicePage = () => {
         const existingItemsLocal = items.filter(i => !String(i.id).startsWith("new_"));
         for (const existingItem of existingItemsLocal) {
           let measurements: any[] = [];
-          let itemType = "stone_work";
-          if (String(existingItem.id) === "1" || String(existingItem.id).includes("soling")) {
+          let itemType = existingItem.item_type || "custom";
+          if (existingItem.item_type === "soling" || String(existingItem.id) === "1" || String(existingItem.id).includes("soling")) {
             itemType = "soling";
-            measurements = [{ length: measurementData.soling.l, width: measurementData.soling.w, height: measurementData.soling.h, unit: "ft" }];
-          } else if (String(existingItem.id) === "2" || String(existingItem.id).includes("plum")) {
+            measurements = [{ length: measurementData.soling.l || 0, width: measurementData.soling.w || 0, height: measurementData.soling.h || 0, unit: "ft" }];
+          } else if (existingItem.item_type === "plum_concrete" || String(existingItem.id) === "2" || String(existingItem.id).includes("plum")) {
             itemType = "plum_concrete";
-            measurements = [{ length: measurementData.plum.l, width: measurementData.plum.w, height: measurementData.plum.h, unit: "m" }];
-          } else {
+            measurements = [{ length: measurementData.plum.l || 0, width: measurementData.plum.w || 0, height: measurementData.plum.h || 0, unit: "m" }];
+          } else if (existingItem.item_type === "stone_work" || String(existingItem.id) === "3" || String(existingItem.id).includes("stone")) {
+            itemType = "stone_work";
             measurements = measurementData.stone
               .filter(s => s.l > 0 || s.w > 0 || s.h > 0)
               .map(s => ({ length: s.l, width: s.w, height: s.h, unit: "ft" }));
+          } else {
+            itemType = existingItem.item_type || "custom";
+            measurements = [{ length: existingItem.quantity || 1, width: 1, height: 1, unit: existingItem.unit || "unit" }];
           }
+
+          if (measurements.length === 0) {
+            let dummyLength = existingItem.quantity || 1;
+            if (itemType === "plum_concrete" && (existingItem.unit === "Cum" || existingItem.unit === "m3")) {
+              dummyLength = Number((dummyLength / 0.0283168).toFixed(2));
+            } else if ((itemType === "soling" || itemType === "stone_work") && existingItem.unit === "Brass") {
+              dummyLength = dummyLength * 100;
+            }
+            measurements = [{ length: dummyLength, width: 1, height: 1, unit: "ft" }];
+          }
+
+          measurements = measurements.map(m => {
+            return {
+              ...m,
+              length: m.length || 1,
+              width: m.width || 1,
+              height: m.height || 1
+            };
+          });
 
           const itemPayload = {
             item_type: itemType,
@@ -965,6 +1076,33 @@ const CreateInvoicePage = () => {
         if (field === "quantity" || field === "rate") {
           const rawAmount = Number(updatedItem.quantity) * Number(updatedItem.rate);
           updatedItem.amount = Number(rawAmount.toFixed(2));
+
+          if (field === "quantity") {
+            const actualQty = Number(value);
+            if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+              const l = item.unit === "Brass" ? actualQty * 100 : item.unit === "Sqft" ? actualQty : actualQty / 0.0283168;
+              setMeasurementData(prev => ({ ...prev, plum: { l: Number(l.toFixed(2)), w: 1, h: 1, cuft: 0, m3: 0 } }));
+            } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+              const l = (item.unit === "Cum" || item.unit === "m3") ? actualQty / 0.0283168 : item.unit === "Sqft" ? actualQty : actualQty * 100;
+              setMeasurementData(prev => ({ ...prev, stone: [{ l: Number(l.toFixed(2)), w: 1, h: 1, v: actualQty }] }));
+            } else if (item.item_type === "soling" || String(item.id) === "1" || String(item.id).includes("soling")) {
+              const l = item.unit === "Brass" ? actualQty * 100 : item.unit === "Sqft" ? actualQty : actualQty / 0.0283168;
+              setMeasurementData(prev => ({ ...prev, soling: { l: Number(l.toFixed(2)), w: 1, h: 1, qty: actualQty } }));
+            }
+          }
+        } else if (field === "unit") {
+          if (item.item_type === "plum_concrete" || String(item.id) === "2" || String(item.id).includes("plum")) {
+            const cuft = measurementData.plum.l * measurementData.plum.w * measurementData.plum.h;
+            const m3 = Number((cuft * 0.0283168).toFixed(2));
+            const qty = value === "Brass" ? Number((cuft / 100).toFixed(2)) : value === "Sqft" ? Number((measurementData.plum.l * measurementData.plum.w).toFixed(2)) : value === "Nos" ? 1 : m3;
+            updatedItem.quantity = qty;
+            updatedItem.amount = Number((qty * updatedItem.rate).toFixed(2));
+          } else if (item.item_type === "stone_work" || String(item.id) === "3" || String(item.id).includes("stone")) {
+            const totalCuft = measurementData.stone.reduce((sum, s) => sum + (s.l * s.w * s.h), 0);
+            const qty = (value === "Cum" || value === "m3") ? Number((totalCuft * 0.0283168).toFixed(2)) : value === "Sqft" ? Number((measurementData.stone.reduce((sum, s) => sum + (s.l * s.w), 0)).toFixed(2)) : value === "Nos" ? measurementData.stone.length : Number((totalCuft / 100).toFixed(2));
+            updatedItem.quantity = qty;
+            updatedItem.amount = Number((qty * updatedItem.rate).toFixed(2));
+          }
         }
         return updatedItem;
       }
@@ -1277,14 +1415,46 @@ const CreateInvoicePage = () => {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Name <span className="text-rose-500">*</span></label>
-                    <input
-                      type="text"
-                      value={clientDetails.name}
-                      onChange={(e) => setClientDetails({ ...clientDetails, name: e.target.value })}
-                      readOnly={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    />
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Identity <span className="text-rose-500">*</span></label>
+                    <select
+                      value={clientDetails.clientId || 0}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (val === 0) {
+                          setClientDetails({ clientId: null, name: "", company: "", mobile: "", email: "", address: "", gst: "" });
+                        } else {
+                          const c = clients.find(x => (x.id || x.user_id) === val);
+                          if (c) {
+                            setClientDetails({
+                              clientId: c.id || c.user_id,
+                              name: c.full_name || "",
+                              company: clientDetails.company, // Preserve whatever user manually typed
+                              mobile: c.mobile_number || "",
+                              email: c.email || "",
+                              address: c.address || "",
+                              gst: c.pan_number || ""
+                            });
+                          }
+                        }
+                      }}
+                      disabled={isReadOnly}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    >
+                      <option value={0}>Walk-in / Manual Client</option>
+                      {clients.map(c => (
+                        <option key={c.id || c.user_id} value={c.id || c.user_id}>{c.full_name}</option>
+                      ))}
+                    </select>
+                    {!clientDetails.clientId && (
+                      <input
+                        type="text"
+                        value={clientDetails.name}
+                        onChange={(e) => setClientDetails({ ...clientDetails, name: e.target.value })}
+                        readOnly={isReadOnly}
+                        placeholder="Type Manual Client Name..."
+                        className={`w-full px-4 py-2.5 mt-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                      />
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1349,17 +1519,14 @@ const CreateInvoicePage = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Name</label>
-                    <select
-                      value={selectedProjectId}
-                      onChange={(e) => setSelectedProjectId(Number(e.target.value))}
-                      disabled={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    >
-                      <option value={0}>Select Project</option>
-                      {projects.map(p => (
-                        <option key={p.id} value={p.id}>{p.project_name}</option>
-                      ))}
-                    </select>
+                    <input
+                      type="text"
+                      value={projectDetails.name}
+                      onChange={(e) => setProjectDetails({ ...projectDetails, name: e.target.value })}
+                      placeholder="Type Manual Project Name..."
+                      readOnly={isReadOnly}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>
@@ -1552,7 +1719,7 @@ const CreateInvoicePage = () => {
 
             {/* BOTTOM SECTION: TABS & SUMMARY */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="flex border-b border-slate-100 overflow-x-auto no-scrollbar">
+              <div className="flex w-full border-b border-slate-100 overflow-x-auto no-scrollbar">
                 {[
                   { id: "measurements", label: "Measurement Details", icon: <Calendar className="w-3.5 h-3.5" /> },
                   { id: "material", label: "Material Details", icon: <Briefcase className="w-3.5 h-3.5" /> },
@@ -1560,12 +1727,11 @@ const CreateInvoicePage = () => {
                   { id: "charges", label: "Extra Charges", icon: <PlusCircle className="w-3.5 h-3.5" /> },
                   { id: "tax", label: "Tax Details", icon: <FileText className="w-3.5 h-3.5" /> },
                   { id: "payment", label: "Payment Details", icon: <Calendar className="w-3.5 h-3.5" /> },
-                  { id: "notes", label: "Notes", icon: <FileText className="w-3.5 h-3.5" /> },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-6 py-4 text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
+                    className={`flex-1 flex justify-center items-center gap-2 px-4 py-4 text-[10px] xl:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border-b-2 ${activeTab === tab.id
                       ? "text-indigo-600 border-indigo-600 bg-indigo-50/20"
                       : "text-slate-400 border-transparent hover:text-slate-600 hover:bg-slate-50/50"
                       }`}
@@ -2076,30 +2242,6 @@ const CreateInvoicePage = () => {
                         </div>
                       </div>
                     </div>
-
-                    <div className="space-y-6">
-                      <h4 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] mb-4 text-emerald-600">Project Timeline</h4>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Site Start Date</label>
-                          <input
-                            type="date"
-                            value={projectStartEnd.start}
-                            onChange={(e) => setProjectStartEnd({ ...projectStartEnd, start: e.target.value })}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Est. Completion Date</label>
-                          <input
-                            type="date"
-                            value={projectStartEnd.end}
-                            onChange={(e) => setProjectStartEnd({ ...projectStartEnd, end: e.target.value })}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none font-mono"
-                          />
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -2180,30 +2322,6 @@ const CreateInvoicePage = () => {
                   </div>
                 )}
 
-                {activeTab === "notes" && (
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notes</label>
-                      <textarea
-                        rows={4}
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-100"
-                        placeholder="Add any specific notes for this quotation..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Terms & Conditions</label>
-                      <textarea
-                        rows={4}
-                        value={terms}
-                        onChange={(e) => setTerms(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-100"
-                        placeholder="Add terms and conditions..."
-                      />
-                    </div>
-                  </div>
-                )}
 
                 {activeTab === "signature" && (
                   <div className="space-y-6">

@@ -264,15 +264,9 @@ const SettingsPage = () => {
 
             console.log("Syncing All Settings...", { settingsData, profileData });
 
-            // Ensure POST /api/v1/settings/upload-logo is triggered on save as requested
-            const logoFileToUpload = selectedFile || new File(["logo_content"], "logo.png", { type: "image/png" });
             const [updatedSettings, updatedProfile] = await Promise.all([
                 settingsService.updateSettings(settingsData),
-                settingsService.updateProfile(profileData),
-                settingsService.uploadLogo(logoFileToUpload).catch(e => {
-                    console.log("Logo upload triggered:", e?.message || e);
-                    return null;
-                })
+                settingsService.updateProfile(profileData)
             ]);
 
             console.log("Profile Update Success - Response Image:", updatedProfile.profile_image);

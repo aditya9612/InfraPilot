@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { exportToCSV } from "../../utils/csvExport";
 import { formatDateBySettings } from "../../utils/dateUtils";
 import { useAuth } from "../../context/AuthContext";
 import Navbar from "../../components/common/Navbar";
@@ -290,25 +289,6 @@ const ProjectsPage = () => {
     }
   };
 
-  const handleDownloadCSV = () => {
-    const csvData = filtered.map(p => ({
-      id: `PRJ-${p.id}`,
-      project_name: p.project_name,
-      start_date: p.start_date,
-      end_date: p.end_date,
-      status: p.status,
-      percentage: `${p.completion_percentage}%`
-    }));
-
-    exportToCSV(csvData, "projects_export.csv", {
-      id: "Project ID",
-      project_name: "Project Name",
-      start_date: "Start Date",
-      end_date: "End Date",
-      status: "Status",
-      percentage: "Completion (%)"
-    });
-  };
 
   return (
     <>
@@ -325,13 +305,6 @@ const ProjectsPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleDownloadCSV}
-              className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all active:scale-95"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-              <span>Export CSV</span>
-            </button>
             {user?.role !== "ProjectManager" && (
               <button
                 onClick={() => setShowConvertModal(true)}
