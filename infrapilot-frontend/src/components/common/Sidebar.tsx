@@ -1195,7 +1195,7 @@ const Sidebar = ({ onClose }: SidebarProps) => {
     const fetchLogo = async () => {
       try {
         const companyData = await settingsService.getCompanySettings();
-        if (companyData.company_logo) {
+        if (companyData?.company_logo) {
           setLogoUrl(settingsService.resolveUrl(companyData.company_logo));
         }
       } catch (error) {
@@ -1203,6 +1203,11 @@ const Sidebar = ({ onClose }: SidebarProps) => {
       }
     };
     fetchLogo();
+
+    window.addEventListener("company_logo_updated", fetchLogo);
+    return () => {
+      window.removeEventListener("company_logo_updated", fetchLogo);
+    };
   }, []);
 
   if (!user) return null;
