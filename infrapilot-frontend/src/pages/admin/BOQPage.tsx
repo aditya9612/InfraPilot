@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -110,7 +110,7 @@ const BOQPage = () => {
     const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
     const [isTasksModalOpen, setIsTasksModalOpen] = useState(false);
     const [generatedTasksList, setGeneratedTasksList] = useState<any[]>([]);
-    
+
     // Select Milestone for Generate Tasks
     const [isSelectMilestoneModalOpen, setIsSelectMilestoneModalOpen] = useState(false);
     const [milestonesList, setMilestonesList] = useState<any[]>([]);
@@ -173,9 +173,9 @@ const BOQPage = () => {
         if (!selectedProjectId) { setBoqGroups([]); return; }
         boqService.getBoqsByProject(Number(selectedProjectId))
             .then(async (items: any[]) => {
-                // Filter out draft items as per user requirement to not show added items in BOQ list
-                const masters = items.filter((i: any) => i.approval_status !== 'Draft');
-                
+                // Allow UI filters to handle visibility; don't hard-filter Drafts when fetching raw BOQs
+                const masters = items;
+
                 // Fetch details for each master to get the correct internal boq_group_id to avoid 404s
                 const enrichedMasters = await Promise.all(masters.map(async (m: any) => {
                     try {
@@ -185,13 +185,20 @@ const BOQPage = () => {
                         return { ...m, true_group_id: m.boq_group_id || m.id };
                     }
                 }));
-                
+
                 setBoqGroups(enrichedMasters);
             })
             .catch(() => { setBoqGroups([]); });
     }, [selectedProjectId, itemRefreshCounter]);
 
     const refreshBoqs = useCallback(async () => {
+        if (!selectedProjectId) {
+            setBoqData([]);
+            setTotalItems(0);
+            setSummary(null);
+            return;
+        }
+
         setIsLoading(true);
         try {
             const filters: any = {
@@ -199,7 +206,7 @@ const BOQPage = () => {
                 status: statusFilter === "all" ? null : statusFilter,
                 approval_status: approvalStatusFilter === "all" ? null : approvalStatusFilter,
                 category: categoryFilter === "all" ? null : categoryFilter,
-                project_id: selectedProjectId || null,
+                project_id: selectedProjectId,
                 version_no: selectedVersion === "latest" ? null : Number(selectedVersion),
                 limit: itemsPerPage,
                 offset: (currentPage - 1) * itemsPerPage,
@@ -207,10 +214,10 @@ const BOQPage = () => {
 
             const res = await boqService.getBoqs(filters);
 
-            // Filter out draft items from BOQ list
-            const masterItems = res.items.filter((item: any) => item.approval_status !== 'Draft');
+            // Allow UI filters to handle visibility; don't hard-filter Drafts when fetching raw BOQs
+            const masterItems = res.items;
             setBoqData(masterItems);
-            setTotalItems(masterItems.length);
+            setTotalItems(res.total || masterItems.length);
 
             // Also refresh summary if project is selected
             if (selectedProjectId) {
@@ -538,7 +545,7 @@ const BOQPage = () => {
     const openSelectMilestoneModal = async (item: BoqItem) => {
         setPendingGenerateTaskBoqId(item.id);
         setPendingGenerateTaskBoqName(item.item_name);
-        
+
         if (selectedProjectId) {
             try {
                 const ms = await projectService.getMilestones(Number(selectedProjectId));
@@ -558,7 +565,7 @@ const BOQPage = () => {
             toast.dismiss(loadingToast);
             toast.success("Tasks generated successfully!");
             setIsSelectMilestoneModalOpen(false);
-            
+
             // Expected result to have a list of tasks. Handle array or object wrapping an array.
             const tasks = Array.isArray(result) ? result : (result.tasks || result.data || []);
             setGeneratedTasksList(tasks);
@@ -622,7 +629,7 @@ const BOQPage = () => {
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <ProjectSelector variant="page" />
+                        <ProjectSelector variant="page" hideAllProjects={true} />
 
                         <button
                             onClick={() => setIsBulkImportModalOpen(true)}
@@ -1053,7 +1060,7 @@ const BOQPage = () => {
                             </button>
                         </div>
                         <div className="p-6 bg-slate-50/30 max-h-[60vh] overflow-y-auto space-y-6">
-                            
+
                             {/* BOQ Selection (Read-only since it's selected from row) */}
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Target BOQ</label>
@@ -1091,7 +1098,7 @@ const BOQPage = () => {
                                                 </div>
                                             </button>
                                         ))}
-                                        
+
                                         <div className="pt-4 mt-4 border-t border-slate-100">
                                             <button onClick={() => handleGenerateTasks(0)} className="w-full p-4 rounded-xl border border-dashed border-slate-300 text-slate-500 font-bold text-sm hover:border-slate-400 hover:text-slate-700 transition-colors bg-white">
                                                 Skip & Generate Without Milestone
@@ -1260,7 +1267,7 @@ const ItemListView = ({
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
     const itemsPerPage = 10;
-    
+
     // Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [itemToEdit, setItemToEdit] = useState<any | null>(null);
@@ -1282,7 +1289,7 @@ const ItemListView = ({
             setItems([]);
             return;
         }
-        
+
         const fetchItems = async () => {
             setLoading(true);
             try {
