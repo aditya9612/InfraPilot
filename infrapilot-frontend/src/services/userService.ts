@@ -7,10 +7,9 @@ export const userService = {
    * GET /api/v1/users
    */
   async getAllUsers(limit = 20, skip = 0, search = "") {
-    // Map the internal 'skip' variable strictly to the endpoint's 'offset' parameter
     const params: any = {
       limit,
-      offset: skip
+      skip
     };
     if (search) params.search = search;
 

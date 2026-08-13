@@ -121,7 +121,7 @@ const ChecklistsPage = () => {
 
             const sortedCombined = projectSpecificCombined.sort((a: any, b: any) => Number(b.id) - Number(a.id));
             setChecklists(sortedCombined);
-            setLogs(logsRes.items || []);
+            setLogs(Array.isArray(logsRes) ? logsRes : (logsRes.items || []));
         } catch (err) {
             toast.error("Failed to sync checklist vault");
         }

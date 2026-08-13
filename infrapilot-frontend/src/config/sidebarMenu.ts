@@ -197,6 +197,7 @@ export const sidebarMenus: Record<Role, MenuItem[]> = {
       subNav: [
         { label: "Activity List", path: "/manager/work-progress/activities", icon: "list" },
         { label: "Daily Progress Entry", path: "/manager/work-progress/entry", icon: "clipboard" },
+        { label: "Work Orders", path: "/manager/work-progress/work-orders", icon: "file-text" },
       ]
     },
     {

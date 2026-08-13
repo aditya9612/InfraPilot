@@ -700,6 +700,7 @@ const MaterialRequestPage = () => {
                                     <option value="Material">Material</option>
                                     <option value="Equipment">Equipment</option>
                                     <option value="Labour">Labour</option>
+                                    <option value="Work">Work</option>
                                 </select>
                                 {errors.request_type && <p className="mt-1.5 text-[9px] text-rose-500 font-black uppercase tracking-widest ml-1 font-inter">{errors.request_type}</p>}
                             </div>

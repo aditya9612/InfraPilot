@@ -256,6 +256,22 @@ export const drawingService = {
     },
 
     /**
+     * Get a specific drawing document as a Blob (for secure preview)
+     * GET /api/v1/drawings/documents/download/{id}
+     */
+    async getDrawingBlob(id: number | string) {
+        const numericId = typeof id === 'string' ? id.replace(/[^0-9]/g, '') : id;
+        console.log(`GET /api/v1/drawings/documents/download/${numericId} (blob)`);
+        const response = await api.get(`/drawings/documents/download/${numericId}`, {
+            responseType: 'blob'
+        });
+        return {
+            data: response.data,
+            contentType: response.headers?.['content-type'] || 'application/pdf'
+        };
+    },
+
+    /**
      * View a specific drawing document
      * GET /api/v1/drawings/documents/view/{id}
      */
@@ -263,14 +279,8 @@ export const drawingService = {
         const numericId = typeof id === 'string' ? id.replace(/[^0-9]/g, '') : id;
         console.log(`GET /api/v1/drawings/documents/view/${numericId}`);
 
-        const response = await api.get(`/drawings/documents/view/${numericId}`, {
-            responseType: 'blob'
-        });
-
-        return {
-            data: response.data,
-            contentType: response.headers?.['content-type'] || 'application/pdf'
-        };
+        const response = await api.get(`/drawings/documents/view/${numericId}`);
+        return response.data;
     },
 
     /**

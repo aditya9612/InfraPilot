@@ -177,11 +177,10 @@ export const equipmentService = {
     // ==========================================
     // 2. Allocation
     // ==========================================
-    async allocateEquipment(id: number, project_id: number, allocated: boolean = true): Promise<AllocationStatus> {
-        const response = await api.post<AllocationStatus>(`/equipment/${id}/allocate?project_id=${project_id}`, {
-            equipment_id: id,
-            project_id: project_id,
-            allocated: allocated
+    async allocateEquipment(id: number, project_id: number): Promise<AllocationStatus> {
+        const response = await api.post<AllocationStatus>(`/equipment/allocate`, {
+            equipment_ids: [id],
+            project_id: project_id
         });
         return response.data;
     },
@@ -192,7 +191,7 @@ export const equipmentService = {
     },
 
     async deallocateEquipment(id: number): Promise<AllocationStatus> {
-        await api.put(`/equipment/${id}`, { project_id: null });
+        await api.put(`/equipment/deallocate`, { equipment_ids: [id], project_id: null });
         return { equipment_id: id, allocated: false, project_id: null };
     },
 
@@ -227,8 +226,15 @@ export const equipmentService = {
         await api.delete(`/equipment/usage/${usage_id}`);
     },
 
-    async listUsage(equipment_id: number): Promise<UsageItem[]> {
-        const response = await api.get<UsageItem[]>(`/equipment/usage`, { params: { equipment_id } });
+    async getUsage(usage_id: number): Promise<UsageItem> {
+        const response = await api.get<UsageItem>(`/equipment/usage/${usage_id}`);
+        return response.data;
+    },
+
+    async listUsage(equipment_id?: number, params?: { project_id?: number }): Promise<UsageItem[]> {
+        const queryParams: any = { ...params };
+        if (equipment_id) queryParams.equipment_id = equipment_id;
+        const response = await api.get<UsageItem[]>(`/equipment/usage`, { params: queryParams });
         return response.data;
     },
 
@@ -242,27 +248,28 @@ export const equipmentService = {
     // 4. Maintenance
     // ==========================================
     async createMaintenance(equipment_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string, project_id?: number, boq_item_id?: number }): Promise<MaintenanceItem> {
-        const payload = {
+        const payload: any = {
             description: data.description,
             maintenance_date: data.maintenance_date,
             cost: data.cost,
-            next_maintenance_date: data.next_maintenance_date || data.maintenance_date,
-            project_id: data.project_id || 0,
-            boq_item_id: data.boq_item_id || 0
+            next_maintenance_date: data.next_maintenance_date || null
         };
+        if (data.project_id) payload.project_id = data.project_id;
+        if (data.boq_item_id) payload.boq_item_id = data.boq_item_id;
+        
         const response = await api.post<MaintenanceItem>(`/equipment/${equipment_id}/maintenance`, payload);
         return response.data;
     },
 
     async updateMaintenance(maintenance_id: number, data: { description: string, maintenance_date: string, cost: number, next_maintenance_date?: string, project_id?: number, boq_item_id?: number }): Promise<MaintenanceItem> {
-        const payload = {
+        const payload: any = {
             description: data.description,
             maintenance_date: data.maintenance_date,
             cost: data.cost,
-            next_maintenance_date: data.next_maintenance_date || data.maintenance_date,
-            project_id: data.project_id || 0,
-            boq_item_id: data.boq_item_id || 0
+            next_maintenance_date: data.next_maintenance_date || null
         };
+        if (data.project_id) payload.project_id = data.project_id;
+        if (data.boq_item_id) payload.boq_item_id = data.boq_item_id;
         const response = await api.put<MaintenanceItem>(`/equipment/maintenance/${maintenance_id}`, payload);
         return response.data;
     },
@@ -274,6 +281,11 @@ export const equipmentService = {
 
     async deleteMaintenance(maintenance_id: number): Promise<any> {
         const response = await api.delete<any>(`/equipment/maintenance/${maintenance_id}`);
+        return response.data;
+    },
+
+    async getMaintenance(maintenance_id: number): Promise<MaintenanceItem> {
+        const response = await api.get<MaintenanceItem>(`/equipment/maintenance/${maintenance_id}`);
         return response.data;
     },
 
@@ -324,8 +336,8 @@ export const equipmentService = {
             rental_cost: data.rental_cost,
             client_name: data.client_name,
             notes: data.notes,
-            project_id: data.project_id || 0,
-            boq_item_id: data.boq_item_id || 0
+            project_id: data.project_id || null,
+            boq_item_id: data.boq_item_id || null
         };
         const response = await api.post<RentalItem>(`/equipment/${equipment_id}/rental`, payload);
         return response.data;
@@ -380,15 +392,25 @@ export const equipmentService = {
             rental_cost: data.rental_cost,
             client_name: data.client_name,
             notes: data.notes,
-            project_id: data.project_id || 0,
-            boq_item_id: data.boq_item_id || 0
+            project_id: data.project_id || null,
+            boq_item_id: data.boq_item_id || null
         };
         const response = await api.put<RentalItem>(`/equipment/rental/${rental_id}`, payload);
         return response.data;
     },
 
+    async completeRental(rental_id: number): Promise<any> {
+        const response = await api.put(`/equipment/rental/${rental_id}/complete`);
+        return response.data;
+    },
+
     async deleteRental(rental_id: number): Promise<void> {
         await api.delete(`/equipment/rental/${rental_id}`);
+    },
+
+    async generateQR(equipment_id: number): Promise<any> {
+        const response = await api.get(`/equipment/${equipment_id}/qr`, { responseType: 'blob' });
+        return new Blob([response.data as any]);
     },
 
     async getCostReport(params?: { project_id?: number }): Promise<CostReport[]> {
@@ -436,6 +458,12 @@ export const equipmentService = {
 
     async getTransferHistory(equipment_id: number): Promise<any[]> {
         const response = await api.get<any>(`/equipment/${equipment_id}/transfer-history`);
+        const data = response.data;
+        return Array.isArray(data) ? data : (data.items || data.data || []);
+    },
+
+    async listTransferHistory(params?: { project_id?: number }): Promise<any[]> {
+        const response = await api.get<any>('/equipment/transfer-history', { params });
         const data = response.data;
         return Array.isArray(data) ? data : (data.items || data.data || []);
     },

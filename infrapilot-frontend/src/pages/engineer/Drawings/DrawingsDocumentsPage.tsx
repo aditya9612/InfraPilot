@@ -19,12 +19,12 @@ import {
     History,
     ChevronLeft,
     ChevronRight,
-    Folder,
-    Trash2
+    Folder
 } from "lucide-react";
 import { drawingService } from "../../../services/drawingService";
 import { projectService } from "../../../services/projectService";
 import { documentService } from "../../../services/documentService";
+import { userService } from "../../../services/userService";
 import DocumentPreviewModal from "../../../components/dashboard/DocumentPreviewModal";
 import { useProject } from "../../../context/ProjectContext";
 
@@ -69,8 +69,7 @@ const initialFormData = {
 const DrawingsDocumentsPage = () => {
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [selectedDrawing, setSelectedDrawing] = useState<DrawingRecord | null>(null);
-    const [viewBlobUrl, setViewBlobUrl] = useState<string | null>(null);
-    const [isViewLoading, setIsViewLoading] = useState(false);
+
     const [drawingData, setDrawingData] = useState<DrawingRecord[]>([]);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -82,6 +81,7 @@ const DrawingsDocumentsPage = () => {
     const [usersMap, setUsersMap] = useState<Record<string, string>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [backendStats, setBackendStats] = useState<any>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -131,14 +131,14 @@ const DrawingsDocumentsPage = () => {
             }
         };
 
-        const fetchUsers = async (pId: number) => {
+        const fetchUsers = async () => {
             try {
-                const res = await projectService.getProjectMembers(pId);
-                const usersList = Array.isArray(res) ? res : res.data || res.items || [];
+                const res = await userService.getAllUsers(100, 0);
+                const usersList = Array.isArray(res) ? res : res.items || res.data || res.users || [];
                 const map: Record<string, string> = {};
                 usersList.forEach((u: any) => {
                     const id = u.id || u.user_id;
-                    const name = u.name || (u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : null) || u.username;
+                    const name = u.full_name || u.name || (u.first_name ? `${u.first_name} ${u.last_name || ''}`.trim() : null) || u.username;
                     if (id && name) map[String(id)] = name;
                 });
                 setUsersMap(map);
@@ -148,7 +148,7 @@ const DrawingsDocumentsPage = () => {
         };
 
         fetchProjects();
-        fetchUsers(projectId);
+        fetchUsers();
     }, [projectId]);
 
     const fetchDrawings = useCallback(async () => {
@@ -226,6 +226,7 @@ const DrawingsDocumentsPage = () => {
 
     useEffect(() => {
         fetchDrawings();
+        documentService.getStats().then(setBackendStats).catch(console.error);
     }, [fetchDrawings]);
 
     // const openFolderModal = () => {
@@ -355,32 +356,64 @@ const DrawingsDocumentsPage = () => {
     };
 
     const handleViewDocument = async (drawing: DrawingRecord) => {
-        if (typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder") {
-            const toastId = toast.loading("Fetching document metadata...");
-            try {
-                const data = await documentService.getDocument(Number(drawing.id));
-                setViewingDoc(data);
-                setIsPreviewModalOpen(true);
-                toast.dismiss(toastId);
-            } catch (error) {
-                toast.error("Failed to fetch document metadata", { id: toastId });
-            }
-            return;
-        }
-
-        setSelectedDrawing(drawing);
-        setViewBlobUrl(null);
-        setIsViewLoading(true);
+        const toastId = toast.loading("Fetching document metadata...");
         try {
-            const { data, contentType } = await drawingService.viewDocument(drawing.id);
-            const blob = new Blob([data], { type: String(contentType) });
-            const url = URL.createObjectURL(blob);
-            setViewBlobUrl(url);
+            const isDoc = typeFilter === "Documents" || drawing.type === "Document" || drawing.type === "Folder";
+            let metadata;
+            let blobUrl = null;
+            let finalContentType = "application/pdf";
+
+            // 1. Fetch Metadata
+            if (isDoc) {
+                metadata = await documentService.getDocument(Number(drawing.id));
+            } else {
+                metadata = await drawingService.viewDocument(drawing.id);
+            }
+
+            // 2. Fetch Blob for preview (if not a folder)
+            if (!metadata.is_folder && !drawing.is_folder && drawing.type !== "Folder") {
+                try {
+                    let blobData = null;
+                    if (isDoc) {
+                        const res = await documentService.viewDocument(Number(drawing.id));
+                        blobData = res.data;
+                        finalContentType = String(res.contentType);
+                    } else {
+                        const numericId = typeof drawing.id === 'string' ? drawing.id.replace(/[^0-9]/g, '') : drawing.id;
+                        const res = await drawingService.getDrawingBlob(numericId);
+                        blobData = res.data;
+                        finalContentType = String(res.contentType);
+                    }
+
+                    if (blobData) {
+                        const blob = new Blob([blobData], { type: finalContentType });
+                        blobUrl = URL.createObjectURL(blob);
+                    }
+                } catch (blobErr) {
+                    console.error("Failed to fetch document blob", blobErr);
+                    // Fall back to regular file_url mapping later if blob fails
+                }
+            }
+
+            setViewingDoc({
+                ...metadata,
+                name: metadata.drawing_name || metadata.title || drawing.drawing_name || drawing.title || "Document",
+                version: metadata.version || drawing.version || "V1.0",
+                date: metadata.date || drawing.date || (drawing.uploaded_at ? new Date(drawing.uploaded_at).toLocaleDateString() : new Date().toLocaleDateString()),
+                type: isDoc ? (metadata.type || drawing.type || "Document") : "Drawing",
+                project: drawing.project_name || projects.find(p => String(p.id) === String(drawing.project_id))?.name || "General",
+                status: metadata.status || drawing.status || drawing.approval_status || "PENDING",
+                folder_status: metadata.is_folder || drawing.is_folder ? "Folder" : "File",
+                remarks: metadata.remarks || drawing.remarks || "—",
+                originalFileName: metadata.upload_file || metadata.file_url || drawing.upload_file || drawing.file_url || "",
+                file_url: blobUrl || metadata.file_url || metadata.upload_file || drawing.upload_file || "",
+                contentType: finalContentType,
+                uploaded_by: (metadata.uploaded_by_user_id ? usersMap[metadata.uploaded_by_user_id] : null) || (drawing.uploaded_by_user_id ? usersMap[drawing.uploaded_by_user_id] : null) || metadata.uploaded_by || "-"
+            });
+            setIsPreviewModalOpen(true);
+            toast.dismiss(toastId);
         } catch (error) {
-            // Silently fallback to the direct static URL if the secure API returns 404
-            console.warn("Secure view API failed, falling back to static URL");
-        } finally {
-            setIsViewLoading(false);
+            toast.error("Failed to fetch document metadata", { id: toastId });
         }
     };
 
@@ -492,7 +525,7 @@ const DrawingsDocumentsPage = () => {
         if (baseUrl.startsWith('http')) {
             baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
         } else {
-            baseUrl = 'https://infrapilot.in';
+            baseUrl = 'https://api-testing.infrapilot.in';
         }
         return `${baseUrl}${path}`;
     };
@@ -555,23 +588,7 @@ const DrawingsDocumentsPage = () => {
         }
     };
 
-    const handleDeleteDocument = async (drawing: DrawingRecord) => {
-        const confirmDelete = window.confirm(`Are you sure you want to remove ${drawing.drawing_name || drawing.title || "this document"}?`);
-        if (!confirmDelete) return;
 
-        const toastId = toast.loading("Removing item...");
-        try {
-            if (drawing.type === "Document" || drawing.type === "Folder" || typeFilter === "Documents") {
-                await documentService.deleteDocument(Number(drawing.id));
-            } else {
-                await drawingService.deleteDrawing(drawing.id);
-            }
-            toast.success("Item removed successfully", { id: toastId });
-            fetchDrawings();
-        } catch (error) {
-            toast.error("Failed to remove item", { id: toastId });
-        }
-    };
 
     const IMAGE_EXTS = /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif|sketch)$/i;
 
@@ -649,14 +666,6 @@ const DrawingsDocumentsPage = () => {
             totalStorageBytes: totalStorageBytes
         };
     }, [drawingData]);
-
-    const formatBytes = (bytes: number) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
 
 
     const labelClasses = "block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1 font-inter";
@@ -757,27 +766,34 @@ const DrawingsDocumentsPage = () => {
                 </div>
 
                 {typeFilter === "Documents" ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8 font-inter">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Storage Bytes</span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-slate-800 tracking-tight">{stats.all}</span>
+                                <span className="text-3xl font-black text-indigo-500 tracking-tight">{backendStats ? backendStats.total_storage_bytes : 0}</span>
                             </div>
-                            <span className="text-xs text-slate-500 font-medium mt-1">All Vault Assets</span>
+                            <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption</span>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Storage GB</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-emerald-500 tracking-tight">{backendStats ? backendStats.total_storage_gb : 0}</span>
+                            </div>
+                            <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption GB</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pending Approvals</span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-amber-500 tracking-tight">{stats.pendingApprovals}</span>
+                                <span className="text-3xl font-black text-amber-500 tracking-tight">{backendStats ? backendStats.pending_approvals : 0}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Awaiting Review</span>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Storage Used</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Documents</span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-indigo-500 tracking-tight">{stats.totalStorageBytes > 0 ? formatBytes(stats.totalStorageBytes) : "0 B"}</span>
+                                <span className="text-3xl font-black text-slate-800 tracking-tight">{backendStats ? backendStats.total_documents : 0}</span>
                             </div>
-                            <span className="text-xs text-slate-500 font-medium mt-1">Total Consumption</span>
+                            <span className="text-xs text-slate-500 font-medium mt-1">All Vault Assets</span>
                         </div>
                     </div>
                 ) : (
@@ -785,7 +801,7 @@ const DrawingsDocumentsPage = () => {
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 flex flex-col font-inter transition-all hover:shadow-md">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">All Files</span>
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-slate-800 tracking-tight">{stats.all}</span>
+                                <span className="text-3xl font-black text-slate-800 tracking-tight">{backendStats ? backendStats.total_documents : stats.all}</span>
                             </div>
                             <span className="text-xs text-slate-500 font-medium mt-1">Total Assets</span>
                         </div>
@@ -1073,9 +1089,6 @@ const DrawingsDocumentsPage = () => {
                                                                     <Download className="w-4 h-4" />
                                                                 </button>
                                                             )}
-                                                            <button onClick={() => handleDeleteDocument(drawing)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-inter" title="Remove Asset">
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
                                                             {drawing.type !== "Document" && drawing.type !== "Folder" && (
                                                                 <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
                                                                     <button onClick={() => handleViewHistory(drawing)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all font-inter" title="View approval history">
@@ -1100,7 +1113,7 @@ const DrawingsDocumentsPage = () => {
                         </table>
                     </div>
 
-                    {/* â”€â”€ Pagination â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â””â”” */}
+                    {/* ──────────────── Pagination ──────────────── */}
                     {!isLoading && filteredDrawings.length > 0 && (
                         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 sticky left-0 font-inter rounded-b-2xl">
                             {/* Left: Items per page */}
@@ -1183,150 +1196,6 @@ const DrawingsDocumentsPage = () => {
                 </div>
             </PageTransition>
 
-            {/* ── Document Preview Modal ──────────────────────────────────────── */}
-            <Modal
-                isOpen={!!selectedDrawing && !isHistoryModalOpen}
-                onClose={() => {
-                    setSelectedDrawing(null);
-                    if (viewBlobUrl) URL.revokeObjectURL(viewBlobUrl);
-                    setViewBlobUrl(null);
-                }}
-                title="Document Preview"
-                maxWidth="max-w-3xl"
-                footer={
-                    <div className="flex items-center justify-end gap-3 px-6 pb-5 font-inter">
-                        <button
-                            onClick={() => setSelectedDrawing(null)}
-                            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all font-inter"
-                        >
-                            Close
-                        </button>
-                        <button
-                            onClick={() => selectedDrawing && handleDownloadDocument(selectedDrawing)}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:bg-blue-600 transition-all active:scale-95 font-inter"
-                        >
-                            <Download className="w-4 h-4" />
-                            Download File
-                        </button>
-                    </div>
-                }
-            >
-                {selectedDrawing && (() => {
-                    const fileUrl = (selectedDrawing.file_url || (selectedDrawing as any).upload_file || "");
-                    const resolvedUrl = drawingService.resolveUrl(fileUrl) || "";
-                    const lowerUrl = fileUrl.toLowerCase();
-                    const isImage = /\.(jpg|jpeg|png|gif|webp|bmp|svg|tiff|tif)$/i.test(lowerUrl);
-                    const isPdf = lowerUrl.endsWith(".pdf");
-                    const fileType = (selectedDrawing as any).document_type || (isImage ? "Drawing" : isPdf ? "PDF Document" : "File");
-
-                    return (
-                        <div className="font-inter">
-                            {/* Blue Header */}
-                            <div className="bg-primary mx-5 mt-2 mb-5 rounded-2xl p-5 text-white relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
-                                <div className="flex items-center gap-4 relative z-10">
-                                    <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center border border-white/20 shrink-0">
-                                        <FileText className="w-7 h-7 text-white" />
-                                    </div>
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="text-lg font-bold tracking-tight">{selectedDrawing.drawing_name}</h3>
-                                            <span className="px-2 py-0.5 bg-white/25 rounded-lg text-[10px] font-black uppercase tracking-widest">{selectedDrawing.version}</span>
-                                        </div>
-                                        <p className="text-white/70 text-[11px] font-bold">
-                                            🗓 Added on {selectedDrawing.date ? new Date(selectedDrawing.date).toLocaleDateString() : "—"}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Two-panel body */}
-                            <div className="flex gap-0 px-5 pb-4">
-                                {/* Left: Metadata */}
-                                <div className="w-48 shrink-0 pr-6 border-r border-slate-100">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1">
-                                        <span>ⓘ</span> File Metadata
-                                    </p>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">File Type</p>
-                                            <p className="text-sm font-bold text-slate-800">{fileType}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Linked Project</p>
-                                            <p className="text-sm font-bold text-slate-800">{(selectedDrawing as any).project_name || "—"}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Status</p>
-                                            <p className="text-sm font-bold text-slate-800">{selectedDrawing.approval_status || "PENDING"}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Storage Location</p>
-                                            <p className="text-sm font-bold text-slate-800">Secure Vault / Project Files</p>
-                                        </div>
-                                        {selectedDrawing.remarks && (
-                                            <div>
-                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Remarks</p>
-                                                <p className="text-xs text-slate-600 leading-relaxed">{selectedDrawing.remarks}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Right: Content Preview */}
-                                <div className="flex-1 pl-6">
-                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-1">
-                                        <span>⊟</span> Content Preview
-                                    </p>
-                                    <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 relative" style={{ minHeight: 320 }}>
-                                        {isViewLoading ? (
-                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm z-10 gap-3">
-                                                <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Fetching Secure Preview...</p>
-                                            </div>
-                                        ) : null}
-
-                                        {isImage && (viewBlobUrl || resolvedUrl) ? (
-                                            <img
-                                                src={viewBlobUrl || resolvedUrl}
-                                                alt={selectedDrawing.drawing_name}
-                                                className="w-full h-full object-contain max-h-[400px]"
-                                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                            />
-                                        ) : isPdf && (viewBlobUrl || resolvedUrl) ? (
-                                            <iframe
-                                                src={viewBlobUrl || resolvedUrl}
-                                                title={selectedDrawing.drawing_name}
-                                                className="w-full"
-                                                style={{ height: 400, border: "none" }}
-                                            />
-                                        ) : (viewBlobUrl || resolvedUrl) ? (
-                                            <div className="flex flex-col items-center justify-center h-64 gap-4 text-slate-400">
-                                                <FileText className="w-16 h-16 text-indigo-200" />
-                                                <div className="text-center">
-                                                    <p className="text-sm font-bold text-slate-700">Preview not natively supported</p>
-                                                    <p className="text-[10px] text-slate-400 max-w-xs text-center truncate mt-1">{fileUrl}</p>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleDownloadDocument(selectedDrawing)}
-                                                    className="px-6 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-xl text-xs font-bold transition-all shadow-sm"
-                                                >
-                                                    Download to View
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center h-64 gap-3 text-slate-300">
-                                                <FileText className="w-12 h-12" />
-                                                <p className="text-xs font-bold uppercase tracking-widest">No file attached</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })()}
-            </Modal>
 
             {/* ── Form Modal ────────────────────────────────────────────────────────── */}
             <Modal
@@ -1490,7 +1359,7 @@ const DrawingsDocumentsPage = () => {
                                                 <Upload className="w-8 h-8 font-inter" />
                                             </div>
                                             <div className="text-center font-inter">
-                                                <p className="text-sm font-bold text-slate-600 font-inter">Upload Drawing / Document</p>
+                                                <p className="text-sm font-bold text-slate-600 font-inter">Upload Drawing / Document <span className="text-rose-500">*</span></p>
                                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 font-inter">Images, PDF, Word, Excel, DWG &amp; more</p>
                                             </div>
                                         </button>
@@ -1627,16 +1496,23 @@ const DrawingsDocumentsPage = () => {
                 isOpen={isPreviewModalOpen}
                 onClose={() => {
                     setIsPreviewModalOpen(false);
+                    if (viewingDoc?.blob_url) {
+                        URL.revokeObjectURL(viewingDoc.blob_url);
+                    }
                     setViewingDoc(null);
                 }}
                 document={viewingDoc ? {
                     ...viewingDoc,
-                    name: viewingDoc.title,
-                    type: viewingDoc.document_type || "Folder",
-                    project: viewingDoc.project_name || "General",
-                    date: viewingDoc.uploaded_at ? new Date(viewingDoc.uploaded_at).toLocaleDateString() : new Date().toLocaleDateString(),
-                    isFolder: viewingDoc.is_folder,
-                    file_url: buildFileUrl(viewingDoc.file_url || "")
+                    name: viewingDoc.name || viewingDoc.title || viewingDoc.drawing_name,
+                    originalFileName: viewingDoc.originalFileName || viewingDoc.upload_file || viewingDoc.file_url || viewingDoc.title || viewingDoc.drawing_name,
+                    type: viewingDoc.type || viewingDoc.document_type || (viewingDoc.drawing_name ? "Drawing" : "Folder"),
+                    project: viewingDoc.project || viewingDoc.project_name || "General",
+                    date: viewingDoc.date || (viewingDoc.uploaded_at ? new Date(viewingDoc.uploaded_at).toLocaleDateString() : (viewingDoc.date ? new Date(viewingDoc.date).toLocaleDateString() : new Date().toLocaleDateString())),
+                    isFolder: viewingDoc.isFolder ?? (viewingDoc.is_folder || false),
+                    file_url: viewingDoc.file_url || viewingDoc.blob_url || buildFileUrl(viewingDoc.file_url || viewingDoc.upload_file || ""),
+                    contentType: viewingDoc.contentType || viewingDoc.content_type,
+                    uploaded_by: viewingDoc.uploaded_by || usersMap[String(viewingDoc.uploaded_by_user_id || viewingDoc.uploaded_by)] || viewingDoc.uploaded_by_name || "—",
+                    isDrawing: viewingDoc.isDrawing ?? (viewingDoc.type === "Drawing" || !!viewingDoc.drawing_name)
                 } : null}
                 onDownload={handleDownloadDocument}
             />

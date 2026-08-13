@@ -48,6 +48,7 @@ import ResourceOrchestratorPage from "../pages/manager/ResourceOrchestratorPage"
 import ManagerSettingsPage from "../pages/manager/ManagerSettingsPage";
 import ManagerActivityListPage from "../pages/manager/WorkProgress/ActivityListPage";
 import ManagerDailyProgressEntryPage from "../pages/manager/WorkProgress/DailyProgressEntryPage";
+import WorkOrdersPage from "../pages/manager/WorkProgress/WorkOrdersPage";
 import ManagerTasksPage from "../pages/manager/TaskManagement/TaskManagementPage";
 import ManagerProcurementPage from "../pages/manager/ManagerProcurementPage";
 import ManagerBOQPage from "../pages/manager/ManagerBOQPage";
@@ -302,6 +303,7 @@ function AppRoutes() {
                 <Route path="projects/:id" element={<ProjectDetailsPage />} />
                 <Route path="work-progress/activities" element={<ManagerActivityListPage />} />
                 <Route path="work-progress/entry" element={<ManagerDailyProgressEntryPage />} />
+                <Route path="work-progress/work-orders" element={<WorkOrdersPage />} />
                 {/* Fallback for old work-progress path */}
                 <Route path="work-progress" element={<Navigate to="work-progress/activities" replace />} />
                 <Route path="tasks" element={<ManagerTasksPage />} />

@@ -18,7 +18,6 @@ import {
     List as ListIcon,
     ChevronLeft,
     ChevronRight,
-    Eye,
     Clock,
     ChevronDown
 } from "lucide-react";
@@ -372,13 +371,6 @@ const SitePhotosPage = () => {
                                                 {/* Interactive Actions */}
                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center gap-2 z-20 font-inter">
                                                     <button
-                                                        onClick={() => setSelectedPhoto(photo)}
-                                                        className="p-2 bg-white text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
-                                                        title="View Evidence"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                    </button>
-                                                    <button
                                                         onClick={() => { setPhotoToDelete(photo.id); setIsDeleteModalOpen(true); }}
                                                         className="p-2 bg-white text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all font-inter"
                                                         title="Discard Evidence"
@@ -406,7 +398,7 @@ const SitePhotosPage = () => {
                                                         <p className="text-xs font-bold text-slate-800 truncate uppercase tracking-widest font-inter">{photo.uploaded_by}</p>
                                                         <div className="flex items-center gap-1.5 text-slate-400 font-inter">
                                                             <Calendar className="w-3 h-3 shrink-0" />
-                                                            <p className="text-[10px] font-bold uppercase tracking-widest truncate font-inter">{photo.time} â€¢ {photo.date}</p>
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest truncate font-inter">{photo.time} • {photo.date}</p>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -472,13 +464,6 @@ const SitePhotosPage = () => {
                                                         </td>
                                                         <td className="px-6 py-4 text-right font-inter">
                                                             <div className="flex items-center justify-end gap-2 font-inter">
-                                                                <button
-                                                                    onClick={() => setSelectedPhoto(photo)}
-                                                                    className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-all font-inter"
-                                                                    title="View Insight"
-                                                                >
-                                                                    <Eye className="w-4 h-4" />
-                                                                </button>
                                                                 <button
                                                                     onClick={() => { setPhotoToDelete(photo.id); setIsDeleteModalOpen(true); }}
                                                                     className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all font-inter"
