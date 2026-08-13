@@ -151,6 +151,8 @@ export const workProgressService = {
       if (entryDate !== undefined) params.entry_date = entryDate;
       if (project_id) params.project_id = project_id;
       else if ((window as any).currentProjectId) params.project_id = (window as any).currentProjectId;
+      if (!params.project_id) return [];
+      
       if (limit !== undefined) params.limit = limit;
       if (offset !== undefined) params.offset = offset;
 
@@ -222,7 +224,7 @@ export const workProgressService = {
    */
   async getProjectSummary(projectId: number): Promise<ProjectSummary> {
     try {
-      const response = await api.get(`/work-progress/project-summary/${projectId}`);
+      const response = await api.get(`/work-progress/project/${projectId}/summary`);
       return response.data;
     } catch (error: any) {
       console.warn("getProjectSummary API error, using virtual success fallback:", error.message);
@@ -293,9 +295,10 @@ export const workProgressService = {
    */
   async getDelayReport(project_id?: number): Promise<{ limit: number; offset: number; page_count: number; data: ActivityItem[] }> {
     try {
+      if (!project_id) return { limit: 10, offset: 0, page_count: 1, data: [] };
       const params: Record<string, any> = {};
-      if (project_id) params.project_id = project_id;
-      const response = await api.get("/work-progress/delay-report", { params });
+      params.project_id = project_id;
+      const response = await api.get(`/work-progress/project/${project_id}/delayed-activities`, { params });
       return response.data;
     } catch (error: any) {
       console.warn("getDelayReport API error, using virtual success fallback:", error.message);
@@ -311,7 +314,7 @@ export const workProgressService = {
 
   async getActivityHistory(id: number): Promise<{ data: any[] }> {
     try {
-      const response = await api.get(`/work-progress/activities/${id}/history`);
+      const response = await api.get(`/work-progress/activities/${id}/progress-history`);
       return response.data;
     } catch (error: any) {
       console.warn("getActivityHistory API error, using virtual success fallback:", error.message);
@@ -349,21 +352,7 @@ export const workProgressService = {
     }
   },
 
-  /**
-   * Get global work progress logs
-   */
-  async getGlobalLogs(projectId?: number, activityId?: number): Promise<{ data: any[] }> {
-    try {
-      const params: Record<string, any> = {};
-      if (projectId) params.project_id = projectId;
-      if (activityId) params.activity_id = activityId;
-      const response = await api.get("/work-progress/logs", { params });
-      return response.data;
-    } catch (error: any) {
-      console.warn("getGlobalLogs API error, using virtual fallback:", error.message);
-      return { data: [] };
-    }
-  },
+
 
   /**
    * Download PDF Report - GET /api/v1/work-progress/reports/pdf

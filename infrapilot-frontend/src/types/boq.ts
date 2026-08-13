@@ -70,6 +70,8 @@ export interface BoqLog {
   action: string;
   message: string;
   user_id: number;
+  user_name?: string;
+  username?: string;
   timestamp: string;
   changes: Record<string, { new: any; old: any }> | null;
 }

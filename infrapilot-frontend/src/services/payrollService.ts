@@ -17,7 +17,7 @@ let mockOffers: any[] = [
 
 export const payrollService = {
   getSummary: async () => {
-    const response = await api.get('/accountant/payroll/summary');
+    const response = await api.get('/labour/payroll/stats');
     return response.data;
   },
 
@@ -27,7 +27,7 @@ export const payrollService = {
   },
 
   exportPayslips: async () => {
-    const response = await api.get('/accountant/payroll/payslip/export', { responseType: 'blob' });
+    const response = await api.get('/labour/payroll/export', { responseType: 'blob' });
     return response.data;
   },
 
@@ -81,8 +81,8 @@ export const payrollService = {
     return response.data;
   },
 
-  payLabourWages: async (data: any) => {
-    const response = await api.post('/accountant/payroll/labour/pay', data);
+  payLabourWages: async (data: { labour_id: number, project_id: number, month: number, year: number, amount: number }) => {
+    const response = await api.post('/labour/payroll/pay', data);
     return response.data;
   },
 

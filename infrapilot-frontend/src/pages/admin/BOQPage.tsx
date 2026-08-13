@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/common/Navbar";
 import PageTransition from "../../components/common/PageTransition";
@@ -566,8 +566,8 @@ const BOQPage = () => {
             toast.success("Tasks generated successfully!");
             setIsSelectMilestoneModalOpen(false);
 
-            // Expected result to have a list of tasks. Handle array or object wrapping an array.
-            const tasks = Array.isArray(result) ? result : (result.tasks || result.data || []);
+            // Expected result to have a list of tasks. Handle array or object wrapping an array, or a single task object.
+            const tasks = Array.isArray(result) ? result : (result.tasks || result.data || (result.task_id ? [result] : []));
             setGeneratedTasksList(tasks);
             setIsTasksModalOpen(true);
         } catch (error) {

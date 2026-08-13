@@ -76,7 +76,7 @@ const BOQDetailsModal: React.FC<BOQDetailsModalProps> = ({
                   {boqItem.item_name}
                 </h3>
                 <span
-                  className={`px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                  className={`px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[10px] font-black tracking-widest ${
                     boqItem.status === "Active"
                       ? "text-emerald-300"
                       : "text-slate-200"
@@ -86,7 +86,7 @@ const BOQDetailsModal: React.FC<BOQDetailsModalProps> = ({
                 </span>
                 {boqItem.approval_status && (
                   <span
-                    className={`px-3 py-1 backdrop-blur-md border rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                    className={`px-3 py-1 backdrop-blur-md border rounded-lg text-[10px] font-black tracking-widest ${
                       boqItem.approval_status === "Approved"
                         ? "bg-emerald-500/30 border-emerald-400/30 text-emerald-200"
                         : boqItem.approval_status === "Rejected"

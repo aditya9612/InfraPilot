@@ -60,7 +60,7 @@ const PaymentPage: React.FC = () => {
         setIsLoading(true);
         try {
             const [payrollRes, statsRes] = await Promise.all([
-                paymentService.getAggregateReport({ project_id: projectId }),
+                paymentService.getActivePayroll({ project_id: projectId }),
                 paymentService.getFiscalSummary({ project_id: projectId })
             ]);
             setLabours(Array.isArray(payrollRes) ? payrollRes : ((payrollRes as any).items || []));

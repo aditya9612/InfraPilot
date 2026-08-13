@@ -11,7 +11,7 @@ import { documentService } from "../../services/documentService";
 import type { Document, DocumentUpdateParams, DocumentStats } from "../../types/document";
 import {
     Download, ChevronLeft, ChevronRight, Folder, FolderPlus,
-    Upload, Trash2, X, FileImage, FileSpreadsheet, Filter,
+    Upload, Trash2, X, FileImage, FileSpreadsheet,
     Edit2, History, FileText, RefreshCcw, Eye, Loader2, Search
 } from "lucide-react";
 import SortDropdown from "../../components/common/SortDropdown";
@@ -19,7 +19,6 @@ import { drawingService } from "../../services/drawingService";
 import ProjectSelector from "../../components/common/ProjectSelector";
 
 // ─── Types ──────────────────────────────────────────────────────────
-type TypeFilter = "All" | "Documents" | "Folders";
 type SortOrder = "latest" | "oldest";
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -99,7 +98,6 @@ const ManagerDocumentsPage = () => {
 
     // Filters & Sort
     const [searchTerm, setSearchTerm] = useState("");
-    const [typeFilter, setTypeFilter] = useState<TypeFilter>("All");
     const [categoryFilter, setCategoryFilter] = useState("");
     const [sortOrder, setSortOrder] = useState<SortOrder>("latest");
     const [mainTab, setMainTab] = useState<"Drawings" | "Documents">("Drawings");
@@ -151,15 +149,7 @@ const ManagerDocumentsPage = () => {
     // ─── Routing Sync ────────────────────────────────────────────────
     useEffect(() => {
         if (tab) {
-            const tabMap: Record<string, TypeFilter> = {
-                documents: "Documents",
-                folders: "Folders",
-                files: "All",
-                drawings: "All",
-                contracts: "All",
-            };
-            const mappedTab = tabMap[tab.toLowerCase()];
-            if (mappedTab) setTypeFilter(mappedTab);
+            // No longer syncing typeFilter from tab
         }
     }, [tab]);
 
@@ -242,7 +232,7 @@ const ManagerDocumentsPage = () => {
     }, [selectedProjectId, currentParentId, mainTab, selectedProject?.project_name]);
 
     useEffect(() => { fetchDocs(); }, [fetchDocs]);
-    useEffect(() => { setCurrentPage(1); }, [searchTerm, typeFilter, categoryFilter]);
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, categoryFilter]);
 
     // ─── Actions ─────────────────────────────────────────────────────
     const handleUpload = async () => {
@@ -499,8 +489,13 @@ const ManagerDocumentsPage = () => {
         if (!deleteId) return;
         setIsSubmitting(true);
         try {
-            await documentService.deleteDocument(deleteId);
-            toast.success("Document deleted.");
+            if (mainTab === "Drawings") {
+                await drawingService.deleteDrawing(deleteId);
+                toast.success("Drawing deleted.");
+            } else {
+                await documentService.deleteDocument(deleteId);
+                toast.success("Document deleted.");
+            }
             setDocs(prev => prev.filter(d => d.id !== deleteId));
             setIsDeleteModalOpen(false);
             setDeleteId(null);
@@ -529,21 +524,11 @@ const ManagerDocumentsPage = () => {
     const filtered = useMemo(() => {
         let data = docs;
 
-        // Force hide folders globally as requested
-        data = data.filter(d => !d.is_folder);
-
         // Main tab filter: Drawings vs Documents
         if (mainTab === "Drawings") {
             data = data.filter(d => d.is_folder || (d.document_type || "").toLowerCase() === "drawing");
         } else {
             // Documents tab: show all items in repository
-        }
-
-        // Sub-tab filter: All, Documents (non-folders), Folders
-        if (typeFilter === "Documents") {
-            data = data.filter(d => !d.is_folder);
-        } else if (typeFilter === "Folders") {
-            data = data.filter(d => d.is_folder);
         }
 
         // Specific category filter (exact document_type match)
@@ -569,7 +554,7 @@ const ManagerDocumentsPage = () => {
             
             return sortOrder === "latest" ? b.id - a.id : a.id - b.id;
         });
-    }, [docs, mainTab, typeFilter, categoryFilter, searchTerm, sortOrder]);
+    }, [docs, mainTab, categoryFilter, searchTerm, sortOrder]);
 
 
 
@@ -669,15 +654,15 @@ const ManagerDocumentsPage = () => {
                                 {
                                     title: "Pending Approval",
                                     value: docs.filter(d => !d.is_folder && ["PENDING", "UNDER_REVIEW"].includes(String(d.status).toUpperCase())).length.toString(),
-                                    sub: "Documents awaiting review",
+                                    sub: mainTab === "Drawings" ? "Drawings awaiting review" : "Documents awaiting review",
                                     accent: "text-amber-500",
                                     icon: <RefreshCcw className="w-5 h-5 text-amber-500" />,
                                     bg: "bg-amber-50 text-amber-600"
                                 },
                                 {
-                                    title: "Total Documents",
-                                    value: docs.filter(d => !d.is_folder).length.toString(),
-                                    sub: "Total files in repository",
+                                    title: mainTab === "Drawings" ? "Total Drawings" : "Total Documents",
+                                    value: docs.length.toString(),
+                                    sub: mainTab === "Drawings" ? "Total drawings in repository" : "Total files in repository",
                                     accent: "text-emerald-500",
                                     icon: <FileText className="w-5 h-5 text-emerald-500" />,
                                     bg: "bg-emerald-50 text-emerald-600"
@@ -711,19 +696,6 @@ const ManagerDocumentsPage = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 lg:pb-0">
-                                    <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
-                                    <select
-                                        value={typeFilter}
-                                        onChange={e => { setTypeFilter(e.target.value as TypeFilter); setCategoryFilter(""); }}
-                                        className={`px-3 py-2 border rounded-xl text-xs font-bold outline-none transition-all ${typeFilter !== "All"
-                                            ? "bg-primary/10 border-primary/30 text-primary"
-                                            : "bg-slate-50 border-slate-200 text-slate-600"
-                                        }`}
-                                    >
-                                        <option value="All">All</option>
-                                        <option value="Documents">{mainTab === "Drawings" ? "Drawings" : "Documents"}</option>
-                                        <option value="Folders">Folders</option>
-                                    </select>
                                     <SortDropdown value={sortOrder} onChange={setSortOrder} />
                                 </div>
                             </div>

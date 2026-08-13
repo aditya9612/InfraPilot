@@ -784,8 +784,8 @@ const ManagerQualityPage = () => {
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.dsr_id ? `DSR #${selectedQc.dsr_id}` : "-"}>
-                                            {selectedQc.dsr_id ? `DSR #${selectedQc.dsr_id}` : "-"}
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.dsr_id ? (dsrs.find(d => d.id === selectedQc.dsr_id)?.label || `DSR #${selectedQc.dsr_id}`) : "-"}>
+                                            {selectedQc.dsr_id ? (dsrs.find(d => d.id === selectedQc.dsr_id)?.label || `DSR #${selectedQc.dsr_id}`) : "-"}
                                         </p>
                                     </div>
                                     <div className="font-inter">

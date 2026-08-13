@@ -113,7 +113,8 @@ const CreatePurchaseModal: React.FC<CreatePurchaseModalProps> = ({
                                 >
                                     <option value="NEW">New</option>
                                     <option value="USED">Used</option>
-                                    <option value="RENTAL">Rental</option>
+                                    <option value="RENT">Rental</option>
+                                    <option value="SPARE_PART">Spare Part</option>
                                 </select>
                             </div>
 

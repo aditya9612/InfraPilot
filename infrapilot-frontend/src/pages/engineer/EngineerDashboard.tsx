@@ -526,7 +526,7 @@ const EngineerDashboard = () => {
 
                             <div className="flex flex-wrap gap-3 px-6 py-4 border-b border-slate-50 bg-slate-50/50">
                                 {["Labour", "Material", "Equipment"].map((cat) => {
-                                    const catTotal = siteExpenses.filter((e: any) => e.type === cat || e.category === cat).reduce((s: number, e: any) => s + e.amount, 0);
+                                    const catTotal = siteExpenses.filter((e: any) => (e.type || "").toLowerCase() === cat.toLowerCase() || (e.category || "").toLowerCase() === cat.toLowerCase()).reduce((s: number, e: any) => s + e.amount, 0);
                                     return (
                                         <div key={cat} className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 ${expenseCategoryColors[cat] || "bg-slate-50 text-slate-600"}`}>
                                             <span>{cat}</span>

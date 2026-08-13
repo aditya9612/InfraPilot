@@ -2,7 +2,6 @@ import { useState, useEffect, type FormEvent } from "react";
 import Modal from "../common/Modal";
 import type { CreateActivityRequest } from "../../types/workProgress";
 import { projectService } from "../../services/projectService";
-import { userService } from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
 
 interface AddActivityModalProps {
@@ -209,6 +208,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
         project_id: Number(formData.project_id) || projectId,
         planned_quantity: Number(formData.planned_quantity),
         boq_code: formData.boq_code ? Number(formData.boq_code) : null,
+        boq_item_id: formData.boq_code ? Number(formData.boq_code) : null,
         work_order_id: formData.work_order_id ? Number(formData.work_order_id) : null,
         engineer_id: formData.engineer_id ? Number(formData.engineer_id) : (engineerId || null)
       });
@@ -347,7 +347,7 @@ const AddActivityModal = ({ isOpen, onClose, onSubmit, projectId, engineerId }: 
                 <option value="">Select Work Order</option>
                 {displayedWorkOrders.map(w => (
                   <option key={w.id} value={w.id}>
-                    {w.title || w.work_order_no || "Work Order"}
+                    {w.work_description || w.work_order_number || `Work Order #${w.id}`}
                   </option>
                 ))}
               </select>

@@ -39,28 +39,7 @@ api.interceptors.request.use(
       config.url = config.url.substring(1);
     }
 
-    // ── Global Trailing Slash Enforcer ──────────────────────────────────────
-    // The backend (Django/FastAPI) requires a trailing slash before query params.
-    // Without it, server sends 307 redirect → browser drops the Authorization
-    // header on redirect → 401 "Not authenticated".
-    // This block ensures every request path ends with '/' before any '?' params.
-    if (config.url) {
-      const qIndex = config.url.indexOf('?');
-      if (qIndex === -1) {
-        // No query string — just ensure path ends with /
-        if (!config.url.endsWith('/')) {
-          config.url = `${config.url}/`;
-        }
-      } else {
-        // Has query string — insert / between path and ?
-        const path = config.url.substring(0, qIndex);
-        const query = config.url.substring(qIndex);
-        if (!path.endsWith('/')) {
-          config.url = `${path}/${query}`;
-        }
-      }
-    }
-    // ────────────────────────────────────────────────────────────────────────
+
 
     return config;
   },
@@ -102,13 +81,14 @@ api.interceptors.response.use(
         url.includes("labour/attendance") ||
         url.includes("projects/module-summary") ||
         url.includes("health-score") ||
-        url.includes("resource-summary");
+        url.includes("resource-summary") ||
+        url.includes("users/me");
 
       if (!isIgnored) {
         const path = window.location.pathname;
         // Don't logout if we're already on login or home
         if (path !== '/login' && path !== '/') {
-          console.warn("Auth Interceptor: 401 Unauthorized. Redirecting to login...", url);
+          console.error("Auth Interceptor: 401 Unauthorized on endpoint:", url, " - Token expired. Logging out.");
           localStorage.removeItem('infrapilot_user');
           window.location.href = '/login?expired=true';
         }

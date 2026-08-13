@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { boqService } from "../../services/boqService";
+import { userService } from "../../services/userService";
 import type { BoqLog } from "../../types/boq";
 
 interface BOQHistoryModalProps {
@@ -17,6 +18,7 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
 }) => {
   const [logs, setLogs] = useState<BoqLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userMap, setUserMap] = useState<Record<number, string>>({});
 
   const handleExportCsv = async () => {
     try {
@@ -50,6 +52,25 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
       fetchLogs();
     }
   }, [isOpen, boqId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const loadUsers = async () => {
+        try {
+          const res = await userService.getAllUsers(100, 0, "");
+          const items = Array.isArray(res) ? res : (res.items || res.data || res.users || []);
+          const map: Record<number, string> = {};
+          items.forEach((u: any) => {
+             map[u.user_id || u.id] = u.full_name || u.username || u.name;
+          });
+          setUserMap(map);
+        } catch (e) {
+          console.error("Failed to load users for audit log", e);
+        }
+      }
+      loadUsers();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -117,7 +138,7 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
                         <h4 className="mt-1 font-bold text-slate-700">{log.message}</h4>
                       </div>
                       <span className="text-[11px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">
-                        {new Date(log.timestamp).toLocaleString()}
+                        {log.timestamp}
                       </span>
                     </div>
 
@@ -154,7 +175,7 @@ const BOQHistoryModal: React.FC<BOQHistoryModalProps> = ({
                           <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">User ID: {log.user_id}</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">{log.user_name || log.username || userMap[log.user_id] || `User ID: ${log.user_id}`}</span>
                     </div>
                   </div>
                 </div>

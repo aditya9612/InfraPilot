@@ -168,7 +168,7 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Created At</p>
                                         </div>
                                         <p className="text-sm font-bold text-slate-800">
-                                            {purchase.created_at ? new Date(purchase.created_at).toLocaleString() : "N/A"}
+                                            {purchase.created_at || "N/A"}
                                         </p>
                                     </div>
 

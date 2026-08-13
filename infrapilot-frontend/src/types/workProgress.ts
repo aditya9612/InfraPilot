@@ -44,6 +44,7 @@ export interface ProjectSummary {
 export interface CreateActivityRequest {
   project_id: number;
   boq_code?: number | null;
+  boq_item_id?: number | null;
   activity_name: string;
   planned_quantity: number;
   unit: string;

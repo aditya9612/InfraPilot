@@ -179,6 +179,7 @@ export const accountingService = {
     const response = await api.get("/accountant/gst/summary", { params });
     return response.data;
   },
+
   getBankSummary: async (params?: any) => {
     const response = await api.get("/accountant/bank/summary", { params });
     return response.data;

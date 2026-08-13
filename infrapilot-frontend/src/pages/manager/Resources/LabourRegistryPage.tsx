@@ -224,10 +224,9 @@ const LabourRegistryPage = () => {
                     if (l.project_id !== undefined || (l.projects && Array.isArray(l.projects))) {
                         return pidMatch || arrayMatch;
                     }
-                    // Fallback if backend doesn't send project mapping explicitly: we trust the backend's response
-                    // However, we filter out clearly unassigned ones if marked as such
-                    if (l.status === 'Unassigned' || !l.assigned_task) {
-                        // Assuming unassigned might not have assigned_task, but this is risky. Let's just return true if no project info is available to avoid hiding everything.
+                    // If the item explicitly has a project_id or projects array, filter strictly
+                    if (l.project_id !== undefined || (l.projects && Array.isArray(l.projects))) {
+                        return pidMatch || arrayMatch;
                     }
                     return true;
                 });
@@ -374,12 +373,12 @@ const LabourRegistryPage = () => {
         }
     };
 
-    const handleExportPayroll = async () => {
+    const handleExportPayroll = async (format: 'excel' | 'pdf', labourId?: number) => {
         if (!projectId) return;
         setIsExportingPayroll(true);
         try {
-            await paymentService.exportPayroll({ month: payrollMonth, year: payrollYear });
-            toast.success("Payroll export started.");
+            await paymentService.exportPayroll({ month: payrollMonth, year: payrollYear, format, labour_id: labourId });
+            toast.success(`Payroll ${format.toUpperCase()} export started.`);
         } catch (err: any) {
             toast.error(err?.response?.data?.detail || "Failed to export payroll.");
         } finally {
@@ -573,8 +572,8 @@ const LabourRegistryPage = () => {
                                     <div className="flex flex-col"><span className="text-sm font-bold text-slate-800">{labor.labour_name}</span><span className="text-[10px] font-mono text-slate-400">{labor.worker_code}</span></div>
                                 </div>
                             </td>
-                            <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.labour_type_name || labor.skill_type || "—"}</td>
-                            <td className="px-6 py-4 text-xs text-slate-500">{labor.contractor_name || "—"}</td>
+                            <td className="px-6 py-4 text-xs font-bold text-slate-600">{labor.skill_category || labor.labour_type_name || labor.skill_type || "—"}</td>
+                            <td className="px-6 py-4 text-xs text-slate-500">{labor.contractor_name || (labor.contractor && labor.contractor.name) || "—"}</td>
                             <td className="px-6 py-4 text-xs font-medium text-slate-700">{taskName}</td>
                             <td className="px-6 py-4 text-xs font-medium text-blue-600">{engName || "—"}</td>
                             <td className="px-6 py-4 text-right text-sm font-bold text-emerald-600">₹{labor.effective_daily_wage || labor.daily_wage_rate || "—"}</td>
@@ -756,14 +755,14 @@ const LabourRegistryPage = () => {
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-slate-500">{labour.skill_category || "—"}</td>
-                                <td className="px-6 py-4 text-center text-slate-500">₹{(labour.daily_wage?.toLocaleString?.() ?? labour.daily_wage) || "—"}</td>
+                                <td className="px-6 py-4 text-center text-slate-500">₹{(labour.daily_wage_rate?.toLocaleString?.() ?? labour.daily_wage_rate ?? labour.daily_wage) || "—"}</td>
                                 <td className="px-6 py-4 text-center">
-                                    <span className="text-sm font-bold text-slate-700">{labour.days_present != null ? `${labour.days_present}` : "—"}</span>
+                                    <span className="text-sm font-bold text-slate-700">{labour.days_present != null ? `${labour.days_present}` : (labour.total_working_hours != null ? `${(labour.total_working_hours / 8).toFixed(1)}` : "—")}</span>
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                    <span className="text-sm font-bold text-slate-700 tabular-nums">{labour.ot_hours != null ? `${labour.ot_hours}h` : "—"}</span>
+                                    <span className="text-sm font-bold text-slate-700 tabular-nums">{labour.ot_hours != null ? `${labour.ot_hours}h` : (labour.total_overtime_hours != null ? `${labour.total_overtime_hours}h` : "—")}</span>
                                 </td>
-                                <td className="px-6 py-4 text-center text-slate-800 font-bold">₹{(labour.total_wage_earned || 0).toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center text-slate-800 font-bold">₹{(labour.total_wage || labour.total_wage_earned || 0).toLocaleString()}</td>
                                 <td className="px-6 py-4 text-center">
                                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${labour.status === "Active" ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-500"}`}>
                                         {labour.status || "Inactive"}
@@ -774,8 +773,11 @@ const LabourRegistryPage = () => {
                                         <button onClick={() => handlePaySalary(labour)} disabled={payingId === labour.labour_id || isLoading} className="px-3 py-2 rounded-xl bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:cursor-not-allowed disabled:opacity-60">
                                             {payingId === labour.labour_id ? "Paying..." : "Pay"}
                                         </button>
-                                        <button onClick={handleExportPayroll} disabled={isExportingPayroll || isLoading} className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
-                                            {isExportingPayroll ? "Exporting..." : "Export"}
+                                        <button onClick={() => handleExportPayroll('excel', labour.labour_id)} disabled={isExportingPayroll || isLoading} className="px-3 py-2 rounded-xl bg-slate-100 text-emerald-700 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                            Excel
+                                        </button>
+                                        <button onClick={() => handleExportPayroll('pdf', labour.labour_id)} disabled={isExportingPayroll || isLoading} className="px-3 py-2 rounded-xl bg-slate-100 text-rose-700 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                            PDF
                                         </button>
                                     </div>
                                 </td>
@@ -877,9 +879,16 @@ const LabourRegistryPage = () => {
                                     <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
                                     <select value={contractorFilter} onChange={e => setContractorFilter(e.target.value)} className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none appearance-none bg-white">
                                         <option value="All">All Contractors</option>
-                                        {Array.from(new Set(payrollList.map((item: any) => item.contractor_id || item.contractor_name))).map((value: any) => (
-                                            <option key={value} value={value}>{typeof value === 'number' ? `Contractor ${value}` : value}</option>
-                                        ))}
+                                        {(_contractorLiability && _contractorLiability.length > 0)
+                                            ? _contractorLiability.map((c: any) => (
+                                                <option key={c.contractor_id ?? 'independent'} value={c.contractor_name || c.contractor_id || 'Independent'}>
+                                                    {c.contractor_name || (c.contractor_id ? `Contractor ${c.contractor_id}` : 'Independent')}
+                                                </option>
+                                              ))
+                                            : Array.from(new Set(payrollList.map((item: any) => item.contractor_name || item.contractor_id))).map((value: any) => (
+                                                <option key={value} value={value}>{typeof value === 'number' ? `Contractor ${value}` : value}</option>
+                                              ))
+                                        }
                                     </select>
                                 </div>
                             )}
@@ -898,14 +907,14 @@ const LabourRegistryPage = () => {
                                     <button onClick={handleGeneratePayroll} disabled={isGeneratingPayroll || isLoading} className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-blue-600 transition-all disabled:cursor-not-allowed disabled:opacity-60">
                                         {isGeneratingPayroll ? "Generating..." : "Generate Payroll"}
                                     </button>
-                                    <button onClick={handleExportPayroll} disabled={isExportingPayroll || isLoading} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
-                                        {isExportingPayroll ? "Exporting..." : "Export Payroll"}
+                                    <button onClick={() => handleExportPayroll('excel')} disabled={isExportingPayroll || isLoading} className="px-4 py-2 bg-slate-100 text-emerald-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                        Export Excel
+                                    </button>
+                                    <button onClick={() => handleExportPayroll('pdf')} disabled={isExportingPayroll || isLoading} className="px-4 py-2 bg-slate-100 text-rose-700 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-all disabled:cursor-not-allowed disabled:opacity-60">
+                                        Export PDF
                                     </button>
                                 </div>
                             )}
-                            <div className="text-xs text-slate-400 font-medium">
-                                {activeTab === "Payroll" && `${filteredPayrollList.length} items found`}
-                            </div>
                             <button onClick={() => {
                                 if (activeTab === "Attendance") fetchAttendance();
                                 else if (activeTab === "Payroll") fetchPayrollData();

@@ -300,10 +300,9 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
   const [formData, setFormData] = useState({
     labour_id: 0,
     project_id: 0,
-    start_date: "",
-    end_date: "",
-    payment_mode: "Cash",
-    bank_account_id: 0
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    amount: 0
   });
   const [loading, setLoading] = useState(false);
 
@@ -315,10 +314,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
     { id: 1, name: "Metro Line 3" },
     { id: 2, name: "City Center Mall" }
   ];
-  const mockBankAccounts = [
-    { id: 1, name: "SBI - 1001" },
-    { id: 2, name: "HDFC - 2002" }
-  ];
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -330,7 +326,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.labour_id || !formData.project_id || !formData.start_date || !formData.end_date) {
+    if (!formData.labour_id || !formData.project_id || !formData.amount) {
       toast.error("Please fill required fields");
       return;
     }
@@ -382,33 +378,21 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date *</label>
-              <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date *</label>
-              <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode</label>
-              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
-                <option value="Cash">Cash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Cheque">Cheque</option>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Month *</label>
+              <select name="month" value={formData.month} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+                {[...Array(12)].map((_, i) => <option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</option>)}
               </select>
             </div>
 
-            {formData.payment_mode === "Bank Transfer" && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
-                <select name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
-                  <option value={0}>Select Bank Account</option>
-                  {mockBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Year *</label>
+              <input type="number" name="year" value={formData.year} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount *</label>
+              <input type="number" name="amount" value={formData.amount} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" placeholder="e.g. 15000" />
+            </div>
             
           </div>
         </div>

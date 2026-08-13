@@ -435,6 +435,7 @@ const ManagerSafetyPage = () => {
                   <option value="">All Status</option>
                   <option value="pending">Pending</option>
                   <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
                 </select>
                 {activeStatFilter !== "All" && (
                   <button onClick={() => setActiveStatFilter("All")} className="p-2 text-slate-400 hover:text-rose-500 bg-white border border-slate-200 rounded-xl shadow-sm">
@@ -636,7 +637,7 @@ const ManagerSafetyPage = () => {
             <div className="md:col-span-2">
               <label className={labelCls}>Impacted Project <span className="text-rose-500">*</span></label>
               <select name="project_id" value={formData.project_id}
-                onChange={(e) => setFormData(p => ({ ...p, project_id: Number(e.target.value) }))}
+                onChange={(e) => setFormData(p => ({ ...p, project_id: Number(e.target.value), task_id: null }))}
                 className={inputCls}>
                 <option value="">Select Project</option>
                 {projects.map(p => (
@@ -678,6 +679,7 @@ const ManagerSafetyPage = () => {
               <select name="safety_checklist_status" value={formData.safety_checklist_status} onChange={handleInputChange} className={inputCls}>
                 <option value="pending">Pending</option>
                 <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
               </select>
             </div>
             <div className="md:col-span-2">

@@ -210,8 +210,9 @@ export const equipmentService = {
         return response.data;
     },
 
-    async updateUsage(usage_id: number, data: { working_hours: number, fuel_used: number, usage_date: string, notes?: string, boq_item_id?: number }): Promise<UsageItem> {
+    async updateUsage(usage_id: number, data: { equipment_id: number, working_hours: number, fuel_used: number, usage_date: string, notes?: string, boq_item_id?: number }): Promise<UsageItem> {
         const payload = {
+            equipment_id: data.equipment_id,
             working_hours: data.working_hours,
             fuel_used: data.fuel_used,
             usage_date: data.usage_date,
