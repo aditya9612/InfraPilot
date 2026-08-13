@@ -316,7 +316,7 @@ const CreateInvoicePage = () => {
               mobile: u.mobile_number || "",
               email: u.email || "",
               address: u.address || "",
-              gst: u.pan_number || "" // Using PAN as GST placeholder if not available
+              gst: "" // Keep manual for client selection
             });
           }
         } catch (error) {
@@ -968,6 +968,7 @@ const CreateInvoicePage = () => {
   const handleImportQuotation = (q: Quotation) => {
     // 1. Map Client Details
     setClientDetails({
+      clientId: q.client_user_id || null,
       name: q.client_name || "",
       company: q.company_name || "",
       mobile: q.mobile_number || "",
@@ -1432,7 +1433,7 @@ const CreateInvoicePage = () => {
                               mobile: c.mobile_number || "",
                               email: c.email || "",
                               address: c.address || "",
-                              gst: c.pan_number || ""
+                              gst: ""
                             });
                           }
                         }
@@ -1530,16 +1531,23 @@ const CreateInvoicePage = () => {
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>
-                    <select
+                    <input
+                      type="text"
+                      list="project-types-list"
                       value={projectDetails.type}
                       onChange={(e) => setProjectDetails({ ...projectDetails, type: e.target.value })}
-                      disabled={isReadOnly}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all appearance-none ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
-                    >
-                      <option>Gravity Wall</option>
-                      <option>Building Construction</option>
-                      <option>Road Work</option>
-                    </select>
+                      readOnly={isReadOnly}
+                      placeholder="e.g. Residential, Infrastructure"
+                      className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
+                    />
+                    <datalist id="project-types-list">
+                      <option value="Residential" />
+                      <option value="Commercial" />
+                      <option value="Industrial" />
+                      <option value="Infrastructure" />
+                      <option value="Institutional" />
+                      <option value="Government" />
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>

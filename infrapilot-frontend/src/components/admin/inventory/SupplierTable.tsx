@@ -21,6 +21,7 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
             <th className="px-6 py-4">Supplier Name</th>
             <th className="px-6 py-4">Contact Person</th>
             <th className="px-6 py-4">Phone / Email</th>
+            <th className="px-6 py-4">Address</th>
             <th className="px-6 py-4 text-right">Actions</th>
           </tr>
         </thead>
@@ -45,6 +46,9 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
                   </span>
                 </div>
               </td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-600 max-w-[200px] truncate">
+                {sup.address || "N/A"}
+              </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-3">
                   <button
@@ -67,7 +71,7 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
           ))}
           {suppliers.length === 0 && (
             <tr>
-              <td colSpan={4} className="py-12 text-center text-slate-400">
+              <td colSpan={5} className="py-12 text-center text-slate-400">
                 No suppliers found.
               </td>
             </tr>

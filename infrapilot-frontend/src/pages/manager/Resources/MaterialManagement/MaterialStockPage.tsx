@@ -92,11 +92,11 @@ const MaterialStockPage = () => {
     const fetchStock = async () => {
         setIsLoading(true);
         try {
-            const [inv, val] = await Promise.all([
-                materialService.getProjectInventory(projectId),
+            const [rep, val] = await Promise.all([
+                materialService.getMaterialReport(projectId),
                 materialService.getInventoryValuation()
             ]);
-            setInventory(inv);
+            setInventory(rep.materials as any);
             setValuation(val);
         } catch (e) { toast.error("Failed to load stock data"); }
         finally { setIsLoading(false); }
@@ -325,15 +325,49 @@ const MaterialStockPage = () => {
                                 <div className="flex-1 overflow-auto scrollbar-thin">
                                     <table className="w-full text-left whitespace-nowrap">
                                         <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest sticky top-0">
-                                            <tr><th className="px-6 py-4">Material Name</th><th className="px-6 py-4 text-center">Remaining Stock</th><th className="px-6 py-4 text-right">Avg Rate</th><th className="px-6 py-4 text-right">Total Value</th></tr>
+                                            <tr>
+                                                <th className="px-6 py-4">Name</th>
+                                                <th className="px-6 py-4">Unit</th>
+                                                <th className="px-6 py-4">Supplier</th>
+                                                <th className="px-6 py-4">Project Name</th>
+                                                <th className="px-6 py-4 text-center">Stock (Total / Used / Rem)</th>
+                                                <th className="px-6 py-4 text-right">Fin. (Avg Rate / Value)</th>
+                                                <th className="px-6 py-4 text-right">Pay (Given / Pending)</th>
+                                                <th className="px-6 py-4 text-center">Alerts (Min / Type)</th>
+                                            </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
                                             {isLoading ? <tr><td colSpan={5} className="p-8 text-center text-slate-400">Loading...</td></tr> : paginatedInventory.map(i => (
                                                 <tr key={i.material_id} className="hover:bg-slate-50/50">
                                                     <td className="px-6 py-4 text-sm font-bold text-slate-800">{i.material_name}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-center text-emerald-600">{i.remaining_stock}</td>
-                                                    <td className="px-6 py-4 text-sm text-right text-slate-600">{formatINR(i.avg_rate)}</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-slate-800 text-right">{formatINR(i.total_value)}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-500 uppercase">{(i as any).unit_name || i.unit || '-'}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-700">{(i as any).supplier_name || i.supplier_name || '-'}</td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-slate-700">{projectsList.find(p => Number(p.id) === Number(i.project_id))?.project_name || projectsList.find(p => Number(p.id) === Number(i.project_id))?.name || '-'}</td>
+                                                    <td className="px-6 py-4 text-sm text-center">
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <span className="font-bold text-blue-600" title="Total Purchased">{(i as any).total_purchased || i.quantity_purchased || 0} P</span>
+                                                            <span className="font-bold text-orange-600" title="Total Used">{(i as any).total_used || i.quantity_used || 0} U</span>
+                                                            <span className="font-bold text-emerald-600" title="Remaining Stock">{i.remaining_stock || 0} R</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-right">
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <span className="text-slate-600" title="Avg Rate">{formatINR(i.avg_rate)}</span>
+                                                            <span className="font-bold text-slate-800" title="Stock Value">{formatINR((i as any).stock_value || i.total_value)}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-right">
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <span className="font-bold text-emerald-500" title="Payment Given">{formatINR(i.payment_given)}</span>
+                                                            <span className="font-bold text-rose-500" title="Payment Pending">{formatINR(i.payment_pending)}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-center">
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <span className="font-bold text-slate-500" title="Min Stock Level">{i.minimum_stock_level || 0}</span>
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${i.alert_type === 'LOW_STOCK' ? 'bg-rose-100 text-rose-600' : i.alert_type === 'NEAR_LOW' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`} title="Alert Type">{(i.alert_type || 'IN_STOCK').replace('_', ' ')}</span>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>

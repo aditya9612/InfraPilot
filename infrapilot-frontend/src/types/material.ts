@@ -29,8 +29,12 @@ export interface Material {
   material_code: string;          // MAT001 — auto by system
   project_id: number;
   material_name: string;
+  material_master_id?: number;    // from API response
+  material_master_name?: string;  // from API response
+  material_master_brand?: string; // from API response
   category: string;
   unit: string;                   // Bags / Kg / Ton / Litre
+  unit_name?: string;             // from API response
   supplier_id: number;
   supplier_name: string;          // auto-fetched from supplier
   purchase_rate: number;

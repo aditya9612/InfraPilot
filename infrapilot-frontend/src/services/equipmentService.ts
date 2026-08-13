@@ -448,8 +448,13 @@ export const equipmentService = {
     },
 
     async getUtilizationReport(params?: { project_id?: number }): Promise<UtilizationReport[]> {
-        const response = await api.get<UtilizationReport[]>('/equipment/report/utilization', { params });
-        return response.data;
+        const usageData = await this.getUsageReport(params);
+        return usageData.map(u => ({
+            equipment_id: u.equipment_id,
+            equipment_code: u.equipment_code,
+            total_hours: u.total_hours || 0,
+            utilization_rate: Number((((u.total_hours || 0) / 208) * 100).toFixed(2))
+        }));
     },
 
     async getPurchaseReport(params?: { project_id?: number }): Promise<any[]> {

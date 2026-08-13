@@ -23,7 +23,7 @@ const BOQDetailsModal: React.FC<BOQDetailsModalProps> = ({
         setActivityTypeName("");
         return;
       }
-      
+
       try {
         const types = await masterService.getEntities("activity-types");
         const matchedType = types.find(t => Number(t.id) === Number(boqItem.activity_type_id));
@@ -71,33 +71,9 @@ const BOQDetailsModal: React.FC<BOQDetailsModalProps> = ({
             </div>
 
             <div className="text-center md:text-left space-y-2">
-              <div className="flex flex-col md:flex-row items-center gap-3">
-                <h3 className="text-2xl font-black tracking-tight">
-                  {boqItem.item_name}
-                </h3>
-                <span
-                  className={`px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                    boqItem.status === "Active"
-                      ? "text-emerald-300"
-                      : "text-slate-200"
-                  }`}
-                >
-                  {boqItem.status}
-                </span>
-                {boqItem.approval_status && (
-                  <span
-                    className={`px-3 py-1 backdrop-blur-md border rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                      boqItem.approval_status === "Approved"
-                        ? "bg-emerald-500/30 border-emerald-400/30 text-emerald-200"
-                        : boqItem.approval_status === "Rejected"
-                        ? "bg-rose-500/30 border-rose-400/30 text-rose-200"
-                        : "bg-amber-500/30 border-amber-400/30 text-amber-200"
-                    }`}
-                  >
-                    {boqItem.approval_status}
-                  </span>
-                )}
-              </div>
+              <h3 className="text-2xl font-black tracking-tight">
+                {boqItem.item_name}
+              </h3>
               <p className="text-white font-bold flex items-center justify-center md:justify-start gap-2">
                 Project: {projectName}
               </p>
@@ -151,14 +127,25 @@ const BOQDetailsModal: React.FC<BOQDetailsModalProps> = ({
               }
             />
             <InfoItem
+              label="Status"
+              value={boqItem.status || "—"}
+              valueClass={
+                boqItem.status?.toLowerCase() === "active" || boqItem.status?.toLowerCase() === "ongoing"
+                  ? "text-emerald-600"
+                  : "text-slate-500"
+              }
+            />
+            <InfoItem
               label="Approval Status"
               value={boqItem.approval_status || "—"}
               valueClass={
-                boqItem.approval_status === "Approved"
+                boqItem.approval_status?.toLowerCase() === "approved"
                   ? "text-emerald-600"
-                  : boqItem.approval_status === "Rejected"
-                  ? "text-rose-600"
-                  : "text-amber-600"
+                  : boqItem.approval_status?.toLowerCase() === "rejected"
+                    ? "text-rose-600"
+                    : boqItem.approval_status?.toLowerCase() === "under_review" || boqItem.approval_status?.toLowerCase() === "under review" || boqItem.approval_status?.toLowerCase() === "pending"
+                      ? "text-amber-600"
+                      : "text-slate-500"
               }
             />
           </Section>
