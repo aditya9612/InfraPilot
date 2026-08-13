@@ -30,7 +30,6 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
             <tr key={sup.id} className="hover:bg-slate-50/50 transition-colors">
               <td className="px-6 py-4">
                 <p className="font-bold text-slate-700">{sup.name}</p>
-                <p className="text-xs text-slate-400 font-medium">ID: SUP-{sup.id}</p>
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
                 {/* Contact person isn't in the new simplified API but we can handle it if present in data */}

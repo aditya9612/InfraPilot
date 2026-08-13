@@ -137,6 +137,17 @@ export interface CreateEquipmentRequest {
     maintenance_date: string;
 }
 
+export interface EquipmentTransfer {
+    id: number;
+    equipment_id: number;
+    source_project_id: number | null;
+    target_project_id: number;
+    transfer_date: string;
+    transferred_by: number | null;
+    reason: string;
+    created_at: string;
+}
+
 export const equipmentService = {
     // ==========================================
     // 1. CRUD Equipment
@@ -437,6 +448,20 @@ export const equipmentService = {
         const response = await api.get<any>(`/equipment/${equipment_id}/transfer-history`);
         const data = response.data;
         return Array.isArray(data) ? data : (data.items || data.data || []);
+    },
+
+    async listTransferHistory(params?: { limit?: number; offset?: number, project_id?: number }): Promise<any[]> {
+        const response = await api.get<any>('/equipment/transfer-history', { params });
+        const data = response.data;
+        if (Array.isArray(data)) return data;
+        if (typeof data === 'object' && data !== null) {
+            if (Array.isArray(data.items)) return data.items;
+            if (Array.isArray(data.data)) return data.data;
+            for (const key of Object.keys(data)) {
+                if (Array.isArray(data[key])) return data[key];
+            }
+        }
+        return [];
     },
 
     // ==========================================

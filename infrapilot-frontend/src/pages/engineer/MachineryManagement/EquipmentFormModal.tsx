@@ -93,7 +93,6 @@ const EquipmentFormModal: React.FC<EquipmentFormModalProps> = ({ isOpen, onClose
                             <h3 className="text-sm font-bold text-primary">{formData.id ? "Change Assigned Project" : "Assign to project"}</h3>
                         </div>
                     </div>
-                    {!formData.id && <p className="text-[11px] text-blue-500 mb-4 ml-6">Equipment create hone ke baad automatically project assign ho jayega</p>}
                     <div className="ml-6">
                         <label className={labelClasses}>ASSIGNED PROJECT</label>
                         {formData.project_id ? (
