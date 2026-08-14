@@ -44,11 +44,11 @@ const ExpenseEntrySection = () => {
   }, []);
 
   const statCards = [
-    { label: "TOTAL EXPENSE",   value: stats ? fmt(stats.total_expense)   : "—" },
-    { label: "MONTHLY EXPENSE", value: stats ? fmt(stats.monthly_expense)  : "—" },
-    { label: "PROJECT EXPENSE", value: stats ? fmt(stats.project_expense)  : "—" },
-    { label: "DIRECT EXPENSE",  value: stats ? fmt(stats.direct_expense)   : "—" },
-    { label: "INDIRECT EXPENSE",value: stats ? fmt(stats.indirect_expense) : "—" },
+    { label: "TOTAL EXPENSE", value: stats ? fmt(stats.total_expense) : "—" },
+    { label: "MONTHLY EXPENSE", value: stats ? fmt(stats.monthly_expense) : "—" },
+    { label: "PROJECT EXPENSE", value: stats ? fmt(stats.project_expense) : "—" },
+    { label: "DIRECT EXPENSE", value: stats ? fmt(stats.direct_expense) : "—" },
+    { label: "INDIRECT EXPENSE", value: stats ? fmt(stats.indirect_expense) : "—" },
     {
       label: "PENDING APPRVL",
       value: stats ? String(stats.pending_approval_count) : "—",
@@ -85,9 +85,8 @@ const ExpenseEntrySection = () => {
             <div
               key={k.label}
               onClick={() => setActiveStat(k.label)}
-              className={`bg-white rounded-xl p-4 shadow-sm border ${
-                isActive ? 'border-rose-500' : 'border-slate-100 hover:border-rose-300'
-              } relative overflow-hidden cursor-pointer transition-colors`}
+              className={`bg-white rounded-xl p-4 shadow-sm border ${isActive ? 'border-rose-500' : 'border-slate-100 hover:border-rose-300'
+                } relative overflow-hidden cursor-pointer transition-colors`}
             >
               {isActive && <div className="absolute bottom-0 left-0 w-full h-1 bg-rose-500" />}
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{k.label}</p>
@@ -440,7 +439,7 @@ const ExpenseListSection = () => {
         const data = await projectService.getProjects(100, 0);
         const list = Array.isArray(data) ? data : (data as any).items || [];
         setProjects(list);
-      } catch (err) {}
+      } catch (err) { }
     };
     fetchProjects();
   }, []);
@@ -666,8 +665,8 @@ const ExpenseListSection = () => {
         <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-            <select 
-              value={recordsPerPage} 
+            <select
+              value={recordsPerPage}
               onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
             >
@@ -678,7 +677,7 @@ const ExpenseListSection = () => {
             Showing {filteredExpenses.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filteredExpenses.length)} of {filteredExpenses.length} records
           </span>
           <div className="flex items-center gap-1">
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -688,7 +687,7 @@ const ExpenseListSection = () => {
             <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
               {currentPage}
             </span>
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -752,8 +751,8 @@ const ProjectCostAllocationSection = () => {
         {data.projects?.map((p, i) => {
           const isSelected = selectedProjectIndex === i;
           return (
-            <div 
-              key={p.project_name} 
+            <div
+              key={p.project_name}
               onClick={() => setSelectedProjectIndex(i)}
               className={`bg-white rounded-2xl shadow-sm border p-5 cursor-pointer transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 shadow-md' : 'border-slate-100 hover:border-primary/40'}`}
             >
@@ -833,8 +832,8 @@ const ProjectCostAllocationSection = () => {
         <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-            <select 
-              value={recordsPerPage} 
+            <select
+              value={recordsPerPage}
               onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
             >
@@ -845,7 +844,7 @@ const ProjectCostAllocationSection = () => {
             Showing {(!data.recent || data.recent.length === 0) ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, data.recent?.length || 0)} of {data.recent?.length || 0} records
           </span>
           <div className="flex items-center gap-1">
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -855,7 +854,7 @@ const ProjectCostAllocationSection = () => {
             <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
               {currentPage}
             </span>
-            <button 
+            <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
               className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -892,7 +891,7 @@ const ExpenseLedgerSection = () => {
     fetchData();
   }, []);
 
-  const filteredData = data.filter(row => 
+  const filteredData = data.filter(row =>
     (row.particular && row.particular.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (row.date && row.date.includes(searchQuery))
   );
@@ -920,10 +919,10 @@ const ExpenseLedgerSection = () => {
         <div className="p-5 border-b border-slate-100 flex justify-between items-center">
           <h3 className="font-bold text-slate-800">Expense Ledger Entries</h3>
           <div className="flex gap-3">
-            <input 
-              type="text" 
-              placeholder="Search ledger..." 
-              className="text-xs border border-slate-200 rounded-xl px-3 py-2 w-64 bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20" 
+            <input
+              type="text"
+              placeholder="Search ledger..."
+              className="text-xs border border-slate-200 rounded-xl px-3 py-2 w-64 bg-slate-50 outline-none focus:ring-2 focus:ring-primary/20"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -964,8 +963,8 @@ const ExpenseLedgerSection = () => {
           <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select 
-                value={recordsPerPage} 
+              <select
+                value={recordsPerPage}
                 onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
               >
@@ -976,7 +975,7 @@ const ExpenseLedgerSection = () => {
               Showing {filteredData.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filteredData.length)} of {filteredData.length} records
             </span>
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -986,7 +985,7 @@ const ExpenseLedgerSection = () => {
               <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
                 {currentPage}
               </span>
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -1155,8 +1154,8 @@ const BOQComparisonSection = () => {
           <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-              <select 
-                value={recordsPerPage} 
+              <select
+                value={recordsPerPage}
                 onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
               >
@@ -1167,7 +1166,7 @@ const BOQComparisonSection = () => {
               Showing {filteredItems.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, filteredItems.length)} of {filteredItems.length} records
             </span>
             <div className="flex items-center gap-1">
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
@@ -1177,7 +1176,7 @@ const BOQComparisonSection = () => {
               <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
                 {currentPage}
               </span>
-              <button 
+              <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"

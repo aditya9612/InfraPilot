@@ -286,7 +286,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                   mobile: u.mobile_number || "",
                   email: u.email || "",
                   address: u.address || "",
-                  gst: u.pan_number || ""
+                  gst: ""
                 }));
               }
             } catch (error: any) {
@@ -348,7 +348,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
               mobile: u.mobile_number || "",
               email: u.email || "",
               address: u.address || "",
-              gst: u.pan_number || "" // Using PAN as GST placeholder if not available
+              gst: "" // Using manual GST instead of PAN card fallback
             }));
           }
         } catch (error) {
@@ -1216,7 +1216,7 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                             mobile: selected.mobile_number || "",
                             email: selected.email || "",
                             address: selected.address || "",
-                            gst: selected.pan_number || ""
+                            gst: ""
                           }));
                         } else {
                           setClientDetails(prev => ({ ...prev, client_user_id: null, name: val }));
@@ -1322,12 +1322,21 @@ const AccountantCreateInvoice: React.FC<AccountantCreateInvoiceProps> = ({ onCan
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Project Type</label>
                     <input
                       type="text"
+                      list="project-types-list"
                       value={projectDetails.type}
                       onChange={(e) => setProjectDetails({ ...projectDetails, type: e.target.value })}
                       readOnly={isReadOnly}
-                      placeholder="e.g. Gravity Wall"
+                      placeholder="e.g. Residential, Infrastructure"
                       className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-blue-100 outline-none transition-all ${isReadOnly ? 'cursor-not-allowed opacity-70' : ''}`}
                     />
+                    <datalist id="project-types-list">
+                      <option value="Residential" />
+                      <option value="Commercial" />
+                      <option value="Industrial" />
+                      <option value="Infrastructure" />
+                      <option value="Institutional" />
+                      <option value="Government" />
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Engineer In-Charge</label>

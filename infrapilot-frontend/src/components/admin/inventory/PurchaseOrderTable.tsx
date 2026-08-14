@@ -28,7 +28,8 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
         <thead>
           <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
             <th className="px-6 py-4">PO ID & Material</th>
-            <th className="px-6 py-4">Quantity & Rate</th>
+            <th className="px-6 py-4">Quantity</th>
+            <th className="px-6 py-4">Rate (₹)</th>
             <th className="px-6 py-4">Total Amount</th>
             <th className="px-6 py-4">Status</th>
             <th className="px-6 py-4 text-right">Actions</th>
@@ -42,7 +43,10 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
                 <p className="text-xs text-slate-500 font-medium">{po.material_name}</p>
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
-                {po.quantity} units @ ₹{po.rate.toLocaleString()}
+                {po.quantity} units
+              </td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-600">
+                ₹{po.rate.toLocaleString()}
               </td>
               <td className="px-6 py-4 text-sm font-bold text-slate-800">
                 ₹{po.total_amount.toLocaleString()}
@@ -74,7 +78,7 @@ const PurchaseOrderTable: React.FC<PurchaseOrderTableProps> = ({
           ))}
           {pos.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-12 text-center text-slate-400">
+              <td colSpan={6} className="py-12 text-center text-slate-400">
                 No purchase orders found.
               </td>
             </tr>

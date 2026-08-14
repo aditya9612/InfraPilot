@@ -505,11 +505,11 @@ const DocumentsPage = () => {
             title="Pending Approval"
             icon={<RefreshCcw className="w-5 h-5 text-amber-500" />}
             value={stats ? stats.pending_approvals.toString() : "..."}
-            sub="Documents awaiting review"
+            sub={mainTab === "Drawings" ? "Drawings awaiting review" : "Documents awaiting review"}
             accent="text-amber-500"
           />
           <StatCard
-            title="Total Documents"
+            title={mainTab === "Drawings" ? "Total Drawings" : "Total Documents"}
             icon={<FileText className="w-5 h-5 text-emerald-500" />}
             value={
               overallTotalDocs !== null
@@ -518,7 +518,7 @@ const DocumentsPage = () => {
                   ? stats.total_documents.toString()
                   : "..."
             }
-            sub="Total files in repository"
+            sub={mainTab === "Drawings" ? "Total drawings in repository" : "Total files in repository"}
             accent="text-emerald-500"
           />
         </div>

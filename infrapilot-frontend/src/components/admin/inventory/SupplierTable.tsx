@@ -21,6 +21,7 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
             <th className="px-6 py-4">Supplier Name</th>
             <th className="px-6 py-4">Contact Person</th>
             <th className="px-6 py-4">Phone / Email</th>
+            <th className="px-6 py-4">Address</th>
             <th className="px-6 py-4 text-right">Actions</th>
           </tr>
         </thead>
@@ -29,7 +30,6 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
             <tr key={sup.id} className="hover:bg-slate-50/50 transition-colors">
               <td className="px-6 py-4">
                 <p className="font-bold text-slate-700">{sup.name}</p>
-                <p className="text-xs text-slate-400 font-medium">ID: SUP-{sup.id}</p>
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
                 {/* Contact person isn't in the new simplified API but we can handle it if present in data */}
@@ -44,6 +44,9 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
                     {sup.contact?.match(/[^\s@]+@[^\s@]+\.[^\s@]+/)?.[0] || ""}
                   </span>
                 </div>
+              </td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-600 max-w-[200px] truncate">
+                {sup.address || "N/A"}
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-3">
@@ -67,7 +70,7 @@ const SupplierTable: React.FC<SupplierTableProps> = ({
           ))}
           {suppliers.length === 0 && (
             <tr>
-              <td colSpan={4} className="py-12 text-center text-slate-400">
+              <td colSpan={5} className="py-12 text-center text-slate-400">
                 No suppliers found.
               </td>
             </tr>

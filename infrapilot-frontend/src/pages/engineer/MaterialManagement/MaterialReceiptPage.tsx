@@ -18,7 +18,8 @@ import { useProject } from "../../../context/ProjectContext";
 const CATEGORIES = ["Construction", "Electrical", "Plumbing", "Finishing", "Other"];
 const UNITS = ["Bags", "Kg", "Ton", "Litre", "Nos", "Sqft", "Rft", "Cum"];
 const RATE_TYPES = ["FIXED", "VARIABLE"];
-const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"];
+const ISSUE_TYPES = ["SYSTEM", "SITE", "DAMAGE", "LOSS", "VENDOR", "TRANSFER", "ADJUSTMENT", "PURCHASE"] as IssueType[];
+
 
 type TabType = "Materials" | "Suppliers" | "Purchase Orders" | "Dashboard";
 
@@ -75,7 +76,6 @@ const MaterialReceiptPage = () => {
             } catch (err) { }
         };
         fetchUnits();
-
         const fetchMasterMaterials = async () => {
             try {
                 const res = await masterService.getEntities("materials");
@@ -105,18 +105,18 @@ const MaterialReceiptPage = () => {
     const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<{ type: 'material' | 'supplier' | 'po', id: number } | null>(null);
 
+
     // Forms
     const [materialForm, setMaterialForm] = useState<Partial<MaterialItem & { material_master_id?: number }>>({ category: "Construction", unit: "Bags", rate_type: "FIXED" });
-    const [purchaseForm, setPurchaseForm] = useState<{ quantity: number, rate: number, amount_paid: number, project_id: number, issue_type: IssueType, boq_item_id?: number }>({ quantity: 0, rate: 0, amount_paid: 0, project_id: 1, issue_type: "SYSTEM" as IssueType });
+    const [purchaseForm, setPurchaseForm] = useState<any>({ quantity: 0, rate: 0, amount_paid: 0, project_id: 1, supplier_id: 0, boq_item_id: undefined, issue_type: "SYSTEM" as IssueType });
     const [supplierForm, setSupplierForm] = useState<Partial<Supplier>>({});
     const [poForm, setPoForm] = useState<Partial<PurchaseOrder>>({});
 
     // Fetch Methods
     const fetchMaterials = async (pId: number = projectId) => {
-        if (!pId) { setMaterials([]); return; }
         setIsLoading(true);
         try {
-            const raw = await materialService.listMaterials(pId, 0, 500);
+            const raw = await materialService.listMaterials(pId || undefined, 0, 500);
             const data: MaterialItem[] = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
             // Sort by id descending so newest is first
             setMaterials(data.sort((a: any, b: any) => (b.id || b.material_id || 0) - (a.id || a.material_id || 0)));
@@ -126,10 +126,9 @@ const MaterialReceiptPage = () => {
     };
 
     const fetchSuppliers = async (pId: number = projectId) => {
-        if (!pId) { setSuppliers([]); return; }
         setIsLoading(true);
         try {
-            const raw = await materialService.getSuppliers(pId);
+            const raw = await materialService.getSuppliers(pId || undefined);
             const data: Supplier[] = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
             setSuppliers(data);
         }
@@ -138,10 +137,9 @@ const MaterialReceiptPage = () => {
     };
 
     const fetchPOs = async (pId: number = projectId) => {
-        if (!pId) { setPurchaseOrders([]); return; }
         setIsLoading(true);
         try {
-            const raw = await materialService.listPurchaseOrders(pId, 0, 500);
+            const raw = await materialService.listPurchaseOrders(pId || undefined, 0, 500);
             const data: PurchaseOrder[] = Array.isArray(raw) ? raw : ((raw as any)?.items || (raw as any)?.data || []);
             setPurchaseOrders(data);
         }
@@ -243,9 +241,16 @@ const MaterialReceiptPage = () => {
     const handleRecordPurchase = async (e: React.FormEvent) => {
         e.preventDefault(); if (!selectedMaterial) return; setIsSubmitting(true);
         try {
-            await materialService.recordPurchase(selectedMaterial.id, { ...purchaseForm, project_id: purchaseForm.project_id || projectId });
-            toast.success("Purchase recorded!");
-            setIsPurchaseModalOpen(false); fetchMaterials();
+            await materialService.createPurchaseOrder({
+                supplier_id: purchaseForm.supplier_id || selectedMaterial.supplier_id,
+                project_id: purchaseForm.project_id || projectId || 1,
+                material_id: selectedMaterial.id,
+                boq_item_id: purchaseForm.boq_item_id,
+                quantity: purchaseForm.quantity,
+                rate: purchaseForm.rate
+            });
+            toast.success("Purchase recorded as a Purchase Order!");
+            setIsPurchaseModalOpen(false); fetchPOs();
         } catch (e) { toast.error("Failed to record purchase"); }
         finally { setIsSubmitting(false); }
     };
@@ -644,6 +649,7 @@ const MaterialReceiptPage = () => {
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">Basic Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {!selectedMaterial && <div><label className={labelClasses}>Project *</label><select required value={materialForm.project_id || projectId} onChange={e => setMaterialForm({ ...materialForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>}
+                            <div><label className={labelClasses}>Material Master *</label><select required value={materialForm.material_master_id || ""} onChange={e => { const mId = Number(e.target.value); const mat = masterMaterials.find(m => m.id === mId); setMaterialForm({ ...materialForm, material_master_id: mId, material_name: mat ? (mat.title || mat.name || mat.material_name || materialForm.material_name) : materialForm.material_name }); }} className={inputClasses}><option value="">Select Master Material</option>{masterMaterials.map(m => <option key={m.id} value={m.id}>{m.title || m.name || m.material_name}</option>)}</select></div>
                             <div><label className={labelClasses}>Material Name *</label><input required value={materialForm.material_name || ""} onChange={e => setMaterialForm({ ...materialForm, material_name: e.target.value })} className={inputClasses} /></div>
                             <div><label className={labelClasses}>Category *</label><select required value={materialForm.category} onChange={e => setMaterialForm({ ...materialForm, category: e.target.value })} className={inputClasses}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
                             <div><label className={labelClasses}>Unit *</label><select required value={materialForm.unit} onChange={e => setMaterialForm({ ...materialForm, unit: e.target.value })} className={inputClasses}>{(masterUnits.length > 0 ? masterUnits.map(u => u.name) : UNITS).map(u => <option key={u}>{u}</option>)}</select></div>
@@ -674,7 +680,7 @@ const MaterialReceiptPage = () => {
                     <div className="p-6 space-y-6">
                         <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10 flex justify-between items-center">
                             <div>
-                                <h3 className="text-2xl font-black text-slate-800">{selectedMaterial.material_name}</h3>
+                                <h3 className="text-2xl font-black text-slate-800">{selectedMaterial.material_master_name || selectedMaterial.material_name}</h3>
                                 <p className="text-sm font-bold text-slate-500">{selectedMaterial.material_code} • {selectedMaterial.category}</p>
                             </div>
                             <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase border ${selectedMaterial.alert_type === 'IN_STOCK' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : selectedMaterial.alert_type === 'LOW_STOCK' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
@@ -685,7 +691,7 @@ const MaterialReceiptPage = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                                 <h4 className="text-sm font-bold text-slate-800 border-b border-slate-50 pb-2">General Info</h4>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Project</p><p className="font-bold text-slate-700">{projectsList.find(p => p.id === selectedMaterial.project_id)?.project_name || `Project #${selectedMaterial.project_id}`}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Supplier</p><p className="font-bold text-slate-700">{selectedMaterial.supplier_name || `ID: ${selectedMaterial.supplier_id}`}</p></div>
                                     <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Unit</p><p className="font-bold text-slate-700">{(selectedMaterial as any).unit_name || selectedMaterial.unit}</p></div>
@@ -724,12 +730,13 @@ const MaterialReceiptPage = () => {
                     <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-50 pb-2">New Purchase Request</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className={labelClasses}>quantity *</label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>rate *</label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>amount_paid *</label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
-                            <div><label className={labelClasses}>project_id *</label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
-                            <div><label className={labelClasses}>issue_type *</label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
-                            <div><label className={labelClasses}>boq_item</label><select value={purchaseForm.boq_item_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, boq_item_id: e.target.value ? Number(e.target.value) : undefined })} className={inputClasses}><option value="">Select BOQ Item (Optional)</option>{boqs.map((b: any) => <option key={b.id} value={b.id}>{b.item_description || b.description || b.work_description || `BOQ #${b.id}`}{b.unit ? ` (${b.unit})` : ""}</option>)}</select></div>
+                            <div><label className={labelClasses}>Project *</label><select required value={purchaseForm.project_id || projectId} onChange={e => setPurchaseForm({ ...purchaseForm, project_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Project</option>{projectsList.map(p => <option key={p.id} value={p.id}>{p.project_name || `Project #${p.id}`}</option>)}</select></div>
+                            <div><label className={labelClasses}>Supplier *</label><select required value={purchaseForm.supplier_id || selectedMaterial?.supplier_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, supplier_id: Number(e.target.value) })} className={inputClasses}><option value="">Select Supplier</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                            <div><label className={labelClasses}>Issue Type *</label><select required value={purchaseForm.issue_type} onChange={e => setPurchaseForm({ ...purchaseForm, issue_type: e.target.value as IssueType })} className={inputClasses}>{ISSUE_TYPES.map(i => <option key={i}>{i}</option>)}</select></div>
+                            <div><label className={labelClasses}>BOQ Item</label><select value={purchaseForm.boq_item_id || ""} onChange={e => setPurchaseForm({ ...purchaseForm, boq_item_id: e.target.value ? Number(e.target.value) : undefined })} className={inputClasses}><option value="">Select BOQ Item (Optional)</option>{boqs.map((b: any) => <option key={b.id} value={b.id}>{b.item_description || b.description || b.work_description || `BOQ #${b.id}`}{b.unit ? ` (${b.unit})` : ""}</option>)}</select></div>
+                            <div><label className={labelClasses}>Quantity *</label><input type="number" required value={purchaseForm.quantity || ""} onChange={e => setPurchaseForm({ ...purchaseForm, quantity: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Rate *</label><input type="number" required value={purchaseForm.rate || ""} onChange={e => setPurchaseForm({ ...purchaseForm, rate: Number(e.target.value) })} className={inputClasses} /></div>
+                            <div><label className={labelClasses}>Amount Paid *</label><input type="number" required value={purchaseForm.amount_paid || ""} onChange={e => setPurchaseForm({ ...purchaseForm, amount_paid: Number(e.target.value) })} className={inputClasses} /></div>
                         </div>
                     </div>
                 </form>
@@ -802,6 +809,7 @@ const MaterialReceiptPage = () => {
                                 <div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Address</p><p className="font-bold text-slate-700">{selectedSupplier.address || '-'}</p></div>
                             </div>
                         </div>
+
 
                     </div>
                 )}

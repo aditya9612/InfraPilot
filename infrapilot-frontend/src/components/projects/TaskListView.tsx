@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Task, ProjectMember } from "../../types/project";
-import { ChevronDown, TrendingUp, Forward, Eye, Edit2, Trash2 } from "lucide-react";
+import { ChevronDown, Forward, Eye, Edit2, Trash2 } from "lucide-react";
 import { getFullImageUrl } from "../../utils/imageUtils";
 
 interface TaskListViewProps {
@@ -11,11 +11,10 @@ interface TaskListViewProps {
   onView: (task: Task) => void;
   onDelete?: (taskId: number) => void;
   onStatusChange?: (taskId: number, status: string) => void;
-  onUpdateProgress?: (task: Task) => void;
   onPassDelegate?: (task: Task) => void;
 }
 
-const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, onStatusChange, onUpdateProgress, onPassDelegate }: TaskListViewProps) => {
+const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, onStatusChange, onPassDelegate }: TaskListViewProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const PAGE_SIZE = 10;
 
@@ -81,9 +80,9 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
               <th className="p-4 whitespace-nowrap text-slate-800">Start / End Date</th>
               <th className="p-4 whitespace-nowrap text-slate-800">Actual Start / End</th>
               <th className="p-4 whitespace-nowrap text-slate-800">Assigned Users</th>
-              <th className="p-4 whitespace-nowrap text-slate-800">Completion %</th>
               <th className="p-4 whitespace-nowrap text-slate-800">Delay Days</th>
-              <th className="p-4 whitespace-nowrap text-slate-800">Instructions</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Audio Instruction</th>
+              <th className="p-4 whitespace-nowrap text-slate-800">Instruction Image</th>
               <th className="p-4 whitespace-nowrap text-slate-800 text-center">Actions</th>
             </tr>
           </thead>
@@ -132,31 +131,22 @@ const TaskListView = ({ tasks, members, projectName, onEdit, onView, onDelete, o
                   </div>
                 </td>
                 <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{getMemberName(task)}</td>
-                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">{task.completion_percentage || 0}</td>
                 <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell font-bold ${(task as any).is_delayed ? 'text-rose-500' : ''}">{(task as any).delay_days || 0}</td>
 
                 <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
-                  <div className="flex items-center gap-2">
-                    {(task.audio_file || (task as any).audio_instruction_url) ? (
-                      <audio controls src={getFullImageUrl(task.audio_file || String((task as any).audio_instruction_url)) || ''} className="h-8 max-w-[120px]" />
-                    ) : '-'}
-                    {(task.instruction_image || (task as any).instruction_image_url) ? (
-                      <img src={getFullImageUrl(task.instruction_image || String((task as any).instruction_image_url)) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
-                    ) : null}
-                  </div>
+                  {(task.audio_file || (task as any).audio_instruction_url) ? (
+                    <audio controls src={getFullImageUrl(task.audio_file || String((task as any).audio_instruction_url)) || ''} className="h-8 max-w-[120px]" />
+                  ) : <span className="text-slate-400">null</span>}
+                </td>
+
+                <td className="p-4 whitespace-nowrap text-xs text-slate-800 block md:table-cell">
+                  {(task.instruction_image || (task as any).instruction_image_url) ? (
+                    <img src={getFullImageUrl(task.instruction_image || String((task as any).instruction_image_url)) || ''} alt="Instruction" className="h-10 w-10 object-cover rounded shadow-sm border border-slate-200" />
+                  ) : <span className="text-slate-400">null</span>}
                 </td>
 
                 <td className="p-4 text-center block md:table-cell">
                   <div className="flex items-center justify-center gap-1">
-                    {onUpdateProgress && (
-                      <button
-                        onClick={() => onUpdateProgress(task)}
-                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
-                        title="Update Progress"
-                      >
-                        <TrendingUp className="w-4 h-4" />
-                      </button>
-                    )}
                     {onPassDelegate && (
                       <button
                         onClick={() => onPassDelegate(task)}

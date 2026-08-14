@@ -41,8 +41,8 @@ export const documentService = {
     async uploadDocument(params: DocumentUploadParams): Promise<Document> {
         const formData = new FormData();
         formData.append("project_id", params.project_id.toString());
-        formData.append("title", params.title);
-        formData.append("document_type", params.document_type);
+        if (params.title) formData.append("title", params.title);
+        if (params.document_type) formData.append("document_type", params.document_type);
         if (params.parent_id) formData.append("parent_id", params.parent_id.toString());
         if (params.remarks) formData.append("remarks", params.remarks);
         if (params.version) formData.append("version", params.version);
@@ -118,10 +118,35 @@ export const documentService = {
      * GET /api/v1/documents/{id}/download
      */
     async downloadDocument(id: number, fileName?: string) {
+        try {
+            // Document download endpoint returns a JSON with { file_url: string }
+            const data = await this.getDownloadUrl(id);
+            const fileUrl = data.file_url || (data as any).url || (data as any).download_url;
+
+            if (fileUrl) {
+                const link = document.createElement('a');
+                link.href = fileUrl;
+                link.setAttribute('download', fileName || `document_${id}`);
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                return;
+            }
+        } catch (err: any) {
+            // Re-throw server errors explicitly instead of attempting a broken fallback
+            if (err.response && err.response.status >= 400) {
+                throw err;
+            }
+            // If JSON parse fails or file_url is missing, fallback to blob fetch
+            console.warn("Could not fetch pre-signed URL for document, attempting raw blob download.");
+        }
+
+        // Fallback for native blob response
         const response = await api.get(`/documents/${id}/download`, {
             responseType: 'blob'
         });
-        
+
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
@@ -133,17 +158,37 @@ export const documentService = {
     },
 
     /**
-     * View a specific document (as blob)
-     * GET /api/v1/documents/{id}/download (Using download as proxy for view)
+     * View a specific document
+     * GET /api/v1/documents/{id}/download (Using download as proxy for view metadata)
      */
     async viewDocument(id: number) {
-        const response = await api.get(`/documents/${id}/download`, {
-            responseType: 'blob'
-        });
+        const data = await this.getDownloadUrl(id);
+        const fileUrl = data.file_url || (data as any).url || (data as any).download_url;
 
-        return {
-            data: response.data,
-            contentType: response.headers?.['content-type'] || 'application/pdf'
-        };
+        if (fileUrl) {
+            try {
+                // Attempt to fetch as blob to bypass potential Content-Disposition: attachment headers
+                const fetchRes = await fetch(fileUrl);
+                const blob = await fetchRes.blob();
+
+                // Force PDF content type if extension strongly suggests it to prevent auto-downloads
+                let ct = fetchRes.headers.get('content-type') || 'application/pdf';
+                if (fileUrl.toLowerCase().split('?')[0].endsWith('.pdf')) {
+                    ct = 'application/pdf';
+                }
+
+                return {
+                    data: blob,
+                    contentType: ct,
+                    fileUrl
+                };
+            } catch (err) {
+                // If CORS blocks the fetch, fallback to returning the raw URL for the iframe to handle natively
+                console.warn("CORS or fetch error, falling back to direct URL viewing.", err);
+                return { fileUrl };
+            }
+        }
+
+        throw new Error("No file URL found for document.");
     }
 };

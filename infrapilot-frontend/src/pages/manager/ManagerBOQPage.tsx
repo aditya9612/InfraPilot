@@ -559,8 +559,21 @@ const ManagerBOQPage = () => {
             toast.success("Tasks generated successfully!");
             setIsSelectMilestoneModalOpen(false);
 
-            // Expected result to have a list of tasks. Handle array or object wrapping an array, or a single task object.
-            const tasks = Array.isArray(result) ? result : (result.tasks || result.data || (result.task_id ? [result] : []));
+            // Expected result to have a list of tasks. Handle array or object wrapping an array, or single task details object
+            let tasks = [];
+            if (Array.isArray(result)) {
+                tasks = result;
+            } else if (result && (result.tasks || result.data)) {
+                const inner = result.tasks || result.data;
+                tasks = Array.isArray(inner) ? inner : [inner];
+            } else if (result && (result.task_id || result.message)) {
+                tasks = [{
+                    task_name: result.message || "Task generated from BOQ",
+                    id: result.task_id,
+                    milestone_id: result.milestone_id,
+                    status: "Pending"
+                }];
+            }
             setGeneratedTasksList(tasks);
             setIsTasksModalOpen(true);
         } catch (error) {
@@ -599,7 +612,7 @@ const ManagerBOQPage = () => {
     };
 
     const tabs = [
-        { id: "boq-list", label: `BOQ List (${totalItems})`, icon: <List className="w-4 h-4" /> },
+        { id: "boq-list", label: "BOQ List", icon: <List className="w-4 h-4" /> },
         { id: "item-list", label: "BOQ Item List", icon: <Layers className="w-4 h-4" /> },
         { id: "cost-tracking", label: "Cost Tracking", icon: <TrendingUp className="w-4 h-4" /> },
     ];
@@ -846,9 +859,9 @@ const ManagerBOQPage = () => {
                                                             <td className="px-6 py-5 text-xs font-black text-slate-600 tabular-nums">
                                                                 {parseFloat(item.quantity?.toString() || "0").toLocaleString()} <span className="text-[10px] text-slate-400 font-bold ml-1">{item.unit}</span>
                                                             </td>
-                                                            <td className="px-6 py-5 text-xs font-black text-slate-700 tabular-nums">{formatCompactCurrency(Number(item.unit_cost) || 0)}</td>
-                                                            <td className="px-6 py-5 text-xs font-black text-blue-600 tabular-nums">{formatCompactCurrency(Number(item.total_cost) || 0)}</td>
-                                                            <td className="px-6 py-5 text-xs font-black text-rose-500 tabular-nums">
+                                                            <td className="px-6 py-5 text-xs font-black text-slate-700 tabular-nums whitespace-nowrap">{formatCompactCurrency(Number(item.unit_cost) || 0)}</td>
+                                                            <td className="px-6 py-5 text-xs font-black text-blue-600 tabular-nums whitespace-nowrap">{formatCompactCurrency(Number(item.total_cost) || 0)}</td>
+                                                            <td className="px-6 py-5 text-xs font-black text-rose-500 tabular-nums whitespace-nowrap">
                                                                 {Number(item.variance_cost) > 0 ? `+${formatCompactCurrency(Number(item.variance_cost))}` : formatCompactCurrency(Number(item.variance_cost) || 0)}
                                                             </td>
                                                             <td className="px-6 py-5 text-center">
@@ -1004,8 +1017,12 @@ const ManagerBOQPage = () => {
                         </div>
                         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
                             {generatedTasksList.length === 0 ? (
-                                <div className="text-center py-10 text-slate-500 font-medium">
-                                    No tasks were returned. The generation process might be incomplete or the BOQ has no detailed sub-items to generate tasks for.
+                                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 p-8 shadow-sm flex flex-col items-center">
+                                    <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+                                        <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                    <h4 className="text-sm font-bold text-slate-800 mb-1">Tasks Generated Successfully!</h4>
+                                    <p className="text-xs text-slate-500 text-center max-w-sm">The BOQ tasks have been created successfully on the server.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">

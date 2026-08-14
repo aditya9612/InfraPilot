@@ -74,6 +74,7 @@ const ManagerQualityPage = () => {
     });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedTaskDetail, setSelectedTaskDetail] = useState<any | null>(null);
+    const [selectedDsrDetail, setSelectedDsrDetail] = useState<any | null>(null);
     // ── DATA FETCH ────────────────────────────────────────────────
     const fetchData = useCallback(async () => {
         if (!selectedProjectId) return;
@@ -250,10 +251,11 @@ const ManagerQualityPage = () => {
         } finally { setViewLoadingId(null); }
     };
 
-    // Fetch task details when viewing a QC entry
+    // Fetch task and DSR details when viewing a QC entry
     useEffect(() => {
         if (!isViewModalOpen || !selectedQc) {
             setSelectedTaskDetail(null);
+            setSelectedDsrDetail(null);
             return;
         }
 
@@ -263,6 +265,18 @@ const ManagerQualityPage = () => {
                 if (selectedQc.task_id && selectedQc.project_id) {
                     const task = await projectService.getTask(Number(selectedQc.project_id), Number(selectedQc.task_id));
                     setSelectedTaskDetail(task || null);
+                }
+            } catch (err) {
+                // ignore
+            }
+        })();
+
+        (async () => {
+            setSelectedDsrDetail(null);
+            try {
+                if (selectedQc.dsr_id) {
+                    const dsr = await dsrService.getDsrById(Number(selectedQc.dsr_id));
+                    setSelectedDsrDetail(dsr || null);
                 }
             } catch (err) {
                 // ignore
@@ -656,7 +670,7 @@ const ManagerQualityPage = () => {
                         </div>
                         <div>
                             <label className={labelCls}>Standard Threshold <span className="text-rose-500">*</span></label>
-                                <input type="number" value={formData.standard_value} onChange={e => setFormData(p => ({ ...p, standard_value: e.target.value as any }))} placeholder="e.g. 25" className={inputCls} required />
+                            <input type="number" value={formData.standard_value} onChange={e => setFormData(p => ({ ...p, standard_value: e.target.value as any }))} placeholder="e.g. 25" className={inputCls} required />
                         </div>
                         <div>
                             <label className={labelCls}>Task Name</label>
@@ -680,7 +694,7 @@ const ManagerQualityPage = () => {
                         </div>
                         <div>
                             <label className={labelCls}>Status <span className="text-rose-500">*</span></label>
-                                <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} className={inputCls} required>
+                            <select value={formData.status} onChange={e => setFormData(p => ({ ...p, status: e.target.value }))} className={inputCls} required>
                                 <option value="Pass">Pass</option>
                                 <option value="Fail">Fail</option>
                             </select>
@@ -697,7 +711,7 @@ const ManagerQualityPage = () => {
                                 placeholder="Select Engineer"
                                 inputCls={inputCls}
                             />
-                                <input type="hidden" value={formData.engineer_name || ""} required aria-hidden="false" />
+                            <input type="hidden" value={formData.engineer_name || ""} required aria-hidden="false" />
                         </div>
                         <div className="md:col-span-2">
                             <label className={labelCls}>Remarks</label>
@@ -784,8 +798,18 @@ const ManagerQualityPage = () => {
                                     </div>
                                     <div className="font-inter">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 font-inter">DSR</p>
-                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={selectedQc.dsr_id ? (dsrs.find(d => d.id === selectedQc.dsr_id)?.label || `DSR #${selectedQc.dsr_id}`) : "-"}>
-                                            {selectedQc.dsr_id ? (dsrs.find(d => d.id === selectedQc.dsr_id)?.label || `DSR #${selectedQc.dsr_id}`) : "-"}
+                                        <p className="text-sm font-bold text-slate-800 font-inter truncate" title={
+                                            selectedQc.dsr_id
+                                                ? (selectedDsrDetail
+                                                    ? (selectedDsrDetail.work_done || `DSR #${selectedQc.dsr_id} — ${selectedDsrDetail.report_date || ""}`)
+                                                    : dsrs.find(d => Number(d.id) === Number(selectedQc.dsr_id))?.label || `DSR #${selectedQc.dsr_id}`)
+                                                : "-"
+                                        }>
+                                            {selectedQc.dsr_id
+                                                ? (selectedDsrDetail
+                                                    ? (selectedDsrDetail.work_done || `DSR #${selectedQc.dsr_id} — ${selectedDsrDetail.report_date || ""}`)
+                                                    : dsrs.find(d => Number(d.id) === Number(selectedQc.dsr_id))?.label || `DSR #${selectedQc.dsr_id}`)
+                                                : "-"}
                                         </p>
                                     </div>
                                     <div className="font-inter">

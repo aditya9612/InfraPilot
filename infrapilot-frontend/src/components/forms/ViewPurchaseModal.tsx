@@ -34,7 +34,7 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
         try {
             const data = await equipmentService.getPurchase(purchaseId!);
             setPurchase(data);
-            
+
             // Fetch BOQ Name if boq_item_id exists
             if (data.project_id && data.boq_item_id) {
                 const { boqService } = await import("../../services/boqService");
@@ -142,7 +142,7 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
                                         </div>
                                         <p className="text-sm font-bold text-slate-800">{purchase.warranty_end_date || "N/A"}</p>
                                     </div>
-                                    
+
                                     {/* Quantity & Unit Price */}
                                     <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50/50">
                                         <div className="flex items-center gap-2 mb-2">
@@ -168,7 +168,7 @@ const ViewPurchaseModal: React.FC<ViewPurchaseModalProps> = ({
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Created At</p>
                                         </div>
                                         <p className="text-sm font-bold text-slate-800">
-                                            {purchase.created_at || "N/A"}
+                                            {purchase.created_at ? purchase.created_at.replace("T", " ") : "N/A"}
                                         </p>
                                     </div>
 

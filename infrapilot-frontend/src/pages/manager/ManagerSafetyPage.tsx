@@ -65,7 +65,7 @@ const ManagerSafetyPage = () => {
         projectService.getTasks(pid).then(res => {
           const items = Array.isArray(res) ? res : ((res as any).items || (res as any).data || []);
           setTaskCache(prev => ({ ...prev, [pid]: items.map((t: any) => ({ id: t.id, title: t.title || t.name })) }));
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
   }, [incidentList, taskCache]);
@@ -481,7 +481,7 @@ const ManagerSafetyPage = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-xs font-semibold text-slate-600 truncate max-w-[120px] inline-block">
-                             {item.task_id ? getTaskNameFromCache(item.project_id, item.task_id) : "—"}
+                            {item.task_id ? getTaskNameFromCache(item.project_id, item.task_id) : "—"}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -499,11 +499,12 @@ const ManagerSafetyPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${
-                            (item.safety_checklist_status || "pending") === "completed"
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${(item.safety_checklist_status || "pending") === "completed"
                               ? "bg-emerald-100 text-emerald-600"
-                              : "bg-amber-100 text-amber-600"
-                          }`}>
+                              : (item.safety_checklist_status || "pending") === "failed"
+                                ? "bg-rose-100 text-rose-600"
+                                : "bg-amber-100 text-amber-600"
+                            }`}>
                             {item.safety_checklist_status || "pending"}
                           </span>
                         </td>
@@ -717,12 +718,22 @@ const ManagerSafetyPage = () => {
               <div className="relative z-10 flex items-center gap-8 font-inter">
                 <div className="w-24 h-24 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 shadow-inner font-inter relative">
                   <span className="text-4xl font-bold font-inter text-center leading-none px-2">{selectedIncident.violation_type.split(" ").map(w => w[0]).join("").slice(0, 2)}</span>
-                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 border-4 border-slate-800 rounded-full animate-pulse ${selectedIncident.safety_checklist_status === 'resolved' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 border-4 border-slate-800 rounded-full animate-pulse ${selectedIncident.safety_checklist_status === 'completed'
+                      ? 'bg-emerald-500'
+                      : selectedIncident.safety_checklist_status === 'failed'
+                        ? 'bg-rose-500'
+                        : 'bg-amber-500'
+                    }`} />
                 </div>
                 <div className="font-inter">
                   <div className="flex items-center gap-3 mb-2 font-inter">
                     <h3 className="text-2xl font-bold tracking-tight font-inter truncate max-w-[200px]">{selectedIncident.violation_type}</h3>
-                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest ${selectedIncident.safety_checklist_status === 'resolved' ? 'bg-emerald-500/20 text-emerald-100' : 'bg-amber-500/20 text-amber-100'}`}>
+                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest ${selectedIncident.safety_checklist_status === 'completed'
+                        ? 'bg-emerald-500/20 text-emerald-100'
+                        : selectedIncident.safety_checklist_status === 'failed'
+                          ? 'bg-rose-500/20 text-rose-100'
+                          : 'bg-amber-500/20 text-amber-100'
+                      }`}>
                       {selectedIncident.safety_checklist_status || "pending"}
                     </span>
                   </div>

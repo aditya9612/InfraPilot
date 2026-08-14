@@ -106,7 +106,7 @@ export const drawingService = {
      * GET /api/v1/drawings
      */
     async getList(params: {
-        project_id: number;
+        project_id?: number | string;
         parent_id?: number | null;
         search?: string | null;
         approval_status?: string | null;

@@ -5,7 +5,8 @@ export type ProjectStatus =
   | "Ongoing"
   | "Delayed"
   | "Completed"
-  | "On Hold";
+  | "On Hold"
+  | "On Track";
 export type TaskStatus = "Planned" | "In Progress" | "Completed" | "Cancelled";
 export type MilestoneStatus = "Planned" | "Pending" | "In Progress" | "Completed";
 
