@@ -8,14 +8,14 @@ import Modal from "../../../components/common/Modal";
 import { useClientProjectId } from "../../../hooks/useClientProjectId";
 import { quotationService } from "../../../services/quotationService";
 import { paymentService } from "../../../services/paymentService";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import {
   Search, Calendar, RotateCcw, Plus, FileSpreadsheet, FileText, ChevronLeft,
-  ChevronRight, Eye, History, Download, DollarSign, Clock,
+  ChevronRight, Eye, History, Download, IndianRupee, Clock,
   TrendingUp, BarChart3, ArrowRight, Sparkles, CheckCircle2, AlertTriangle,
   ArrowUpRight, Pencil, Trash2, CreditCard, Info, Banknote, Building2,
   Smartphone, Save, X, Upload,
@@ -31,15 +31,24 @@ interface ClientPayment {
   dueDate: string;
   amount: number;
   paidAmount: number;
-  status: "PAID" | "PARTIAL" | "PENDING" | "OVERDUE";
+  status: "PAID" | "PARTIAL" | "PENDING" | "OVERDUE" | "VERIFICATION_PENDING";
   paymentDate: string;
 }
 
 const mapApiPayment = (p: any): ClientPayment => {
-  const statusRaw = (p.status || "PENDING").toUpperCase();
-  const status = ["PAID", "PARTIAL", "PENDING", "OVERDUE"].includes(statusRaw)
-    ? statusRaw as ClientPayment["status"]
-    : "PENDING";
+  const statusRaw = (p.payment_status || p.status || p.invoice_status || "PENDING").toUpperCase();
+  let status: ClientPayment["status"] = "PENDING";
+  if (statusRaw.includes("VERIF") || statusRaw === "VERIFICATION_PENDING") {
+    status = "VERIFICATION_PENDING";
+  } else if (statusRaw.includes("PAID")) {
+    status = "PAID";
+  } else if (statusRaw.includes("PARTIAL")) {
+    status = "PARTIAL";
+  } else if (statusRaw.includes("OVERDUE")) {
+    status = "OVERDUE";
+  } else {
+    status = "PENDING";
+  }
 
   const formatDate = (dStr: any) => {
     if (!dStr) return "-";
@@ -52,17 +61,17 @@ const mapApiPayment = (p: any): ClientPayment => {
   };
 
   return {
-    paymentId: p.payment_id != null ? String(p.payment_id) : p.paymentId != null ? String(p.paymentId) : (p.id != null ? String(p.id) : "1"),
-    invoiceNo: p.invoiceNo || p.invoice_no || p.invoice_id || `INV-${p.id || ""}`,
-    clientName: p.clientName || p.client_name || p.client || "Client",
+    paymentId: p.payment_no || (p.payment_id != null ? String(p.payment_id) : (p.id != null ? String(p.id) : "—")),
+    invoiceNo: p.invoice_no || p.invoiceNo || (p.invoice_id ? `INV-${String(p.invoice_id).padStart(6, '0')}` : "—"),
+    clientName: p.user_name || p.clientName || p.client_name || p.client || "Client",
     clientEmail: p.clientEmail || p.client_email || p.email || "client@example.com",
-    projectName: p.projectName || p.project_name || p.project || "Project Infrastructure Support",
-    invoiceDate: formatDate(p.invoiceDate || p.invoice_date || p.created_at),
-    dueDate: formatDate(p.dueDate || p.due_date),
+    projectName: p.project_name || p.projectName || p.project || "Sara City",
+    invoiceDate: formatDate(p.created_at || p.invoiceDate || p.invoice_date || p.payment_date),
+    dueDate: formatDate(p.due_date || p.dueDate),
     amount: Number(p.amount ?? p.total_amount ?? 0),
-    paidAmount: Number(p.paidAmount ?? p.paid_amount ?? 0),
+    paidAmount: Number(p.paid_amount ?? p.paidAmount ?? p.amount ?? 0),
     status,
-    paymentDate: formatDate(p.paymentDate || p.payment_date),
+    paymentDate: formatDate(p.payment_date || p.paymentDate || p.created_at),
   };
 };
 
@@ -145,10 +154,12 @@ const generateMockPayments = (): ClientPayment[] => {
 };
 
 const ClientPaymentPage = () => {
-  const { tab } = useParams();
+  const { tab, paymentId } = useParams();
+  const [searchParams] = useSearchParams();
   const { projectId } = useClientProjectId();
   const [projectName, setProjectName] = useState("Loading...");
   const activeTab = tab || "quotation";
+  const targetPaymentParam = paymentId || searchParams.get("id") || searchParams.get("payment_id");
 
   // ── Quotation / old-expense state ──
   const [loading, setLoading] = useState(true);
@@ -183,6 +194,24 @@ const ClientPaymentPage = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<ClientPayment | null>(null);
 
+  // ── Auto-open deep linked payment audit / detail modal ──
+  useEffect(() => {
+    if (!targetPaymentParam || clientPayments.length === 0) return;
+    const cleanId = String(targetPaymentParam).trim();
+    const cleanNum = cleanId.replace(/\D/g, "");
+    const match = clientPayments.find(p =>
+      String(p.id) === cleanId ||
+      (cleanNum && String(p.id) === cleanNum) ||
+      (p.paymentId && p.paymentId.toLowerCase() === cleanId.toLowerCase()) ||
+      (p.paymentNo && p.paymentNo.toLowerCase() === cleanId.toLowerCase()) ||
+      (p.invoiceNo && p.invoiceNo.toLowerCase() === cleanId.toLowerCase())
+    );
+    if (match) {
+      setSelectedPayment(match);
+      setIsAuditModalOpen(true);
+    }
+  }, [targetPaymentParam, clientPayments]);
+
   // ── Edit form state ──
   const [editPaidAmount, setEditPaidAmount] = useState("");
   const [editStatus, setEditStatus] = useState<ClientPayment["status"]>("PENDING");
@@ -192,6 +221,7 @@ const ClientPaymentPage = () => {
 
   // ── Create form ──
   const [newInvoiceNo, setNewInvoiceNo] = useState("");
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<number | null>(null);
   const [newClientName, setNewClientName] = useState("Rohit");
   const [newClientEmail, setNewClientEmail] = useState("rohit@example.com");
   const [newProjectName, setNewProjectName] = useState("Initial approval request for base");
@@ -304,10 +334,9 @@ const ClientPaymentPage = () => {
       setApiLoading(true);
       const activeProjectId = projectId ? Number(projectId) : 4;
       try {
-        const [summary, pending, paymentsList, historyList, analytics] = await Promise.all([
+        const [summary, pending, historyList, analytics] = await Promise.all([
           paymentService.getInvoiceSummary(activeProjectId),
           paymentService.getPendingInvoices(activeProjectId),
-          paymentService.listClientPayments({ project_id: activeProjectId }),
           paymentService.getClientPaymentHistory(activeProjectId),
           paymentService.getClientPaymentAnalytics({ project_id: activeProjectId }),
         ]);
@@ -315,11 +344,8 @@ const ClientPaymentPage = () => {
         if (summary) setInvoiceSummary(summary);
         if (pending) setPendingInvoices(pending);
         
-        if (paymentsList && paymentsList.length > 0) {
-          setClientPayments(paymentsList.map(mapApiPayment));
-        }
-        
         if (historyList && historyList.length > 0) {
+          setClientPayments(historyList.map(mapApiPayment));
           setPaymentHistory(historyList);
         }
         
@@ -516,8 +542,10 @@ const ClientPaymentPage = () => {
     switch (status) {
       case "PAID": return "bg-emerald-50 text-emerald-600 border border-emerald-100";
       case "PARTIAL": return "bg-blue-50 text-blue-600 border border-blue-100";
+      case "VERIFICATION_PENDING": return "bg-amber-50 text-amber-600 border border-amber-100";
       case "PENDING": return "bg-amber-50 text-amber-600 border border-amber-100";
       case "OVERDUE": return "bg-rose-50 text-rose-600 border border-rose-100";
+      default: return "bg-slate-50 text-slate-600 border border-slate-100";
     }
   };
 
@@ -681,41 +709,81 @@ const ClientPaymentPage = () => {
   };
 
   const handleCreatePayment = async () => {
-    if (!newInvoiceNo || !newAmount) { toast.error("Invoice ID and Amount are required"); return; }
-    const t = toast.loading("Creating payment...");
-    try {
-      await paymentService.createClientPayment({
-        invoice_id: newInvoiceNo,
-        amount: parseFloat(newAmount) || 0,
-        paid_amount: parseFloat(newPaidAmount) || 0,
-        project_id: newProjectId || undefined,
-        project_name: newProjectName || undefined,
-        payment_method: newPaymentMethodForm || undefined,
-        bank_name: newBankName || undefined,
-        status: newStatus,
-      });
-      toast.success("Payment Created", { id: t });
-    } catch {
-      // Fallback: add to local state if API fails
-      const newEntry: ClientPayment = {
-        paymentId: String(clientPayments.length + 1),
-        invoiceNo: newInvoiceNo,
-        clientName: "Rohit",
-        clientEmail: "rohit@example.com",
-        projectName: newProjectName,
-        invoiceDate: new Date().toLocaleDateString("en-GB"),
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("en-GB"),
-        amount: parseFloat(newAmount) || 0,
-        paidAmount: parseFloat(newPaidAmount) || 0,
-        status: newStatus,
-        paymentDate: newPaidAmount ? new Date().toLocaleDateString("en-GB") : "-",
-      };
-      setClientPayments(prev => [newEntry, ...prev]);
-      toast.success("Payment Record Created (local)", { id: t });
+    if (!newInvoiceNo) { toast.error("Invoice ID is required"); return; }
+    if (!newAmount || parseFloat(newAmount) <= 0) { toast.error("Valid Amount is required"); return; }
+
+    // Strict frontend validation per backend payment method rules
+    if (newPaymentMethodForm === "CHEQUE") {
+      if (!newBankName.trim()) { toast.error("Bank Name is required for CHEQUE payment"); return; }
+      if (!newChequeNo.trim()) { toast.error("Cheque Number is required for CHEQUE payment"); return; }
+      if (!receiptFile) { toast.error("Receipt file is required for CHEQUE payment"); return; }
+    } else if (newPaymentMethodForm === "NEFT" || newPaymentMethodForm === "RTGS") {
+      if (!newBankName.trim()) { toast.error(`Bank Name is required for ${newPaymentMethodForm} payment`); return; }
+      if (!newReferenceNo.trim()) { toast.error(`Reference Number / UTR is required for ${newPaymentMethodForm} payment`); return; }
+      if (!receiptFile) { toast.error(`Receipt file is required for ${newPaymentMethodForm} payment`); return; }
+    } else if (newPaymentMethodForm === "UPI") {
+      if (!newReferenceNo.trim()) { toast.error("Reference Number / UTR is required for UPI payment"); return; }
+      if (!receiptFile) { toast.error("Receipt file is required for UPI payment"); return; }
     }
-    setIsCreateModalOpen(false);
-    setNewInvoiceNo(""); setNewAmount(""); setNewPaidAmount("");
-    setNewProjectId(""); setNewBankName(""); setNewPaymentMethodForm("UPI");
+
+    const t = toast.loading("Creating payment...");
+    
+    // Resolve numeric invoice id
+    let resolvedInvoiceId: number = selectedInvoiceId || 0;
+    if (!resolvedInvoiceId) {
+      const parsed = parseInt(String(newInvoiceNo).replace(/\D/g, ''), 10);
+      resolvedInvoiceId = !isNaN(parsed) && parsed > 0 ? parsed : 1;
+    }
+
+    try {
+      const createdRes = await paymentService.createClientPayment({
+        receipt: (newPaymentMethodForm === "CHEQUE" || newPaymentMethodForm === "NEFT" || newPaymentMethodForm === "RTGS" || newPaymentMethodForm === "UPI") ? (receiptFile || null) : null,
+        invoice_id: resolvedInvoiceId,
+        project_id: newProjectId ? Number(newProjectId) : 4,
+        amount: parseFloat(newAmount) || 0,
+        payment_method: newPaymentMethodForm,
+        bank_name: (newPaymentMethodForm === "CHEQUE" || newPaymentMethodForm === "NEFT" || newPaymentMethodForm === "RTGS") ? (newBankName || null) : null,
+        cheque_no: (newPaymentMethodForm === "CHEQUE") ? (newChequeNo || null) : null,
+        reference_no: (newPaymentMethodForm === "NEFT" || newPaymentMethodForm === "RTGS" || newPaymentMethodForm === "UPI") ? (newReferenceNo || null) : null,
+        remarks: newRemarks || null,
+      });
+
+      toast.success("Payment Created successfully!", { id: t });
+
+      // Immediate UI reflection of the 201 Created payment record
+      if (createdRes) {
+        const mappedEntry = mapApiPayment(createdRes);
+        setClientPayments(prev => [mappedEntry, ...prev.filter(p => p.paymentId !== mappedEntry.paymentId)]);
+      }
+
+      // Refresh payment history and invoices from server
+      const activeProjectId = projectId ? Number(projectId) : 4;
+      const [summary, pending, historyList] = await Promise.all([
+        paymentService.getInvoiceSummary(activeProjectId).catch(() => null),
+        paymentService.getPendingInvoices(activeProjectId).catch(() => []),
+        paymentService.getClientPaymentHistory(activeProjectId).catch(() => [])
+      ]);
+      if (summary) setInvoiceSummary(summary);
+      if (pending) setPendingInvoices(pending);
+      if (historyList && historyList.length > 0) {
+        setClientPayments(historyList.map(mapApiPayment));
+        setPaymentHistory(historyList);
+      }
+    } catch (err: any) {
+      console.error("Create payment error:", err);
+      const detail = err?.response?.data?.detail;
+      const msg = Array.isArray(detail)
+        ? detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ')
+        : (typeof detail === 'string' ? detail : "Failed to create payment on server");
+      toast.error(msg, { id: t });
+    } finally {
+      setIsCreateModalOpen(false);
+      setNewInvoiceNo(""); setNewAmount(""); setNewPaidAmount("");
+      setNewProjectId(""); setNewBankName(""); setNewPaymentMethodForm("CASH");
+      setNewChequeNo(""); setNewReferenceNo(""); setNewRemarks("");
+      setReceiptFile(null);
+      setSelectedInvoiceId(null);
+    }
   };
 
   if (showPaymentPortal && selectedRequest) {
@@ -822,7 +890,7 @@ const ClientPaymentPage = () => {
             {/* Card 1 - Total Budget */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center"><DollarSign className="w-5 h-5 text-emerald-600" /></div>
+                <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center"><IndianRupee className="w-5 h-5 text-emerald-600" /></div>
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Budget</span>
               </div>
               <div>
@@ -930,10 +998,16 @@ const ClientPaymentPage = () => {
                     <p className="text-xs font-black uppercase tracking-widest">No pending invoices</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div 
+                    className="overflow-x-auto max-h-[295px] overflow-y-auto"
+                    style={{
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: '#cbd5e1 transparent'
+                    }}
+                  >
                     <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-slate-50/50">
+                      <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10 border-b border-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+                        <tr>
                           {["Invoice ID", "Project", "Amount", "Due Date", "Status"].map(h => (
                             <th key={h} className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                           ))}
@@ -1080,7 +1154,7 @@ const ClientPaymentPage = () => {
                   {paginatedPayments.length === 0 ? (
                     <tr><td colSpan={9} className="py-24 text-center">
                       <div className="flex flex-col items-center opacity-40">
-                        <DollarSign className="w-12 h-12 mb-3 text-slate-300" />
+                        <IndianRupee className="w-12 h-12 mb-3 text-slate-300" />
                         <p className="font-black uppercase tracking-widest text-xs text-slate-400">No payment records found</p>
                       </div>
                     </td></tr>
@@ -1193,7 +1267,7 @@ const ClientPaymentPage = () => {
                   {[
                     { icon: <Plus className="w-3 h-3" />, label: "Payment Record Created", time: selectedPayment.invoiceDate, color: "bg-blue-100 text-blue-600", desc: `Invoice ${selectedPayment.invoiceNo} issued for &#8377;${selectedPayment.amount.toLocaleString()}` },
                     { icon: <FileText className="w-3 h-3" />, label: "Invoice Sent to Client", time: selectedPayment.invoiceDate, color: "bg-indigo-100 text-indigo-600", desc: `Sent to ${selectedPayment.clientEmail}` },
-                    ...(selectedPayment.status !== "PENDING" && selectedPayment.status !== "OVERDUE" ? [{ icon: <DollarSign className="w-3 h-3" />, label: "Payment Submitted to Admin", time: selectedPayment.paymentDate, color: "bg-emerald-100 text-emerald-600", desc: `&#8377;${selectedPayment.paidAmount.toLocaleString()} sent by you via UPI` }] : []),
+                    ...(selectedPayment.status !== "PENDING" && selectedPayment.status !== "OVERDUE" ? [{ icon: <IndianRupee className="w-3 h-3" />, label: "Payment Submitted to Admin", time: selectedPayment.paymentDate, color: "bg-emerald-100 text-emerald-600", desc: `&#8377;${selectedPayment.paidAmount.toLocaleString()} sent by you via UPI` }] : []),
                     ...(selectedPayment.status === "OVERDUE" ? [{ icon: <AlertTriangle className="w-3 h-3" />, label: "Payment Overdue Alert", time: selectedPayment.dueDate, color: "bg-rose-100 text-rose-600", desc: "Payment due date has passed without settlement" }] : []),
                     { icon: <CheckCircle2 className="w-3 h-3" />, label: "Current Status", time: "Now", color: `${selectedPayment.status === "PAID" ? "bg-emerald-100 text-emerald-600" : selectedPayment.status === "OVERDUE" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"}`, desc: `Status: ${selectedPayment.status}` },
                   ].map((event, idx, arr) => (
@@ -1367,28 +1441,106 @@ const ClientPaymentPage = () => {
                     <span>Payment Information</span>
                   </div>
                  
-                  {/* Row 1: Receipt + Invoice */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Receipt</label>
-                      <div className="relative border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/20 rounded-xl py-2 px-3 transition-all cursor-pointer flex flex-row items-center gap-2.5 group h-[42px]">
-                        <input type="file" onChange={e => e.target.files?.[0] && setReceiptFile(e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*,.pdf" />
-                        <Upload className="w-4 h-4 text-indigo-500 shrink-0 group-hover:scale-110 transition-transform" />
-                        <p className="text-xs text-slate-600 font-medium truncate">
-                          {receiptFile ? <span className="font-bold text-indigo-600">{receiptFile.name}</span> : <>Drag & drop or <span className="text-indigo-600 font-bold underline">browse</span> <span className="text-slate-400">(JPG/PNG/PDF)</span></>}
-                        </p>
+                  {/* Row 1: Receipt (if required) + Invoice ID */}
+                  {(newPaymentMethodForm === "CHEQUE" || newPaymentMethodForm === "NEFT" || newPaymentMethodForm === "RTGS" || newPaymentMethodForm === "UPI") ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Receipt <span className="text-rose-500">*</span></label>
+                        <div className="relative border-2 border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/20 rounded-xl py-2 px-3 transition-all cursor-pointer flex flex-row items-center gap-2.5 group h-[38px]">
+                          <input type="file" onChange={e => e.target.files?.[0] && setReceiptFile(e.target.files[0])} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*,.pdf" />
+                          <Upload className="w-4 h-4 text-indigo-500 shrink-0 group-hover:scale-110 transition-transform" />
+                          <p className="text-xs text-slate-600 font-medium truncate">
+                            {receiptFile ? <span className="font-bold text-indigo-600">{receiptFile.name}</span> : <>Upload receipt <span className="text-indigo-600 font-bold underline">browse</span> <span className="text-slate-400">(JPG/PNG/PDF)</span></>}
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Invoice ID <span className="text-rose-500">*</span></label>
+                        <select 
+                          value={selectedInvoiceId ? String(selectedInvoiceId) : newInvoiceNo} 
+                          onChange={e => { 
+                            const val = e.target.value; 
+                            setNewInvoiceNo(val); 
+                            const sel = pendingInvoices.find((p: any) => 
+                              String(p.id) === val ||
+                              String(p.invoice_id) === val ||
+                              String(p.invoice_no) === val || 
+                              String(p.invoice_number) === val
+                            ); 
+                            if (sel) { 
+                              const invId = Number(sel.id ?? sel.invoice_id ?? parseInt(String(val).replace(/\D/g, ''), 10) ?? 1);
+                              setSelectedInvoiceId(invId);
+                              setNewAmount(String(sel.amount || sel.total_amount || "")); 
+                              if (sel.project_name) setNewProjectName(sel.project_name); 
+                              if (sel.project_id) setNewProjectId(String(sel.project_id)); 
+                            } else {
+                              const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
+                              if (!isNaN(parsed) && parsed > 0) setSelectedInvoiceId(parsed);
+                            }
+                          }} 
+                          className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                        >
+                          <option value="">Select Invoice ID</option>
+                          {pendingInvoices.length > 0 ? pendingInvoices.map((inv: any, idx: number) => {
+                            const invId = inv.id ?? inv.invoice_id ?? (inv.invoice_no ? parseInt(String(inv.invoice_no).replace(/\D/g, ''), 10) : idx + 1);
+                            return (
+                              <option key={idx} value={String(invId)}>
+                                {invId} {inv.invoice_no ? `(${inv.invoice_no})` : ''}
+                              </option>
+                            );
+                          }) : (
+                            <>
+                              <option value="5">5</option>
+                              <option value="17">17</option>
+                            </>
+                          )}
+                        </select>
                       </div>
                     </div>
+                  ) : (
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Invoice <span className="text-rose-500">*</span></label>
-                      <select value={newInvoiceNo} onChange={e => { setNewInvoiceNo(e.target.value); const sel = pendingInvoices.find((p: any) => p.invoice_no === e.target.value || p.invoice_number === e.target.value || String(p.invoice_id) === e.target.value || p.id === e.target.value); if (sel) { setNewAmount(String(sel.amount || sel.total_amount || "")); if (sel.project_name) setNewProjectName(sel.project_name); if (sel.project_id) setNewProjectId(String(sel.project_id)); } }} className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer">
-                        <option value="">Select Invoice</option>
-                        {pendingInvoices.length > 0 ? pendingInvoices.map((inv: any, idx: number) => (
-                          <option key={idx} value={inv.invoice_no || inv.invoice_number || inv.id}>{inv.invoice_no || inv.invoice_number || `INV-${inv.id}`}</option>
-                        )) : (<><option value="INV-2026-0001">INV-2026-0001</option><option value="INV-2026-0002">INV-2026-0002</option></>)}
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Invoice ID <span className="text-rose-500">*</span></label>
+                      <select 
+                        value={selectedInvoiceId ? String(selectedInvoiceId) : newInvoiceNo} 
+                        onChange={e => { 
+                          const val = e.target.value; 
+                          setNewInvoiceNo(val); 
+                          const sel = pendingInvoices.find((p: any) => 
+                            String(p.id) === val ||
+                            String(p.invoice_id) === val ||
+                            String(p.invoice_no) === val || 
+                            String(p.invoice_number) === val
+                          ); 
+                          if (sel) { 
+                            const invId = Number(sel.id ?? sel.invoice_id ?? parseInt(String(val).replace(/\D/g, ''), 10) ?? 1);
+                            setSelectedInvoiceId(invId);
+                            setNewAmount(String(sel.amount || sel.total_amount || "")); 
+                            if (sel.project_name) setNewProjectName(sel.project_name); 
+                            if (sel.project_id) setNewProjectId(String(sel.project_id)); 
+                          } else {
+                            const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
+                            if (!isNaN(parsed) && parsed > 0) setSelectedInvoiceId(parsed);
+                          }
+                        }} 
+                        className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="">Select Invoice ID</option>
+                        {pendingInvoices.length > 0 ? pendingInvoices.map((inv: any, idx: number) => {
+                          const invId = inv.id ?? inv.invoice_id ?? (inv.invoice_no ? parseInt(String(inv.invoice_no).replace(/\D/g, ''), 10) : idx + 1);
+                          return (
+                            <option key={idx} value={String(invId)}>
+                              {invId} {inv.invoice_no ? `(${inv.invoice_no})` : ''}
+                            </option>
+                          );
+                        }) : (
+                          <>
+                            <option value="5">5</option>
+                            <option value="17">17</option>
+                          </>
+                        )}
                       </select>
                     </div>
-                  </div>
+                  )}
 
                   {/* Row 2: Project + Amount */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -1416,23 +1568,36 @@ const ClientPaymentPage = () => {
                       onChange={e => { 
                         const val = e.target.value; 
                         setNewPaymentMethodForm(val); 
-                        if (val === "CASH") { 
+                        if (val === "CASH" || val === "ONLINE") { 
                           setNewBankName(""); 
                           setNewChequeNo(""); 
                           setNewReferenceNo(""); 
-                          setNewRemarks(""); 
+                          setReceiptFile(null); 
+                        } else if (val === "CHEQUE") { 
+                          setNewReferenceNo(""); 
+                        } else if (val === "NEFT" || val === "RTGS") { 
+                          setNewChequeNo(""); 
+                        } else if (val === "UPI") { 
+                          setNewBankName(""); 
+                          setNewChequeNo(""); 
                         } 
                       }} 
                       className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer"
                     >
                       <option value="CASH">CASH</option>
-                      <option value="BANK TRANSFER">BANK TRANSFER / NEFT / RTGS</option>
                       <option value="CHEQUE">CHEQUE</option>
+                      <option value="NEFT">NEFT</option>
+                      <option value="RTGS">RTGS</option>
                       <option value="UPI">UPI</option>
+                      <option value="ONLINE">ONLINE</option>
                     </select>
                     <div className="mt-2 p-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-2 text-xs text-blue-700 font-medium">
                       <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                      {newPaymentMethodForm === "CASH" ? "No additional details required for CASH payment method." : "Additional fields will change based on payment method."}
+                      {newPaymentMethodForm === "CASH" ? "CASH: No bank details or receipt required." :
+                       newPaymentMethodForm === "ONLINE" ? "ONLINE: No bank details or receipt required." :
+                       newPaymentMethodForm === "CHEQUE" ? "CHEQUE: Bank name, cheque number, and receipt upload are required." :
+                       newPaymentMethodForm === "UPI" ? "UPI: Reference number / UTR and receipt upload are required." :
+                       `${newPaymentMethodForm}: Bank name, reference number / UTR, and receipt upload are required.`}
                     </div>
                   </div>
 
@@ -1440,59 +1605,64 @@ const ClientPaymentPage = () => {
                   <div className="pt-2 border-t border-slate-100">
                     <div className="flex items-center justify-between mb-2.5">
                       <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Additional Details</h4>
-                      {newPaymentMethodForm === "CASH" && (
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded-md">Locked for Cash</span>
+                      {(newPaymentMethodForm === "CASH" || newPaymentMethodForm === "ONLINE") && (
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded-md">Not required for {newPaymentMethodForm}</span>
                       )}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Bank Name</label>
-                        <input 
-                          type="text" 
-                          value={newBankName} 
-                          onChange={e => setNewBankName(e.target.value)} 
-                          placeholder={newPaymentMethodForm === "CASH" ? "Not required for Cash" : "Enter bank name"} 
-                          disabled={newPaymentMethodForm === "CASH"} 
-                          className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200" 
-                        />
+
+                    {/* Method-specific fields */}
+                    {(newPaymentMethodForm === "CHEQUE" || newPaymentMethodForm === "NEFT" || newPaymentMethodForm === "RTGS" || newPaymentMethodForm === "UPI") && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-3.5">
+                        {(newPaymentMethodForm === "CHEQUE" || newPaymentMethodForm === "NEFT" || newPaymentMethodForm === "RTGS") && (
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Bank Name <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="text" 
+                              value={newBankName} 
+                              onChange={e => setNewBankName(e.target.value)} 
+                              placeholder="Enter bank name" 
+                              className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all" 
+                            />
+                          </div>
+                        )}
+                        {newPaymentMethodForm === "CHEQUE" && (
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Cheque No <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="text" 
+                              value={newChequeNo} 
+                              onChange={e => setNewChequeNo(e.target.value)} 
+                              placeholder="Enter cheque number" 
+                              className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all" 
+                            />
+                          </div>
+                        )}
+                        {(newPaymentMethodForm === "NEFT" || newPaymentMethodForm === "RTGS" || newPaymentMethodForm === "UPI") && (
+                          <div className={newPaymentMethodForm === "UPI" ? "sm:col-span-2" : ""}>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">Reference No / UTR <span className="text-rose-500">*</span></label>
+                            <input 
+                              type="text" 
+                              value={newReferenceNo} 
+                              onChange={e => setNewReferenceNo(e.target.value)} 
+                              placeholder="Enter transaction reference / UTR" 
+                              className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all" 
+                            />
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Cheque No</label>
-                        <input 
-                          type="text" 
-                          value={newChequeNo} 
-                          onChange={e => setNewChequeNo(e.target.value)} 
-                          placeholder={newPaymentMethodForm === "CASH" ? "Not required for Cash" : "Enter cheque number"} 
-                          disabled={newPaymentMethodForm === "CASH"} 
-                          className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200" 
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Remarks</label>
+                      <div className="relative">
+                        <textarea 
+                          value={newRemarks} 
+                          onChange={e => setNewRemarks(e.target.value.slice(0,500))} 
+                          placeholder="Enter any remarks (optional)" 
+                          rows={2} 
+                          className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all resize-none" 
                         />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3.5">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Reference No</label>
-                        <input 
-                          type="text" 
-                          value={newReferenceNo} 
-                          onChange={e => setNewReferenceNo(e.target.value)} 
-                          placeholder={newPaymentMethodForm === "CASH" ? "Not required for Cash" : "Enter reference number"} 
-                          disabled={newPaymentMethodForm === "CASH"} 
-                          className="w-full px-3.5 py-2.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Remarks</label>
-                        <div className="relative">
-                          <textarea 
-                            value={newRemarks} 
-                            onChange={e => setNewRemarks(e.target.value.slice(0,500))} 
-                            placeholder={newPaymentMethodForm === "CASH" ? "Not required for Cash" : "Enter any remarks (optional)"} 
-                            rows={2} 
-                            disabled={newPaymentMethodForm === "CASH"} 
-                            className="w-full px-3.5 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all resize-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200" 
-                          />
-                          <span className="absolute right-3 bottom-2 text-[10px] text-slate-400">{newRemarks.length}/500</span>
-                        </div>
+                        <span className="absolute right-3 bottom-2 text-[10px] text-slate-400">{newRemarks.length}/500</span>
                       </div>
                     </div>
                   </div>
@@ -1512,10 +1682,11 @@ const ClientPaymentPage = () => {
                   <div className="pt-2 border-t border-indigo-100">
                     <h6 className="text-xs font-bold text-indigo-700 mb-2.5">Payment Method Guide</h6>
                     <div className="space-y-2.5">
-                      <div className="flex items-start gap-2.5"><div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg shrink-0"><Banknote className="w-3.5 h-3.5" /></div><div><p className="text-xs font-bold text-slate-800">CASH</p><p className="text-[10px] text-slate-500 leading-tight">No additional details required.</p></div></div>
-                      <div className="flex items-start gap-2.5"><div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg shrink-0"><Building2 className="w-3.5 h-3.5" /></div><div><p className="text-xs font-bold text-slate-800">BANK TRANSFER</p><p className="text-[10px] text-slate-500 leading-tight">Enter bank name and reference number.</p></div></div>
-                      <div className="flex items-start gap-2.5"><div className="p-1.5 bg-purple-100 text-purple-600 rounded-lg shrink-0"><CreditCard className="w-3.5 h-3.5" /></div><div><p className="text-xs font-bold text-slate-800">CHEQUE</p><p className="text-[10px] text-slate-500 leading-tight">Enter bank name and cheque number.</p></div></div>
-                      <div className="flex items-start gap-2.5"><div className="p-1.5 bg-orange-100 text-orange-600 rounded-lg shrink-0"><Smartphone className="w-3.5 h-3.5" /></div><div><p className="text-xs font-bold text-slate-800">UPI</p><p className="text-[10px] text-slate-500 leading-tight">Enter reference number / UTR.</p></div></div>
+                      <div className="flex items-start gap-2.5"><div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg shrink-0"><Banknote className="w-3.5 h-3.5" /></div><div><p className="text-xs font-bold text-slate-800">CASH</p><p className="text-[10px] text-slate-500 leading-tight">No bank details or receipt required.</p></div></div>
+                      <div className="flex items-start gap-2.5"><div className="p-1.5 bg-purple-100 text-purple-600 rounded-lg shrink-0"><CreditCard className="w-3.5 h-3.5" /></div><div><p className="text-xs font-bold text-slate-800">CHEQUE</p><p className="text-[10px] text-slate-500 leading-tight">Bank name, cheque number & receipt required.</p></div></div>
+                      <div className="flex items-start gap-2.5"><div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg shrink-0"><Building2 className="w-3.5 h-3.5" /></div><div><p className="text-xs font-bold text-slate-800">NEFT / RTGS</p><p className="text-[10px] text-slate-500 leading-tight">Bank name, reference no & receipt required.</p></div></div>
+                      <div className="flex items-start gap-2.5"><div className="p-1.5 bg-orange-100 text-orange-600 rounded-lg shrink-0"><Smartphone className="w-3.5 h-3.5" /></div><div><p className="text-xs font-bold text-slate-800">UPI</p><p className="text-[10px] text-slate-500 leading-tight">Reference no (UTR) & receipt required.</p></div></div>
+                      <div className="flex items-start gap-2.5"><div className="p-1.5 bg-cyan-100 text-cyan-600 rounded-lg shrink-0"><Sparkles className="w-3.5 h-3.5" /></div><div><p className="text-xs font-bold text-slate-800">ONLINE</p><p className="text-[10px] text-slate-500 leading-tight">No bank details or receipt required.</p></div></div>
                     </div>
                   </div>
                 </div>

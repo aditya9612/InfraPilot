@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import PageTransition from '../../components/common/PageTransition';
+import { useAuth } from '../../context/AuthContext';
 import { 
     Upload, 
     Calendar, 
@@ -22,6 +23,7 @@ import toast from 'react-hot-toast';
 
 import { projectService } from '../../services/projectService';
 import { workUpdateService } from '../../services/workUpdateService';
+import { safeSetItem, compressImageFile } from '../../utils/storageUtils';
 
 const base64ToFile = (base64String: string, filename: string): File => {
     const arr = base64String.split(',');
@@ -36,6 +38,7 @@ const base64ToFile = (base64String: string, filename: string): File => {
 };
 
 const WorkUpdatesPage: React.FC = () => {
+    const { user } = useAuth();
 
     const query = new URLSearchParams(useLocation().search);
     const taskId = query.get('taskId');
@@ -64,6 +67,37 @@ const WorkUpdatesPage: React.FC = () => {
     const [myUpdates, setMyUpdates] = useState<any[]>([]);
     const [timeline, setTimeline] = useState<any[]>([]);
     const [editingUpdateId, setEditingUpdateId] = useState<number | null>(null);
+
+    // Filter tasks assigned to current user (e.g. Ramesh Sharma)
+    const displayTasks = useMemo(() => {
+        const currentUserName = (user?.name || user?.username || 'Ramesh Sharma').toLowerCase();
+        const currentUserId = user?.id ? Number(user.id) : null;
+
+        const filtered = tasks.filter((t: any) => {
+            const assignedText = String(
+                t.assignedTo ||
+                t.assigned_to_name ||
+                t.assigned_user_name ||
+                t.assigned_user ||
+                t.assigned_users_name ||
+                (Array.isArray(t.assigned_users) ? t.assigned_users.map((u: any) => u.name || u.full_name || u.username || u).join(' ') : '') ||
+                ''
+            ).toLowerCase();
+
+            const isNameMatch = assignedText.includes(currentUserName) ||
+                (currentUserName.includes('ramesh') && assignedText.includes('ramesh'));
+
+            const isIdMatch = currentUserId && (
+                (t.assigned_user_id && Number(t.assigned_user_id) === currentUserId) ||
+                (Array.isArray(t.assigned_user_ids) && t.assigned_user_ids.map(Number).includes(currentUserId)) ||
+                (Array.isArray(t.assigned_users) && t.assigned_users.some((u: any) => Number(u.id || u) === currentUserId))
+            );
+
+            return isNameMatch || isIdMatch;
+        });
+
+        return filtered;
+    }, [tasks, user]);
 
     // Fetch tasks, my work updates, and project timeline
     useEffect(() => {
@@ -241,7 +275,7 @@ const WorkUpdatesPage: React.FC = () => {
             // Update status to "In Progress"
             try {
                 await projectService.updateTaskStatus(Number(projectId), Number(selectedTaskId), 'In Progress');
-                localStorage.setItem(`task_status_${selectedTaskId}`, 'In Progress');
+                safeSetItem(`task_status_${selectedTaskId}`, 'In Progress');
             } catch (_) {}
 
             toast.success("Before Work images uploaded!", { id: loadingToast });
@@ -296,7 +330,7 @@ const WorkUpdatesPage: React.FC = () => {
             description, beforePhotos, afterPhotos, workDate, 
             startTime, endTime, category, location, beforeRemarks, afterRemarks
         };
-        localStorage.setItem(persistenceKey, JSON.stringify(dataToSave));
+        safeSetItem(persistenceKey, JSON.stringify(dataToSave));
     }, [description, beforePhotos, afterPhotos, workDate, startTime, endTime, category, location, beforeRemarks, afterRemarks, persistenceKey]);
 
     // Handle time calculation
@@ -314,7 +348,7 @@ const WorkUpdatesPage: React.FC = () => {
         }
     }, [startTime, endTime]);
 
-    const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
+    const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -322,51 +356,41 @@ const WorkUpdatesPage: React.FC = () => {
         if (!file.type.startsWith('image/')) {
             return toast.error("Please select an image file");
         }
-        if (file.size > 5 * 1024 * 1024) {
-            return toast.error("File size exceeds 5MB");
+        if (file.size > 10 * 1024 * 1024) {
+            return toast.error("File size exceeds 10MB");
         }
 
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const base64String = reader.result as string;
-            
+        try {
+            const base64String = await compressImageFile(file);
+
             // Add to Prior Site History immediately as requested
             const currentHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
-            // Avoid duplicates in history
             if (!currentHistory.includes(base64String)) {
                 const updatedHistory = [base64String, ...currentHistory].slice(0, 6);
-                localStorage.setItem(historyKey, JSON.stringify(updatedHistory));
+                safeSetItem(historyKey, JSON.stringify(updatedHistory));
                 setPriorPhotos(updatedHistory);
             }
 
             if (type === 'before') {
                 if (beforePhotos.length >= 4) return toast.error("Max 4 photos allowed");
-                setBeforePhotos(prev => {
-                    const newPhotos = [...prev, base64String];
-                    return newPhotos;
-                });
-                
-                // Sync status to In Progress
+                setBeforePhotos(prev => [...prev, base64String]);
                 if (taskId) {
-                    localStorage.setItem(`task_status_${taskId}`, 'In Progress');
+                    safeSetItem(`task_status_${taskId}`, 'In Progress');
                 }
                 toast.success("Added to history & attached as Before photo");
             } else {
                 if (afterPhotos.length >= 4) return toast.error("Max 4 photos allowed");
-                setAfterPhotos(prev => {
-                    const newPhotos = [...prev, base64String];
-                    return newPhotos;
-                });
-
-                // Sync status to Completed
+                setAfterPhotos(prev => [...prev, base64String]);
                 if (taskId) {
-                    localStorage.setItem(`task_status_${taskId}`, 'Completed');
+                    safeSetItem(`task_status_${taskId}`, 'Completed');
                 }
                 toast.success("Added to history & attached as After photo");
             }
-        };
-        reader.readAsDataURL(file);
-        
+        } catch (err) {
+            console.error("Failed to process uploaded image:", err);
+            toast.error("Failed to process uploaded image");
+        }
+
         // Reset input
         event.target.value = '';
     };
@@ -555,11 +579,11 @@ const WorkUpdatesPage: React.FC = () => {
             const currentUpdatePhotos = [...beforePhotos, ...afterPhotos];
             const filteredOldHistory = existingHistory.filter((p: string) => !currentUpdatePhotos.includes(p));
             const newHistory = [...currentUpdatePhotos, ...filteredOldHistory].slice(0, 8);
-            localStorage.setItem(historyKey, JSON.stringify(newHistory));
+            safeSetItem(historyKey, JSON.stringify(newHistory));
             setPriorPhotos(newHistory);
 
             // Finalize status locally
-            localStorage.setItem(`task_status_${selectedTaskId}`, 'Completed');
+            safeSetItem(`task_status_${selectedTaskId}`, 'Completed');
             localStorage.removeItem(`work_update_data_${selectedTaskId}`);
 
             // Reset fields
@@ -741,48 +765,6 @@ const WorkUpdatesPage: React.FC = () => {
                                 <p className="text-sm text-slate-500 font-medium">Provide details of work completed along with photos</p>
                             </div>
                         </div>
-                        {/* Action Dropdown Button */}
-                        <div className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setShowDownloadMenu(prev => !prev)}
-                                className="flex items-center gap-2 px-5 py-2.5 bg-[#2563eb] text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-200 active:scale-95 group"
-                            >
-                                <Download className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                                <span>Download</span>
-                                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showDownloadMenu ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {showDownloadMenu && (
-                                <>
-                                    <div className="fixed inset-0 z-10" onClick={() => setShowDownloadMenu(false)} />
-                                    <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-20 overflow-hidden py-1.5 animate-in fade-in duration-150">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                handleDownloadPDF();
-                                                setShowDownloadMenu(false);
-                                            }}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                        >
-                                            <FileText className="w-4 h-4 text-rose-500" />
-                                            <span>Download PDF Report</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                handleExportCSV();
-                                                setShowDownloadMenu(false);
-                                            }}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                                        >
-                                            <FileDown className="w-4 h-4 text-emerald-500" />
-                                            <span>Download Excel / CSV</span>
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
                     </div>
 
                     <div className="p-8 space-y-8">
@@ -799,7 +781,7 @@ const WorkUpdatesPage: React.FC = () => {
                                             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-400 appearance-none cursor-pointer"
                                         >
                                             <option value="">Select a Task to Update</option>
-                                            {tasks.map(t => (
+                                            {displayTasks.map(t => (
                                                 <option key={t.id} value={t.id}>
                                                     {t.id} - {t.title || t.name}
                                                 </option>

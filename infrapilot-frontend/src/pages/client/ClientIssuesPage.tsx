@@ -20,6 +20,7 @@ const ClientIssuesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL STATUS");
   const [priorityFilter, setPriorityFilter] = useState("ALL PRIORITY");
+  const [categoryFilter, setCategoryFilter] = useState("ALL CATEGORIES");
 
   const [newIssue, setNewIssue] = useState({
     title: "",
@@ -127,9 +128,15 @@ const ClientIssuesPage = () => {
       }
     }
 
+    if (categoryFilter !== "ALL CATEGORIES") {
+      result = result.filter(
+        i => i.category?.toLowerCase() === categoryFilter.toLowerCase()
+      );
+    }
+
     setFilteredIssues(result);
     setCurrentPage(1);
-  }, [issues, searchQuery, statusFilter, priorityFilter]);
+  }, [issues, searchQuery, statusFilter, priorityFilter, categoryFilter]);
 
   const handleViewIssue = async (id: number) => {
     try {
@@ -211,10 +218,10 @@ const ClientIssuesPage = () => {
             <div
               key={i}
               onClick={() => {
-                if (i === 0) { setStatusFilter("ALL STATUS"); setPriorityFilter("ALL PRIORITY"); }
-                else if (i === 1) { setStatusFilter("PENDING"); setPriorityFilter("ALL PRIORITY"); }
-                else if (i === 2) { setPriorityFilter("HIGH"); setStatusFilter("ALL STATUS"); }
-                else { setStatusFilter("RESOLVED"); setPriorityFilter("ALL PRIORITY"); }
+                if (i === 0) { setStatusFilter("ALL STATUS"); setPriorityFilter("ALL PRIORITY"); setCategoryFilter("ALL CATEGORIES"); }
+                else if (i === 1) { setStatusFilter("PENDING"); setPriorityFilter("ALL PRIORITY"); setCategoryFilter("ALL CATEGORIES"); }
+                else if (i === 2) { setPriorityFilter("HIGH"); setStatusFilter("ALL STATUS"); setCategoryFilter("ALL CATEGORIES"); }
+                else { setStatusFilter("RESOLVED"); setPriorityFilter("ALL PRIORITY"); setCategoryFilter("ALL CATEGORIES"); }
               }}
               className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm transition-all cursor-pointer hover:shadow-md hover:scale-[1.02] active:scale-95 group font-inter font-inter"
             >
@@ -274,6 +281,21 @@ const ClientIssuesPage = () => {
                     <option value="HIGH">HIGH</option>
                     <option value="MEDIUM">MEDIUM</option>
                     <option value="LOW">LOW</option>
+                  </select>
+                  <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+
+                {/* Category Filter - Marked Box */}
+                <div className="relative">
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="appearance-none bg-white border border-slate-200 rounded-2xl py-3.5 pl-6 pr-14 text-[11px] font-black uppercase tracking-widest text-[#475569] outline-none cursor-pointer hover:border-slate-300 transition-all shadow-sm"
+                  >
+                    <option value="ALL CATEGORIES">ALL CATEGORIES</option>
+                    <option value="Material">MATERIAL</option>
+                    <option value="Safety">SAFETY</option>
+                    <option value="Delay">DELAY</option>
                   </select>
                   <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>

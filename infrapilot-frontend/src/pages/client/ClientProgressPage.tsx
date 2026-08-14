@@ -70,7 +70,6 @@ const ClientProgressPage = () => {
         setActivities(normalized);
       } catch (err) {
         console.error("Failed to fetch work progress activities:", err);
-        toast.error("Failed to fetch work progress activities");
       } finally {
         setLoadingActivities(false);
       }

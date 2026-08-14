@@ -89,6 +89,7 @@ import ClientMonthlyProgressPage from "../pages/client/project-data/ClientMonthl
 import ClientTaskStatusPage from "../pages/client/project-data/ClientTaskStatusPage";
 import ClientSettingsPage from "../pages/client/ClientSettingsPage";
 import ClientPaymentPage from "../pages/client/payment/ClientPaymentPage";
+import ClientInvoicesPage from "../pages/client/ClientInvoicesPage";
 import ChatDashboard from "../pages/chat/ChatDashboard";
 
 // Engineer Pages
@@ -401,9 +402,16 @@ function AppRoutes() {
                   element={<ClientApprovalsPage />}
                 />
 
+                {/* Invoices */}
+                <Route path="/client/invoices" element={<ClientInvoicesPage />} />
+                <Route path="/client/invoices/:invoiceId" element={<ClientInvoicesPage />} />
+                <Route path="/client/invoice" element={<Navigate to="/client/invoices" replace />} />
+                <Route path="/client/invoice/:invoiceId" element={<ClientInvoicesPage />} />
+
                 {/* Payment */}
                 <Route path="/client/payment" element={<Navigate to="/client/payment/quotation" replace />} />
                 <Route path="/client/payment/:tab" element={<ClientPaymentPage />} />
+                <Route path="/client/payment/:tab/:paymentId" element={<ClientPaymentPage />} />
 
                 {/* Communication */}
                 <Route

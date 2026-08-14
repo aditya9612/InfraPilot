@@ -55,21 +55,27 @@ export const taskRequestService = {
         priority: string;
         project_id?: number | string;
         attachment_url?: string;
+        attachment_file_name?: string;
         assigned_to?: number;
     }) {
+        let attachmentUrl = formData.attachment_url;
+        // If attachment_url is a base64 string, don't send huge base64 payload that exceeds backend varchar limit (causing 422)
+        if (attachmentUrl && attachmentUrl.startsWith('data:')) {
+            attachmentUrl = formData.attachment_file_name || "attachment.png";
+        }
+
         const body: Record<string, any> = {
             title: formData.title,
             description: formData.description,
-            // Convert to lowercase to match backend expects (e.g. "support", "high")
-            category: (formData.category || "").toLowerCase(),
-            priority: (formData.priority || "").toLowerCase(),
+            category: formData.category || "New Task",
+            priority: formData.priority || "Medium",
         };
 
         if (formData.project_id !== undefined && formData.project_id !== "") {
             body.project_id = Number(formData.project_id);
         }
-        if (formData.attachment_url) {
-            body.attachment_url = formData.attachment_url;
+        if (attachmentUrl) {
+            body.attachment_url = attachmentUrl;
         }
         if (formData.assigned_to && formData.assigned_to > 0) {
             body.assigned_to = formData.assigned_to;
@@ -93,16 +99,23 @@ export const taskRequestService = {
             priority: string;
             project_id: number | string;
             attachment_url: string;
+            attachment_file_name: string;
             assigned_to: number;
         }>
     ) {
         const body: Record<string, any> = {};
         if (formData.title !== undefined)       body.title       = formData.title;
         if (formData.description !== undefined) body.description = formData.description;
-        if (formData.category !== undefined)    body.category    = formData.category.toLowerCase();
-        if (formData.priority !== undefined)    body.priority    = formData.priority.toLowerCase();
+        if (formData.category !== undefined)    body.category    = formData.category;
+        if (formData.priority !== undefined)    body.priority    = formData.priority;
         if (formData.project_id !== undefined)  body.project_id  = Number(formData.project_id);
-        if (formData.attachment_url)            body.attachment_url = formData.attachment_url;
+        if (formData.attachment_url) {
+            let attUrl = formData.attachment_url;
+            if (attUrl.startsWith('data:')) {
+                attUrl = formData.attachment_file_name || "attachment.png";
+            }
+            body.attachment_url = attUrl;
+        }
         if (formData.assigned_to && formData.assigned_to > 0) body.assigned_to = formData.assigned_to;
 
         console.log(`[taskRequestService] PUT /api/v1/projects/task-requests/${requestId} body:`, body);

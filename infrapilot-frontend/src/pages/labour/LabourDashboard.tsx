@@ -156,7 +156,7 @@ const LabourDashboard: React.FC = () => {
                 if (todayStatus) {
                     const hasIn = !!(todayStatus.checked_in || todayStatus.attendance?.in_time || todayStatus.attendance?.check_in_time);
                     const hasOut = !!(todayStatus.checked_out || todayStatus.attendance?.out_time || todayStatus.attendance?.check_out_time);
-                    setIsCheckedIn(hasIn);
+                    setIsCheckedIn(hasIn && !hasOut);
                     setIsCheckedOut(hasOut);
                     setHoursToday(todayStatus.running_hours || todayStatus.attendance?.working_hours || todayStatus.attendance?.work_hours || 0);
                     setOvertimeHours(todayStatus.attendance?.overtime_hours || 0);
@@ -165,18 +165,49 @@ const LabourDashboard: React.FC = () => {
                 // ── Dashboard data ──
                 if (dashData) {
                     const d: any = dashData;
-                    if (d.project_name) setProjectName(d.project_name);
-                    if (d.contractor_name) setContractorName(d.contractor_name);
-                    if (d.site_name) setSiteName(d.site_name);
-                    if (d.site_address) setSiteAddress(d.site_address);
-                    setDailyWage(d.daily_wage || d.daily_wage_rate || 0);
-                    setOvertimeRate(d.overtime_rate || d.ot_rate || 0);
-                    setSkillType(d.skill_type || d.skill || '');
-                    setLabourCategory(d.labour_category || d.category || '');
+                    const prof = d.profile || {};
+                    const ov = d.overview || {};
+                    const pymt = d.payment || d.payment_summary || {};
+                    const lbr = d.labour || d.labour_details || d.profile || {};
 
-                    setWeeklyEarnings(d.weekly_earnings || 0);
-                    const rawMonth = d.this_month_earnings ?? d.earnings_current_month ?? d.earnings ?? d.total_earnings ?? 0;
-                    setMonthEarnings(typeof rawMonth === 'number' ? rawMonth : parseFloat(rawMonth) || 0);
+                    const projName = d.project_name || prof.project_name || lbr.project_name;
+                    if (projName) setProjectName(projName);
+
+                    const contName = d.contractor_name || prof.contractor_name || lbr.contractor_name || user?.contractor_name || (user as any)?.contractor;
+                    if (contName) setContractorName(contName);
+
+                    const sName = d.site_name || prof.site_name || lbr.site_name;
+                    if (sName) setSiteName(sName);
+
+                    const sAddress = d.site_address || prof.site_address || lbr.site_address;
+                    if (sAddress) setSiteAddress(sAddress);
+
+                    const dw = d.daily_wage ?? prof.daily_wage ?? lbr.daily_wage ?? d.daily_wage_rate ?? 0;
+                    setDailyWage(typeof dw === 'number' ? dw : parseFloat(dw) || 0);
+
+                    const ot = d.overtime_rate ?? prof.overtime_rate ?? lbr.overtime_rate ?? d.ot_rate ?? 0;
+                    setOvertimeRate(typeof ot === 'number' ? ot : parseFloat(ot) || 0);
+
+                    setSkillType(d.skill_type ?? prof.skill_category ?? lbr.skill_category ?? lbr.skill ?? '');
+                    setLabourCategory(d.labour_category ?? prof.labour_type ?? lbr.category ?? lbr.labour_type ?? '');
+
+                    if (prof.check_in_status !== undefined || prof.is_checked_in !== undefined) {
+                        const isProfCheckedIn = prof.check_in_status === 'CHECKED IN' || prof.is_checked_in === true;
+                        if (!todayStatus) {
+                            setIsCheckedIn(isProfCheckedIn);
+                        }
+                    }
+
+                    // Hours today & overtime from overview if present
+                    if (ov.today_hours !== undefined) setHoursToday(Number(ov.today_hours));
+                    if (ov.overtime_hours !== undefined) setOvertimeHours(Number(ov.overtime_hours));
+
+                    // Earnings from overview or top level
+                    const wEarn = ov.weekly_earnings ?? d.weekly_earnings ?? 0;
+                    setWeeklyEarnings(typeof wEarn === 'number' ? wEarn : parseFloat(wEarn) || 0);
+
+                    const mEarn = ov.this_month_earnings ?? d.this_month_earnings ?? d.earnings_current_month ?? d.earnings ?? d.total_earnings ?? 0;
+                    setMonthEarnings(typeof mEarn === 'number' ? mEarn : parseFloat(mEarn) || 0);
 
                     // Attendance from dashboard response
                     const pDays = d.present_days ?? d.attendance_summary?.present_days ?? 0;
@@ -189,13 +220,21 @@ const LabourDashboard: React.FC = () => {
                     setTotalDays(calculatedTot > 0 ? calculatedTot : (d.total_days ?? d.attendance_summary?.total_days ?? 0));
                     setAttendanceStreak(d.attendance_streak ?? d.streak ?? 0);
 
-                    // Payment summary from dashboard
-                    setTotalAmount(d.total_amount ?? d.payment_summary?.total_amount ?? 0);
-                    setPaidAmount(d.paid_amount ?? d.payment_summary?.paid_amount ?? 0);
-                    setPendingAmount(d.pending_amount ?? d.payment_summary?.pending_amount ?? 0);
-                    setPaymentStatus(d.payment_status ?? d.payment_summary?.status ?? '');
-                    setIsOverdue(d.is_overdue ?? d.payment_summary?.is_overdue ?? false);
-                    setNextPaymentDate(d.next_payment_date ?? d.payment_summary?.next_payment_date ?? '');
+                    // Payment summary from dashboard response
+                    const totAmt = pymt.total_amount ?? d.total_amount ?? 0;
+                    const paidAmt = pymt.paid_amount ?? d.paid_amount ?? 0;
+                    const pendAmt = pymt.pending_amount ?? d.pending_amount ?? 0;
+                    const statusStr = pymt.payment_status ?? pymt.status ?? d.payment_status ?? '';
+                    const overdueBool = pymt.is_overdue ?? d.is_overdue ?? false;
+
+                    setTotalAmount(typeof totAmt === 'number' ? totAmt : parseFloat(totAmt) || 0);
+                    setPaidAmount(typeof paidAmt === 'number' ? paidAmt : parseFloat(paidAmt) || 0);
+                    setPendingAmount(typeof pendAmt === 'number' ? pendAmt : parseFloat(pendAmt) || 0);
+                    if (statusStr) setPaymentStatus(statusStr);
+                    setIsOverdue(Boolean(overdueBool));
+                    if (pymt.next_payment_date || d.next_payment_date) {
+                        setNextPaymentDate(pymt.next_payment_date ?? d.next_payment_date);
+                    }
 
                     // Recent activity
                     const rawActivities = d.recent_activity || d.recent_activities || [];
@@ -209,12 +248,15 @@ const LabourDashboard: React.FC = () => {
                 // ── Payment overlay from dedicated endpoint ──
                 if (paymentData) {
                     const p: any = paymentData;
-                    if (p.total_amount !== undefined) setTotalAmount(p.total_amount);
-                    if (p.paid_amount !== undefined) setPaidAmount(p.paid_amount);
-                    if (p.pending_amount !== undefined) setPendingAmount(p.pending_amount);
-                    if (p.payment_status) setPaymentStatus(p.payment_status);
-                    if (p.is_overdue !== undefined) setIsOverdue(p.is_overdue);
-                    if (p.next_payment_date) setNextPaymentDate(p.next_payment_date);
+                    const pSum = p.summary || p.payment_summary || (p.total_amount !== undefined ? p : null);
+                    if (pSum && pSum.total_amount !== undefined && Number(pSum.total_amount) > 0) {
+                        setTotalAmount(Number(pSum.total_amount));
+                        if (pSum.paid_amount !== undefined) setPaidAmount(Number(pSum.paid_amount));
+                        if (pSum.pending_amount !== undefined) setPendingAmount(Number(pSum.pending_amount));
+                        if (pSum.payment_status || pSum.status) setPaymentStatus(pSum.payment_status || pSum.status);
+                        if (pSum.is_overdue !== undefined) setIsOverdue(Boolean(pSum.is_overdue));
+                        if (pSum.next_payment_date) setNextPaymentDate(pSum.next_payment_date);
+                    }
                 }
 
                 // ── Attendance list for month summary ──
@@ -253,10 +295,14 @@ const LabourDashboard: React.FC = () => {
                 const rawDashboardTasks = dashData?.tasks || dashData?.recent_tasks || dashData?.assigned_tasks || [];
                 const rawTasks = rawProjectTasks.length > 0 ? rawProjectTasks : rawDashboardTasks;
 
-                if (dashData && dashData.total_tasks !== undefined && dashData.total_tasks !== null) {
-                    setTotalTasks(dashData.total_tasks);
-                    setCompletedTasks(dashData.completed_tasks ?? 0);
-                    setPendingTasks(dashData.pending_tasks ?? 0);
+                const dashTotal = dashData?.overview?.total_tasks ?? dashData?.total_tasks ?? dashData?.total;
+                const dashCompleted = dashData?.overview?.completed_tasks ?? dashData?.completed_tasks ?? dashData?.completed;
+                const dashPending = dashData?.overview?.pending_tasks ?? dashData?.pending_tasks ?? dashData?.pending;
+
+                if (dashTotal !== undefined && dashTotal !== null) {
+                    setTotalTasks(Number(dashTotal));
+                    setCompletedTasks(Number(dashCompleted ?? 0));
+                    setPendingTasks(Number(dashPending ?? 0));
                 } else {
                     setTotalTasks(rawProjectTasks.length > 0 ? rawProjectTasks.length : (dashData?.total ?? 0));
                     setCompletedTasks(rawProjectTasks.length > 0
@@ -386,13 +432,13 @@ const LabourDashboard: React.FC = () => {
                                     <Briefcase className="w-4 h-4 text-slate-400" />
                                     <span className="font-medium">Project</span>
                                     <span className="text-slate-300 mx-1">|</span>
-                                    <span className="font-bold text-slate-800">{projectName || '-'}</span>
+                                    <span className="font-bold text-slate-800">{projectName || user?.project_name || '-'}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 text-sm text-slate-600">
                                     <User className="w-4 h-4 text-slate-400" />
                                     <span className="font-medium">Contractor</span>
                                     <span className="text-slate-300 mx-1">|</span>
-                                    <span className="font-bold text-slate-800">{contractorName || '-'}</span>
+                                    <span className="font-bold text-slate-800">{contractorName || user?.contractor_name || (user as any)?.contractor || '-'}</span>
                                 </div>
                             </div>
                             {/* Skill tags */}

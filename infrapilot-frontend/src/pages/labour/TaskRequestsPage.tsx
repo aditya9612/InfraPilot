@@ -43,12 +43,54 @@ const TaskRequestsPage: React.FC = () => {
         return `${day}-${month}-${year}`;
     };
 
+    const formatImageUrl = (url?: string, requestId?: number, title?: string) => {
+        if (!url) return '';
+        if (url.startsWith('data:') || url.startsWith('blob:')) {
+            return url;
+        }
+
+        // Check local storage caches
+        if (requestId) {
+            const cachedById = localStorage.getItem(`task_req_att_${requestId}`);
+            if (cachedById) return cachedById;
+        }
+        if (title) {
+            const cachedByTitle = localStorage.getItem(`task_req_att_title_${title}`);
+            if (cachedByTitle) return cachedByTitle;
+        }
+        const cachedByName = localStorage.getItem(`task_req_att_name_${url}`);
+        if (cachedByName) return cachedByName;
+
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            return url;
+        }
+
+        // Resolve backend URL
+        let baseUrl = import.meta.env.VITE_API_URL || '';
+        try {
+            const parsed = new URL(baseUrl, window.location.origin);
+            baseUrl = parsed.origin;
+        } catch {
+            baseUrl = baseUrl.replace(/\/api\/v1\/?$/, '');
+        }
+
+        let cleanPath = url;
+        if (!cleanPath.startsWith('/') && !cleanPath.startsWith('uploads/') && !cleanPath.startsWith('static/')) {
+            cleanPath = `/uploads/${cleanPath}`;
+        } else if (!cleanPath.startsWith('/')) {
+            cleanPath = `/${cleanPath}`;
+        }
+
+        return `${baseUrl}${cleanPath}`;
+    };
+
     const [title, setTitle] = useState('');
     const [project, setProject] = useState('');
     const [category, setCategory] = useState('New Task');
     const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('Medium');
     const [description, setDescription] = useState('');
     const [attachmentUrl, setAttachmentUrl] = useState('');
+    const [attachmentFileName, setAttachmentFileName] = useState('');
     const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
     const [assignedTo, setAssignedTo] = useState(0);
 
@@ -61,6 +103,7 @@ const TaskRequestsPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingRequest, setEditingRequest] = useState<TaskRequest | null>(null);
     const [viewingRequest, setViewingRequest] = useState<TaskRequest | null>(null);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
 
     const fetchRequests = React.useCallback(async () => {
         setIsLoadingRequests(true);
@@ -109,6 +152,25 @@ const TaskRequestsPage: React.FC = () => {
         fetchRequests();
     }, [user, fetchRequests]);
 
+    const formatApiError = (err: any, fallback: string): string => {
+        if (!err) return fallback;
+        const detail = err?.response?.data?.detail || err?.response?.data?.message || err?.message;
+        if (typeof detail === 'string') return detail;
+        if (Array.isArray(detail)) {
+            return detail
+                .map((item: any) => {
+                    if (typeof item === 'string') return item;
+                    const loc = Array.isArray(item?.loc) ? item.loc.filter((l: any) => l !== 'body').join('.') : item?.loc;
+                    return `${loc ? `[${loc}] ` : ''}${item?.msg || item?.message || JSON.stringify(item)}`;
+                })
+                .join('; ') || fallback;
+        }
+        if (detail && typeof detail === 'object') {
+            return detail.msg || detail.message || JSON.stringify(detail);
+        }
+        return fallback;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title || !description || !project) {
@@ -125,22 +187,34 @@ const TaskRequestsPage: React.FC = () => {
                 priority,
                 project_id: project ? Number(project) : undefined,
                 attachment_url: attachmentUrl || undefined,
+                attachment_file_name: attachmentFileName || undefined,
                 assigned_to: assignedTo || undefined,
             };
 
             if (editingRequest) {
                 // PUT /api/v1/projects/{id}
                 await taskRequestService.updateRequest(editingRequest.id, payload);
+                if (attachmentUrl) {
+                    localStorage.setItem(`task_req_att_${editingRequest.id}`, attachmentUrl);
+                    localStorage.setItem(`task_req_att_title_${title}`, attachmentUrl);
+                    if (attachmentFileName) localStorage.setItem(`task_req_att_name_${attachmentFileName}`, attachmentUrl);
+                }
                 toast.success("Task request updated successfully!");
             } else {
                 // POST /api/v1/projects/
-                await taskRequestService.createRequest(payload);
+                const res: any = await taskRequestService.createRequest(payload);
+                const createdId = res?.id || res?.data?.id || res?.request_id;
+                if (attachmentUrl) {
+                    if (createdId) localStorage.setItem(`task_req_att_${createdId}`, attachmentUrl);
+                    localStorage.setItem(`task_req_att_title_${title}`, attachmentUrl);
+                    if (attachmentFileName) localStorage.setItem(`task_req_att_name_${attachmentFileName}`, attachmentUrl);
+                }
                 toast.success("Task request submitted successfully!");
             }
             handleReset();
             fetchRequests(); // Refresh the list
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || (editingRequest ? "Failed to update request" : "Failed to submit task request");
+            const msg = formatApiError(err, editingRequest ? "Failed to update request" : "Failed to submit task request");
             toast.error(msg);
             console.error("Task request submit error:", err?.response?.data ?? err);
         } finally {
@@ -156,6 +230,12 @@ const TaskRequestsPage: React.FC = () => {
         setPriority(req.priority as any);
         setProject(String(req.project_id || ''));
         setAttachmentUrl(req.attachment_url || '');
+        if (req.attachment_url) {
+            setAttachmentPreview(formatImageUrl(req.attachment_url, req.id, req.title));
+        } else {
+            setAttachmentPreview(null);
+        }
+        setAttachmentFileName('');
         setAssignedTo(req.assigned_to || 0);
 
         // Scroll to form
@@ -169,7 +249,7 @@ const TaskRequestsPage: React.FC = () => {
             toast.success("Task request deleted successfully!");
             fetchRequests(); // Refresh the list
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || "Failed to delete request";
+            const msg = formatApiError(err, "Failed to delete request");
             toast.error(msg);
             console.error("Delete request error:", err);
         }
@@ -182,6 +262,7 @@ const TaskRequestsPage: React.FC = () => {
         setCategory('New Task');
         setPriority('Medium');
         setAttachmentUrl('');
+        setAttachmentFileName('');
         setAssignedTo(0);
         setAttachmentPreview(null);
         setEditingRequest(null);
@@ -240,7 +321,7 @@ const TaskRequestsPage: React.FC = () => {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-black text-slate-700 uppercase tracking-widest pl-1">
-                                        Category <span className="text-rose-500">*</span>
+                                        Category
                                     </label>
                                     <div className="relative">
                                         <select
@@ -248,6 +329,7 @@ const TaskRequestsPage: React.FC = () => {
                                             onChange={(e) => setCategory(e.target.value)}
                                             className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 appearance-none cursor-pointer focus:outline-none focus:border-indigo-400 transition-all"
                                         >
+                                            <option value="">Select Category (Optional)</option>
                                             <option>New Task</option>
                                             <option>Support</option>
                                             <option>Repair</option>
@@ -313,10 +395,15 @@ const TaskRequestsPage: React.FC = () => {
                                                     onChange={(e) => {
                                                         const file = e.target.files?.[0];
                                                         if (!file) return;
+                                                        setAttachmentFileName(file.name);
                                                         const preview = URL.createObjectURL(file);
                                                         setAttachmentPreview(preview);
                                                         const reader = new FileReader();
-                                                        reader.onload = () => setAttachmentUrl(reader.result as string);
+                                                        reader.onload = () => {
+                                                            const dataUrl = reader.result as string;
+                                                            setAttachmentUrl(dataUrl);
+                                                            localStorage.setItem(`task_req_att_name_${file.name}`, dataUrl);
+                                                        };
                                                         reader.readAsDataURL(file);
                                                     }}
                                                 />
@@ -445,7 +532,7 @@ const TaskRequestsPage: React.FC = () => {
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Priority</th>
-                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Attachment URL</th>
+                                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Attachment</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date Submitted</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
@@ -481,13 +568,40 @@ const TaskRequestsPage: React.FC = () => {
                                                         })()}
                                                     </td>
                                                     <td className="px-8 py-6">
-                                                        {req.attachment_url ? (
-                                                            <a href={req.attachment_url} target="_blank" rel="noopener noreferrer" className="text-xs font-black text-indigo-600 hover:text-indigo-850 uppercase hover:underline max-w-[150px] truncate block">
-                                                                {req.attachment_url}
-                                                            </a>
-                                                        ) : (
-                                                            <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Attachment</span>
-                                                        )}
+                                                         {req.attachment_url ? (() => {
+                                                             const resolvedImg = formatImageUrl(req.attachment_url, req.id, req.title);
+                                                             const fileName = req.attachment_url.split('/').pop()?.split('\\').pop() || 'Attachment';
+                                                             return (
+                                                                 <div
+                                                                     onClick={() => setPreviewImage(resolvedImg || req.attachment_url || null)}
+                                                                     className="relative group/thumb w-12 h-12 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 cursor-pointer shadow-sm hover:shadow-md transition-all flex items-center justify-center"
+                                                                     title={`View ${fileName}`}
+                                                                 >
+                                                                     <img
+                                                                         src={resolvedImg}
+                                                                         alt={fileName}
+                                                                         className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform"
+                                                                         onError={(e) => {
+                                                                             const target = e.target as HTMLElement;
+                                                                             target.style.display = 'none';
+                                                                             const parent = target.parentElement;
+                                                                             if (parent) {
+                                                                                 const fallback = parent.querySelector('.img-thumb-fallback') as HTMLElement;
+                                                                                 if (fallback) fallback.style.display = 'flex';
+                                                                             }
+                                                                         }}
+                                                                     />
+                                                                     <div className="img-thumb-fallback hidden flex-col items-center justify-center text-slate-400 p-1 text-center">
+                                                                         <ImagePlus className="w-5 h-5 text-indigo-400" />
+                                                                     </div>
+                                                                     <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                                         <Eye className="w-4 h-4" />
+                                                                     </div>
+                                                                 </div>
+                                                             );
+                                                         })() : (
+                                                             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Attachment</span>
+                                                         )}
                                                     </td>
                                                     <td className="px-8 py-6">
                                                         <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-tight">
@@ -637,21 +751,37 @@ const TaskRequestsPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            {viewingRequest.attachment_url && (
-                                <div>
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">
-                                        Attachment URL
-                                    </span>
-                                    <a
-                                        href={viewingRequest.attachment_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-xs font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-wider hover:underline break-all"
-                                    >
-                                        {viewingRequest.attachment_url}
-                                    </a>
-                                </div>
-                            )}
+                            {viewingRequest.attachment_url && (() => {
+                                const resolvedModalImg = formatImageUrl(viewingRequest.attachment_url, viewingRequest.id, viewingRequest.title);
+                                return (
+                                    <div>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                                            Attachment Preview
+                                        </span>
+                                        <div className="rounded-2xl border border-slate-100 overflow-hidden bg-slate-50 p-3 flex flex-col items-center justify-center">
+                                            <img
+                                                src={resolvedModalImg}
+                                                alt="Attachment"
+                                                className="max-h-56 rounded-xl object-contain shadow-sm cursor-pointer hover:scale-[1.02] transition-transform"
+                                                onClick={() => setPreviewImage(resolvedModalImg)}
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLElement;
+                                                    target.style.display = 'none';
+                                                    const parent = target.parentElement;
+                                                    if (parent) {
+                                                        const fallback = parent.querySelector('.img-modal-fallback') as HTMLElement;
+                                                        if (fallback) fallback.style.display = 'flex';
+                                                    }
+                                                }}
+                                            />
+                                            <div className="img-modal-fallback hidden flex-col items-center justify-center p-6 text-center">
+                                                <ImagePlus className="w-10 h-10 text-indigo-400 mb-2" />
+                                                <p className="text-xs font-bold text-slate-700">{viewingRequest.attachment_url}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="pt-4 border-t border-slate-100 flex justify-end">
                                 <button
@@ -662,6 +792,56 @@ const TaskRequestsPage: React.FC = () => {
                                     Close
                                 </button>
                             </div>
+                        </div>
+                    )}
+                </Modal>
+
+                {/* Full Image Preview Modal */}
+                <Modal
+                    isOpen={previewImage !== null}
+                    onClose={() => setPreviewImage(null)}
+                    title="Attachment Image Preview"
+                    maxWidth="max-w-3xl"
+                >
+                    {previewImage && (
+                        <div className="p-4 flex flex-col items-center justify-center gap-4">
+                            <div className="relative w-full min-h-[200px] max-h-[70vh] flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-slate-50 border border-slate-100 p-3">
+                                <img
+                                    src={formatImageUrl(previewImage)}
+                                    alt="Attachment Full Preview"
+                                    className="max-h-[65vh] w-auto max-w-full rounded-xl object-contain shadow-lg"
+                                    onError={(e) => {
+                                        const target = e.target as HTMLElement;
+                                        target.style.display = 'none';
+                                        const parent = target.parentElement;
+                                        if (parent) {
+                                            const fallback = parent.querySelector('.full-img-fallback') as HTMLElement;
+                                            if (fallback) fallback.style.display = 'flex';
+                                        }
+                                    }}
+                                />
+                                <div className="full-img-fallback hidden flex-col items-center justify-center p-10 text-center">
+                                    <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 mb-3 shadow-sm">
+                                        <ImagePlus className="w-8 h-8" />
+                                    </div>
+                                    <h4 className="text-sm font-bold text-slate-800 mb-1">
+                                        Attachment: {previewImage.split('/').pop()?.split('\\').pop()}
+                                    </h4>
+                                    <p className="text-xs text-slate-400 font-medium max-w-md break-all">
+                                        {previewImage}
+                                    </p>
+                                </div>
+                            </div>
+                            {(previewImage.startsWith('http') || previewImage.startsWith('data:') || previewImage.startsWith('blob:')) && (
+                                <a
+                                    href={formatImageUrl(previewImage)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-md shadow-indigo-100"
+                                >
+                                    <Eye className="w-4 h-4" /> Open Full Image
+                                </a>
+                            )}
                         </div>
                     )}
                 </Modal>

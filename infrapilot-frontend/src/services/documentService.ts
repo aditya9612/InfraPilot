@@ -13,9 +13,10 @@ export const documentService = {
      * Get document statistics
      * GET /api/v1/documents/stats
      */
-    async getStats(): Promise<DocumentStats> {
-        const response = await api.get("/documents/stats");
-        return response.data;
+    async getStats(params?: { project_id?: number }): Promise<DocumentStats> {
+        const response = await api.get("/documents/stats", { params });
+        const res = response.data;
+        return res?.data || res;
     },
 
     /**

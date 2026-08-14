@@ -148,12 +148,12 @@ export const clientPaymentService = {
 
     /**
      * List Client Payments
-     * GET /api/v1/client-payments
+     * GET /api/v1/client-payments/history
      */
     async listPayments(params?: any): Promise<{ items: ClientPayment[]; total: number }> {
         const p = parseParams(params);
-        console.log("GET /api/v1/client-payments", p);
-        const response = await api.get("/client-payments", { params: p });
+        console.log("GET /api/v1/client-payments/history", p);
+        const response = await api.get("/client-payments/history", { params: p });
         if (Array.isArray(response.data)) {
             return { items: response.data, total: response.data.length };
         }

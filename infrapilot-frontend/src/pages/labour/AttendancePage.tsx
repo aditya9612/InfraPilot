@@ -309,8 +309,8 @@ const AttendancePage: React.FC = () => {
                                     </span>
                                 </div>
 
-                                <div className="space-y-6">
-                                    {(statusData?.checked_in || (statusData?.attendance?.in_time && !statusData?.attendance?.out_time)) ? (
+                                 <div className="space-y-6">
+                                    {((statusData?.checked_in || statusData?.attendance?.in_time) && !statusData?.checked_out && !statusData?.attendance?.out_time && !statusData?.attendance?.check_out_time) ? (
                                         /* Active Session View: Show Check Out (Matches Screenshot Exactly) */
                                         <div className="space-y-6 animate-in fade-in duration-500">
                                             <div className="grid grid-cols-2 gap-12">
@@ -374,9 +374,9 @@ const AttendancePage: React.FC = () => {
                                                 {isActionLoading ? "Processing..." : "Check Out"}
                                             </button>
                                         </div>
-                                    ) : (statusData?.checked_out || statusData?.attendance?.out_time) ? (
-                                        /* Shift Completed View (Matches Screenshot Exactly) */
-                                        <div className="space-y-10 animate-in fade-in duration-500">
+                                    ) : (statusData?.checked_out || statusData?.attendance?.out_time || statusData?.attendance?.check_out_time) ? (
+                                        /* Shift Completed View */
+                                        <div className="space-y-6 animate-in fade-in duration-500">
                                             <div className="grid grid-cols-2 gap-12">
                                                 <div className="space-y-6">
                                                     <div className="space-y-2">
@@ -415,16 +415,29 @@ const AttendancePage: React.FC = () => {
                                                             )}
                                                         </div>
                                                         <p className="text-2xl font-black text-slate-800">
-                                                            {statusData.attendance?.out_time ? new Date(statusData.attendance.out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
+                                                            {(statusData.attendance?.out_time || statusData.attendance?.check_out_time) ? new Date((statusData.attendance.out_time || statusData.attendance.check_out_time)!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"}
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="bg-slate-50 border border-slate-100 rounded-2xl py-3 flex items-center justify-center gap-2 text-slate-400">
-                                                <CheckCircle className="w-4 h-4" />
-                                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Attendance Completed for Today</span>
+                                                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">Attendance Completed for Today</span>
                                             </div>
+
+                                            <button
+                                                onClick={() => setIsCheckInModalOpen(true)}
+                                                disabled={isActionLoading}
+                                                className="w-full bg-[#0062ff] hover:bg-[#0056e0] text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.1em] shadow-xl shadow-blue-100 flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] group/btn disabled:opacity-50"
+                                            >
+                                                {isActionLoading ? (
+                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                ) : (
+                                                    <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
+                                                )}
+                                                Check In
+                                            </button>
                                         </div>
                                     ) : (
                                         /* Initial State: Show Check In */
@@ -818,7 +831,9 @@ const AttendancePage: React.FC = () => {
                                 </div>
                                 <div className="space-y-1">
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Contractor Name</span>
-                                    <p className="text-xs font-black text-slate-700">—</p>
+                                    <p className="text-xs font-black text-slate-700">
+                                        {selectedRecordForDetail.contractor_name || selectedRecordForDetail.contractor || user?.contractor_name || (user as any)?.contractor || "—"}
+                                    </p>
                                 </div>
                                 <div className="space-y-1">
                                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Department</span>

@@ -64,7 +64,7 @@ const ClientDashboard = () => {
         try {
           const expData = await expenseService.getExpensesByProject(Number(projectId));
           if (active && Array.isArray(expData) && expData.length > 0) {
-            setRecentExpensesList(expData.slice(0, 5));
+            setRecentExpensesList(expData);
           }
         } catch (e) {
           console.warn("Expenses fetch failed:", e);
@@ -90,7 +90,7 @@ const ClientDashboard = () => {
   const endDateStr = dashboardData?.end_date || projectData?.end_date || "";
 
   const daysRemaining       = Number(dashboardData?.days_remaining ?? dashboardData?.remaining_days ?? 0);
-  const progressPercent     = Number(dashboardData?.progress_percent ?? dashboardData?.progress ?? dashboardData?.overall_progress ?? 0);
+  const progressPercent     = Number(dashboardData?.actual_progress ?? dashboardData?.progress_percent ?? dashboardData?.progress ?? dashboardData?.overall_progress ?? 0);
   const budgetTotal         = Number(dashboardData?.budget_total ?? dashboardData?.budget ?? 0);
   const totalExpense        = Number(dashboardData?.total_expense ?? dashboardData?.spent ?? 0);
   const remainingBudget     = Number(dashboardData?.remaining_budget ?? dashboardData?.remaining ?? (budgetTotal > 0 ? budgetTotal - totalExpense : 0));
@@ -139,19 +139,54 @@ const ClientDashboard = () => {
   };
 
 
-  // Dynamic 6-month expense trend from real data
+  // Dynamic 6-month expense trend combining API trend data and local expense list fallback
   const expenseTrendData = (() => {
+    const apiTrend: any[] = Array.isArray(dashboardData?.expense_trend) ? dashboardData.expense_trend : [];
+
     const months: { month: string; amount: number }[] = [];
     const now = new Date();
+
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key   = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-      const total = recentExpensesList
-        .filter((e: any) => (e.created_at || e.date || "").startsWith(key))
-        .reduce((sum: number, e: any) => sum + Number(e.amount || e.total_amount || 0), 0);
+
+      // Look for key matching apiTrend (e.g., month: "2026-07")
+      const trendItem = apiTrend.find((item: any) =>
+        item.month === key ||
+        (item.month && String(item.month).startsWith(key)) ||
+        (item.month && String(item.month).toLowerCase().includes(label.toLowerCase()))
+      );
+
+      let total = 0;
+      if (trendItem) {
+        total = Number(trendItem.total_amount ?? trendItem.amount ?? trendItem.total ?? trendItem.spent ?? 0);
+      } else {
+        total = recentExpensesList
+          .filter((e: any) => (e.created_at || e.date || "").startsWith(key))
+          .reduce((sum: number, e: any) => sum + Number(e.amount || e.total_amount || 0), 0);
+      }
+
       months.push({ month: label, amount: total });
     }
+
+    // Fallback: If no amounts matched the generated window but API has trend items, map them directly
+    const hasAnyAmount = months.some((m) => m.amount > 0);
+    if (!hasAnyAmount && apiTrend.length > 0) {
+      return apiTrend.map((item: any) => {
+        let label = String(item.month || "");
+        if (/^\d{4}-\d{2}$/.test(label)) {
+          const [y, m] = label.split("-").map(Number);
+          const d = new Date(y, m - 1, 1);
+          label = d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+        }
+        return {
+          month: label,
+          amount: Number(item.total_amount ?? item.amount ?? item.total ?? item.spent ?? 0),
+        };
+      });
+    }
+
     return months;
   })();
 
@@ -504,20 +539,14 @@ const ClientDashboard = () => {
 
           {/* RECENT EXPENSES */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Recent Expenses</h2>
-              <button
-                onClick={() => navigate("/client/financials")}
-                className="text-[11px] font-black text-blue-600 hover:text-blue-700 transition-colors"
-              >
-                View All
-              </button>
-            </div>
-            <div className="space-y-3.5">
+            <h2 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-5">
+              Recent Expenses
+            </h2>
+            <div className="max-h-[140px] overflow-y-auto pr-1 space-y-3.5 scrollbar-thin scrollbar-thumb-slate-200">
               {recentExpensesList.length === 0 ? (
                 <p className="text-[11px] font-bold text-slate-400">• No recent expenses</p>
               ) : (
-                recentExpensesList.slice(0, 3).map((exp: any, i: number) => (
+                recentExpensesList.map((exp: any, i: number) => (
                   <div key={exp.id || i} className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2.5 min-w-0">
                       <span className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -558,7 +587,7 @@ const ClientDashboard = () => {
             </h2>
             <div className="h-[140px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={expenseTrendData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+                <BarChart data={expenseTrendData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                   <XAxis
                     dataKey="month"
                     tick={{ fontSize: 8, fill: "#94a3b8", fontWeight: 700 }}
@@ -567,6 +596,7 @@ const ClientDashboard = () => {
                   />
                   <YAxis
                     tick={{ fontSize: 8, fill: "#94a3b8", fontWeight: 700 }}
+                    tickFormatter={(val: number) => (val >= 1000 ? `₹${(val / 1000).toFixed(1)}k` : `₹${val}`)}
                     axisLine={false}
                     tickLine={false}
                   />
