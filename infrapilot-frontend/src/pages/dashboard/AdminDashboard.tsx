@@ -39,6 +39,7 @@ const statusBadge: Record<ProjectStatus, string> = {
   Delayed: "bg-red-100 text-danger",
   Completed: "bg-blue-100 text-primary",
   "On Hold": "bg-amber-100 text-warning",
+  "On Track": "bg-emerald-100 text-emerald-600",
 };
 
 const statusDot: Record<ProjectStatus, string> = {
@@ -47,6 +48,7 @@ const statusDot: Record<ProjectStatus, string> = {
   Delayed: "bg-danger",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
+  "On Track": "bg-emerald-500",
 };
 
 const progressPulse: Record<ProjectStatus, string> = {
@@ -55,6 +57,7 @@ const progressPulse: Record<ProjectStatus, string> = {
   Delayed: "bg-danger",
   Completed: "bg-primary",
   "On Hold": "bg-warning",
+  "On Track": "bg-emerald-500",
 };
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -151,6 +154,7 @@ const AdminDashboard = () => {
         status: (() => {
           const h = (p.health || "").toUpperCase();
           if (h === "ONGOING") return "Ongoing";
+          if (h === "ON TRACK" || h === "ON_TRACK") return "On Track";
           if (h === "COMPLETED") return "Completed";
           if (h === "DELAYED") return "Delayed";
           if (h === "ON_HOLD") return "On Hold";
@@ -160,9 +164,9 @@ const AdminDashboard = () => {
       } as unknown as Project));
       setProjects(projectsList);
 
-      // System Critical Alerts: fetch aggregated notifications and filter for urgent types
-      const notifications = await notificationService.getAllNotifications();
-      const criticalOnes = notifications.filter(n => n.type === "Alert" || n.type === "Approval").slice(0, 8);
+      // System Critical Alerts: fetch true alerts only
+      const alertsData = await notificationService.getAlertsOnly();
+      const criticalOnes = alertsData.filter(n => n.type === "Alert" || n.type === "Approval").slice(0, 8);
       setSystemAlerts(criticalOnes);
 
       // Activity / alerts feed from recent_activities
@@ -404,7 +408,7 @@ const AdminDashboard = () => {
           <h2 className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
             Operations &amp; Vitals
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <StatCard
               title="Active Users"
               value={dashboardStats.activeUsers.toString()}
@@ -434,6 +438,12 @@ const AdminDashboard = () => {
               value={dashboardStats.totalLabourToday.toString()}
               sub="On-site workers"
               accent="text-emerald-500"
+            />
+            <StatCard
+              title="Material Used Today"
+              value={dashboardStats.materialUsedToday.toString()}
+              sub="Items consumed"
+              accent="text-violet-500"
             />
           </div>
         </div>
@@ -758,7 +768,7 @@ const AdminDashboard = () => {
                 onClick={async () => {
                   const toastId = toast.loading("Generating Excel...");
                   try {
-                    const blob = await reportService.exportProfitLossExcel();
+                    const blob = await reportService.exportProjectsExcel();
                     const url = window.URL.createObjectURL(new Blob([blob]));
                     const link = document.createElement("a");
                     link.href = url;
@@ -818,7 +828,7 @@ const AdminDashboard = () => {
                           {p.project_name}
                         </td>
                         <td className="px-6 py-4 text-slate-500 font-medium text-xs">
-                          {p.start_date} - {p.end_date}
+                          {p.start_date} To {p.end_date}
                         </td>
                         <td className="px-6 py-4 min-w-[200px]">
                           <div className="flex items-center gap-3">

@@ -637,7 +637,7 @@ const ProjectDetailsPage = () => {
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                   <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 hover:bg-white hover:shadow-md transition-all group">
                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Start Date</p>
                     <p className="text-sm font-bold text-slate-700 group-hover:text-primary transition-colors">
@@ -652,19 +652,7 @@ const ProjectDetailsPage = () => {
                   </div>
                   <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 hover:bg-white hover:shadow-md transition-all group">
                     <p className="text-[10px] font-bold text-primary/60 uppercase mb-1">Site Progress</p>
-                    <p className="text-sm font-bold text-primary">{displayProgress}% Calculated</p>
-                  </div>
-                  <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-50 flex flex-col justify-center">
-                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                      <span>Task Completion</span>
-                      <span className="text-slate-700 font-black">{displayProgress}%</span>
-                    </div>
-                    <div className="relative w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="absolute top-0 left-0 h-full bg-primary transition-all duration-1000 shadow-[0_0_8px_rgba(37,99,235,0.4)]"
-                        style={{ width: `${displayProgress}%` }}
-                      />
-                    </div>
+                    <p className="text-sm font-bold text-primary">{Number(displayProgress).toFixed(2)}% Calculated</p>
                   </div>
                 </div>
               </div>

@@ -110,10 +110,10 @@ const ManagerProcurementPage = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [selectedProjectId, currentPage, itemsPerPage, activeTab]);
+    }, [selectedProjectId, currentPage, itemsPerPage, activeTab, purchaseType, assetId, boqItemId, purchaseDateFrom, purchaseDateTo]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
-    useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, activeTab, activeStatFilter]);
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, filterStatus, activeTab, activeStatFilter, purchaseType, purchaseDateFrom, purchaseDateTo]);
 
     // ── Computed Stats ────────────────────────────────────────────
     const stats = useMemo(() => {
@@ -121,7 +121,7 @@ const ManagerProcurementPage = () => {
         const approvedReq = materialRequests.filter(r => r.status === "Approved").length;
         const pendingReq = materialRequests.filter(r => r.status === "Pending").length;
         const fulfillment = totalReq > 0 ? Math.round((approvedReq / totalReq) * 100) : 0;
-        
+
         return {
             totalReq,
             approvedReq,
@@ -224,16 +224,23 @@ const ManagerProcurementPage = () => {
         } else {
             let data = purchaseOrders;
             if (activeStatFilter === "Open") data = data.filter(po => po.status !== "COMPLETED" && po.status !== "CANCELLED");
-            if (purchaseType) data = data.filter(po => po.purchase_type === purchaseType);
-            if (purchaseDateFrom) data = data.filter(po => po.purchase_date >= purchaseDateFrom);
-            if (purchaseDateTo) data = data.filter(po => po.purchase_date <= purchaseDateTo);
+            if (filterStatus !== "All") data = data.filter(po => po.status === filterStatus);
+            if (purchaseType) {
+                data = data.filter(po => (po.purchase_type || "").toUpperCase() === purchaseType.toUpperCase());
+            }
+            if (purchaseDateFrom) {
+                data = data.filter(po => po.purchase_date >= purchaseDateFrom);
+            }
+            if (purchaseDateTo) {
+                data = data.filter(po => po.purchase_date <= purchaseDateTo);
+            }
             if (searchTerm) {
                 const s = searchTerm.toLowerCase();
-                data = data.filter(po => 
-                    (po.asset_name || "").toLowerCase().includes(s) || 
-                    (po.vendor_name || "").toLowerCase().includes(s) || 
-                    (po.invoice_number || "").toLowerCase().includes(s) || 
-                    (po.purchase_type || "").toLowerCase().includes(s) || 
+                data = data.filter(po =>
+                    (po.asset_name || "").toLowerCase().includes(s) ||
+                    (po.vendor_name || "").toLowerCase().includes(s) ||
+                    (po.invoice_number || "").toLowerCase().includes(s) ||
+                    (po.purchase_type || "").toLowerCase().includes(s) ||
                     String(po.id).includes(s)
                 );
             }
@@ -242,10 +249,10 @@ const ManagerProcurementPage = () => {
     }, [activeTab, materialRequests, purchaseOrders, searchTerm, filterStatus, activeStatFilter, requestTypeFilter, purchaseType, purchaseDateFrom, purchaseDateTo]);
 
     const paginatedData = useMemo(() => {
-        if (activeTab === "purchase-order") return activeTabData;
+        if (activeTab === "purchase-order") return activeTabData; // Return filtered purchase orders (already page-sized from BE, or filtered locally)
         const start = (currentPage - 1) * itemsPerPage;
         return activeTabData.slice(start, start + itemsPerPage);
-    }, [activeTab, activeTabData, purchaseOrders, currentPage, itemsPerPage]);
+    }, [activeTab, activeTabData, currentPage, itemsPerPage]);
 
     const getStatusBadge = (status: string) => {
         const s = status.toUpperCase();
@@ -296,17 +303,15 @@ const ManagerProcurementPage = () => {
                 <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm w-fit mb-6">
                     <button
                         onClick={() => { setActiveTab("material"); setCurrentPage(1); setSearchTerm(""); setFilterStatus("All"); }}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                            activeTab === "material" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
-                        }`}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "material" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
+                            }`}
                     >
                         Site Requisitions
                     </button>
                     <button
                         onClick={() => { setActiveTab("purchase-order"); setCurrentPage(1); setSearchTerm(""); setFilterStatus("All"); setPurchaseType(""); setAssetId(""); setPurchaseDateFrom(""); setPurchaseDateTo(""); setBoqItemId(""); }}
-                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                            activeTab === "purchase-order" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
-                        }`}
+                        className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === "purchase-order" ? "bg-slate-100 text-slate-800 shadow-sm" : "text-slate-500 hover:bg-slate-50"
+                            }`}
                     >
                         Purchase Orders
                     </button>
@@ -363,6 +368,7 @@ const ManagerProcurementPage = () => {
                                     <option value="Bill">Bill</option>
                                     <option value="Equipment">Equipment</option>
                                     <option value="Labour">Labour</option>
+                                    <option value="Work">Work</option>
                                 </select>
                             )}
                             {activeTab === "purchase-order" && (

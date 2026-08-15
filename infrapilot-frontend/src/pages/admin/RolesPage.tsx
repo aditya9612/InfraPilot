@@ -39,6 +39,14 @@ const INITIAL_ROLES: Role[] = [
     is_active: true,
   },
   {
+    id: "5",
+    name: "Labour",
+    description: "Workforce executing operations and tasks at various project sites.",
+    userCount: 0,
+    color: "sky-500",
+    is_active: true,
+  },
+  {
     id: "6",
     name: "Client",
     description: "Read-only access to specific project progress and timelines.",
@@ -233,10 +241,7 @@ const RolesPage = () => {
                     className="hover:bg-slate-50/30 transition-colors group"
                   >
                     <td className="px-8 py-5 text-sm">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center font-bold text-xs shadow-sm overflow-hidden`}>
-                          <div className={`w-3 h-3 rounded-full bg-${role.color} animate-pulse`} />
-                        </div>
+                      <div className="flex items-center">
                         <div>
                           <p className="font-bold text-slate-700 group-hover:text-primary transition-colors">
                             {role.name}

@@ -137,6 +137,17 @@ export interface CreateEquipmentRequest {
     maintenance_date: string;
 }
 
+export interface EquipmentTransfer {
+    id: number;
+    equipment_id: number;
+    source_project_id: number | null;
+    target_project_id: number;
+    transfer_date: string;
+    transferred_by: number | null;
+    reason: string;
+    created_at: string;
+}
+
 export const equipmentService = {
     // ==========================================
     // 1. CRUD Equipment
@@ -256,7 +267,7 @@ export const equipmentService = {
         };
         if (data.project_id) payload.project_id = data.project_id;
         if (data.boq_item_id) payload.boq_item_id = data.boq_item_id;
-        
+
         const response = await api.post<MaintenanceItem>(`/equipment/${equipment_id}/maintenance`, payload);
         return response.data;
     },
@@ -462,10 +473,18 @@ export const equipmentService = {
         return Array.isArray(data) ? data : (data.items || data.data || []);
     },
 
-    async listTransferHistory(params?: { project_id?: number }): Promise<any[]> {
+    async listTransferHistory(params?: { limit?: number; offset?: number, project_id?: number }): Promise<any[]> {
         const response = await api.get<any>('/equipment/transfer-history', { params });
         const data = response.data;
-        return Array.isArray(data) ? data : (data.items || data.data || []);
+        if (Array.isArray(data)) return data;
+        if (typeof data === 'object' && data !== null) {
+            if (Array.isArray(data.items)) return data.items;
+            if (Array.isArray(data.data)) return data.data;
+            for (const key of Object.keys(data)) {
+                if (Array.isArray(data[key])) return data[key];
+            }
+        }
+        return [];
     },
 
     // ==========================================
@@ -477,8 +496,13 @@ export const equipmentService = {
     },
 
     async getUtilizationReport(params?: { project_id?: number }): Promise<UtilizationReport[]> {
-        const response = await api.get<UtilizationReport[]>('/equipment/report/utilization', { params });
-        return response.data;
+        const usageData = await this.getUsageReport(params);
+        return usageData.map(u => ({
+            equipment_id: u.equipment_id,
+            equipment_code: u.equipment_code,
+            total_hours: u.total_hours || 0,
+            utilization_rate: Number((((u.total_hours || 0) / 208) * 100).toFixed(2))
+        }));
     },
 
     async getPurchaseReport(params?: { project_id?: number }): Promise<any[]> {

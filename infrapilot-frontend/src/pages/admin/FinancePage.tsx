@@ -668,7 +668,7 @@ const FinancePage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-50">
-                  <th className="px-6 py-4">{subPage === "expenses" ? "Expense #" : subPage === "profit" ? "Project" : "Invoice #"}</th>
+                  {subPage !== "expenses" && <th className="px-6 py-4">{subPage === "profit" ? "Project" : "Invoice #"}</th>}
                   <th className="px-6 py-4">{subPage === "profit" ? "Description" : "Project / Description"}</th>
                   <th className="px-6 py-4">{subPage === "expenses" ? "Category" : subPage === "profit" ? "Revenue" : "Type"}</th>
                   <th className="px-6 py-4">{subPage === "expenses" ? "Amount" : subPage === "profit" ? "Expense" : "Base Amount"}</th>
@@ -789,11 +789,6 @@ const FinancePage = () => {
                       key={`expense-${exp.id}-${index}`}
                       className="hover:bg-slate-50/50 transition-colors group"
                     >
-                      <td className="px-6 py-4">
-                        <p className="text-xs font-bold text-slate-400">
-                          EXP-{String(exp.id).padStart(3, "0")}
-                        </p>
-                      </td>
                       <td className="px-6 py-4">
                         <div>
                           <p className="text-xs font-bold text-slate-700 uppercase">

@@ -14,6 +14,7 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
       case "TRANSFER_IN": return "text-amber-600 bg-amber-50";
       case "TRANSFER_OUT": return "text-rose-600 bg-rose-50";
       case "ADJUSTMENT": return "text-purple-600 bg-purple-50";
+      case "ISSUE": return "text-orange-600 bg-orange-50";
       default: return "text-slate-600 bg-slate-50";
     }
   };
@@ -26,7 +27,8 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
             <th className="px-6 py-4">Transaction ID & Date</th>
             <th className="px-6 py-4">Action Type</th>
             <th className="px-6 py-4">Project Site</th>
-            <th className="px-6 py-4">Quantity & Rate</th>
+            <th className="px-6 py-4">Quantity</th>
+            <th className="px-6 py-4">Rate (₹)</th>
             <th className="px-6 py-4">Total Amount</th>
             <th className="px-6 py-4">Issue Type</th>
           </tr>
@@ -51,7 +53,10 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
                 </p>
               </td>
               <td className="px-6 py-4 text-sm font-semibold text-slate-600">
-                {log.quantity} units @ ₹{log.rate.toLocaleString()}
+                {log.quantity} units
+              </td>
+              <td className="px-6 py-4 text-sm font-semibold text-slate-600">
+                ₹{log.rate.toLocaleString()}
               </td>
               <td className="px-6 py-4 text-sm font-bold text-slate-800">
                 ₹{log.total_amount.toLocaleString()}
@@ -63,7 +68,7 @@ const InventoryLogsTable: React.FC<InventoryLogsTableProps> = ({ logs, projectMa
           ))}
           {logs.length === 0 && (
             <tr>
-              <td colSpan={6} className="py-12 text-center text-slate-400">
+              <td colSpan={7} className="py-12 text-center text-slate-400">
                 No activity logs found.
               </td>
             </tr>

@@ -36,6 +36,7 @@ import InventoryTable from "../../components/admin/inventory/InventoryTable";
 import SupplierTable from "../../components/admin/inventory/SupplierTable";
 import PurchaseOrderTable from "../../components/admin/inventory/PurchaseOrderTable";
 import TransferTable from "../../components/admin/inventory/TransferTable";
+import ViewTransferModal from "../../components/admin/inventory/ViewTransferModal";
 import InventoryLogsTable from "../../components/admin/inventory/InventoryLogsTable";
 import EditPOModal from "../../components/admin/inventory/EditPOModal";
 import CreatePOModal from "../../components/admin/inventory/CreatePOModal";
@@ -67,6 +68,7 @@ const InventoryPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [isSupplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
   const [supplierApiErrors, setSupplierApiErrors] = useState<Record<string, string>>({});
   const [supplierPage, setSupplierPage] = useState(0);
   const [logsPage, setLogsPage] = useState(0);
@@ -750,6 +752,7 @@ const InventoryPage = () => {
                     <option value="TRANSFER_IN">Transfer In</option>
                     <option value="TRANSFER_OUT">Transfer Out</option>
                     <option value="ADJUSTMENT">Adjustment</option>
+                    <option value="ISSUE">Issue</option>
                   </select>
                 </div>
               )}
@@ -920,6 +923,7 @@ const InventoryPage = () => {
                             toast.error("Failed to update transfer status");
                           }
                         }}
+                        onView={(t) => setSelectedTransfer(t)}
                       />
                       {totalPages > 1 && (
                         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-50 bg-slate-50/30">
@@ -1000,6 +1004,11 @@ const InventoryPage = () => {
         </div>
       </PageTransition>
 
+      <ViewTransferModal
+        isOpen={selectedTransfer !== null}
+        onClose={() => setSelectedTransfer(null)}
+        transfer={selectedTransfer}
+      />
       <SupplierModal
         isOpen={isSupplierModalOpen}
         onClose={() => {

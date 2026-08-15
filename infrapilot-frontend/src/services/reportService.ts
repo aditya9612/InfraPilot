@@ -192,6 +192,14 @@ export const reportService = {
         return response.data;
     },
 
+    exportProjectsExcel: async (projectId?: number) => {
+        const response = await api.get(`/reports/projects/excel`, {
+            params: projectId ? { project_id: projectId } : {},
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
     exportCashflowPDF: async () => {
         const response = await api.get(`/reports/cashflow/export/pdf`, {
             responseType: 'blob'
