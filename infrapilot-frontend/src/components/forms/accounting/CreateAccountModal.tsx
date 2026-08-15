@@ -19,11 +19,11 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
   onSubmitMock,
   initialData
 }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{name: string, code: string, type: string, parent_id: number | string | null}>({
     name: "",
     code: "",
     type: "Asset",
-    parent_id: 0
+    parent_id: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -34,14 +34,14 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
           name: initialData.account_name || "",
           code: initialData.account_code || "",
           type: initialData.account_type || "Asset",
-          parent_id: initialData.parent_account_id ? Number(initialData.parent_account_id) : 0,
+          parent_id: initialData.parent_account_id ? Number(initialData.parent_account_id) : "",
         });
       } else {
         setFormData({
           name: "",
           code: "",
           type: "Asset",
-          parent_id: 0
+          parent_id: ""
         });
       }
     }
@@ -54,18 +54,23 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
       return;
     }
 
+    const payload = {
+      ...formData,
+      parent_id: formData.parent_id === "" ? null : formData.parent_id
+    };
+
     if (onSubmitMock) {
-      onSubmitMock(formData);
+      onSubmitMock(payload);
       return;
     }
 
     try {
       setIsSubmitting(true);
       if (initialData && initialData.id) {
-        await accountingService.updateAccount(initialData.id, formData);
+        await accountingService.updateAccount(initialData.id, payload);
         toast.success("Account updated successfully!");
       } else {
-        await accountingService.createAccount(formData);
+        await accountingService.createAccount(payload);
         toast.success("Account created successfully!");
       }
       onSuccess();
@@ -121,21 +126,26 @@ const CreateAccountModal: React.FC<CreateAccountModalProps> = ({
           </div>
           <div>
             <label className={labelClasses}>Type *</label>
-            <input
-              type="text"
+            <select
               required
               className={inputClasses}
               value={formData.type}
               onChange={e => setFormData({ ...formData, type: e.target.value })}
-            />
+            >
+              <option value="Asset">Asset</option>
+              <option value="Liability">Liability</option>
+              <option value="Expense">Expense</option>
+              <option value="Income">Income</option>
+            </select>
           </div>
           <div>
             <label className={labelClasses}>Parent ID</label>
             <input
               type="number"
               className={inputClasses}
-              value={formData.parent_id}
-              onChange={e => setFormData({ ...formData, parent_id: Number(e.target.value) })}
+              value={formData.parent_id === null ? "" : formData.parent_id}
+              onChange={e => setFormData({ ...formData, parent_id: e.target.value === "" ? "" : Number(e.target.value) })}
+              placeholder="Leave empty if none"
             />
           </div>
         </div>

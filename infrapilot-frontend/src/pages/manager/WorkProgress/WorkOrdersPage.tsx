@@ -161,7 +161,7 @@ const WorkOrdersPage = () => {
     <div className="flex-1 bg-slate-50 min-h-screen">
       <Navbar title="Work Orders" />
       <PageTransition>
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div className="p-6 w-full mx-auto space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-slate-900 font-outfit">Work Orders</h1>

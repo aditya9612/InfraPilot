@@ -186,6 +186,10 @@ export const accountingService = {
   },
 
   // Assets
+  getAssets: async (params?: any) => {
+    const response = await api.get("/reports/assets", { params });
+    return response.data;
+  },
   createAsset: async (data: any) => {
     const response = await api.post("/accountant/assets", data);
     return response.data;

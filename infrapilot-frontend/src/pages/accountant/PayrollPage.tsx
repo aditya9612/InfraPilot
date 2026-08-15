@@ -5,7 +5,7 @@ import PageTransition from "../../components/common/PageTransition";
 import Modal from "../../components/common/Modal";
 import toast from "react-hot-toast";
 import { payrollService } from "../../services/payrollService";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, Plus } from "lucide-react";
 
 // --- SECTIONS ---
 
@@ -17,28 +17,28 @@ const PayrollKPICards = ({ summary }: { summary?: any }) => (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       </div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PENDING PAYROLL</p>
-      <p className="text-xl font-bold text-slate-800">{summary?.pending_payroll !== undefined ? `₹${summary.pending_payroll}` : '₹0'}</p>
+      <p className="text-xl font-bold text-slate-800">{summary?.pending_due !== undefined ? `₹${summary.pending_due}` : (summary?.pending_payroll !== undefined ? `₹${summary.pending_payroll}` : '₹0')}</p>
     </div>
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group active:scale-[0.98]">
       <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       </div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PAID PAYROLL</p>
-      <p className="text-xl font-bold text-slate-800">{summary?.paid_payroll !== undefined ? `₹${summary.paid_payroll}` : '₹0'}</p>
+      <p className="text-xl font-bold text-slate-800">{summary?.paid_this_month !== undefined ? `₹${summary.paid_this_month}` : (summary?.paid_payroll !== undefined ? `₹${summary.paid_payroll}` : '₹0')}</p>
     </div>
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group active:scale-[0.98]">
       <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
       </div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ADVANCE GIVEN</p>
-      <p className="text-xl font-bold text-slate-800">{summary?.advance_given !== undefined ? `₹${summary.advance_given}` : '₹0'}</p>
+      <p className="text-xl font-bold text-slate-800">{summary?.advance_logs !== undefined ? `₹${summary.advance_logs}` : (summary?.advance_given !== undefined ? `₹${summary.advance_given}` : '₹0')}</p>
     </div>
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-5 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all group active:scale-[0.98]">
       <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center mb-4">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
       </div>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">CONTRACTOR PAYMENT</p>
-      <p className="text-xl font-bold text-slate-800">{summary?.contractor_payment !== undefined ? `₹${summary.contractor_payment}` : '₹0'}</p>
+      <p className="text-xl font-bold text-slate-800">{summary?.monthly_budget !== undefined ? `₹${summary.monthly_budget}` : (summary?.contractor_payment !== undefined ? `₹${summary.contractor_payment}` : '₹0')}</p>
     </div>
   </div>
 );
@@ -57,17 +57,18 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 
   const [loading, setLoading] = useState(false);
 
-  const mockUsers = [
-    { id: 1, name: "Amit Kumar" },
-    { id: 2, name: "Priya Sharma" },
-    { id: 3, name: "Rahul Singh" }
-  ];
+  const [users, setUsers] = useState<any[]>([]);
 
-  const mockProjects = [
-    { id: 1, name: "Metro Line 3" },
-    { id: 2, name: "Highway Expansion" },
-    { id: 3, name: "City Center Mall" }
-  ];
+  const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    import('../../services/projectService').then(({ projectService }) => {
+      projectService.getProjects().then((res: any) => setProjects(res.items || res.data || []));
+    });
+    import('../../services/userService').then(({ userService }) => {
+      userService.getAllUsers(100).then((res: any) => setUsers(res.items || res.data || []));
+    });
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -126,7 +127,7 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">User (Employee) *</label>
               <select name="user_id" value={formData.user_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500">
                 <option value={0}>Select Employee</option>
-                {mockUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                {users.map(u => <option key={u.user_id || u.id} value={u.user_id || u.id}>{u.full_name || u.name}</option>)}
               </select>
             </div>
 
@@ -134,7 +135,7 @@ const StaffSalaryModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project *</label>
               <select name="project_id" value={formData.project_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-blue-500">
                 <option value={0}>Select Project</option>
-                {mockProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
               </select>
             </div>
 
@@ -300,20 +301,23 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
   const [formData, setFormData] = useState({
     labour_id: 0,
     project_id: 0,
-    month: new Date().getMonth() + 1,
-    year: new Date().getFullYear(),
-    amount: 0
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: new Date().toISOString().split('T')[0],
+    payment_mode: "Bank Transfer",
+    bank_account_id: 0
   });
   const [loading, setLoading] = useState(false);
+  const [labours, setLabours] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
 
-  const mockLabours = [
-    { id: 1, name: "Raju Mason" },
-    { id: 2, name: "Suresh Plumber" }
-  ];
-  const mockProjects = [
-    { id: 1, name: "Metro Line 3" },
-    { id: 2, name: "City Center Mall" }
-  ];
+  useEffect(() => {
+    import('../../services/projectService').then(({ projectService }) => {
+      projectService.getProjects().then((res: any) => setProjects(res.items || res.data || []));
+    });
+    import('../../services/labourService').then(({ labourService }) => {
+      labourService.getLabours(null, { limit: 100 }).then((res: any) => setLabours(res.items || res.data || []));
+    });
+  }, []);
 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -326,7 +330,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.labour_id || !formData.project_id || !formData.amount) {
+    if (!formData.labour_id || !formData.project_id || !formData.start_date || !formData.end_date) {
       toast.error("Please fill required fields");
       return;
     }
@@ -365,7 +369,7 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Labor Name *</label>
               <select name="labour_id" value={formData.labour_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
                 <option value={0}>Select Labor</option>
-                {mockLabours.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                {labours.map(l => <option key={l.labour_id || l.id} value={l.labour_id || l.id}>{l.labour_name || l.name}</option>)}
               </select>
             </div>
 
@@ -373,25 +377,32 @@ const LaborWagesModal = ({ isOpen, onClose, period }: { isOpen: boolean; onClose
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Project Name *</label>
               <select name="project_id" value={formData.project_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
                 <option value={0}>Select Project</option>
-                {mockProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {projects.map(p => <option key={p.project_id || p.id} value={p.project_id || p.id}>{p.project_name || p.name}</option>)}
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Month *</label>
-              <select name="month" value={formData.month} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
-                {[...Array(12)].map((_, i) => <option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</option>)}
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start Date *</label>
+              <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">End Date *</label>
+              <input type="date" name="end_date" value={formData.end_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode *</label>
+              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500">
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cash">Cash</option>
+                <option value="Cheque">Cheque</option>
               </select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Year *</label>
-              <input type="number" name="year" value={formData.year} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount *</label>
-              <input type="number" name="amount" value={formData.amount} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" placeholder="e.g. 15000" />
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account ID</label>
+              <input type="number" name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-amber-500" />
             </div>
             
           </div>
@@ -509,7 +520,7 @@ const LaborWagesWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
 };
 
 // 4. Contractor Payments
-const ContractorPaymentSection = () => {
+const ContractorPaymentModal = ({ isOpen, onClose, bills, onSuccess }: { isOpen: boolean, onClose: () => void, bills: any[], onSuccess: () => void }) => {
   const [formData, setFormData] = useState({
     rabill_id: 0,
     paid_amount: 0,
@@ -517,27 +528,12 @@ const ContractorPaymentSection = () => {
     payment_mode: "Bank Transfer",
     bank_account_id: 0
   });
-  const [bills, setBills] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [billPage, setBillPage] = useState(1);
-  const [billRpp, setBillRpp] = useState(10);
 
   const mockBankAccounts = [
     { id: 1, name: "SBI - 1001" },
     { id: 2, name: "HDFC - 2002" }
   ];
-
-  useEffect(() => {
-    const fetchBills = async () => {
-      try {
-        const data = await payrollService.getContractorBills();
-        setBills(Array.isArray(data) ? data : data?.data || []);
-      } catch (err) {
-        toast.error("Failed to load contractor bills");
-      }
-    };
-    fetchBills();
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -558,6 +554,8 @@ const ContractorPaymentSection = () => {
       await payrollService.payContractorBill(formData);
       toast.success("Contractor Bill Saved!");
       setFormData({ rabill_id: 0, paid_amount: 0, total_deductions: 0, payment_mode: "Bank Transfer", bank_account_id: 0 });
+      onSuccess();
+      onClose();
     } catch (err) {
       toast.error("Failed to save contractor payment");
     } finally {
@@ -566,116 +564,156 @@ const ContractorPaymentSection = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-      <div className="xl:col-span-2 space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-            <span className="w-6 h-6 bg-emerald-500 text-white text-xs font-black rounded-lg flex items-center justify-center">1</span>
-            Select RA Bill
-          </h3>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Bills *</label>
-            <select name="rabill_id" value={formData.rabill_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
-              <option value={0}>Select Bill</option>
-              {bills.map(b => (
-                <option key={b.id} value={b.id}>{b.bill_no || `Bill #${b.id}`} - {b.contractor_name || 'Contractor'} (Amount: ₹{b.amount || 0})</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-5 flex items-center gap-2">
-            <span className="w-6 h-6 bg-emerald-500 text-white text-xs font-black rounded-lg flex items-center justify-center">2</span>
-            Payment Details
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid Amount (₹) *</label>
-              <input type="number" name="paid_amount" value={formData.paid_amount || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Deductions (₹)</label>
-              <input type="number" name="total_deductions" value={formData.total_deductions || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500" />
-            </div>
-            
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode</label>
-              <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
-                <option value="Cash">Cash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Cheque">Cheque</option>
-              </select>
-            </div>
-
-            {formData.payment_mode === "Bank Transfer" && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
-                <select name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
-                  <option value={0}>Select Bank Account</option>
-                  {mockBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sticky top-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-5">Final Summary</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between text-xs text-slate-500"><span>Paid Amount</span><span className="font-semibold text-slate-700">₹{formData.paid_amount || 0}</span></div>
-            <div className="flex justify-between text-xs text-rose-500"><span>Total Deductions</span><span className="font-semibold">₹{formData.total_deductions || 0}</span></div>
-            <div className="flex justify-between text-sm font-bold text-emerald-600 border-t border-slate-100 pt-3"><span>Net Total</span><span>₹{(formData.paid_amount || 0) + (formData.total_deductions || 0)}</span></div>
-          </div>
-          <button type="submit" disabled={loading} className="w-full mt-6 bg-emerald-500 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-md active:scale-95 disabled:opacity-50">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Pay Contractor Bill"
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-8 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-50">
             {loading ? "Recording..." : "Record Payment"}
           </button>
-        </div>
-      </div>
-
-      <div className="xl:col-span-3 space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex justify-between items-center"><h3 className="font-bold text-slate-800">Pending Contractor Bills</h3></div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>{["Bill ID", "Contractor", "Amount", "Status"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {bills.length > 0 ? bills.slice((billPage-1)*billRpp, billPage*billRpp).map((b) => (
-                  <tr key={b.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 text-xs font-mono">Bill #{b.id}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-800">{b.contractor_name || 'Contractor'}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-emerald-600">₹{b.amount || 0}</td>
-                    <td className="px-4 py-3 text-xs text-amber-600 font-bold">Pending</td>
-                  </tr>
-                )) : (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No pending bills found.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          {bills.length > 0 && (
-            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
-                <select value={billRpp} onChange={(e) => { setBillRpp(Number(e.target.value)); setBillPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
-                  {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Bills *</label>
+              <select name="rabill_id" value={formData.rabill_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
+                <option value={0}>Select Bill</option>
+                {bills.map(b => (
+                  <option key={b.id} value={b.id}>{b.bill_number || `Bill #${b.id}`} - {b.quotation?.company_name || b.client?.full_name || 'Contractor'} (Amount: ₹{b.net_amount || b.total_amount || b.gross_amount || 0})</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Paid Amount (₹) *</label>
+                <input type="number" name="paid_amount" value={formData.paid_amount || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Deductions (₹)</label>
+                <input type="number" name="total_deductions" value={formData.total_deductions || ""} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500" />
+              </div>
+              
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode</label>
+                <select name="payment_mode" value={formData.payment_mode} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Cheque">Cheque</option>
                 </select>
               </div>
-              <span className="text-xs text-slate-500 font-semibold">Showing {(billPage-1)*billRpp+1} – {Math.min(billPage*billRpp, bills.length)} of {bills.length} records</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setBillPage(p => Math.max(1,p-1))} disabled={billPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
-                <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{billPage}</span>
-                <button onClick={() => setBillPage(p => Math.min(Math.ceil(bills.length/billRpp),p+1))} disabled={billPage===Math.ceil(bills.length/billRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+
+              {formData.payment_mode === "Bank Transfer" && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Account *</label>
+                  <select name="bank_account_id" value={formData.bank_account_id} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 outline-none focus:border-emerald-500">
+                    <option value={0}>Select Bank Account</option>
+                    {mockBankAccounts.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-slate-500"><span>Paid Amount</span><span className="font-semibold text-slate-700">₹{formData.paid_amount || 0}</span></div>
+                <div className="flex justify-between text-xs text-rose-500"><span>Total Deductions</span><span className="font-semibold">₹{formData.total_deductions || 0}</span></div>
+                <div className="flex justify-between text-sm font-bold text-emerald-600"><span>Net Total</span><span>₹{(formData.paid_amount || 0) + (formData.total_deductions || 0)}</span></div>
               </div>
             </div>
-          )}
+          </div>
         </div>
+      </form>
+    </Modal>
+  );
+};
+
+const ContractorPaymentSection = () => {
+  const [bills, setBills] = useState<any[]>([]);
+  const [billPage, setBillPage] = useState(1);
+  const [billRpp, setBillRpp] = useState(10);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const fetchBills = async () => {
+    try {
+      const data = await payrollService.getContractorBills();
+      setBills(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      toast.error("Failed to load contractor bills");
+    }
+  };
+
+  useEffect(() => {
+    fetchBills();
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold text-slate-800">Contractor Payments</h2>
+        <button onClick={() => setIsModalOpen(true)} className="px-4 py-2.5 bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all active:scale-95 flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Pay Contractor Bill
+        </button>
       </div>
-    </form>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+          <h3 className="font-bold text-slate-800">Pending Contractor Bills</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>{["Bill ID", "Contractor", "Amount", "Status"].map(h=><th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">{h}</th>)}</tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {bills.length > 0 ? bills.slice((billPage-1)*billRpp, billPage*billRpp).map((b) => (
+                <tr key={b.id} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-3 text-xs font-mono">{b.bill_number || `Bill #${b.id}`}</td>
+                  <td className="px-4 py-3 text-xs font-bold text-slate-800">{b.quotation?.company_name || b.client?.full_name || 'Contractor'}</td>
+                  <td className="px-4 py-3 text-xs font-bold text-emerald-600">₹{b.net_amount || b.total_amount || b.gross_amount || 0}</td>
+                  <td className="px-4 py-3 text-xs text-amber-600 font-bold capitalize">{b.status || 'Pending'}</td>
+                </tr>
+              )) : (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm font-bold text-slate-400">No pending bills found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {bills.length > 0 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+              <select value={billRpp} onChange={(e) => { setBillRpp(Number(e.target.value)); setBillPage(1); }} className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white">
+                {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <span className="text-xs text-slate-500 font-semibold">Showing {(billPage-1)*billRpp+1} – {Math.min(billPage*billRpp, bills.length)} of {bills.length} records</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setBillPage(p => Math.max(1,p-1))} disabled={billPage===1} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronLeft className="w-4 h-4" /></button>
+              <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">{billPage}</span>
+              <button onClick={() => setBillPage(p => Math.min(Math.ceil(bills.length/billRpp),p+1))} disabled={billPage===Math.ceil(bills.length/billRpp)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-50"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {isModalOpen && (
+        <ContractorPaymentModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          bills={bills} 
+          onSuccess={fetchBills} 
+        />
+      )}
+    </div>
   );
 };
 
@@ -1095,7 +1133,11 @@ const PayrollPage = () => {
   useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const data = await payrollService.getSummary();
+        const data = await payrollService.getSummary({
+          project_id: 4,
+          month: new Date().getMonth() + 1,
+          year: new Date().getFullYear()
+        });
         setSummaryData(data);
       } catch (err) {
         console.error('Failed to fetch payroll summary', err);

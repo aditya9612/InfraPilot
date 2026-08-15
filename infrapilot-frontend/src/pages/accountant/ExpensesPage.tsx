@@ -26,6 +26,7 @@ const ExpenseEntrySection = () => {
   const [activeStat, setActiveStat] = useState("TOTAL EXPENSE");
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [hoveredPieIndex, setHoveredPieIndex] = useState<number | null>(null);
 
   const fmt = (num: number) => `₹${Number(num).toLocaleString("en-IN")}`;
 
@@ -62,12 +63,15 @@ const ExpenseEntrySection = () => {
 
   const pieData = categorySummary.map((c, i) => ({
     name: c.category,
-    value: c.percentage,
+    value: c.total_amount > 0 ? c.total_amount : 1, // Avoid 0 for rendering
+    percentage: c.percentage || 0,
     amount: c.total_amount,
     color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
   }));
 
-  const topCategory = pieData[0];
+  const topCategory = hoveredPieIndex !== null && pieData[hoveredPieIndex] 
+    ? pieData[hoveredPieIndex] 
+    : (pieData.length > 0 ? [...pieData].sort((a, b) => b.amount - a.amount)[0] : null);
 
   // Trend: use API data if available, else empty
   const trendData: { day: string; amount: number }[] =
@@ -154,20 +158,22 @@ const ExpenseEntrySection = () => {
                         stroke="none"
                         startAngle={90}
                         endAngle={-270}
+                        onMouseEnter={(_, index) => setHoveredPieIndex(index)}
+                        onMouseLeave={() => setHoveredPieIndex(null)}
                       >
                         {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} style={{ outline: 'none' }} />
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(val: any, name: any) => [`${val.toFixed(1)}%`, name]}
+                        formatter={(_val: any, name: any, props: any) => [`${props.payload.percentage.toFixed(2)}%`, name]}
                         contentStyle={{ fontSize: 11, fontWeight: 700, borderRadius: 8, border: '1px solid #e2e8f0' }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                   {topCategory && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-lg font-black text-slate-800">{topCategory.value.toFixed(0)}%</span>
+                      <span className="text-lg font-black text-slate-800">{topCategory.percentage.toFixed(1)}%</span>
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight text-center px-1">{topCategory.name}</span>
                     </div>
                   )}
@@ -191,7 +197,7 @@ const ExpenseEntrySection = () => {
                         className="text-[10px] font-black px-1.5 py-0.5 rounded-md"
                         style={{ backgroundColor: cat.color + '20', color: cat.color }}
                       >
-                        {cat.value.toFixed(1)}%
+                        {cat.percentage.toFixed(1)}%
                       </span>
                     </div>
                   </div>
@@ -285,10 +291,21 @@ const ViewExpenseModal = ({ isOpen, onClose, expense }: any) => {
 
 const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
   const [formData, setFormData] = useState<any>(null);
+  const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
     if (expense) setFormData({ ...expense });
   }, [expense]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await projectService.getProjects(100, 0);
+        setProjects(Array.isArray(data) ? data : (data as any).items || []);
+      } catch (err) {}
+    };
+    if (isOpen) fetchProjects();
+  }, [isOpen]);
 
   if (!formData) return null;
 
@@ -302,6 +319,15 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Expense" maxWidth="max-w-2xl">
       <form onSubmit={handleSubmit} className="p-6 space-y-4 font-inter h-full overflow-y-auto">
         <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Project</label>
+            <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.project_name || p.name || p.id}</option>
+              ))}
+              {projects.length === 0 && <option value={formData.project_id}>{formData.project_id}</option>}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Category</label>
             <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
@@ -351,6 +377,21 @@ const EditExpenseModal = ({ isOpen, onClose, expense, onSubmit }: any) => {
 
 const CreateExpenseModal = ({ isOpen, onClose }: any) => {
   const [formData, setFormData] = useState<ExpenseCreateData>({ project_id: 1, category: "Construction", expense_date: "", payment_mode: "Cash", boq_item_id: 1, amount: 0, description: "" });
+  const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const data = await projectService.getProjects(100, 0);
+        const list = Array.isArray(data) ? data : (data as any).items || [];
+        setProjects(list);
+        if (list.length > 0) {
+          setFormData(f => ({ ...f, project_id: list[0].id }));
+        }
+      } catch (err) {}
+    };
+    if (isOpen) fetchProjects();
+  }, [isOpen]);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
@@ -376,8 +417,9 @@ const CreateExpenseModal = ({ isOpen, onClose }: any) => {
             <div>
               <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Project *</label>
               <select value={formData.project_id} onChange={e => setFormData({ ...formData, project_id: Number(e.target.value) })} className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary" required>
-                <option value="1">Wing A</option>
-                <option value="4">Metro</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.project_name || p.name || p.id}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -633,7 +675,12 @@ const ExpenseListSection = () => {
                   <td className="px-5 py-4 text-xs font-bold">
                     <span onClick={() => handleCategoryClick(e.category)} className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg cursor-pointer hover:bg-indigo-100 transition-colors">{e.category}</span>
                   </td>
-                  <td className="px-5 py-4 text-xs font-bold text-slate-600">{projects.find(p => String(p.id) === String(e.project_id))?.project_name || e.project_id}</td>
+                  <td className="px-5 py-4 text-xs font-bold text-slate-600">
+                    {(() => {
+                      const p = projects.find(x => String(x.id) === String(e.project_id));
+                      return p ? (p.project_name || p.name || e.project_id) : e.project_id;
+                    })()}
+                  </td>
                   <td className="px-5 py-4 text-xs font-semibold text-slate-500 max-w-[200px] truncate">{e.description}</td>
                   <td className="px-5 py-4 text-sm font-black text-rose-500">{fmt(e.amount)}</td>
                   <td className="px-5 py-4 text-xs font-bold text-slate-600">{e.payment_mode}</td>
@@ -1115,34 +1162,29 @@ const BOQComparisonSection = () => {
             <table className="w-full text-left">
               <thead className="bg-slate-50/60 border-b border-slate-100">
                 <tr>
-                  {["BOQ Item", "Unit", "BOQ Qty", "BOQ Rate", "BOQ Amount", "Actual Amount", "Variance", "Var %"].map(h => (
+                  {["BOQ Item", "Estimated Amount", "Actual Amount", "Variance"].map(h => (
                     <th key={h} className="px-4 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {paginatedItems.map((item, i) => {
-                  const boqAmt = item.boq_amount ?? ((item.boq_qty * item.boq_rate) || 0);
-                  const actualAmt = item.actual_amount ?? item.actual_expense ?? 0;
+                  const boqAmt = item.estimated ?? item.boq_amount ?? ((item.boq_qty * item.boq_rate) || 0);
+                  const actualAmt = item.actual ?? item.actual_amount ?? item.actual_expense ?? 0;
                   const variance = item.variance ?? (boqAmt - actualAmt);
-                  const varPct = boqAmt !== 0 ? ((variance / boqAmt) * 100).toFixed(1) : "0.0";
                   const isOver = variance < 0;
                   return (
                     <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-4 text-xs font-bold text-slate-800">{item.item_name || item.boq_item || item.description || "-"}</td>
-                      <td className="px-4 py-4 text-xs text-slate-500">{item.unit || "-"}</td>
-                      <td className="px-4 py-4 text-xs font-bold text-slate-800">{item.boq_qty ?? "-"}</td>
-                      <td className="px-4 py-4 text-xs text-slate-500">{item.boq_rate ? fmt(item.boq_rate) : "-"}</td>
                       <td className="px-4 py-4 text-xs font-bold text-slate-800">{fmt(boqAmt)}</td>
                       <td className={`px-4 py-4 text-xs font-bold ${isOver ? "text-rose-500" : "text-emerald-500"}`}>{fmt(actualAmt)}</td>
                       <td className={`px-4 py-4 text-xs font-bold ${isOver ? "text-rose-500" : "text-emerald-500"}`}>{isOver ? `-${fmt(Math.abs(variance))}` : fmt(variance)}</td>
-                      <td className={`px-4 py-4 text-xs font-bold ${isOver ? "text-rose-500" : "text-emerald-500"}`}>{isOver ? `-${varPct}%` : `${varPct}%`}</td>
                     </tr>
                   );
                 })}
                 {filteredItems.length === 0 && !loadingBoq && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-slate-400 text-sm font-semibold">
+                    <td colSpan={4} className="px-4 py-10 text-center text-slate-400 text-sm font-semibold">
                       {selectedProjectId ? "No BOQ comparison data found for this project." : "Select a project to view BOQ comparison."}
                     </td>
                   </tr>

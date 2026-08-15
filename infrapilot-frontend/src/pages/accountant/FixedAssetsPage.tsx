@@ -76,7 +76,7 @@ const PaginatedTableSection = ({ title, columns, data }: { title: string; column
 
 // --- SECTIONS ---
 
-const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+const AddAssetModal = ({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess?: () => void }) => {
   const [formData, setFormData] = useState({
     name: "",
     purchase_value: 0,
@@ -111,6 +111,7 @@ const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
     try {
       await accountingService.createAsset(formData);
       toast.success("Asset added to Register!");
+      if (onSuccess) onSuccess();
       onClose();
     } catch (err) {
       toast.error("Failed to create asset");
@@ -174,7 +175,23 @@ const AddAssetModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
 const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "list");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [assets, setAssets] = useState<any[]>([]);
   const tabs = [{ key: "list", label: "Asset List", icon: "📋" }, { key: "details", label: "Asset Details", icon: "ℹ️" }, { key: "transfer", label: "Asset Transfer", icon: "🔁" }];
+
+  const fetchAssets = async () => {
+    try {
+      const data = await accountingService.getAssets();
+      setAssets(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      toast.error("Failed to fetch assets");
+    }
+  };
+
+  useEffect(() => {
+    if (activeSubTab === 'list' || activeSubTab === 'details') {
+      fetchAssets();
+    }
+  }, [activeSubTab]);
 
   return (
     <div className="space-y-6">
@@ -187,7 +204,7 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
         </button>
       </div>
 
-      <AddAssetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <AddAssetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchAssets} />
       {activeSubTab === "list" && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-wrap gap-4 items-center">
@@ -205,50 +222,36 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
           <PaginatedTableSection 
             title="Asset List" 
             columns={["Asset ID", "Asset Name", "Category", "Cost", "Current Value", "Location", "Status", "Action"]} 
-            data={[
-              ["AST-2024-001", "CAT 320 Excavator", "Machinery", "₹65,00,000", "₹55,25,000", "Metro Line 3", "Active", 
-                <button key="1" onClick={async () => {
-                  try {
-                    toast.loading("Generating QR...", { id: "qr" });
-                    const blob = await accountingService.generateAssetQR(1);
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = "AST-2024-001_QR.png";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    toast.success("QR Generated!", { id: "qr" });
-                  } catch(e) {
-                    toast.error("Failed to generate QR", { id: "qr" });
-                  }
-                }} className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200">QR Code</button>
-              ],
-              ["AST-2024-002", "Tata Prima Tipper", "Vehicles", "₹35,00,000", "₹29,75,000", "Highway Proj", "Active",
-                <button key="2" onClick={async () => {
-                  try {
-                    toast.loading("Generating QR...", { id: "qr" });
-                    const blob = await accountingService.generateAssetQR(2);
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = "AST-2024-002_QR.png";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    toast.success("QR Generated!", { id: "qr" });
-                  } catch(e) {
-                    toast.error("Failed to generate QR", { id: "qr" });
-                  }
-                }} className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200">QR Code</button>
-              ]
-            ]} 
+            data={assets.length > 0 ? assets.map(a => [
+              a.asset_id || `AST-${a.id}`,
+              a.name || "N/A",
+              a.category || "N/A",
+              `₹${a.purchase_value || 0}`,
+              `₹${a.current_value || a.purchase_value || 0}`,
+              a.location || "N/A",
+              a.status || "Active",
+              <button key={a.id} onClick={async () => {
+                try {
+                  toast.loading("Generating QR...", { id: "qr" });
+                  const blob = await accountingService.generateAssetQR(a.id);
+                  const url = URL.createObjectURL(blob);
+                  const aTag = document.createElement("a");
+                  aTag.href = url;
+                  aTag.download = `AST-${a.id}_QR.png`;
+                  document.body.appendChild(aTag);
+                  aTag.click();
+                  document.body.removeChild(aTag);
+                  URL.revokeObjectURL(url);
+                  toast.success("QR Generated!", { id: "qr" });
+                } catch(e) {
+                  toast.error("Failed to generate QR", { id: "qr" });
+                }
+              }} className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200">QR Code</button>
+            ]) : [["No assets found.", "", "", "", "", "", "", ""]]} 
           />
         </div>
       )}
-      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]} data={[["AST-2024-001", "CAT 320 Excavator", "2023-01-15", "10 Years", "SLM", "₹5,00,000"]]} />}
+      {activeSubTab === "details" && <PaginatedTableSection title="Asset Details Lookup" columns={["Asset ID", "Name", "Purchase Date", "Useful Life", "Method", "Salvage Value"]} data={assets.length > 0 ? assets.map(a => [a.asset_id || `AST-${a.id}`, a.name || "N/A", a.purchase_date || "N/A", `${a.useful_life || 0} Years`, a.depreciation_method || "SLM", `₹${a.salvage_value || 0}`]) : [["No assets found.", "", "", "", "", ""]]} />}
       {activeSubTab === "transfer" && <AssetTransferForm />}
     </div>
   );
@@ -256,12 +259,26 @@ const AssetRegisterWrapper = ({ initialSubTab }: { initialSubTab?: string }) => 
 
 const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialSubTab || "monthly");
+  const [assets, setAssets] = useState<any[]>([]);
   const tabs = [
     { key: "setup", label: "Depreciation Setup", icon: "⚙️" },
     { key: "monthly", label: "Monthly Depreciation", icon: "📅" },
     { key: "annual", label: "Annual Depreciation", icon: "🗓️" },
     { key: "history", label: "Depreciation History", icon: "⏳" }
   ];
+
+  const fetchAssets = async () => {
+    try {
+      const data = await accountingService.getAssets();
+      setAssets(Array.isArray(data) ? data : data?.data || []);
+    } catch (err) {
+      toast.error("Failed to fetch assets for depreciation");
+    }
+  };
+
+  useEffect(() => {
+    fetchAssets();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -290,10 +307,14 @@ const DepreciationWrapper = ({ initialSubTab }: { initialSubTab?: string }) => {
           <PaginatedTableSection
             title="Monthly Depreciation Schedule"
             columns={["Asset", "Purchase Cost", "Depreciation Rate", "Current Value", "Monthly Depreciation", "Action"]}
-            data={[
-              ["CAT 320 Excavator", "₹65,00,000", "15% (SLM)", "₹55,25,000", "₹81,250", <button key="1" onClick={async () => { try { await accountingService.depreciateAsset(1, {}); toast.success("Asset Depreciated!"); } catch(e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>],
-              ["Tata Prima Tipper", "₹35,00,000", "15% (SLM)", "₹29,75,000", "₹43,750", <button key="2" onClick={async () => { try { await accountingService.depreciateAsset(2, {}); toast.success("Asset Depreciated!"); } catch(e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>]
-            ]}
+            data={assets.length > 0 ? assets.map(a => [
+              a.name || "N/A", 
+              `₹${a.purchase_value || 0}`, 
+              `${a.depreciation_rate || 0}% (${a.depreciation_method || 'SLM'})`, 
+              `₹${a.current_value || a.purchase_value || 0}`, 
+              `₹${Math.round(((a.current_value || a.purchase_value || 0) * (a.depreciation_rate || 0)) / 100 / 12)}`, 
+              <button key={a.id} onClick={async () => { try { await accountingService.depreciateAsset(a.id, {}); toast.success("Asset Depreciated!"); } catch(e) { toast.error("Failed to depreciate"); } }} className="text-xs font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded hover:bg-indigo-100">Depreciate</button>
+            ]) : [["No assets found.", "", "", "", "", ""]]}
           />
         </div>
       )}

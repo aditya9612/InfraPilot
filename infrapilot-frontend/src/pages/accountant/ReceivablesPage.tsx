@@ -57,6 +57,12 @@ const fmt = (v: any) => {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(num);
 };
 
+const fmtExact = (v: any) => {
+  const num = Number(v);
+  if (isNaN(num)) return "₹0";
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+};
+
 const statusBadge = (s: any) => {
   if (!s || typeof s !== 'string') return "bg-slate-100 text-slate-500";
   const map: Record<string, string> = {
@@ -1945,6 +1951,9 @@ const CollectionsSection = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState(10);
+
   const fetchCollectionsData = async () => {
     setIsLoading(true);
     try {
@@ -1984,22 +1993,25 @@ const CollectionsSection = () => {
   };
 
   const stats = [
-    { label: "Portfolio Value", value: fmt(summary?.portfolio_value || 0), icon: "📊", color: "bg-blue-50 text-blue-600" },
-    { label: "Total Billed", value: fmt(summary?.total_billed || 0), icon: "🧾", color: "bg-indigo-50 text-indigo-600" },
-    { label: "Total Received", value: fmt(summary?.total_received || 0), icon: "💰", color: "bg-emerald-50 text-emerald-600" },
-    { label: "Pending Amount", value: fmt(summary?.pending_amount || 0), icon: "⏳", color: "bg-amber-50 text-amber-600" },
-    { label: "Overdue Amount", value: fmt(summary?.overdue_amount || 0), icon: "🚨", color: "bg-rose-50 text-rose-600" },
+    { label: "Portfolio Value", value: fmtExact(summary?.portfolio_value || 0), icon: "📊", color: "bg-blue-50 text-blue-600" },
+    { label: "Total Billed", value: fmtExact(summary?.total_billed || 0), icon: "🧾", color: "bg-indigo-50 text-indigo-600" },
+    { label: "Total Received", value: fmtExact(summary?.total_received || 0), icon: "💰", color: "bg-emerald-50 text-emerald-600" },
+    { label: "Pending Amount", value: fmtExact(summary?.pending_amount || 0), icon: "⏳", color: "bg-amber-50 text-amber-600" },
+    { label: "Overdue Amount", value: fmtExact(summary?.overdue_amount || 0), icon: "🚨", color: "bg-rose-50 text-rose-600" },
   ];
+
+  const totalPages = Math.ceil(collections.length / recordsPerPage);
+  const paginatedCollections = collections.slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage);
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {stats.map((k, i) => (
-          <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center gap-4">
-            <div className={`w-12 h-12 min-w-[48px] rounded-xl ${k.color} flex items-center justify-center text-2xl`}>{k.icon}</div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{k.label}</p>
-              <p className="text-lg font-bold text-slate-800 mt-0.5">{k.value}</p>
+          <div key={i} className="bg-white rounded-2xl p-4 lg:p-5 shadow-sm border border-slate-100 flex items-center gap-3 lg:gap-4 overflow-hidden">
+            <div className={`w-10 h-10 lg:w-12 lg:h-12 min-w-[40px] lg:min-w-[48px] rounded-xl ${k.color} flex items-center justify-center text-xl lg:text-2xl`}>{k.icon}</div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] lg:text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" title={k.label}>{k.label}</p>
+              <p className="text-sm lg:text-base xl:text-lg font-bold text-slate-800 mt-0.5 truncate" title={k.value}>{k.value}</p>
             </div>
           </div>
         ))}
@@ -2041,7 +2053,7 @@ const CollectionsSection = () => {
                   <td colSpan={8} className="px-4 py-8 text-center text-slate-400 text-sm font-semibold">No collection records found.</td>
                 </tr>
               ) : (
-                collections.map((c: any, idx: number) => (
+                paginatedCollections.map((c: any, idx: number) => (
                   <tr key={c.id || idx} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3 text-xs font-bold text-primary">{c.invoice || c.invoice_no || "—"}</td>
                     <td className="px-4 py-3 text-xs font-semibold text-slate-700">{c.client || c.client_name || "—"}</td>
@@ -2060,6 +2072,40 @@ const CollectionsSection = () => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500 font-semibold">Records per page:</span>
+            <select 
+              value={recordsPerPage} 
+              onChange={(e) => { setRecordsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none font-semibold text-slate-600 bg-white"
+            >
+              {[10, 20, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <span className="text-xs text-slate-500 font-semibold">
+            Showing {collections.length === 0 ? 0 : (currentPage - 1) * recordsPerPage + 1} - {Math.min(currentPage * recordsPerPage, collections.length)} of {collections.length} records
+          </span>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-primary text-white text-xs font-bold shadow-sm">
+              {currentPage}
+            </span>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-white hover:text-slate-600 disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
       {isManualModalOpen && (
@@ -2175,9 +2221,9 @@ const ClientLedgerSection = () => {
       {/* Outstanding Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: "Total Billed", value: fmt(totalBilled) },
-          { label: "Total Received", value: fmt(totalReceived), green: true },
-          { label: "Outstanding", value: fmt(outstanding), red: true },
+          { label: "Total Billed", value: fmtExact(totalBilled) },
+          { label: "Total Received", value: fmtExact(totalReceived), green: true },
+          { label: "Outstanding", value: fmtExact(outstanding), red: true },
         ].map((s, i) => (
           <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
@@ -2219,9 +2265,9 @@ const ClientLedgerSection = () => {
                     <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-5 py-3 text-xs text-slate-500 whitespace-nowrap">{row.date || "—"}</td>
                       <td className="px-5 py-3 text-xs font-semibold text-slate-700">{row.particulars || row.description || "—"}</td>
-                      <td className="px-5 py-3 text-xs font-semibold text-indigo-700 text-right">{debit > 0 ? fmt(debit) : "—"}</td>
-                      <td className="px-5 py-3 text-xs font-semibold text-emerald-700 text-right">{credit > 0 ? fmt(credit) : "—"}</td>
-                      <td className={`px-5 py-3 text-xs font-bold text-right ${balance < 0 ? "text-emerald-700" : "text-rose-700"}`}>{fmt(Math.abs(balance))}</td>
+                      <td className="px-5 py-3 text-xs font-semibold text-indigo-700 text-right">{debit > 0 ? fmtExact(debit) : "—"}</td>
+                      <td className="px-5 py-3 text-xs font-semibold text-emerald-700 text-right">{credit > 0 ? fmtExact(credit) : "—"}</td>
+                      <td className={`px-5 py-3 text-xs font-bold text-right ${balance < 0 ? "text-emerald-700" : "text-rose-700"}`}>{fmtExact(Math.abs(balance))}</td>
                     </tr>
                   )
                 })

@@ -16,8 +16,8 @@ let mockOffers: any[] = [
 ];
 
 export const payrollService = {
-  getSummary: async () => {
-    const response = await api.get('/labour/payroll/stats');
+  getSummary: async (params?: any) => {
+    const response = await api.get('/accountant/payroll/summary', { params });
     return response.data;
   },
 
@@ -27,7 +27,7 @@ export const payrollService = {
   },
 
   exportPayslips: async () => {
-    const response = await api.get('/labour/payroll/export', { responseType: 'blob' });
+    const response = await api.get('/accountant/payroll/payslip/export', { responseType: 'blob' });
     return response.data;
   },
 
@@ -63,7 +63,7 @@ export const payrollService = {
 
   getPayrollRegister: async () => {
     try {
-      const response = await api.get('accountant/transactions');
+      const response = await api.get('/accountant/payroll/register');
       return response.data;
     } catch (e: any) {
       console.warn('getPayrollRegister (transactions) failed:', e.message);
@@ -72,7 +72,7 @@ export const payrollService = {
   },
 
   getContractorBills: async () => {
-    const response = await api.get('/billing');
+    const response = await api.get('/accountant/payroll/contractor/bills');
     return response.data;
   },
 
@@ -81,8 +81,8 @@ export const payrollService = {
     return response.data;
   },
 
-  payLabourWages: async (data: { labour_id: number, project_id: number, month: number, year: number, amount: number }) => {
-    const response = await api.post('/labour/payroll/pay', data);
+  payLabourWages: async (data: any) => {
+    const response = await api.post('/accountant/payroll/labour/pay', data);
     return response.data;
   },
 

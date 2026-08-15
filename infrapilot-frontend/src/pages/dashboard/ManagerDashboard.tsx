@@ -214,7 +214,7 @@ const ManagerDashboard = () => {
       />
 
       <main className="p-5 bg-slate-50/60 min-h-[calc(100vh-4rem)] overflow-y-auto">
-        <div className="max-w-[1600px] mx-auto space-y-6">
+        <div className="w-full mx-auto space-y-6">
 
           {/* ── Page Header ── */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
